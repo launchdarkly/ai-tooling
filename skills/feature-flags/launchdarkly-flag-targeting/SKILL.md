@@ -37,6 +37,20 @@ Before making any targeting changes, understand how LaunchDarkly evaluates flags
 
 This means: if you add a targeting rule but the flag is OFF, nobody sees the change. If you set a percentage rollout on the default rule but there's an individual target, that targeted user bypasses the rollout.
 
+## Working with Newly Created Flags
+
+**Important:** When a flag is first created, targeting is OFF by default. This means:
+- The flag will serve the `offVariation` to everyone, regardless of any configured rules or targets
+- You must explicitly turn targeting ON using `toggle-flag` before the flag will evaluate any targeting logic
+
+**Typical post-creation workflow:**
+1. Verify the flag exists and check its initial state with `get-flag`
+2. Configure the default rule (fallthrough) if needed with `update-rollout`
+3. Turn targeting ON with `toggle-flag` to activate the flag
+4. Optionally add rules or individual targets to refine targeting
+
+If a user mentions they just created a flag and want to configure it, always check the current state first and remind them that targeting needs to be explicitly enabled.
+
 ## Workflow
 
 ### Step 1: Understand Current State
@@ -63,10 +77,10 @@ Based on what the user wants and what you found, choose the right tool and strat
 |-----------|------|-------|
 | "Turn it on" | `toggle-flag` with `on: true` | Simplest change |
 | "Turn it off" | `toggle-flag` with `on: false` | Serves offVariation to everyone |
-| "Roll out to X%" | `update-rollout` with `rolloutType: "percentage"` | Weights must sum to 100 |
+| "Roll out to X%" | `update-rollout` with `rolloutType: "percentage"` | Use only when splitting traffic between variations. Weights must sum to 100 |
+| "Serve variation X to everyone" | `update-rollout` with `rolloutType: "variation"` | Most efficient for 100% rollouts. Do NOT use percentage with [0,0,100] |
 | "Enable for beta users" | `update-targeting-rules` — add a rule with clause | Rules are ANDed within, ORed between |
 | "Add specific users" | `update-individual-targets` | Highest priority, overrides all rules |
-| "Full rollout" | `update-rollout` with `rolloutType: "variation"` | Serve one variation to everyone |
 | "Copy from staging" | `copy-flag-config` | Promote tested config to production |
 
 ### Step 3: Run the Safety Checklist
@@ -100,13 +114,34 @@ After applying changes, confirm the result:
    - "Beta users now see variation A. Everyone else gets the default (variation B)."
 3. **Check for side effects.** If there are rules or individual targets, make sure the change interacts correctly with them.
 
+## Choosing Between Variation and Percentage Rollout
+
+**Critical decision:** When updating the default rule (fallthrough), choose the most efficient approach:
+
+- **Use `rolloutType: "variation"`** when you want to serve a single variation to 100% of users
+  - More performant
+  - Clearer intent in the flag configuration
+  - Example: `{"rolloutType": "variation", "variationIndex": 2}`
+
+- **Use `rolloutType: "percentage"`** ONLY when you need to split traffic between multiple variations
+  - For canary releases (e.g., 5% new, 95% old)
+  - For A/B tests (e.g., 50/50 split)
+  - For gradual rollouts (e.g., 25% new, 75% old)
+  - Example: `{"rolloutType": "percentage", "weights": [25, 75]}`
+
+**Anti-pattern to avoid:** Do NOT use percentage rollout with weights like `[0, 0, 0, 100]` to serve a single variation. This is inefficient and unclear. Always use `rolloutType: "variation"` instead.
+
+**Detection logic:** If the user asks to "enable the flag" or "roll out to everyone" or "serve variation X to all users," this is a 100% rollout and should use `rolloutType: "variation"`. Only use percentage rollout when the user explicitly mentions splitting traffic or percentages less than 100%.
+
 ## Important Context
 
+- **Newly created flags start with targeting OFF.** Always use `get-flag` to check the current state, and use `toggle-flag` to turn targeting on when needed.
+- **Choose the right rollout type.** Use `rolloutType: "variation"` for 100% rollouts, not percentage with `[0,0,0,100]`. See "Choosing Between Variation and Percentage Rollout" above.
 - **`update-rollout` uses human-friendly percentages.** Pass 80 for 80%, not 80000. The tool handles the internal weight conversion.
 - **Weights must sum to 100.** For percentage rollouts, the weights across all variations must total exactly 100.
 - **Rule ordering matters.** Rules evaluate top-to-bottom. Reordering rules can change behavior without changing any individual rule.
 - **Individual targets are highest priority.** They override all rules and the default. Adding someone as an individual target means rules don't apply to them.
-- **"Launched" flags are still ON.** A flag with status "launched" is serving a single variation to everyone. If you want to remove the flag, use the [cleanup skill](../launchdarkly-flag-cleanup/SKILL.md), not targeting changes.
+- **"Launched" flags are still ON.** A flag with status "launched" is serving a single variation to everyone. If you want to remove the flag, use the [cleanup skill](../launchdarkly-flag-cleanup/SKILL.md).
 
 ## References
 
