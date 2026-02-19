@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "LaunchDarkly": {
+      "type": "http",
+      "url": "https://mcp.launchdarkly.com/mcp/v1",
+      "headers": {}
+    }
+  }
+}
