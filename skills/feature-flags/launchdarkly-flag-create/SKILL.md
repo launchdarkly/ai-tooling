@@ -68,7 +68,7 @@ Based on what the user needs, choose the appropriate flag configuration. See [Fl
 
 **Defaults to apply:**
 - Set `temporary: true` unless the user explicitly says this is a permanent/long-lived flag. Most flags are release flags that should eventually be cleaned up.
-- Generate a `key` from the name if not provided (e.g., "New Checkout Flow" → `new-checkout-flow`), but match the codebase's naming convention if one exists.
+- Generate a `key` from the name if not provided (e.g., "New Checkout Flow" -> `new-checkout-flow`), but match the codebase's naming convention if one exists.
 - Suggest relevant tags based on the feature area, team, or context the user mentions.
 
 ### Step 3: Create the Flag in LaunchDarkly

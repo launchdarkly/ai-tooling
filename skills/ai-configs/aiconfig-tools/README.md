@@ -6,9 +6,9 @@ An Agent Skill for creating tools (function calling) and attaching them to AI Co
 
 This skill teaches agents how to:
 - Identify what capabilities the AI needs
-- Create tool definitions with JSON schemas via the API
-- Attach tools to AI Config variations
-- Verify tools are properly connected
+- Create tool definitions using the `create-ai-tool` MCP tool
+- Attach tools to AI Config variations via `update-ai-config-variation`
+- Verify tools are properly connected via `get-ai-config`
 
 ## Installation (Local)
 
@@ -16,8 +16,7 @@ Copy `skills/ai-configs/aiconfig-tools/` into your agent client's skills path.
 
 ## Prerequisites
 
-- LaunchDarkly API token with `/*:ai-tool/*` permission
-- Existing AI Config (use `aiconfig-create` skill first)
+This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 ## Usage
 
@@ -34,9 +33,7 @@ Create tools for the content assistant to call our API
 ```
 aiconfig-tools/
 ├── SKILL.md
-├── README.md
-└── references/
-    └── api-quickstart.md
+└── README.md
 ```
 
 ## Related

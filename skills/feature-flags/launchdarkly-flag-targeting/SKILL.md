@@ -30,10 +30,10 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 Before making any targeting changes, understand how LaunchDarkly evaluates flags. This determines what your changes actually do:
 
-1. **Flag is OFF** → Serve the `offVariation` to everyone. Nothing else matters.
-2. **Individual targets** → If the context matches a specific target list, serve that variation. Highest priority.
-3. **Custom rules** → Evaluate rules top-to-bottom. First matching rule wins.
-4. **Default rule (fallthrough)** → If nothing else matched, serve this variation or rollout.
+1. **Flag is OFF** -> Serve the `offVariation` to everyone. Nothing else matters.
+2. **Individual targets** -> If the context matches a specific target list, serve that variation. Highest priority.
+3. **Custom rules** -> Evaluate rules top-to-bottom. First matching rule wins.
+4. **Default rule (fallthrough)** -> If nothing else matched, serve this variation or rollout.
 
 This means: if you add a targeting rule but the flag is OFF, nobody sees the change. If you set a percentage rollout on the default rule but there's an individual target, that targeted user bypasses the rollout.
 

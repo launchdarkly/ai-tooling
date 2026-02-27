@@ -1,10 +1,11 @@
 ---
 name: aiconfig-update
-description: Update, archive, and delete LaunchDarkly AI Configs and their variations. Use when you need to modify config properties, change model parameters, update instructions or messages, archive unused configs, or permanently remove them.
-compatibility: Requires LaunchDarkly project with AI Configs enabled and API access token.
+description: "Update, archive, and delete LaunchDarkly AI Configs and their variations. Use when you need to modify config properties, change model parameters, update instructions or messages, archive unused configs, or permanently remove them."
+license: Apache-2.0
+compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.2.0"
+  version: "1.0.0-experimental"
 ---
 
 # AI Config Update & Lifecycle
@@ -13,8 +14,17 @@ You're using a skill that will guide you through updating, archiving, and deleti
 
 ## Prerequisites
 
-- Existing AI Config to modify
-- LaunchDarkly API access token or MCP server
+This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
+
+**Required MCP tools:**
+- `get-ai-config-health` -- assess config health before making changes (detects missing models, orphaned tools, empty configs)
+- `get-ai-config` -- understand current state before making changes
+- `update-ai-config` -- update config metadata (name, description, tags, archive)
+- `update-ai-config-variation` -- update variation model, prompts, or parameters
+
+**Optional MCP tools:**
+- `delete-ai-config` -- permanently delete a config (irreversible)
+- `delete-ai-config-variation` -- permanently delete a variation (irreversible)
 
 ## Core Principles
 
@@ -22,57 +32,58 @@ You're using a skill that will guide you through updating, archiving, and deleti
 2. **Verify After Changing**: Fetch the config again to confirm updates were applied
 3. **Archive Before Deleting**: Archival is reversible; deletion is not
 
-## API Key Detection
-
-1. **Check environment variables** — `LAUNCHDARKLY_API_KEY`, `LAUNCHDARKLY_API_TOKEN`, `LD_API_KEY`
-2. **Check MCP config** — If applicable
-3. **Prompt user** — Only if detection fails
-
 ## Workflow
 
-### Step 1: Understand Current State
+### Step 1: Assess Health and Understand Current State
 
-Fetch the config to see what exists before changing anything:
-```bash
-GET /projects/{projectKey}/ai-configs/{configKey}
-```
+Start with `get-ai-config-health` to get a structured health assessment. This detects:
+- Variations with no model (show as "NO MODEL" in the UI)
+- Variations with neither instructions nor messages
+- Orphaned tool references (tools attached that don't exist in the project)
+- Configs with no variations at all
+
+The health verdict (`healthy`, `warning`, `unhealthy`) helps you prioritize what to fix.
+
+Then use `get-ai-config` to review the full detail:
+- Current mode (agent or completion)
+- Existing variations and their models
+- Current instructions or messages
+- Attached tools and parameters
 
 ### Step 2: Make the Update
 
-Follow [API Quick Start](references/api-quickstart.md):
+**Update config metadata** -- Use `update-ai-config`:
+- Change name or description
+- Add or replace tags
+- Archive with `archived: true` (reversible)
 
-- **Update instructions/messages** — PATCH variation
-- **Switch model** — PATCH variation with modelConfigKey and model
-- **Tune parameters** — PATCH variation with model.parameters
-- **Archive config** — PATCH config with `{"archived": true}`
-- **Delete** — DELETE config or variation (irreversible)
+**Update a variation** -- Use `update-ai-config-variation`:
+- Switch model (provide new `modelConfigKey` and `modelName`)
+- Change instructions or messages
+- Tune parameters (temperature, maxTokens, etc.)
+- Attach or detach tools via the parameters object
 
-### Step 4: Verify
+**Archive a config** -- Use `update-ai-config` with `archived: true`
 
-1. **Fetch updated config:**
-   ```bash
-   GET /projects/{projectKey}/ai-configs/{configKey}/variations/{variationKey}
-   ```
+**Delete** -- Use `delete-ai-config` or `delete-ai-config-variation` (irreversible, requires `confirm: true`)
 
-2. **Confirm the response shows your updated values**
+### Step 3: Verify
 
-3. **Report results:**
-   - ✓ Update applied successfully
-   - ✓ Config reflects changes
-   - ⚠️ Flag any issues or rollback if needed
+Use `get-ai-config` to confirm the response shows your updated values.
+
+**Report results:**
+- Update applied successfully
+- Config reflects changes
+- Flag any issues or rollback if needed
 
 ## What NOT to Do
 
-- Don't update production directly without testing
-- Don't change multiple things at once
+- Don't update production configs without testing in another variation first
+- Don't change multiple things at once -- make incremental changes
 - Don't skip verification
 - Don't delete without user confirmation
 
 ## Related Skills
 
-- `aiconfig-variations` — Create variations to test changes
-- `aiconfig-tools` — Update tools
-
-## References
-
-- [API Quick Start](references/api-quickstart.md)
+- `aiconfig-variations` -- Create variations to test changes side-by-side
+- `aiconfig-tools` -- Update tool attachments

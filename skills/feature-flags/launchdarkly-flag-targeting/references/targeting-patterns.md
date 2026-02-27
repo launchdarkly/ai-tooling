@@ -16,7 +16,7 @@ The simplest targeting change.
 
 **Notes:**
 - Turning a flag OFF makes it serve the `offVariation` to everyone, regardless of rules or targets.
-- Turning a flag ON activates the full targeting evaluation (individual targets → rules → default rule).
+- Turning a flag ON activates the full targeting evaluation (individual targets -> rules -> default rule).
 
 ## Percentage Rollouts (Default Rule)
 

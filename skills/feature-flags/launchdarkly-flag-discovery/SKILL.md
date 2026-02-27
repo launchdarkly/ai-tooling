@@ -68,7 +68,7 @@ Key signals to evaluate:
 
 | Signal | What it tells you |
 |--------|-------------------|
-| **Lifecycle state** | Where the flag is in its journey (new → active → launched → inactive) |
+| **Lifecycle state** | Where the flag is in its journey (new -> active -> launched -> inactive) |
 | **Last requested** | When an SDK last evaluated this flag — staleness indicator |
 | **Targeting complexity** | Number of rules and targets — removal complexity indicator |
 | **Cross-environment consistency** | Whether the flag behaves the same everywhere |

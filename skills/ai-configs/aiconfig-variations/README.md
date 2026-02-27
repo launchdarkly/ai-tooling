@@ -6,9 +6,8 @@ An Agent Skill for creating and managing AI Config variations to experiment with
 
 This skill teaches agents how to:
 - Design experiments (model comparison, prompt optimization, parameter tuning)
-- Create variations via the API
-- Attach tools to variations
-- Verify variations exist with correct configuration
+- Create variations using `clone-ai-config-variation` (recommended) or `create-ai-config-variation`
+- Verify variations exist with correct configuration via `get-ai-config`
 
 ## Installation (Local)
 
@@ -16,8 +15,7 @@ Copy `skills/ai-configs/aiconfig-variations/` into your agent client's skills pa
 
 ## Prerequisites
 
-- LaunchDarkly API access token with `ai-configs:write` permission
-- Existing AI Config (use `aiconfig-create` skill first)
+This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 ## Usage
 
@@ -34,9 +32,7 @@ Create variations to compare Claude vs GPT-4 for our agent
 ```
 aiconfig-variations/
 ├── SKILL.md
-├── README.md
-└── references/
-    └── api-quickstart.md
+└── README.md
 ```
 
 ## Related
