@@ -16,6 +16,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `feature-flags/launchdarkly-flag-create` | Create new feature flags in a way that fits existing codebase patterns |
 | `feature-flags/launchdarkly-flag-targeting` | Control targeting, rollouts, rules, and cross-environment config |
 | `feature-flags/launchdarkly-flag-cleanup` | Safely remove flags from code using LaunchDarkly as the source of truth |
+| `feature-flags/launchdarkly-flag-recreate` | Recreate a misconfigured flag when the key or variation type was set incorrectly |
 
 ### AI Configs
 
