@@ -61,7 +61,12 @@ Based on the user's request and your exploration:
    - What should the agent explore, assess, and verify?
    - What references will the skill need?
 
-3. **Plan the workflow.**
+3. **Identify required MCP tools.**
+   - What MCP tools does the skill's workflow depend on?
+   - Which of those tools already exist? (Check available MCP servers)
+   - Which tools would need to be built? These will be stubbed out in the skill.
+
+4. **Plan the workflow.**
    - Step 1: Explore (what to look for)
    - Step 2: Assess (decision table or logic)
    - Step 3: Execute (with references)
@@ -92,7 +97,30 @@ See [Frontmatter & Metadata](references/frontmatter.md) for required fields.
    - `README.md` — short description, link to SKILL.md
    - `marketplace.json` — if publishing to a marketplace (see existing skills for format)
 
-5. **Update repo docs.**
+5. **Stub out tools that don't exist yet.**
+   If the skill's workflow depends on MCP tools that haven't been built, add a `## Tool Stubs` section at the bottom of SKILL.md (before References). Each stub should define the tool name, description, expected input schema, and what it should return — enough for someone to implement the tool later.
+
+   Format each stub like this:
+   ```
+   ### `tool-name`
+
+   **Description:** What the tool does
+
+   **Input:**
+   | Parameter | Type | Required | Description |
+   |-----------|------|----------|-------------|
+   | param1    | string | Yes    | What it is  |
+
+   **Returns:** What the tool responds with
+
+   **Example call:**
+   - name: `tool-name`
+   - input: `{ "param1": "value" }`
+   ```
+
+   This gives tool implementers a clear contract to build against and makes the skill usable as soon as the tools ship.
+
+6. **Update repo docs.**
    - Add the skill to the table in `README.md`
    - If the skill requires specific tools, document them in the skill
 
@@ -144,6 +172,7 @@ Confirm the skill is valid and complete:
 | Marketplace.json needed | Copy format from `launchdarkly-flag-create/marketplace.json` |
 | Validation fails | Fix the specific error (often frontmatter or naming) |
 | Catalog not regenerated | Run `python3 scripts/generate_catalog.py` before commit |
+| Skill needs tools that don't exist yet | Add a `## Tool Stubs` section at the bottom of SKILL.md with the tool contract (name, inputs, output) |
 
 ## What NOT to Do
 
@@ -152,6 +181,7 @@ Confirm the skill is valid and complete:
 - Don't forget to run `validate_skills.py` before committing
 - Don't skip updating README.md and the catalog
 - Don't use internal-only links or tools unless the skill is internal-only
+- Don't reference MCP tools without documenting them — if they don't exist yet, stub them out so implementers know the expected contract
 
 ## References
 
