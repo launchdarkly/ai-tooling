@@ -10,11 +10,10 @@
     },
     {
       "name": "aiconfig-projects",
-      "description": "Set up LaunchDarkly projects for your application. Helps you create projects, retrieve SDK keys, and understand how projects organize your AI Configs and feature flags.",
+      "description": "Guide for setting up LaunchDarkly projects in your codebase. Helps you assess your stack, choose the right approach, and integrate project management that makes sense for your architecture.",
       "path": "skills/ai-configs/aiconfig-projects",
-      "version": "1.0.0-experimental",
-      "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+      "version": "0.4.0",
+      "compatibility": "Requires LaunchDarkly API access token with projects:write permission or LaunchDarkly MCP server."
     },
     {
       "name": "aiconfig-tools",
