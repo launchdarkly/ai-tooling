@@ -25,6 +25,9 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Optional MCP tools:**
 - `copy-flag-config`: copy targeting configuration from one environment to another
+- `create-approval-request`: create an approval request when direct changes are blocked
+- `list-approval-requests`: check on pending approval requests for a flag
+- `apply-approval-request`: apply an already-approved approval request
 
 ## Core Concept: Evaluation Order
 
@@ -74,7 +77,12 @@ Based on what the user wants and what you found, choose the right tool and strat
 Before applying changes, especially in production, run through the [Safety Checklist](references/safety-checklist.md). The key checks:
 
 1. **Right environment?** Double-check you're targeting the intended environment.
-2. **Approval required?** Some environments require approval workflows. If `toggle-flag` or other tools return `requiresApproval: true`, surface this to the user with the approval URL.
+2. **Approval required?** Some environments require approval workflows. If any mutation tool returns `requiresApproval: true`:
+   - Inform the user that this environment requires approvals.
+   - Share the `approvalUrl` if provided.
+   - Offer to create an approval request using `create-approval-request` with the same instructions (returned in the `instructions` field of the response).
+   - Do NOT attempt to bypass approval or auto-approve.
+   - See [Approval Workflows](references/approval-workflows.md) for the full process.
 3. **Prerequisite flags?** If this flag has prerequisites, they must be met before targeting works as expected.
 4. **Rule ordering impact?** If adding rules, consider where they fall in evaluation order. Rules evaluate top-to-bottom, first match wins.
 5. **Include a comment.** Always add an audit trail comment, especially for production changes.
@@ -100,6 +108,16 @@ After applying changes, confirm the result:
    - "Beta users now see variation A. Everyone else gets the default (variation B)."
 3. **Check for side effects.** If there are rules or individual targets, make sure the change interacts correctly with them.
 
+### Handling Approval-Required Environments
+
+When any mutation tool returns `requiresApproval: true`, the direct change was blocked because the environment requires approvals. Follow the [Approval Workflows](references/approval-workflows.md) reference to:
+
+1. **Create an approval request** with `create-approval-request` using the `instructions` from the blocked response
+2. **Inform the user** about the pending approval and share the approval request details
+3. **Check on approval status** later with `list-approval-requests` if requested
+4. **Apply the request** with `apply-approval-request` once a reviewer has approved it (reviewStatus is "approved")
+5. **Verify the result** with `get-flag` after applying
+
 ## Important Context
 
 - **`update-rollout` uses human-friendly percentages.** Pass 80 for 80%, not 80000. The tool handles the internal weight conversion.
@@ -112,3 +130,4 @@ After applying changes, confirm the result:
 
 - [Targeting Patterns](references/targeting-patterns.md): Rollout strategies, rule construction, individual targeting, and cross-environment copying
 - [Safety Checklist](references/safety-checklist.md): Pre-change verification, approval workflows, environment awareness
+- [Approval Workflows](references/approval-workflows.md): Creating, checking, and applying approval requests

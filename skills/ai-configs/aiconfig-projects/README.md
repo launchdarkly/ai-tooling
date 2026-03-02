@@ -61,7 +61,7 @@ aiconfig-projects/
 
 ## Related
 
-- [LaunchDarkly AI Configs](https://docs.launchdarkly.com/home/ai-configs) — Create AI Configs after setting up projects
+- [LaunchDarkly AI Configs](https://docs.launchdarkly.com/home/ai-configs): Create AI Configs after setting up projects
 - [LaunchDarkly Docs](https://docs.launchdarkly.com)
 - [Agent Skills Specification](https://agentskills.io/specification)
 
