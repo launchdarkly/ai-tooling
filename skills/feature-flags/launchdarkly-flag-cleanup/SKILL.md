@@ -19,12 +19,12 @@ If you haven't already identified which flag to clean up, use the [flag discover
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `check-removal-readiness` — detailed safety check (orchestrates flag config, cross-env status, dependencies, code references, and expiring targets in parallel)
-- `get-flag` — fetch flag configuration for a specific environment
+- `check-removal-readiness`: detailed safety check (orchestrates flag config, cross-env status, dependencies, code references, and expiring targets in parallel)
+- `get-flag`: fetch flag configuration for a specific environment
 
 **Optional MCP tools:**
-- `archive-flag` — archive the flag in LaunchDarkly after code removal
-- `delete-flag` — permanently delete the flag (irreversible, prefer archive)
+- `archive-flag`: archive the flag in LaunchDarkly after code removal
+- `delete-flag`: permanently delete the flag (irreversible, prefer archive)
 
 ## Core Principles
 
@@ -64,11 +64,11 @@ Use `check-removal-readiness` to get a detailed safety assessment. This single t
 
 The tool returns a readiness verdict:
 
-**`safe`** — No blockers or warnings. Proceed with removal.
+**`safe`**: No blockers or warnings. Proceed with removal.
 
-**`caution`** — No hard blockers but warnings exist (e.g., code references in other repos, expiring targets scheduled, flag marked as permanent). Present warnings and let the user decide.
+**`caution`**: No hard blockers but warnings exist (e.g., code references in other repos, expiring targets scheduled, flag marked as permanent). Present warnings and let the user decide.
 
-**`blocked`** — Hard blockers prevent safe removal (e.g., dependent flags, actively receiving requests, targeting is on with active rules). Present blockers — the user must resolve them first.
+**`blocked`**: Hard blockers prevent safe removal (e.g., dependent flags, actively receiving requests, targeting is on with active rules). Present blockers: the user must resolve them first.
 
 ### Step 3: Determine the Forward Value
 
@@ -78,8 +78,8 @@ Use `get-flag` to fetch the flag configuration in each critical environment. The
 |----------|---------------|
 | All critical envs ON, same fallthrough, no rules/targets | Use `fallthrough.variation` |
 | All critical envs OFF, same offVariation | Use `offVariation` |
-| Critical envs differ in ON/OFF state | **NOT SAFE** — stop and inform the user |
-| Critical envs serve different variations | **NOT SAFE** — stop and inform the user |
+| Critical envs differ in ON/OFF state | **NOT SAFE**: stop and inform the user |
+| Critical envs serve different variations | **NOT SAFE**: stop and inform the user |
 
 ### Step 4: Remove the Flag from Code
 
@@ -141,7 +141,7 @@ Before considering the job done:
 | Flag not found in LaunchDarkly | Inform user, check for typos in the key |
 | Flag already archived | Ask if code cleanup is still needed (flag is gone from LD but code may still reference it) |
 | Multiple SDK patterns in codebase | Search all patterns: `variation()`, `boolVariation()`, `variationDetail()`, `allFlags()`, `useFlags()`, plus any wrappers |
-| Dynamic flag keys (`flag-${id}`) | Warn that automated removal may be incomplete — manual review required |
+| Dynamic flag keys (`flag-${id}`) | Warn that automated removal may be incomplete: manual review required |
 | Different default values in code vs LD | Flag as inconsistency in the PR description |
 | Orphaned exports/files remain after removal | Run unused-export checks and remove dead files |
 
@@ -150,18 +150,18 @@ Before considering the job done:
 - Don't change code unrelated to flag cleanup.
 - Don't refactor or optimize beyond flag removal.
 - Don't remove flags still being actively rolled out.
-- Don't guess the forward value — always query LaunchDarkly.
+- Don't guess the forward value: always query LaunchDarkly.
 
 ## After Cleanup
 
 Once the PR is merged and deployed:
 1. **Archive the flag in LaunchDarkly** using `archive-flag`. Archival is reversible; deletion is not. Always archive first.
 2. **Notify other teams** if `check-removal-readiness` reported code references in other repositories.
-3. **If the flag had targeting changes pending,** they can be ignored — the flag is being removed.
+3. **If the flag had targeting changes pending,** they can be ignored: the flag is being removed.
 
 ## References
 
-- [PR Template](references/pr-template.md) — Structured PR description for flag removal
-- [SDK Patterns](references/sdk-patterns.md) — Flag evaluation patterns by language/framework
-- [Flag Discovery](../launchdarkly-flag-discovery/SKILL.md) — Find cleanup candidates before using this skill
-- [Flag Targeting](../launchdarkly-flag-targeting/SKILL.md) — If you need to change targeting instead of removing
+- [PR Template](references/pr-template.md): Structured PR description for flag removal
+- [SDK Patterns](references/sdk-patterns.md): Flag evaluation patterns by language/framework
+- [Flag Discovery](../launchdarkly-flag-discovery/SKILL.md): Find cleanup candidates before using this skill
+- [Flag Targeting](../launchdarkly-flag-targeting/SKILL.md): If you need to change targeting instead of removing

@@ -89,8 +89,8 @@ See [Frontmatter & Metadata](references/frontmatter.md) for required fields.
    - Link from SKILL.md
 
 4. **Add supporting files (optional).**
-   - `README.md` — short description, link to SKILL.md
-   - `marketplace.json` — if publishing to a marketplace (see existing skills for format)
+   - `README.md`: short description, link to SKILL.md
+   - `marketplace.json`: if publishing to a marketplace (see existing skills for format)
 
 5. **Update repo docs.**
    - Add the skill to the table in `README.md`
@@ -148,12 +148,12 @@ Confirm the skill is valid and complete:
 ## What NOT to Do
 
 - Don't create a skill without exploring existing ones first
-- Don't put long implementation details in SKILL.md — use references
+- Don't put long implementation details in SKILL.md: use references
 - Don't forget to run `validate_skills.py` before committing
 - Don't skip updating README.md and the catalog
 - Don't use internal-only links or tools unless the skill is internal-only
 
 ## References
 
-- [Skill Structure](references/skill-structure.md) — File layout, workflow pattern, content guidelines
-- [Frontmatter & Metadata](references/frontmatter.md) — Required fields, naming rules, versioning
+- [Skill Structure](references/skill-structure.md): File layout, workflow pattern, content guidelines
+- [Frontmatter & Metadata](references/frontmatter.md): Required fields, naming rules, versioning

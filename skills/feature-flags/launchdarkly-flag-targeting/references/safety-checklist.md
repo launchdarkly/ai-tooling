@@ -52,7 +52,7 @@ Some environments require approval for changes.
 
 - [ ] The values match exactly what the SDK sends as the user/context key
 - [ ] Individual targets are intended to override rules (they always win)
-- [ ] Using `replaceTargets` intentionally — it replaces ALL targets, not just adds
+- [ ] Using `replaceTargets` intentionally: it replaces ALL targets, not just adds
 
 ## For Cross-Environment Copies
 

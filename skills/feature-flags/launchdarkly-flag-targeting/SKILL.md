@@ -17,14 +17,14 @@ You're using a skill that will guide you through changing who sees what for a fe
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `get-flag` — understand current state before making changes
-- `toggle-flag` — turn targeting on or off for a flag in an environment
-- `update-rollout` — change the default rule (fallthrough) variation or percentage rollout
-- `update-targeting-rules` — add, remove, or modify custom targeting rules
-- `update-individual-targets` — add or remove specific users/contexts from individual targeting
+- `get-flag`: understand current state before making changes
+- `toggle-flag`: turn targeting on or off for a flag in an environment
+- `update-rollout`: change the default rule (fallthrough) variation or percentage rollout
+- `update-targeting-rules`: add, remove, or modify custom targeting rules
+- `update-individual-targets`: add or remove specific users/contexts from individual targeting
 
 **Optional MCP tools:**
-- `copy-flag-config` — copy targeting configuration from one environment to another
+- `copy-flag-config`: copy targeting configuration from one environment to another
 
 ## Core Concept: Evaluation Order
 
@@ -45,12 +45,12 @@ Before changing anything, check what's already configured.
 
 1. **Confirm the environment.** "Turn it on" without specifying an environment is ambiguous. Always confirm which environment the user means. Default to asking rather than assuming.
 2. **Fetch the flag.** Use `get-flag` with the target environment to see:
-   - `on` — Is targeting currently enabled?
-   - `fallthrough` — What's the default rule? (variation or percentage rollout)
-   - `offVariation` — What serves when the flag is off?
-   - `rules` — Any custom targeting rules?
-   - `targets` — Any individually targeted users/contexts?
-   - `prerequisites` — Any flags this depends on?
+   - `on`: Is targeting currently enabled?
+   - `fallthrough`: What's the default rule? (variation or percentage rollout)
+   - `offVariation`: What serves when the flag is off?
+   - `rules`: Any custom targeting rules?
+   - `targets`: Any individually targeted users/contexts?
+   - `prerequisites`: Any flags this depends on?
 3. **Assess complexity.** A flag with no rules and no individual targets is simple. A flag with multiple rules, targets, and prerequisites needs more care.
 
 ### Step 2: Determine the Right Approach
@@ -64,7 +64,7 @@ Based on what the user wants and what you found, choose the right tool and strat
 | "Turn it on" | `toggle-flag` with `on: true` | Simplest change |
 | "Turn it off" | `toggle-flag` with `on: false` | Serves offVariation to everyone |
 | "Roll out to X%" | `update-rollout` with `rolloutType: "percentage"` | Weights must sum to 100 |
-| "Enable for beta users" | `update-targeting-rules` — add a rule with clause | Rules are ANDed within, ORed between |
+| "Enable for beta users" | `update-targeting-rules`: add a rule with clause | Rules are ANDed within, ORed between |
 | "Add specific users" | `update-individual-targets` | Highest priority, overrides all rules |
 | "Full rollout" | `update-rollout` with `rolloutType: "variation"` | Serve one variation to everyone |
 | "Copy from staging" | `copy-flag-config` | Promote tested config to production |
@@ -110,5 +110,5 @@ After applying changes, confirm the result:
 
 ## References
 
-- [Targeting Patterns](references/targeting-patterns.md) — Rollout strategies, rule construction, individual targeting, and cross-environment copying
-- [Safety Checklist](references/safety-checklist.md) — Pre-change verification, approval workflows, environment awareness
+- [Targeting Patterns](references/targeting-patterns.md): Rollout strategies, rule construction, individual targeting, and cross-environment copying
+- [Safety Checklist](references/safety-checklist.md): Pre-change verification, approval workflows, environment awareness

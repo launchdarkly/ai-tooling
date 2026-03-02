@@ -52,7 +52,7 @@ Before creating, identify what you're building:
 
 ### Step 3: Create the Config (Recommended: One Step)
 
-Use `setup-ai-config` to create the config and its first variation in one call. This is the recommended approach — it handles creation, variation setup, and verification automatically.
+Use `setup-ai-config` to create the config and its first variation in one call. This is the recommended approach: it handles creation, variation setup, and verification automatically.
 
 **Config fields:**
 - `key` -- unique identifier (lowercase, hyphens)
@@ -86,7 +86,7 @@ If you need more control (e.g., custom headers, conditional logic), use the indi
 
 ### Step 4: Verify
 
-If you used `setup-ai-config`, verification is automatic — the response includes the full config with variations. Check:
+If you used `setup-ai-config`, verification is automatic: the response includes the full config with variations. Check:
 
 1. Config exists with the correct mode
 2. Variation has a model assigned (not "NO MODEL")

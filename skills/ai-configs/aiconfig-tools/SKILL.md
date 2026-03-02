@@ -46,23 +46,16 @@ What should the AI be able to do?
 Use `create-ai-tool` with:
 - `key` -- unique identifier for the tool
 - `description` -- clear description (the LLM uses this to decide when to call the tool)
-- `schema` -- OpenAI function calling format:
+- `schema` -- raw JSON Schema (do NOT use the OpenAI function calling wrapper):
 
 ```json
 {
-  "type": "function",
-  "function": {
-    "name": "search_database",
-    "description": "Search for customer records",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "query": {"type": "string", "description": "Search query"},
-        "limit": {"type": "integer", "default": 10}
-      },
-      "required": ["query"]
-    }
-  }
+  "type": "object",
+  "properties": {
+    "query": {"type": "string", "description": "Search query"},
+    "limit": {"type": "integer", "default": 10}
+  },
+  "required": ["query"]
 }
 ```
 
@@ -99,7 +92,7 @@ LangGraph, CrewAI, and AutoGen often generate schemas from function definitions.
 | Situation | Action |
 |-----------|--------|
 | Tool already exists (409) | Use existing or create with different key |
-| Schema invalid | Use OpenAI function calling format |
+| Schema invalid | Use raw JSON Schema format (type: object, properties, required) |
 | Wrong endpoint assumed | The tools use `/ai-tools`, not `/ai-configs/tools` |
 
 ## What NOT to Do

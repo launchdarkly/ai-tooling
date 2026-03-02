@@ -43,8 +43,8 @@ aiconfig-update/
 
 ## Related
 
-- [AI Config Create](../aiconfig-create/) — Create configs
-- [AI Config Variations](../aiconfig-variations/) — Add or test variations
+- [AI Config Create](../aiconfig-create/): Create configs
+- [AI Config Variations](../aiconfig-variations/): Add or test variations
 - [LaunchDarkly AI Configs Docs](https://docs.launchdarkly.com/home/ai-configs)
 
 ## License

@@ -152,7 +152,7 @@ Tags help organize flags in LaunchDarkly. Suggest tags based on:
 ### Multivariate Flags
 - Always include a "control" or "default" variation
 - Give every variation a descriptive `name`
-- Consider what the `offVariation` should be — typically the control/default
+- Consider what the `offVariation` should be: typically the control/default
 - Order variations with the default/control first
 
 ### Default Values in Code

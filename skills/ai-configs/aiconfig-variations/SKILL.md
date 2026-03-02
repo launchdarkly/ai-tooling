@@ -51,7 +51,7 @@ What's the problem? Cost, quality, speed, accuracy? How will you measure success
 
 ### Step 3: Create Variations (Recommended: Clone with Overrides)
 
-Use `clone-ai-config-variation` to duplicate the baseline and override only what you're testing. This ensures everything stays constant except your test variable — the tool reads the source variation, merges your overrides, and creates the new variation.
+Use `clone-ai-config-variation` to duplicate the baseline and override only what you're testing. This ensures everything stays constant except your test variable: the tool reads the source variation, merges your overrides, and creates the new variation.
 
 Provide:
 - `sourceVariationKey` -- the baseline to clone from

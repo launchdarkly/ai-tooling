@@ -31,7 +31,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 
 | Skill | Description |
 |-------|-------------|
-| `skill-authoring/create-skill` | Add a new skill following conventions — explore existing skills, create with workflow pattern, verify with validation scripts |
+| `skill-authoring/create-skill` | Add a new skill following conventions: explore existing skills, create with workflow pattern, verify with validation scripts |
 
 ## Install as a Cursor Plugin
 

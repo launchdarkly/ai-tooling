@@ -8,10 +8,10 @@ How LaunchDarkly skills are organized and what content belongs where.
 skills/
 ├── <category>/           # e.g., feature-flags, ai-configs, skill-authoring
 │   └── <skill-name>/     # e.g., launchdarkly-flag-create
-│       ├── SKILL.md      # Required — main workflow guide
-│       ├── README.md     # Optional — short description
-│       ├── marketplace.json  # Optional — for marketplace publishing
-│       └── references/   # Optional — detailed guides
+│       ├── SKILL.md      # Required: main workflow guide
+│       ├── README.md     # Optional: short description
+│       ├── marketplace.json  # Optional: for marketplace publishing
+│       └── references/   # Optional: detailed guides
 │           ├── guide-1.md
 │           └── guide-2.md
 ```
@@ -51,10 +51,10 @@ Start with a sentence like:
 
 Numbered steps (Step 1, Step 2, …):
 
-- **Step 1: Explore** — Understand the situation before acting
-- **Step 2: Assess** — Decide the right approach
-- **Step 3: Execute** — Do the work (link to references)
-- **Step 4: Verify** — Confirm completion (agent performs checks)
+- **Step 1: Explore**: Understand the situation before acting
+- **Step 2: Assess**: Decide the right approach
+- **Step 3: Execute**: Do the work (link to references)
+- **Step 4: Verify**: Confirm completion (agent performs checks)
 
 Each step should be actionable. Link to references for detailed implementation.
 
@@ -91,11 +91,11 @@ Keep in SKILL.md:
 
 All skills follow:
 
-1. **Explore** — Don't assume. Look at the codebase, existing config, or context first.
-2. **Assess** — Based on exploration, decide the right path.
-3. **Choose** — Pick references that match the situation.
-4. **Execute** — Follow the reference to do the work.
-5. **Verify** — Actually perform checks (API calls, scripts) and report results.
+1. **Explore**: Don't assume. Look at the codebase, existing config, or context first.
+2. **Assess**: Based on exploration, decide the right path.
+3. **Choose**: Pick references that match the situation.
+4. **Execute**: Follow the reference to do the work.
+5. **Verify**: Actually perform checks (API calls, scripts) and report results.
 
 ## Naming Conventions
 

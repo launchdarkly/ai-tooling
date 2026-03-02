@@ -192,7 +192,7 @@ When adding flag evaluation code, follow this pattern:
 1. **Import/access the client** the same way existing code does
 2. **Define the flag key** following the project's convention (constants file, inline, etc.)
 3. **Choose the right evaluation method** based on the flag type
-4. **Set a safe default value** — the behavior when LaunchDarkly is unreachable
+4. **Set a safe default value**: the behavior when LaunchDarkly is unreachable
 5. **Add the conditional logic** for each variation
 
 ### Example: Adding a boolean flag (Node.js)

@@ -37,9 +37,9 @@ aiconfig-variations/
 
 ## Related
 
-- [AI Config Create](../aiconfig-create/) — Create the config first
-- [AI Config Update](../aiconfig-update/) — Modify existing variations
-- [AI Config Tools](../aiconfig-tools/) — Attach tools to variations
+- [AI Config Create](../aiconfig-create/): Create the config first
+- [AI Config Update](../aiconfig-update/): Modify existing variations
+- [AI Config Tools](../aiconfig-tools/): Attach tools to variations
 - [LaunchDarkly AI Configs Docs](https://docs.launchdarkly.com/home/ai-configs)
 
 ## License

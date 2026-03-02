@@ -38,9 +38,9 @@ aiconfig-create/
 
 ## Related
 
-- [AI Config Projects](../aiconfig-projects/) — Create projects first
-- [AI Config Tools](../aiconfig-tools/) — Add tools after creating config
-- [AI Config Variations](../aiconfig-variations/) — Add more variations for experimentation
+- [AI Config Projects](../aiconfig-projects/): Create projects first
+- [AI Config Tools](../aiconfig-tools/): Add tools after creating config
+- [AI Config Variations](../aiconfig-variations/): Add more variations for experimentation
 - [LaunchDarkly AI Configs Docs](https://docs.launchdarkly.com/home/ai-configs)
 
 ## License

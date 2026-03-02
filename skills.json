@@ -6,12 +6,7 @@
       "path": "skills/ai-configs/aiconfig-create",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
-      "tags": [
-        "launchdarkly",
-        "ai-configs",
-        "mcp"
-      ]
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
       "name": "aiconfig-projects",
@@ -19,13 +14,7 @@
       "path": "skills/ai-configs/aiconfig-projects",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
-      "tags": [
-        "launchdarkly",
-        "ai-configs",
-        "projects",
-        "mcp"
-      ]
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
       "name": "aiconfig-tools",
@@ -33,13 +22,7 @@
       "path": "skills/ai-configs/aiconfig-tools",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
-      "tags": [
-        "launchdarkly",
-        "ai-configs",
-        "function-calling",
-        "mcp"
-      ]
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
       "name": "aiconfig-update",
@@ -47,12 +30,7 @@
       "path": "skills/ai-configs/aiconfig-update",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
-      "tags": [
-        "launchdarkly",
-        "ai-configs",
-        "mcp"
-      ]
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
       "name": "aiconfig-variations",
@@ -60,27 +38,7 @@
       "path": "skills/ai-configs/aiconfig-variations",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
-      "tags": [
-        "launchdarkly",
-        "ai-configs",
-        "experimentation",
-        "mcp"
-      ]
-    },
-    {
-      "name": "build-mcp-tools",
-      "description": "Guide for designing and building MCP tools using Gram Functions. Covers philosophy, codebase architecture, tool complexity patterns, and a step-by-step workflow for creating tools that return the most meaningful information to agents.",
-      "path": "skills/tooling/build-mcp-tools",
-      "version": "1.0.0-experimental",
-      "license": "Apache-2.0",
-      "compatibility": "This codebase uses @gram-ai/functions with TypeScript",
-      "tags": [
-        "launchdarkly",
-        "mcp",
-        "tooling",
-        "gram-functions"
-      ]
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
       "name": "create-skill",
