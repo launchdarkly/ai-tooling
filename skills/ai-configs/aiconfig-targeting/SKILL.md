@@ -64,9 +64,9 @@ curl -X GET "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-config
 
 Response includes `variations` array with `_id` (UUID) for each variation.
 
-### Step 2: Set Fallthrough to Enabled Variation
+### Step 2: Edit the Default Rule
 
-AI Configs have targeting enabled by default, but the fallthrough defaults to variation index 0 (typically "disabled"). You must set the fallthrough to an enabled variation.
+Edit the default rule to serve the variation you created.
 
 > **Important:** The `turnTargetingOn` instruction does not work for AI Configs. Use `updateFallthroughVariationOrRollout` instead.
 
