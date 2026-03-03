@@ -36,6 +36,20 @@
       "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission."
     },
     {
+      "name": "aiconfig-online-evals",
+      "description": "Attach judges to AI Config variations for automatic LLM-as-a-judge evaluation. Create custom judges, configure sampling rates, and monitor quality scores.",
+      "path": "skills/ai-configs/aiconfig-online-evals",
+      "version": "0.1.0",
+      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission."
+    },
+    {
+      "name": "aiconfig-targeting",
+      "description": "Configure AI Config targeting rules to control which variations serve to different users. Enable percentage rollouts, attribute-based rules, and segment targeting.",
+      "path": "skills/ai-configs/aiconfig-targeting",
+      "version": "0.1.0",
+      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission."
+    },
+    {
       "name": "create-skill",
       "description": "Add a new skill to the LaunchDarkly agent-skills repo. Use when creating a new SKILL.md, adding a skill to the catalog, or aligning with repo conventions. Guides exploration of existing skills before creating.",
       "path": "skills/skill-authoring/create-skill",
