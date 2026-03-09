@@ -18,7 +18,7 @@
       "name": "aiconfig-tools",
       "description": "Guide for giving your AI agents capabilities through tools. Helps you identify what your AI needs to do, create tool definitions, and attach them in a way that makes sense for your framework.",
       "path": "skills/ai-configs/aiconfig-tools",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "compatibility": "Requires LaunchDarkly API token with ai-tool permissions."
     },
     {

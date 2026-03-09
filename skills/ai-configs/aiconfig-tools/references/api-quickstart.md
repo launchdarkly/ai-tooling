@@ -2,7 +2,7 @@
 
 Create and manage tools using the LaunchDarkly API.
 
-**Endpoint:** `https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-tools`  
+**Endpoint:** `https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-tools`
 Do NOT use `/ai-configs/tools` — that endpoint does not exist.
 
 ## Create a Tool
@@ -16,22 +16,23 @@ curl -X POST \
     "key": "search-database",
     "description": "Search the customer database",
     "schema": {
-      "type": "function",
-      "function": {
-        "name": "search_database",
-        "description": "Search for records",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "query": {"type": "string", "description": "Search query"},
-            "limit": {"type": "integer", "default": 10}
-          },
-          "required": ["query"]
-        }
-      }
+      "type": "object",
+      "properties": {
+        "query": {"type": "string", "description": "Search query"},
+        "limit": {"type": "integer", "description": "Max results to return"}
+      },
+      "required": ["query"]
     }
   }'
 ```
+
+### Optional Fields
+
+| Field | Description |
+|-------|-------------|
+| `maintainerId` | User ID of the tool maintainer |
+| `maintainerTeamKey` | Team key for tool ownership |
+| `customParameters` | Additional custom parameters as JSON object |
 
 ## Attach to Variation
 
@@ -42,13 +43,9 @@ curl -X PATCH \
   -H "Content-Type: application/json" \
   -H "LD-API-Version: beta" \
   -d '{
-    "model": {
-      "parameters": {
-        "tools": [
-          {"key": "search-database", "version": 1}
-        ]
-      }
-    }
+    "tools": [
+      {"key": "search-database", "version": 1}
+    ]
   }'
 ```
 
@@ -70,19 +67,17 @@ curl -X GET \
 
 ## Schema Format
 
-Use OpenAI function calling format:
+Use JSON Schema format:
 
 ```json
 {
-  "type": "function",
-  "function": {
-    "name": "function_name",
-    "description": "What the LLM uses to decide when to call",
-    "parameters": {
-      "type": "object",
-      "properties": { ... },
-      "required": [ ... ]
-    }
-  }
+  "type": "object",
+  "properties": {
+    "query": {"type": "string", "description": "Search query"},
+    "limit": {"type": "integer", "description": "Max results"}
+  },
+  "required": ["query"]
 }
 ```
+
+The tool `key` and `description` are set at the top level, not inside the schema.

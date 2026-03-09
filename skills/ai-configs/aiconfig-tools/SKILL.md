@@ -4,7 +4,7 @@ description: Guide for giving your AI agents capabilities through tools. Helps y
 compatibility: Requires LaunchDarkly API token with ai-tool permissions.
 metadata:
   author: launchdarkly
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # AI Config Tools
@@ -45,7 +45,7 @@ What should the AI be able to do?
 Follow [API Quick Start](references/api-quickstart.md):
 
 1. **Create tool** — `POST /projects/{projectKey}/ai-tools` with key, description, schema
-2. **Schema format** — Use OpenAI function calling format (type, function.name, function.parameters)
+2. **Schema format** — Use JSON Schema format (type: object, properties, required)
 3. **Clear descriptions** — The LLM uses the description to decide when to call
 
 ### Step 3: Attach to Variation
@@ -56,7 +56,7 @@ Tools cannot be attached during config creation. PATCH the variation:
 PATCH /projects/{projectKey}/ai-configs/{configKey}/variations/{variationKey}
 ```
 
-Body: `{"model": {"parameters": {"tools": [{"key": "tool-name", "version": 1}]}}}`
+Body: `{"tools": [{"key": "tool-name", "version": 1}]}`
 
 See [API Quick Start](references/api-quickstart.md) for full curl example.
 
@@ -71,7 +71,7 @@ See [API Quick Start](references/api-quickstart.md) for full curl example.
    ```bash
    GET /projects/{projectKey}/ai-configs/{configKey}/variations/{variationKey}
    ```
-   Check `model.parameters.tools` includes your tool key.
+   Check the `tools` array includes your tool key.
 
 3. **Report results:**
    - ✓ Tool created with valid schema
@@ -88,7 +88,7 @@ LangGraph, CrewAI, AutoGen often generate schemas from function definitions. You
 |-----------|--------|
 | Tool already exists (409) | Use existing or create with different key |
 | Wrong endpoint | Use `/ai-tools`, not `/ai-configs/tools` |
-| Schema invalid | Use OpenAI function format |
+| Schema invalid | Use JSON Schema format (type: object, properties, required) |
 
 ## What NOT to Do
 
