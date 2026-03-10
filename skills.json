@@ -44,6 +44,14 @@
       "compatibility": "Works in repositories following the Agent Skills open standard"
     },
     {
+      "name": "guarded-rollout-create",
+      "description": "Configure a guarded rollout: define rollout stages (percentages and soak times), set metric thresholds for error rate, latency, and throughput, and enable automated rollback if thresholds are breached. Use when the user wants to set up or create a guarded rollout, add safety guardrails to a flag rollout, or configure automatic rollback. This skill configures the rollout \u2014 use launchdarkly-flag-targeting for simple percentage rollouts without automated monitoring.",
+      "path": "skills/guarded-rollouts/guarded-rollout-create",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires LaunchDarkly MCP server with guarded rollout capabilities enabled."
+    },
+    {
       "name": "launchdarkly-flag-cleanup",
       "description": "Safely remove a feature flag from code while preserving production behavior. Use when the user wants to remove a flag from code, delete flag references, or create a PR that hardcodes the winning variation after a rollout is complete.",
       "path": "skills/feature-flags/launchdarkly-flag-cleanup",
@@ -117,6 +125,38 @@
         "devops",
         "mcp"
       ]
+    },
+    {
+      "name": "o11y-flag-impact",
+      "description": "Retrospective analysis: compare service metrics from before and after a specific feature flag change to determine whether the flag caused a metric shift. Use when the user asks 'did flag X cause the error spike', 'what was the impact of turning on flag Y', or wants a before/after comparison of metrics around a known flag change event.",
+      "path": "skills/observability/o11y-flag-impact",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires LaunchDarkly MCP server with both feature flag and observability tools enabled."
+    },
+    {
+      "name": "o11y-log-query",
+      "description": "Search and filter application log entries by service, time window, severity, or keyword. Use when the user wants to find a specific error message, trace a request by ID across services, look at recent log output, or search for a pattern in logs. This skill queries log text \u2014 use o11y-service-health instead for numeric metrics.",
+      "path": "skills/observability/o11y-log-query",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires LaunchDarkly MCP server with observability tools enabled."
+    },
+    {
+      "name": "o11y-regression-detect",
+      "description": "Continuously poll a service's metrics at repeated intervals and alert when a regression threshold is breached multiple consecutive times. Use when the user asks to 'watch', 'monitor', or 'keep an eye on' a service during a rollout. This skill performs ongoing detection over time \u2014 use o11y-service-health for a one-time metric snapshot, or guarded-rollout-create to configure automated rollback.",
+      "path": "skills/observability/o11y-regression-detect",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires LaunchDarkly MCP server with observability tools enabled."
+    },
+    {
+      "name": "o11y-service-health",
+      "description": "Pull error rate, latency percentiles (p50/p95/p99), and throughput metrics for a service and classify its status as healthy, degraded, or critical. Use when the user asks 'how is <service> doing', wants a metric snapshot before a rollout, or needs to confirm whether a service is currently healthy or degraded.",
+      "path": "skills/observability/o11y-service-health",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires LaunchDarkly MCP server with observability tools enabled."
     }
   ]
 }

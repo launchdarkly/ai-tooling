@@ -27,6 +27,21 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `ai-configs/aiconfig-tools` | Create and attach tools for function calling |
 | `ai-configs/aiconfig-projects` | Create and manage projects to organize AI Configs |
 
+### Observability
+
+| Skill | Description |
+|-------|-------------|
+| `observability/o11y-service-health` | Check error rate, latency, and throughput for a service |
+| `observability/o11y-log-query` | Search and filter logs for debugging |
+| `observability/o11y-flag-impact` | Correlate a flag change with a metric shift |
+| `observability/o11y-regression-detect` | Monitor a rollout and detect metric regressions |
+
+### Guarded Rollouts
+
+| Skill | Description |
+|-------|-------------|
+| `guarded-rollouts/guarded-rollout-create` | Configure a guarded rollout with metric monitoring and rollback thresholds |
+
 ### Skill Authoring
 
 | Skill | Description |
@@ -74,6 +89,18 @@ Roll out dark-mode to 25% of users in production
 
 ```
 Remove the `new-checkout-flow` feature flag from this codebase
+```
+
+```
+How is the checkout service doing after the last deploy?
+```
+
+```
+Did the new-checkout flag cause the error rate spike?
+```
+
+```
+Set up a guarded rollout for the payments feature with automatic rollback
 ```
 
 ## Install via skills.sh CLI
