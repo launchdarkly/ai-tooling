@@ -117,6 +117,14 @@
         "devops",
         "mcp"
       ]
+    },
+    {
+      "name": "launchdarkly-segment-create",
+      "description": "Create and configure LaunchDarkly segments \u2014 reusable audience definitions for flag targeting. Use when the user wants to create a segment, add targeting rules to a segment, add individual contexts to a segment, or wire an existing segment into a feature flag's targeting rules.",
+      "path": "skills/feature-flags/launchdarkly-segment-create",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     }
   ]
 }
