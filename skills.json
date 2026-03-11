@@ -44,6 +44,14 @@
       "compatibility": "Works in repositories following the Agent Skills open standard"
     },
     {
+      "name": "create-skill-and-tools",
+      "description": "Design and plan a new LaunchDarkly agent skill and its supporting MCP tools from scratch. Use when someone wants to add a new workflow skill to the agent-skills repo and needs to identify what tools to build, define their inputs and outputs, and produce an implementation plan. Guides a skill-first design approach: define the workflow before building the tools.",
+      "path": "skills/skill-authoring/create-skill-and-tools",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Works in repositories following the Agent Skills open standard"
+    },
+    {
       "name": "launchdarkly-flag-cleanup",
       "description": "Safely remove a feature flag from code while preserving production behavior. Use when the user wants to remove a flag from code, delete flag references, or create a PR that hardcodes the winning variation after a rollout is complete.",
       "path": "skills/feature-flags/launchdarkly-flag-cleanup",
