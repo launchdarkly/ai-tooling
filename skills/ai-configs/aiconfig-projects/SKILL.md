@@ -22,15 +22,15 @@ You're using a skill that will guide you through setting up LaunchDarkly project
 1. **Understand First**: Explore the codebase to understand the stack and patterns.
 2. **Choose the Right Fit**: Select an approach that matches your architecture.
 3. **Follow Conventions**: Respect existing code style and structure.
-4. **Verify Integration**: Confirm the setup works — the agent performs checks and reports results.
+4. **Verify Integration**: Confirm the setup works: the agent performs checks and reports results.
 
 ## API Key Detection
 
 Before prompting the user for an API key, try to detect it automatically:
 
-1. **Check environment variables** — Look for `LAUNCHDARKLY_API_KEY`, `LAUNCHDARKLY_API_TOKEN`, or `LD_API_KEY`
-2. **Check MCP config** — If using Claude, read `~/.claude/config.json` for `mcpServers.launchdarkly.env.LAUNCHDARKLY_API_KEY`
-3. **Prompt user** — Only if detection fails, ask the user for their API key
+1. **Check environment variables**: Look for `LAUNCHDARKLY_API_KEY`, `LAUNCHDARKLY_API_TOKEN`, or `LD_API_KEY`
+2. **Check MCP config**: If using Claude, read `~/.claude/config.json` for `mcpServers.launchdarkly.env.LAUNCHDARKLY_API_KEY`
+3. **Prompt user**: Only if detection fails, ask the user for their API key
 
 See [Quick Start](references/quick-start.md) for API usage patterns.
 
