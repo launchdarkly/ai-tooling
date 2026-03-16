@@ -2,7 +2,7 @@
   "mcpServers": {
     "LaunchDarkly": {
       "type": "http",
-      "url": "https://mcp.launchdarkly.com/mcp/v1",
+      "url": "https://mcp.launchdarkly.com/fm",
       "headers": {}
     }
   }
