@@ -36,14 +36,6 @@
       "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission."
     },
     {
-      "name": "create-skill",
-      "description": "Add a new skill to the LaunchDarkly agent-skills repo. Use when creating a new SKILL.md, adding a skill to the catalog, or aligning with repo conventions. Guides exploration of existing skills before creating.",
-      "path": "skills/skill-authoring/create-skill",
-      "version": "0.2.0",
-      "license": "Apache-2.0",
-      "compatibility": "Works in repositories following the Agent Skills open standard"
-    },
-    {
       "name": "launchdarkly-flag-cleanup",
       "description": "Safely remove a feature flag from code while preserving production behavior. Use when the user wants to remove a flag from code, delete flag references, or create a PR that hardcodes the winning variation after a rollout is complete.",
       "path": "skills/feature-flags/launchdarkly-flag-cleanup",
