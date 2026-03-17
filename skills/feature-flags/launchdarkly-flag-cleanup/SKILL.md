@@ -81,7 +81,19 @@ Use `get-flag` to fetch the flag configuration in each critical environment. The
 | Critical envs differ in ON/OFF state | **NOT SAFE** — stop and inform the user |
 | Critical envs serve different variations | **NOT SAFE** — stop and inform the user |
 
-### Step 4: Remove the Flag from Code
+### Step 4: Present the Cleanup Plan
+
+Before modifying any code, present a summary to the user and wait for confirmation:
+
+1. **The forward value** — which variation will be hardcoded and why (based on the flag's current state).
+2. **All code references found** — file paths and line numbers from Step 1.
+3. **Planned changes** — for each reference, describe what will be removed and what will be kept.
+4. **Readiness verdict** — the result from `check-removal-readiness` (safe, caution, or blocked) and any warnings.
+5. **LaunchDarkly action** — confirm the flag will be archived after code changes are complete.
+
+**Do not proceed with code changes until the user explicitly confirms.**
+
+### Step 5: Remove the Flag from Code
 
 Now execute the removal using what you learned in Step 1.
 
@@ -116,7 +128,7 @@ if (showNewCheckout) {
 return renderNewCheckout();
 ```
 
-### Step 5: Create Pull Request
+### Step 6: Create Pull Request
 
 Use the template in [references/pr-template.md](references/pr-template.md) for a structured PR description. The PR should clearly communicate:
 - What flag was removed and why
@@ -125,7 +137,7 @@ Use the template in [references/pr-template.md](references/pr-template.md) for a
 - What code was removed and what behavior is preserved
 - Whether other repos still reference this flag
 
-### Step 6: Verify
+### Step 7: Verify
 
 Before considering the job done:
 
