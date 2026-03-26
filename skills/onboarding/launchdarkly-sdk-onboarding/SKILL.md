@@ -33,7 +33,7 @@ Before starting the SDK integration, ensure the user has access to LaunchDarkly:
 
 ## Workflow
 
-Follow these steps in order. If any step fails, go to [Step 8: Recover](#step-8-recover).
+Follow these steps in order. If any step fails, go to [Step 10: Recover](#step-10-recover).
 
 ### Step 1: Detect Repository Stack
 
@@ -106,7 +106,32 @@ The MCP server enables richer agent-driven workflows like flag management, targe
 
 See [MCP Server Setup](references/1.7-mcp-setup.md) for detailed instructions.
 
-### Step 8: Recover
+### Step 8: Leave Behind a Setup Summary
+
+Generate a `LAUNCHDARKLY.md` document in the user's repository with:
+
+1. How LaunchDarkly was set up (SDK, package, init file, key configuration)
+2. Links to the project's flags dashboard, environments, and SDK docs
+3. Suggested next steps: percentage rollouts, targeting rules, experimentation, AI configs, guarded rollouts, observability
+4. Useful `ldcli` commands for flag management
+
+This gives the user and their team a permanent reference. Ask the user for permission before committing it.
+
+See [Onboarding Summary](references/1.8-summary.md) for the template and detailed instructions.
+
+### Step 9: Install Editor Rules for Flag Management
+
+Leave behind editor-specific rules so the user's AI agent knows how to work with LaunchDarkly going forward.
+
+1. Detect which editor the user is using (Cursor, Claude Code, GitHub Copilot, etc.)
+2. Create the appropriate rules file with LaunchDarkly best practices and flag management skills
+3. Ask the user for permission before committing
+
+The rules cover: when to use flags, how to evaluate them, SDK key safety, flag hygiene, and links to documentation.
+
+See [Editor Rules and Skills](references/1.9-editor-rules.md) for editor-specific templates.
+
+### Step 10: Recover
 
 If any step fails, diagnose the issue and resume.
 
@@ -144,4 +169,6 @@ See [Recovery Procedures](references/1.6-recover.md) for detailed instructions.
 - [Create First Feature Flag](references/1.5-first-flag.md) — How to create, evaluate, and toggle a flag
 - [Recovery Procedures](references/1.6-recover.md) — How to diagnose failures and resume
 - [MCP Server Setup](references/1.7-mcp-setup.md) — How to install the LaunchDarkly MCP server
+- [Onboarding Summary](references/1.8-summary.md) — Template for the setup reference document
+- [Editor Rules and Skills](references/1.9-editor-rules.md) — Editor-specific rules for ongoing flag management
 - [SDK Recipes](references/sdk-recipes.md) — Detection patterns, install commands, and init snippets for all SDKs
