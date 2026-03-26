@@ -14,7 +14,8 @@
     "setup",
     "mcp"
   ],
-  "requirements": {
+  "requirements": {},
+  "optional": {
     "mcp-servers": ["@launchdarkly/mcp-server"]
   }
 }

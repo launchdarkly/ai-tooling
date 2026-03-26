@@ -12,11 +12,17 @@ metadata:
 
 You're using a skill that will guide you through adding LaunchDarkly to a project. Your job is to detect the tech stack, choose the right SDK, install and initialize it, validate the connection, and help the user create their first feature flag.
 
-## Prerequisites
+## Account and Credentials
 
-- A LaunchDarkly account with an API access token (or SDK key)
-- A project and environment configured in LaunchDarkly
-- Access to the user's codebase (read and write)
+Before starting the SDK integration, ensure the user has access to LaunchDarkly:
+
+1. **Check for existing credentials**: Ask the user if they have a LaunchDarkly access token or SDK key.
+2. **If the user has an account**: Use the LaunchDarkly API (`GET /api/v2/projects/PROJECT_KEY`) or `ldcli` to retrieve the project, environment, and SDK key automatically. Ask the user for permission before reading the SDK key.
+3. **If the user does NOT have an account**: Prompt them to sign up at https://launchdarkly.com or log in via `ldcli login`. Guide them through creating their first project and environment if needed.
+4. **SDK key types**: The project response will contain the keys you need. Use the correct key type for the SDK:
+   - **SDK Key** for server-side SDKs
+   - **Client-side ID** for client-side/browser SDKs
+   - **Mobile Key** for mobile SDKs
 
 ## Core Principles
 
@@ -27,7 +33,7 @@ You're using a skill that will guide you through adding LaunchDarkly to a projec
 
 ## Workflow
 
-Follow these steps in order. If any step fails, go to [Step 7: Recover](#step-7-recover).
+Follow these steps in order. If any step fails, go to [Step 8: Recover](#step-8-recover).
 
 ### Step 1: Detect Repository Stack
 
@@ -88,7 +94,19 @@ Help the user create and evaluate a feature flag.
 
 See [Create First Feature Flag](references/1.5-first-flag.md) for detailed instructions.
 
-### Step 7: Recover
+### Step 7: Offer MCP Server Installation
+
+After the SDK is working and the first flag is toggled, check if the LaunchDarkly MCP server is installed in the user's environment.
+
+1. Check if `@launchdarkly/mcp-server` is configured in the user's MCP settings
+2. If not installed, ask the user if they want to set it up
+3. If yes, guide them through installation and configuration
+
+The MCP server enables richer agent-driven workflows like flag management, targeting rules, and experimentation — all without leaving the editor.
+
+See [MCP Server Setup](references/1.7-mcp-setup.md) for detailed instructions.
+
+### Step 8: Recover
 
 If any step fails, diagnose the issue and resume.
 
@@ -105,7 +123,7 @@ See [Recovery Procedures](references/1.6-recover.md) for detailed instructions.
 | SDK already installed | Skip to Step 4 (Run) or Step 5 (Validate) |
 | Multiple languages in repo | Ask the user which target to integrate first (frontend vs backend vs mobile) |
 | Monorepo | Identify the specific package/service to integrate and work within that subtree |
-| No package manager detected | Provide manual install instructions from the SDK recipe |
+| No package manager detected | Ask the user which SDK they want to install and provide manual install instructions |
 | Application won't start | Use the recover step to diagnose; don't block on run if the user confirms the app runs separately |
 
 ## What NOT to Do
@@ -125,4 +143,5 @@ See [Recovery Procedures](references/1.6-recover.md) for detailed instructions.
 - [Validate SDK Connection](references/1.4-validate.md) — How to verify LaunchDarkly sees the SDK
 - [Create First Feature Flag](references/1.5-first-flag.md) — How to create, evaluate, and toggle a flag
 - [Recovery Procedures](references/1.6-recover.md) — How to diagnose failures and resume
+- [MCP Server Setup](references/1.7-mcp-setup.md) — How to install the LaunchDarkly MCP server
 - [SDK Recipes](references/sdk-recipes.md) — Detection patterns, install commands, and init snippets for all SDKs

@@ -7,6 +7,10 @@ description: Detection patterns, install commands, import statements, and initia
 
 Use this reference to match a detected tech stack to the correct LaunchDarkly SDK. Each recipe includes detection patterns, install commands, and initialization code.
 
+> **Canonical source**: The `ldcli` CLI contains per-SDK instruction files at
+> [`internal/sdks/sdk_instructions/`](https://github.com/launchdarkly/ldcli/tree/main/internal/sdks/sdk_instructions).
+> If a recipe below seems outdated, cross-reference those files or run `ldcli setup` for the latest guidance.
+
 ## Server-Side SDKs
 
 Server-side SDKs use an **SDK Key** and are designed for backend services where the key can be kept secret.
@@ -208,6 +212,39 @@ Context = ldclient_context:new(<<"user-key-123">>),
 FlagValue = ldclient:variation(<<"flag-key">>, Context, false).
 ```
 
+### Haskell (Server)
+
+| Field | Value |
+|-------|-------|
+| Package | `launchdarkly-server-sdk` |
+| Detect files | `*.cabal`, `stack.yaml`, `package.yaml` |
+| Detect patterns | `haskell`, `cabal`, `stack` |
+| Install | Add `launchdarkly-server-sdk` to your `.cabal` file or `package.yaml` |
+
+Refer to the [Haskell SDK docs](https://launchdarkly.com/docs/sdk/server-side/haskell) and the [`ldcli` Haskell instructions](https://github.com/launchdarkly/ldcli/blob/main/internal/sdks/sdk_instructions/haskell-server-sdk.md) for initialization code.
+
+### Lua (Server)
+
+| Field | Value |
+|-------|-------|
+| Package | `launchdarkly-server-sdk` |
+| Detect files | `*.lua`, `*.rockspec` |
+| Detect patterns | `lua`, `luarocks` |
+| Install | `luarocks install launchdarkly-server-sdk` |
+
+Refer to the [Lua SDK docs](https://launchdarkly.com/docs/sdk/server-side/lua) and the [`ldcli` Lua instructions](https://github.com/launchdarkly/ldcli/blob/main/internal/sdks/sdk_instructions/lua-server-sdk.md) for initialization code.
+
+### C++ (Server)
+
+| Field | Value |
+|-------|-------|
+| Package | `launchdarkly-cpp-server` |
+| Detect files | `CMakeLists.txt`, `Makefile`, `*.cpp`, `*.h` |
+| Detect patterns | `cmake`, `#include`, server-side C++ patterns |
+| Install | Use CMake `FetchContent` or vcpkg to add the SDK |
+
+Refer to the [C/C++ server SDK docs](https://launchdarkly.com/docs/sdk/server-side/c-c--) and the [`ldcli` C++ server instructions](https://github.com/launchdarkly/ldcli/blob/main/internal/sdks/sdk_instructions/cpp-server-sdk.md) for initialization code.
+
 ---
 
 ## Client-Side SDKs
@@ -280,6 +317,51 @@ await client.waitForInitialization();
 // Evaluate
 const flagValue = client.variation('flag-key', false);
 ```
+
+### .NET (Client)
+
+| Field | Value |
+|-------|-------|
+| Package | `LaunchDarkly.ClientSdk` |
+| Detect files | `*.csproj`, `*.sln` |
+| Detect patterns | `Xamarin`, `MAUI`, `WPF`, `UWP`, `Avalonia` |
+| Install | `dotnet add package LaunchDarkly.ClientSdk` |
+
+```csharp
+// Import
+using LaunchDarkly.Sdk;
+using LaunchDarkly.Sdk.Client;
+
+// Initialize
+var config = Configuration.Builder("YOUR_MOBILE_KEY").Build();
+var context = Context.Builder("user-key-123").Name("User").Build();
+var client = LdClient.Init(config, context, TimeSpan.FromSeconds(5));
+
+// Evaluate
+var flagValue = client.BoolVariation("flag-key", false);
+```
+
+### C++ (Client)
+
+| Field | Value |
+|-------|-------|
+| Package | `launchdarkly-cpp-client` |
+| Detect files | `CMakeLists.txt`, `Makefile`, `*.cpp`, `*.h` |
+| Detect patterns | `cmake`, `#include`, client-side/desktop C++ patterns |
+| Install | Use CMake `FetchContent` or vcpkg to add the SDK |
+
+Refer to the [C/C++ client SDK docs](https://launchdarkly.com/docs/sdk/client-side/c-c--) and the [`ldcli` C++ client instructions](https://github.com/launchdarkly/ldcli/blob/main/internal/sdks/sdk_instructions/cpp-client-sdk.md) for initialization code.
+
+### Roku (BrightScript)
+
+| Field | Value |
+|-------|-------|
+| Package | `LaunchDarkly Roku SDK` |
+| Detect files | `manifest`, `*.brs`, `*.xml` (SceneGraph) |
+| Detect patterns | `brightscript`, `roku`, `SceneGraph` |
+| Install | Download the SDK and add to your Roku project components |
+
+Refer to the [Roku SDK docs](https://launchdarkly.com/docs/sdk/client-side/roku) and the [`ldcli` Roku instructions](https://github.com/launchdarkly/ldcli/blob/main/internal/sdks/sdk_instructions/roku.md) for initialization code.
 
 ### Node.js (Client / Electron)
 
@@ -399,3 +481,20 @@ import { LDProvider, useFlags } from '@launchdarkly/react-native-client-sdk';
 // Evaluate (in component)
 const { myFlagKey } = useFlags();
 ```
+
+---
+
+## Edge SDKs
+
+Edge SDKs are designed for edge computing platforms. They use an **SDK Key**.
+
+For edge SDK setup instructions, refer to:
+- [Cloudflare SDK](https://launchdarkly.com/docs/sdk/edge/cloudflare)
+- [Vercel SDK](https://launchdarkly.com/docs/sdk/edge/vercel)
+- [Akamai SDK](https://launchdarkly.com/docs/sdk/edge/akamai)
+
+| Platform | Detect Pattern | Reference |
+|----------|---------------|-----------|
+| Cloudflare Workers | `wrangler.toml`, `@cloudflare/workers-types` | [Cloudflare SDK docs](https://launchdarkly.com/docs/sdk/edge/cloudflare) |
+| Vercel Edge | `vercel.json` with edge functions, `@vercel/edge` | [Vercel SDK docs](https://launchdarkly.com/docs/sdk/edge/vercel) |
+| Akamai EdgeWorkers | `bundle.json`, `edgeworkers` | [Akamai SDK docs](https://launchdarkly.com/docs/sdk/edge/akamai) |
