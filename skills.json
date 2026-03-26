@@ -55,6 +55,24 @@
       ]
     },
     {
+      "name": "launchdarkly-flag-command",
+      "description": "Resolve `/flag` style requests into the right LaunchDarkly flag lookup flow. Use when the user types `/flag`, asks to quickly find a flag by name/key, wants a direct flag detail summary, or needs fast disambiguation between similar flags.",
+      "path": "skills/feature-flags/launchdarkly-flag-command",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "feature-flags",
+        "feature-management",
+        "discovery",
+        "command",
+        "slash-command",
+        "inventory",
+        "mcp"
+      ]
+    },
+    {
       "name": "launchdarkly-flag-create",
       "description": "Create and configure LaunchDarkly feature flags in a way that fits the existing codebase. Use when the user wants to create a new flag, wrap code in a flag, add a feature toggle, or set up an experiment. Guides exploration of existing patterns before creating.",
       "path": "skills/feature-flags/launchdarkly-flag-create",
