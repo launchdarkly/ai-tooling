@@ -17,6 +17,12 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `feature-flags/launchdarkly-flag-targeting` | Control targeting, rollouts, rules, and cross-environment config |
 | `feature-flags/launchdarkly-flag-cleanup` | Safely remove flags from code using LaunchDarkly as the source of truth |
 
+### Onboarding
+
+| Skill | Description |
+|-------|-------------|
+| `onboarding/launchdarkly-sdk-onboarding` | Detect tech stack, install the right SDK, validate the connection, and create a first feature flag |
+
 ### AI Configs
 
 | Skill | Description |
@@ -68,6 +74,10 @@ Roll out dark-mode to 25% of users in production
 
 ```
 Remove the `new-checkout-flow` feature flag from this codebase
+```
+
+```
+Onboard me to LaunchDarkly — set up the SDK in this project
 ```
 
 ## Install via skills.sh CLI

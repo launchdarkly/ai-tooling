@@ -1,0 +1,20 @@
+{
+  "name": "launchdarkly-sdk-onboarding",
+  "description": "Onboard a project to LaunchDarkly by detecting the tech stack, installing the right SDK, and validating the connection",
+  "version": "0.1.0",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/agent-skills",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "onboarding",
+    "sdk-integration",
+    "feature-flags",
+    "getting-started",
+    "setup",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}
