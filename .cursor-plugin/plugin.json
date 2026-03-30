@@ -1,6 +1,6 @@
 {
   "name": "launchdarkly",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "LaunchDarkly agent skills and mcp server for feature flag management, AI configuration, and skill authoring",
   "author": {
     "name": "LaunchDarkly",

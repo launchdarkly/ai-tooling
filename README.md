@@ -27,12 +27,6 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `ai-configs/aiconfig-tools` | Create and attach tools for function calling |
 | `ai-configs/aiconfig-projects` | Create and manage projects to organize AI Configs |
 
-### Skill Authoring
-
-| Skill | Description |
-|-------|-------------|
-| `skill-authoring/create-skill` | Add a new skill following conventions — explore existing skills, create with workflow pattern, verify with validation scripts |
-
 ## Install as a Cursor Plugin
 
 This repo is a [Cursor plugin](https://cursor.com/docs/plugins/building). Installing it gives you all the skills above plus the LaunchDarkly MCP server, so the agent can read and modify your flags directly.
