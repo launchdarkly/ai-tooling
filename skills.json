@@ -8,11 +8,25 @@
       "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission or LaunchDarkly MCP server."
     },
     {
+      "name": "aiconfig-online-evals",
+      "description": "Attach judges to AI Config variations for automatic LLM-as-a-judge evaluation. Create custom judges, configure sampling rates, and monitor quality scores.",
+      "path": "skills/ai-configs/aiconfig-online-evals",
+      "version": "0.1.0",
+      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.14.0+ or Node.js v0.16.1+ for automatic metric recording."
+    },
+    {
       "name": "aiconfig-projects",
       "description": "Guide for setting up LaunchDarkly projects in your codebase. Helps you assess your stack, choose the right approach, and integrate project management that makes sense for your architecture.",
       "path": "skills/ai-configs/aiconfig-projects",
       "version": "0.4.0",
       "compatibility": "Requires LaunchDarkly API access token with projects:write permission or LaunchDarkly MCP server."
+    },
+    {
+      "name": "aiconfig-targeting",
+      "description": "Configure AI Config targeting rules to control which variations serve to different users. Enable percentage rollouts, attribute-based rules, segment targeting, and guarded rollouts.",
+      "path": "skills/ai-configs/aiconfig-targeting",
+      "version": "0.1.0",
+      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission."
     },
     {
       "name": "aiconfig-tools",
@@ -36,12 +50,59 @@
       "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission."
     },
     {
-      "name": "create-skill",
-      "description": "Add a new skill to the LaunchDarkly agent-skills repo. Use when creating a new SKILL.md, adding a skill to the catalog, or aligning with repo conventions. Guides exploration of existing skills before creating.",
-      "path": "skills/skill-authoring/create-skill",
-      "version": "0.2.0",
+      "name": "launchdarkly-metric-choose",
+      "description": "Choose the right metrics for a LaunchDarkly experiment, guarded rollout, or release policy. Use when the user wants to know which metrics to use, which is the primary metric for an experiment, what guardrails to add, or which events to monitor in a rollout. Produces a ready-to-use recommendation before the user sets up the experiment or rollout.",
+      "path": "skills/metrics/launchdarkly-metric-choose",
+      "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Works in repositories following the Agent Skills open standard"
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "metrics",
+        "experimentation",
+        "guarded-rollout",
+        "release-policy",
+        "metric-selection",
+        "feature-management",
+        "mcp"
+      ]
+    },
+    {
+      "name": "launchdarkly-metric-instrument",
+      "description": "Instrument a LaunchDarkly metric event in a codebase by adding a track() call. Use when the user wants to wire up an event, instrument an action for a metric, add tracking to a feature, or confirm that an event is flowing to LaunchDarkly.",
+      "path": "skills/metrics/launchdarkly-metric-instrument",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "metrics",
+        "experimentation",
+        "instrumentation",
+        "events",
+        "track",
+        "sdk",
+        "feature-management",
+        "mcp"
+      ]
+    },
+    {
+      "name": "launchdarkly-metric-create",
+      "description": "Create a LaunchDarkly metric that measures what matters for an experiment or rollout. Use when the user wants to create a metric, track an event, measure conversion, latency, error rate, or any custom numeric or binary outcome. Guides event discovery before creation and proposes config in plain language.",
+      "path": "skills/metrics/launchdarkly-metric-create",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "metrics",
+        "experimentation",
+        "metric-creation",
+        "events",
+        "conversion",
+        "feature-management",
+        "mcp"
+      ]
     },
     {
       "name": "launchdarkly-flag-cleanup",
