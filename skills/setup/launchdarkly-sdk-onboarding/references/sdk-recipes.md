@@ -29,21 +29,23 @@ These are the most common stacks—check here first before scanning less common 
 
 **SDK detail:** [`sdk-snippets/react-web-sdk.md`](sdk-snippets/react-web-sdk.md) (includes onboarding sample)
 
+**API:** Prefer **`asyncWithLDProvider`** with **`timeout`** (seconds; recommend **1–5**) so the app renders after the JS client initializes; alternatively **`withLDProvider`** if you initialize after mount. See [Initialize the client](https://launchdarkly.com/docs/sdk/client-side/react/react-web).
+
 **Next.js:** If `next` is present, this **client** recipe covers browser/client-component flows; server routes and Server Components usually also need **[Node.js (Server)](#nodejs-server)** and an **SDK key** there—see the **Next.js** note under that recipe and [Generate Integration Plan](1.1-plan.md).
 
 ### JavaScript (Browser)
 
 | Field | Value |
 |-------|-------|
-| Package | `launchdarkly-js-client-sdk` |
+| Package | `@launchdarkly/js-client-sdk` |
 | Detect files | `package.json`, `index.html` |
 | Detect patterns | `webpack`, `vite`, `parcel`, `rollup`; use when not using React / Vue wrappers |
-| Install | `npm install launchdarkly-js-client-sdk` |
+| Install | `npm install @launchdarkly/js-client-sdk` |
 | Docs | [JavaScript SDK reference](https://launchdarkly.com/docs/sdk/client-side/javascript) |
 
 **SDK detail:** [`sdk-snippets/javascript-browser-sdk.md`](sdk-snippets/javascript-browser-sdk.md) (includes onboarding sample)
 
-**API vs. other SDKs:** `launchdarkly-js-client-sdk` is correct on npm. The browser client is created with **`initialize()`** (returns `LDClient`)—see the [generated API docs](https://launchdarkly.github.io/js-client-sdk/). There is no `createClient` export on this package; if a snippet or tutorial uses `createClient`, it is wrong or meant for a different SDK—match **Docs** + the snippet file, not random samples.
+**API vs. other SDKs:** The current browser package is **`@launchdarkly/js-client-sdk`**: **`createClient`**, **`start()`**, then **`waitForInitialization({ timeout })`** (check `result.status`). See the [browser SDK API docs](https://launchdarkly.github.io/js-core/packages/sdk/browser/docs/). The legacy npm name `launchdarkly-js-client-sdk` (v3) used **`initialize()`** without `start()`—do not mix that flow with v4.
 
 ### Node.js (Server)
 
@@ -63,13 +65,15 @@ These are the most common stacks—check here first before scanning less common 
 
 | Field | Value |
 |-------|-------|
-| Package | `launchdarkly-server-sdk` |
+| Package | `launchdarkly-server-sdk` ([PyPI](https://pypi.org/project/launchdarkly-server-sdk/)) |
 | Detect files | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` |
 | Detect patterns | `flask`, `django`, `fastapi`, `starlette` |
-| Install | `pip install launchdarkly-server-sdk` |
+| Install | `pip install launchdarkly-server-sdk` — optional: `pip install launchdarkly-observability` (requires SDK **9.12+**; see [Install the SDK](https://launchdarkly.com/docs/sdk/server-side/python#install-the-sdk)) |
 | Docs | [Python SDK reference](https://launchdarkly.com/docs/sdk/server-side/python) |
 
 **SDK detail:** [`sdk-snippets/python-server-sdk.md`](sdk-snippets/python-server-sdk.md) (includes onboarding sample)
+
+**API:** **`ldclient.set_config(Config(sdk_key))`** then **`client = ldclient.get()`** (singleton). Optional **`plugins=[ObservabilityPlugin()]`** on **`Config`** with **`launchdarkly-observability`**. Forked workers: **`postfork()`**. See [Initialize the client](https://launchdarkly.com/docs/sdk/server-side/python#initialize-the-client).
 
 ### React Native
 
@@ -83,17 +87,21 @@ These are the most common stacks—check here first before scanning less common 
 
 **SDK detail:** [`sdk-snippets/react-native-sdk.md`](sdk-snippets/react-native-sdk.md) (includes onboarding sample)
 
+**API:** **`@launchdarkly/react-native-client-sdk` v10** — **`ReactNativeLDClient`** (mobile key) + **`LDProvider`** + **`identify(context)`** on mount. Non-Expo: add **`@react-native-async-storage/async-storage`** and **`npx pod-install`**. See [React Native SDK reference](https://launchdarkly.com/docs/sdk/client-side/react/react-native).
+
 ### .NET (Server)
 
 | Field | Value |
 |-------|-------|
-| Package | `LaunchDarkly.ServerSdk` |
+| Package | `LaunchDarkly.ServerSdk` ([NuGet](https://www.nuget.org/packages/LaunchDarkly.ServerSdk/)) |
 | Detect files | `*.csproj`, `*.sln`, `*.fsproj` (look for `BlazorWebAssembly`, `blazorwasm`, `UseBlazorWebAssembly`, `blazorserver`, or `Microsoft.AspNetCore.Components` / `Blazor` in the project) |
 | Detect patterns | `Microsoft.AspNetCore`, `Microsoft.NET`, `Blazor`, `blazor`, `blazorserver` (host/server UI—**not** WASM-only client projects) |
-| Install | `dotnet add package LaunchDarkly.ServerSdk` |
+| Install | `dotnet add package LaunchDarkly.ServerSdk` — optional: `dotnet add package LaunchDarkly.Observability` (requires server SDK **8.10+**; see [Install the SDK](https://launchdarkly.com/docs/sdk/server-side/dotnet#install-the-sdk)) |
 | Docs | [.NET SDK reference (server-side)](https://launchdarkly.com/docs/sdk/server-side/dotnet) |
 
 **SDK detail:** [`sdk-snippets/dotnet-server-sdk.md`](sdk-snippets/dotnet-server-sdk.md) (includes onboarding sample)
+
+**API (current docs):** **`LaunchDarkly.Sdk`** / **`LaunchDarkly.Sdk.Server`** — build config with **`Configuration.Builder(sdkKey).StartWaitTime(...).Build()`**, then **`new LdClient(config)`** before **`WebApplication.CreateBuilder` → `Build()`**. Prefer **`LdClient`** as a **singleton** in DI for real services. See [Initialize the client](https://launchdarkly.com/docs/sdk/server-side/dotnet#initialize-the-client).
 
 **Blazor:** **Blazor Server** (and other server-hosted Blazor where .NET runs on the server) → this **server-side** SDK and an **SDK key**. **Blazor WebAssembly** runs in the browser → use **[.NET (Client)](#net-client)** (`LaunchDarkly.ClientSdk`, **Client-side ID**). Inspect `.csproj` / SDK props: WASM projects typically use the Blazor WebAssembly workload or `blazorwasm` / `UseBlazorWebAssembly`; do **not** treat those as server-only.
 
@@ -101,13 +109,17 @@ These are the most common stacks—check here first before scanning less common 
 
 | Field | Value |
 |-------|-------|
-| Package | `com.launchdarkly:launchdarkly-java-server-sdk` |
+| Package | `com.launchdarkly:launchdarkly-java-server-sdk` ([Maven Central](https://mvnrepository.com/artifact/com.launchdarkly/launchdarkly-java-server-sdk)) |
 | Detect files | `pom.xml`, `build.gradle`, `build.gradle.kts`, `*.kt` (JVM services—see note below) |
 | Detect patterns | `spring`, `quarkus`, `micronaut`, `dropwizard`, `kotlin`, `ktor`, `org.jetbrains.kotlin` |
-| Install | **Gradle:** `implementation 'com.launchdarkly:launchdarkly-java-server-sdk:7.+'` — **Maven:** dependency `com.launchdarkly:launchdarkly-java-server-sdk` with a `7.x` version (or BOM) per **Docs** |
+| Install | **Maven** (`pom.xml`) and **Gradle** (Groovy / Kotlin DSL)—see **Install (Maven and Gradle)** below; pin `version` from [SDK releases](https://github.com/launchdarkly/java-core/releases) |
 | Docs | [Java SDK reference](https://launchdarkly.com/docs/sdk/server-side/java) |
 
 **SDK detail:** [`sdk-snippets/java-server-sdk.md`](sdk-snippets/java-server-sdk.md) (includes onboarding sample)
+
+**Install (Maven and Gradle):** [Install the SDK](https://launchdarkly.com/docs/sdk/server-side/java#install-the-sdk) shows **XML** for Maven and **Gradle** coordinates. Match your build file (`pom.xml`, `build.gradle`, or `build.gradle.kts`). Example Gradle shortcut: `implementation 'com.launchdarkly:launchdarkly-java-server-sdk:7.+'` or `implementation("com.launchdarkly:launchdarkly-java-server-sdk:7.+")`.
+
+**API:** **`import com.launchdarkly.sdk.*`** / **`com.launchdarkly.sdk.server.*`** — **`new LDClient(sdkKey)`** (default startup wait), **`isInitialized()`**. See [Initialize the client](https://launchdarkly.com/docs/sdk/server-side/java#initialize-the-client).
 
 **Kotlin (JVM) backends:** For **Ktor**, **Spring Boot + Kotlin**, or other **server-side Kotlin on the JVM**, use this **Java server SDK** (`launchdarkly-java-server-sdk`) from Kotlin code—LaunchDarkly does not ship a separate Kotlin server artifact. `build.gradle.kts` plus `.kt` sources without Android-only signals should still match here. **Android** apps (Kotlin or Java) that talk to LaunchDarkly from the device use the **[Android](#android)** client SDK recipe, not this server SDK.
 
@@ -127,13 +139,15 @@ These are the most common stacks—check here first before scanning less common 
 
 | Field | Value |
 |-------|-------|
-| Package | `LaunchDarkly` (Swift Package Manager or CocoaPods) |
-| Detect files | `Package.swift`, `Podfile`, `*.xcodeproj` |
+| Package | `LaunchDarkly` ([CocoaPods](https://cocoapods.org/pods/LaunchDarkly); SPM / Carthage via GitHub) |
+| Detect files | `Package.swift`, `Podfile`, `Cartfile`, `*.xcodeproj` |
 | Detect patterns | `UIKit`, `SwiftUI`, `ios` |
-| Install | **Swift Package Manager:** Xcode **File → Add Package Dependencies** (use the package URL from **Docs**). **CocoaPods:** `pod 'LaunchDarkly'` in the `Podfile`, then `pod install` |
-| Docs | [iOS SDK reference](https://launchdarkly.com/docs/sdk/client-side/ios) |
+| Install | **SPM**, **CocoaPods**, or **Carthage** — see [Install the SDK](https://launchdarkly.com/docs/sdk/client-side/ios#install-the-sdk) and [`ios-client-sdk.md`](sdk-snippets/ios-client-sdk.md); pin versions from [SDK releases](https://github.com/launchdarkly/ios-client-sdk/releases) |
+| Docs | [iOS SDK reference](https://launchdarkly.com/docs/sdk/client-side/ios) · [Set up iOS SDK](https://launchdarkly.com/docs/home/onboarding/ios) (onboarding) |
 
 **SDK detail:** [`sdk-snippets/ios-client-sdk.md`](sdk-snippets/ios-client-sdk.md) (includes onboarding sample)
+
+**API:** **`LDConfig(mobileKey:autoEnvAttributes:)`**, **`LDContextBuilder`**, **`LDClient.start(…, startWaitSeconds:completion:)`** — see [Initialize the client](https://launchdarkly.com/docs/sdk/client-side/ios#initialize-the-client). Optional **`LaunchDarklyObservability`** (v9.14+).
 
 ### Android
 
@@ -142,8 +156,13 @@ These are the most common stacks—check here first before scanning less common 
 | Package | `com.launchdarkly:launchdarkly-android-client-sdk` |
 | Detect files | `build.gradle`, `build.gradle.kts`, `AndroidManifest.xml` |
 | Detect patterns | `android`, `com.android`, `androidx` |
-| Install | App module `build.gradle` / `build.gradle.kts`: `implementation 'com.launchdarkly:launchdarkly-android-client-sdk:5.+'` |
+| Install | See **Install (two Gradle DSLs)** below — same artifact, different syntax for Groovy vs Kotlin DSL |
 | Docs | [Android SDK reference](https://launchdarkly.com/docs/sdk/client-side/android) |
+
+**Install (two Gradle DSLs):** The [Install the SDK](https://launchdarkly.com/docs/sdk/client-side/android#install-the-sdk) topic shows **both** forms. Use the one that matches the app module file you have:
+
+- **Gradle Groovy** (`build.gradle`): `implementation 'com.launchdarkly:launchdarkly-android-client-sdk:5.+'`
+- **Gradle Kotlin DSL** (`build.gradle.kts`): `implementation("com.launchdarkly:launchdarkly-android-client-sdk:5.+")`
 
 **SDK detail:** [`sdk-snippets/android-client-sdk.md`](sdk-snippets/android-client-sdk.md) (includes onboarding sample)
 
@@ -275,15 +294,15 @@ Client-side SDKs use a **Client-side ID** for browser and desktop clients where 
 
 | Field | Value |
 |-------|-------|
-| Package | `launchdarkly-js-client-sdk` |
+| Package | `@launchdarkly/js-client-sdk` |
 | Detect files | `package.json`, `angular.json`, `svelte.config.js` |
 | Detect patterns | `@angular`, `svelte`, `preact` |
-| Install | `npm install launchdarkly-js-client-sdk` |
+| Install | `npm install @launchdarkly/js-client-sdk` |
 | Docs | [JavaScript SDK reference](https://launchdarkly.com/docs/sdk/client-side/javascript) (no dedicated SDK; use the JS client) |
 
 **SDK detail:** [`sdk-snippets/browser-frameworks-sdk.md`](sdk-snippets/browser-frameworks-sdk.md)
 
-**API:** Same npm package and **`initialize()`** / `LDClient` API as [JavaScript (Browser)](#javascript-browser)—not `createClient`. Prefer [`javascript-browser-sdk.md`](sdk-snippets/javascript-browser-sdk.md) for a copy-paste sample.
+**API:** Same package and **`createClient`** / **`start()`** / **`waitForInitialization`** flow as [JavaScript (Browser)](#javascript-browser). Prefer [`javascript-browser-sdk.md`](sdk-snippets/javascript-browser-sdk.md) for a copy-paste sample.
 
 ### .NET (Client)
 
