@@ -77,7 +77,7 @@ Install the SDK, add initialization code, and confirm the app still starts.
 1. Install the SDK package using the project's package manager
 2. Add SDK initialization code to the application entrypoint
 3. Configure the SDK key via environment variables
-4. Start the application using its standard run command; confirm there are no import or initialization errors and look for SDK initialization success in logs
+4. Start the application (you run it when possible, otherwise give the user the exact command) and **do not** continue to validation until startup is confirmed—explicit user confirmation when they run it locally; see [Start the Application](references/1.3-run.md) Step 4
 
 See [Apply Code Changes](references/1.2-apply.md) and [Start the Application](references/1.3-run.md) for detailed instructions.
 
@@ -85,8 +85,8 @@ See [Apply Code Changes](references/1.2-apply.md) and [Start the Application](re
 
 Confirm that LaunchDarkly sees the SDK connection.
 
-1. Check the SDK is active using the LaunchDarkly API or MCP
-2. Verify the connection in the LaunchDarkly dashboard
+1. **Prefer `ldcli sdk-active` or the REST equivalent** (see the reference). That check does **not** require a feature flag to exist yet—Step 5 comes next on purpose.
+2. **Dashboard-only** validation is weak until a flag exists and is evaluated; the reference describes when to use a short **exception path** (create/evaluate a flag early) if API/CLI access is impossible.
 
 See [Validate SDK Connection](references/1.4-validate.md) for detailed instructions.
 
@@ -152,7 +152,7 @@ Do these as part of finishing onboarding—same session when possible. They are 
 - [Detect Repository Stack](references/1.0-detect.md) — How to identify language, framework, and existing SDK usage
 - [Generate Integration Plan](references/1.1-plan.md) — How to choose the right SDK and plan changes
 - [Apply Code Changes](references/1.2-apply.md) — How to install dependencies and add initialization code
-- [Start the Application](references/1.3-run.md) — How to run the app and confirm SDK initialization
+- [Start the Application](references/1.3-run.md) — How to run the app, when the user runs it instead, and **confirm** it is up before validation (no duplicate `sdk-active` here)
 - [Validate SDK Connection](references/1.4-validate.md) — How to verify LaunchDarkly sees the SDK
 - [Create First Feature Flag](references/1.5-first-flag.md) — How to create, evaluate, and toggle a flag
 - [Recovery Procedures](references/1.6-recover.md) — How to diagnose failures and resume
