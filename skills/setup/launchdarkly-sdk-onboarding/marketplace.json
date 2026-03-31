@@ -1,0 +1,17 @@
+{
+  "name": "launchdarkly-sdk-onboarding",
+  "description": "Onboard a codebase to LaunchDarkly: detect stack, install and initialize the SDK, validate connectivity, and create a first feature flag",
+  "version": "0.1.0",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/agent-skills",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "feature-flags",
+    "feature-management",
+    "sdk",
+    "onboarding",
+    "devops",
+    "mcp"
+  ]
+}

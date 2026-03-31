@@ -136,6 +136,7 @@
         "feature-flags",
         "feature-management",
         "sdk",
+        "onboarding",
         "devops",
         "mcp"
       ]
