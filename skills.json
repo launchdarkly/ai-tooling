@@ -123,6 +123,22 @@
         "devops",
         "mcp"
       ]
+    },
+    {
+      "name": "launchdarkly-sdk-onboarding",
+      "description": "Onboard a project to LaunchDarkly by detecting the tech stack, installing the right SDK, initializing it, validating the connection, and creating a first feature flag. Use when the user wants to add LaunchDarkly or feature flags to their project, integrate an SDK, or says 'onboard me'.",
+      "path": "skills/setup/launchdarkly-sdk-onboarding",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires LaunchDarkly API access token or SDK key. MCP server optional; without MCP, use ldcli and direct API calls (see Prerequisites).",
+      "tags": [
+        "launchdarkly",
+        "feature-flags",
+        "feature-management",
+        "sdk",
+        "devops",
+        "mcp"
+      ]
     }
   ]
 }
