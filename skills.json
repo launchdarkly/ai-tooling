@@ -50,61 +50,6 @@
       "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission."
     },
     {
-      "name": "launchdarkly-metric-choose",
-      "description": "Choose the right metrics for a LaunchDarkly experiment, guarded rollout, or release policy. Use when the user wants to know which metrics to use, which is the primary metric for an experiment, what guardrails to add, or which events to monitor in a rollout. Produces a ready-to-use recommendation before the user sets up the experiment or rollout.",
-      "path": "skills/metrics/launchdarkly-metric-choose",
-      "version": "1.0.0-experimental",
-      "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
-      "tags": [
-        "launchdarkly",
-        "metrics",
-        "experimentation",
-        "guarded-rollout",
-        "release-policy",
-        "metric-selection",
-        "feature-management",
-        "mcp"
-      ]
-    },
-    {
-      "name": "launchdarkly-metric-instrument",
-      "description": "Instrument a LaunchDarkly metric event in a codebase by adding a track() call. Use when the user wants to wire up an event, instrument an action for a metric, add tracking to a feature, or confirm that an event is flowing to LaunchDarkly.",
-      "path": "skills/metrics/launchdarkly-metric-instrument",
-      "version": "1.0.0-experimental",
-      "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
-      "tags": [
-        "launchdarkly",
-        "metrics",
-        "experimentation",
-        "instrumentation",
-        "events",
-        "track",
-        "sdk",
-        "feature-management",
-        "mcp"
-      ]
-    },
-    {
-      "name": "launchdarkly-metric-create",
-      "description": "Create a LaunchDarkly metric that measures what matters for an experiment or rollout. Use when the user wants to create a metric, track an event, measure conversion, latency, error rate, or any custom numeric or binary outcome. Guides event discovery before creation and proposes config in plain language.",
-      "path": "skills/metrics/launchdarkly-metric-create",
-      "version": "1.0.0-experimental",
-      "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
-      "tags": [
-        "launchdarkly",
-        "metrics",
-        "experimentation",
-        "metric-creation",
-        "events",
-        "conversion",
-        "feature-management",
-        "mcp"
-      ]
-    },
-    {
       "name": "launchdarkly-flag-cleanup",
       "description": "Safely remove a feature flag from code while preserving production behavior. Use when the user wants to remove a flag from code, delete flag references, or create a PR that hardcodes the winning variation after a rollout is complete.",
       "path": "skills/feature-flags/launchdarkly-flag-cleanup",
