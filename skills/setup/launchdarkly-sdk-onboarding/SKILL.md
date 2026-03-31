@@ -1,8 +1,8 @@
 ---
 name: launchdarkly-sdk-onboarding
-description: "Onboard a project to LaunchDarkly by detecting the tech stack, installing the right SDK, initializing it, validating the connection, and creating a first feature flag. Use when the user wants to add LaunchDarkly to their project, integrate an SDK, or says 'onboard me'."
+description: "Onboard a project to LaunchDarkly by detecting the tech stack, installing the right SDK, initializing it, validating the connection, and creating a first feature flag. Use when the user wants to add LaunchDarkly or feature flags to their project, integrate an SDK, or says 'onboard me'."
 license: Apache-2.0
-compatibility: Requires LaunchDarkly API access token. Prefer the LaunchDarkly MCP server when configured for flags and validation.
+compatibility: Requires LaunchDarkly API access token or SDK key. MCP server optional; without MCP, use ldcli and direct API calls (see Prerequisites).
 metadata:
   author: launchdarkly
   version: "0.1.0"
@@ -12,12 +12,25 @@ metadata:
 
 You're using a skill that will guide you through adding LaunchDarkly to a project. Your job is to detect the tech stack, choose the right SDK, install and initialize it, validate the connection, and help the user create their first feature flag.
 
+## Prerequisites
+
+MCP tools are **optional** for this skill—the workflow falls back to **ldcli** (the LaunchDarkly CLI) and **direct LaunchDarkly API** calls (`GET /api/v2/projects/{projectKey}`, environment endpoints, etc.) when MCP is unavailable.
+
+**Optional MCP tools (enhance onboarding when configured):**
+
+- `get-environments` — list environments for a project; use the response (and related project/environment APIs as needed) to obtain SDK keys, client-side IDs, or mobile keys without manual copy-paste when the tool exposes them.
+- `create-feature-flag` — create the boolean flag for [Step 5: Create Your First Feature Flag](#step-5-create-your-first-feature-flag). (Some setups or docs may label this capability `create-flag`; use the tool name your MCP server lists.)
+
+**Other MCP tools you may use if present** (not required): `list-feature-flags`, `get-feature-flag`, `get-flag-status-across-environments`—for confirmation and validation alongside the API or dashboard.
+
+Before starting, confirm the user can authenticate to LaunchDarkly (access token for API/MCP, or SDK keys they paste manually).
+
 ## Account and Credentials
 
 Before starting the SDK integration, ensure the user has access to LaunchDarkly:
 
 1. **Check for existing credentials**: Ask the user if they have a LaunchDarkly access token or SDK key.
-2. **If the user has an account**: Use the LaunchDarkly API (`GET /api/v2/projects/PROJECT_KEY`) or `ldcli` to retrieve the project, environment, and SDK key automatically. Ask the user for permission before reading the SDK key.
+2. **If the user has an account**: Use the LaunchDarkly API (`GET /api/v2/projects/PROJECT_KEY`) or **ldcli** (the LaunchDarkly CLI) to retrieve the project, environment, and SDK key automatically. Ask the user for permission before reading the SDK key.
 3. **If the user does NOT have an account**: Prompt them to sign up at https://launchdarkly.com or log in via `ldcli login`. Guide them through creating their first project and environment if needed.
 4. **SDK key types**: The project response will contain the keys you need. Use the correct key type for the SDK:
    - **SDK Key** for server-side SDKs
@@ -33,7 +46,7 @@ Before starting the SDK integration, ensure the user has access to LaunchDarkly:
 
 ## Workflow
 
-Follow and enumerate **Steps 1-6** in order for the SDK integration and first flag. If any step fails, go to [Step 7: Recover](#step-7-recover).
+Follow and enumerate **Steps 1-5** in order for the SDK integration and first flag. If any step fails, go to [Step 6: Recover](#step-6-recover).
 
 MCP setup, `LAUNCHDARKLY.md`, and editor rules are **not** listed below as steps—they are covered in [Default follow-through](#default-follow-through-not-numbered-steps).
 
@@ -57,27 +70,18 @@ Based on what you found, choose the correct SDK and plan the integration.
 
 See [Generate Integration Plan](references/1.1-plan.md) for detailed instructions.
 
-### Step 3: Install Dependencies and Apply Code
+### Step 3: Install, Apply Code, and Run
 
-Install the SDK and add initialization code to the project.
+Install the SDK, add initialization code, and confirm the app still starts.
 
 1. Install the SDK package using the project's package manager
 2. Add SDK initialization code to the application entrypoint
 3. Configure the SDK key via environment variables
+4. Start the application using its standard run command; confirm there are no import or initialization errors and look for SDK initialization success in logs
 
-See [Apply Code Changes](references/1.2-apply.md) for detailed instructions.
+See [Apply Code Changes](references/1.2-apply.md) and [Start the Application](references/1.3-run.md) for detailed instructions.
 
-### Step 4: Start the Application
-
-Verify the application runs with the SDK integrated.
-
-1. Start the application using its standard run command
-2. Confirm there are no import or initialization errors
-3. Look for SDK initialization success in logs
-
-See [Start the Application](references/1.3-run.md) for detailed instructions.
-
-### Step 5: Validate SDK Connection
+### Step 4: Validate SDK Connection
 
 Confirm that LaunchDarkly sees the SDK connection.
 
@@ -86,7 +90,7 @@ Confirm that LaunchDarkly sees the SDK connection.
 
 See [Validate SDK Connection](references/1.4-validate.md) for detailed instructions.
 
-### Step 6: Create Your First Feature Flag
+### Step 5: Create Your First Feature Flag
 
 Help the user create and evaluate a feature flag.
 
@@ -96,7 +100,7 @@ Help the user create and evaluate a feature flag.
 
 See [Create First Feature Flag](references/1.5-first-flag.md) for detailed instructions.
 
-### Step 7: Recover
+### Step 6: Recover
 
 If any step fails, diagnose the issue and resume.
 
@@ -112,8 +116,8 @@ Do these as part of finishing onboarding—same session when possible. They are 
 
 **LaunchDarkly MCP**
 
-- Use MCP tools whenever they are available (flags, environments, validation).
-- If the MCP server is not configured, briefly offer optional setup; do **not** block completion of Steps 1–6 on it. See [MCP Server Setup](references/1.7-mcp-setup.md).
+- Use MCP tools whenever they are available (see [Prerequisites](#prerequisites)); prefer them for environments and flag creation when configured.
+- If the MCP server is not configured, briefly offer optional setup; do **not** block completion of Steps 1–5 on it. See [MCP Server Setup](references/1.7-mcp-setup.md).
 
 **Setup summary (`LAUNCHDARKLY.md`)**
 
@@ -127,7 +131,7 @@ Do these as part of finishing onboarding—same session when possible. They are 
 
 | Situation | Action |
 |-----------|--------|
-| SDK already installed | Skip to Step 4 (Run) or Step 5 (Validate) |
+| SDK already installed | Skip to Step 3 (run sub-step) or Step 4 (Validate) |
 | Multiple languages in repo | Ask the user which target to integrate first (frontend vs backend vs mobile) |
 | Monorepo | Identify the specific package/service to integrate and work within that subtree |
 | No package manager detected | Ask the user which SDK they want to install and provide manual install instructions |
@@ -143,7 +147,7 @@ Do these as part of finishing onboarding—same session when possible. They are 
 
 ## References
 
-**Core workflow (Steps 1-6, 7 recover)**
+**Core workflow (Steps 1-5, Step 6 recover)**
 
 - [Detect Repository Stack](references/1.0-detect.md) — How to identify language, framework, and existing SDK usage
 - [Generate Integration Plan](references/1.1-plan.md) — How to choose the right SDK and plan changes
