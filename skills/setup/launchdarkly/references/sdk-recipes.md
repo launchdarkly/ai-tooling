@@ -24,10 +24,12 @@ These are the most common stacks—check here first before scanning less common 
 | Package | `launchdarkly-react-client-sdk` |
 | Detect files | `package.json` |
 | Detect patterns | `react`, `react-dom`, `"react":` |
-| Install | `npm install launchdarkly-react-client-sdk --save` |
+| Install | `npm install launchdarkly-react-client-sdk` |
 | Docs | [React SDK reference](https://launchdarkly.com/docs/sdk/client-side/react) · [React Web SDK reference](https://launchdarkly.com/docs/sdk/client-side/react/react-web) |
 
 **SDK detail:** [`sdk-snippets/react-web-sdk.md`](sdk-snippets/react-web-sdk.md) (includes onboarding sample)
+
+**Next.js:** If `next` is present, this **client** recipe covers browser/client-component flows; server routes and Server Components usually also need **[Node.js (Server)](#nodejs-server)** and an **SDK key** there—see the **Next.js** note under that recipe and [Generate Integration Plan](1.1-plan.md).
 
 ### JavaScript (Browser)
 
@@ -36,7 +38,7 @@ These are the most common stacks—check here first before scanning less common 
 | Package | `launchdarkly-js-client-sdk` |
 | Detect files | `package.json`, `index.html` |
 | Detect patterns | `webpack`, `vite`, `parcel`, `rollup`; use when not using React / Vue wrappers |
-| Install | `npm install launchdarkly-js-client-sdk --save` |
+| Install | `npm install launchdarkly-js-client-sdk` |
 | Docs | [JavaScript SDK reference](https://launchdarkly.com/docs/sdk/client-side/javascript) |
 
 **SDK detail:** [`sdk-snippets/javascript-browser-sdk.md`](sdk-snippets/javascript-browser-sdk.md) (includes onboarding sample)
@@ -48,10 +50,12 @@ These are the most common stacks—check here first before scanning less common 
 | Package | `@launchdarkly/node-server-sdk` |
 | Detect files | `package.json` |
 | Detect patterns | `express`, `fastify`, `koa`, `hapi`, `nestjs`, `next` (API routes), `"type": "module"` |
-| Install | `npm install @launchdarkly/node-server-sdk --save` |
+| Install | `npm install @launchdarkly/node-server-sdk` |
 | Docs | [Node.js SDK reference (server-side)](https://launchdarkly.com/docs/sdk/server-side/node-js) |
 
 **SDK detail:** [`sdk-snippets/node-server-sdk.md`](sdk-snippets/node-server-sdk.md) (includes onboarding sample)
+
+**Next.js:** `next` in **Detect patterns** only signals that the **server-side** Node SDK may apply (API routes / Route Handlers, Server Components, server-only code). **Client components** in the browser still need the **[React (Web)](#react-web)** recipe (`launchdarkly-react-client-sdk` and a client-side ID)—do **not** silently pick only the Node server SDK for a full-stack Next app. Plan one or both SDKs depending on where flags are evaluated; align with [Generate Integration Plan](1.1-plan.md) (Next.js callout there).
 
 ### Python (Server)
 
@@ -72,7 +76,7 @@ These are the most common stacks—check here first before scanning less common 
 | Package | `@launchdarkly/react-native-client-sdk` |
 | Detect files | `package.json` |
 | Detect patterns | `react-native` |
-| Install | `npm install @launchdarkly/react-native-client-sdk --save` |
+| Install | `npm install @launchdarkly/react-native-client-sdk` |
 | Docs | [React Native SDK reference](https://launchdarkly.com/docs/sdk/client-side/react/react-native) |
 
 **SDK detail:** [`sdk-snippets/react-native-sdk.md`](sdk-snippets/react-native-sdk.md) (includes onboarding sample)
@@ -94,12 +98,14 @@ These are the most common stacks—check here first before scanning less common 
 | Field | Value |
 |-------|-------|
 | Package | `com.launchdarkly:launchdarkly-java-server-sdk` |
-| Detect files | `pom.xml`, `build.gradle`, `build.gradle.kts` |
-| Detect patterns | `spring`, `quarkus`, `micronaut`, `dropwizard` |
-| Install | Add coordinates to Maven or Gradle |
+| Detect files | `pom.xml`, `build.gradle`, `build.gradle.kts`, `*.kt` (JVM services—see note below) |
+| Detect patterns | `spring`, `quarkus`, `micronaut`, `dropwizard`, `kotlin`, `ktor`, `org.jetbrains.kotlin` |
+| Install | **Gradle:** `implementation 'com.launchdarkly:launchdarkly-java-server-sdk:7.+'` — **Maven:** dependency `com.launchdarkly:launchdarkly-java-server-sdk` with a `7.x` version (or BOM) per **Docs** |
 | Docs | [Java SDK reference](https://launchdarkly.com/docs/sdk/server-side/java) |
 
 **SDK detail:** [`sdk-snippets/java-server-sdk.md`](sdk-snippets/java-server-sdk.md) (includes onboarding sample)
+
+**Kotlin (JVM) backends:** For **Ktor**, **Spring Boot + Kotlin**, or other **server-side Kotlin on the JVM**, use this **Java server SDK** (`launchdarkly-java-server-sdk`) from Kotlin code—LaunchDarkly does not ship a separate Kotlin server artifact. `build.gradle.kts` plus `.kt` sources without Android-only signals should still match here. **Android** apps (Kotlin or Java) that talk to LaunchDarkly from the device use the **[Android](#android)** client SDK recipe, not this server SDK.
 
 ### Go (Server)
 
@@ -120,7 +126,7 @@ These are the most common stacks—check here first before scanning less common 
 | Package | `LaunchDarkly` (Swift Package Manager or CocoaPods) |
 | Detect files | `Package.swift`, `Podfile`, `*.xcodeproj` |
 | Detect patterns | `UIKit`, `SwiftUI`, `ios` |
-| Install | Add package per docs |
+| Install | **Swift Package Manager:** Xcode **File → Add Package Dependencies** (use the package URL from **Docs**). **CocoaPods:** `pod 'LaunchDarkly'` in the `Podfile`, then `pod install` |
 | Docs | [iOS SDK reference](https://launchdarkly.com/docs/sdk/client-side/ios) |
 
 **SDK detail:** [`sdk-snippets/ios-client-sdk.md`](sdk-snippets/ios-client-sdk.md) (includes onboarding sample)
@@ -132,7 +138,7 @@ These are the most common stacks—check here first before scanning less common 
 | Package | `com.launchdarkly:launchdarkly-android-client-sdk` |
 | Detect files | `build.gradle`, `build.gradle.kts`, `AndroidManifest.xml` |
 | Detect patterns | `android`, `com.android`, `androidx` |
-| Install | Add Maven dependency per docs |
+| Install | App module `build.gradle` / `build.gradle.kts`: `implementation 'com.launchdarkly:launchdarkly-android-client-sdk:5.+'` |
 | Docs | [Android SDK reference](https://launchdarkly.com/docs/sdk/client-side/android) |
 
 **SDK detail:** [`sdk-snippets/android-client-sdk.md`](sdk-snippets/android-client-sdk.md) (includes onboarding sample)
@@ -256,7 +262,7 @@ Client-side SDKs use a **Client-side ID** for browser and desktop clients where 
 | Package | `launchdarkly-vue-client-sdk` |
 | Detect files | `package.json` |
 | Detect patterns | `vue`, `"vue":` |
-| Install | `npm install launchdarkly-vue-client-sdk --save` |
+| Install | `npm install launchdarkly-vue-client-sdk` |
 | Docs | [Vue SDK reference](https://launchdarkly.com/docs/sdk/client-side/vue) |
 
 **SDK detail:** [`sdk-snippets/vue-client-sdk.md`](sdk-snippets/vue-client-sdk.md)
@@ -268,7 +274,7 @@ Client-side SDKs use a **Client-side ID** for browser and desktop clients where 
 | Package | `launchdarkly-js-client-sdk` |
 | Detect files | `package.json`, `angular.json`, `svelte.config.js` |
 | Detect patterns | `@angular`, `svelte`, `preact` |
-| Install | `npm install launchdarkly-js-client-sdk --save` |
+| Install | `npm install launchdarkly-js-client-sdk` |
 | Docs | [JavaScript SDK reference](https://launchdarkly.com/docs/sdk/client-side/javascript) (no dedicated SDK; use the JS client) |
 
 **SDK detail:** [`sdk-snippets/browser-frameworks-sdk.md`](sdk-snippets/browser-frameworks-sdk.md)
@@ -304,7 +310,7 @@ Client-side SDKs use a **Client-side ID** for browser and desktop clients where 
 | Package | `launchdarkly-electron-client-sdk` |
 | Detect files | `package.json` |
 | Detect patterns | `electron` |
-| Install | `npm install launchdarkly-electron-client-sdk --save` |
+| Install | `npm install launchdarkly-electron-client-sdk` |
 | Docs | [Electron SDK reference](https://launchdarkly.com/docs/sdk/client-side/electron) |
 
 **SDK detail:** [`sdk-snippets/electron-client-sdk.md`](sdk-snippets/electron-client-sdk.md)
@@ -316,7 +322,7 @@ Client-side SDKs use a **Client-side ID** for browser and desktop clients where 
 | Package | `launchdarkly-node-client-sdk` |
 | Detect files | `package.json` |
 | Detect patterns | Node scripts or desktop tooling **without** Electron (see Electron above) |
-| Install | `npm install launchdarkly-node-client-sdk --save` |
+| Install | `npm install launchdarkly-node-client-sdk` |
 | Docs | [Node.js SDK reference (client-side)](https://launchdarkly.com/docs/sdk/client-side/node-js) |
 
 **SDK detail:** [`sdk-snippets/node-client-sdk.md`](sdk-snippets/node-client-sdk.md)
