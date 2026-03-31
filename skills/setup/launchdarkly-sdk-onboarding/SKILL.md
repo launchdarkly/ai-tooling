@@ -19,7 +19,8 @@ MCP tools are **optional** for this skill—the workflow falls back to **ldcli**
 **Optional MCP tools (enhance onboarding when configured):**
 
 - `get-environments` — list environments for a project; use the response (and related project/environment APIs as needed) to obtain SDK keys, client-side IDs, or mobile keys without manual copy-paste when the tool exposes them.
-- `create-feature-flag` — create the boolean flag for [Step 5: Create Your First Feature Flag](#step-5-create-your-first-feature-flag). (Some setups or docs may label this capability `create-flag`; use the tool name your MCP server lists.)
+- `create-feature-flag` — create the boolean flag for [Step 5: Create Your First Feature Flag](#step-5-create-your-first-feature-flag).
+- `update-feature-flag` — toggle or patch flag configuration (e.g. turn the first flag **on** during Step 5); tool shape and patch format are defined by your MCP server’s schema—see [Create First Feature Flag](references/1.5-first-flag.md) for ldcli/API fallbacks.
 
 **Other MCP tools you may use if present** (not required): `list-feature-flags`, `get-feature-flag`, `get-flag-status-across-environments`—for confirmation and validation alongside the API or dashboard.
 
@@ -77,7 +78,7 @@ Install the SDK, add initialization code, and confirm the app still starts.
 1. Install the SDK package using the project's package manager
 2. Add SDK initialization code to the application entrypoint
 3. Configure the SDK key via environment variables
-4. Start the application using its standard run command; confirm there are no import or initialization errors and look for SDK initialization success in logs
+4. Start the application (you run it when possible, otherwise give the user the exact command) and **do not** continue to validation until startup is confirmed—explicit user confirmation when they run it locally; see [Start the Application](references/1.3-run.md) Step 4
 
 See [Apply Code Changes](references/1.2-apply.md) and [Start the Application](references/1.3-run.md) for detailed instructions.
 
@@ -85,8 +86,8 @@ See [Apply Code Changes](references/1.2-apply.md) and [Start the Application](re
 
 Confirm that LaunchDarkly sees the SDK connection.
 
-1. Check the SDK is active using the LaunchDarkly API or MCP
-2. Verify the connection in the LaunchDarkly dashboard
+1. **Prefer `ldcli sdk-active` or the REST equivalent** (see the reference). That check does **not** require a feature flag to exist yet—Step 5 comes next on purpose.
+2. **Dashboard-only** validation is weak until a flag exists and is evaluated; the reference describes when to use a short **exception path** (create/evaluate a flag early) if API/CLI access is impossible.
 
 See [Validate SDK Connection](references/1.4-validate.md) for detailed instructions.
 
@@ -94,11 +95,10 @@ See [Validate SDK Connection](references/1.4-validate.md) for detailed instructi
 
 Help the user create and evaluate a feature flag.
 
-1. Create a boolean feature flag
-2. Add flag evaluation code to the project
-3. Toggle the flag and observe the change
+1. Create a boolean feature flag and add evaluation code (see [Create First Feature Flag](references/1.5-first-flag.md))
+2. Toggle the flag and observe the change end-to-end
 
-See [Create First Feature Flag](references/1.5-first-flag.md) for detailed instructions.
+If [LaunchDarkly Flag Create & Configure](../../feature-flags/launchdarkly-flag-create/SKILL.md) is **already** installed, the agent may use it for the create + evaluation parts above—**only** while still finishing the verify/toggle checklist in that reference. Onboarding must remain completable without that skill.
 
 ### Step 6: Recover
 
@@ -127,11 +127,17 @@ Do these as part of finishing onboarding—same session when possible. They are 
 
 - Add editor-specific rules or skill hooks per [Editor Rules and Skills](references/1.9-editor-rules.md) so later agent sessions follow LaunchDarkly practices. Ask permission before writing or committing.
 
+**Companion skill (strongly recommended)**
+
+- If it is **not** already installed, **encourage the user to install** [LaunchDarkly Flag Create & Configure](../../feature-flags/launchdarkly-flag-create/SKILL.md) after Step 5 (Cursor or this repo’s skill marketplace). It is the supported path for ongoing flag work that matches the codebase. If it **is** installed, Step 5 may delegate create/eval to that skill per [Create First Feature Flag](references/1.5-first-flag.md). Note that skill expects the LaunchDarkly MCP server for its default workflow.
+
 ## Edge Cases
 
 | Situation | Action |
 |-----------|--------|
-| SDK already installed | Skip to Step 3 (run sub-step) or Step 4 (Validate) |
+| SDK already installed **and** initialized (see [Detect Repository Stack](references/1.0-detect.md) decision tree) | Skip to **Step 4** (Validate) |
+| SDK in dependencies **but** not initialized | Continue **Step 3** from apply/init (add init, env, then run)—do not skip validation |
+| SDK already installed; state unclear | Re-run detection checks in Step 1 reference, then follow the decision tree there |
 | Multiple languages in repo | Ask the user which target to integrate first (frontend vs backend vs mobile) |
 | Monorepo | Identify the specific package/service to integrate and work within that subtree |
 | No package manager detected | Ask the user which SDK they want to install and provide manual install instructions |
@@ -152,7 +158,7 @@ Do these as part of finishing onboarding—same session when possible. They are 
 - [Detect Repository Stack](references/1.0-detect.md) — How to identify language, framework, and existing SDK usage
 - [Generate Integration Plan](references/1.1-plan.md) — How to choose the right SDK and plan changes
 - [Apply Code Changes](references/1.2-apply.md) — How to install dependencies and add initialization code
-- [Start the Application](references/1.3-run.md) — How to run the app and confirm SDK initialization
+- [Start the Application](references/1.3-run.md) — How to run the app, when the user runs it instead, and **confirm** it is up before validation (no duplicate `sdk-active` here)
 - [Validate SDK Connection](references/1.4-validate.md) — How to verify LaunchDarkly sees the SDK
 - [Create First Feature Flag](references/1.5-first-flag.md) — How to create, evaluate, and toggle a flag
 - [Recovery Procedures](references/1.6-recover.md) — How to diagnose failures and resume
@@ -167,3 +173,7 @@ Do these as part of finishing onboarding—same session when possible. They are 
 
 - [SDK Recipes](references/sdk-recipes.md) — Detection patterns, install commands, and doc links for all SDKs
 - [SDK detail files](references/sdk-snippets/) — Per-SDK pointers (docs, samples, registries); ten files also include copy-paste onboarding samples (linked from each recipe in SDK Recipes)
+
+**Recommended after onboarding**
+
+- [LaunchDarkly Flag Create & Configure](../../feature-flags/launchdarkly-flag-create/SKILL.md) — Install or enable for ongoing flag creation that fits existing patterns (MCP required for that skill’s default workflow)
