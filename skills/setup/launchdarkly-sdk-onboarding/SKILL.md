@@ -19,7 +19,7 @@ MCP tools are **optional** for this skill—the workflow falls back to **ldcli**
 **Optional MCP tools (enhance onboarding when configured):**
 
 - `get-environments` — list environments for a project; use the response (and related project/environment APIs as needed) to obtain SDK keys, client-side IDs, or mobile keys without manual copy-paste when the tool exposes them.
-- `create-feature-flag` — create the boolean flag for [Step 5: Create Your First Feature Flag](#step-5-create-your-first-feature-flag). (Some setups or docs may label this capability `create-flag`; use the tool name your MCP server lists.)
+- `create-feature-flag` — create the boolean flag for [Step 5: Create Your First Feature Flag](#step-5-create-your-first-feature-flag).
 - `update-feature-flag` — toggle or patch flag configuration (e.g. turn the first flag **on** during Step 5); tool shape and patch format are defined by your MCP server’s schema—see [Create First Feature Flag](references/1.5-first-flag.md) for ldcli/API fallbacks.
 
 **Other MCP tools you may use if present** (not required): `list-feature-flags`, `get-feature-flag`, `get-flag-status-across-environments`—for confirmation and validation alongside the API or dashboard.
