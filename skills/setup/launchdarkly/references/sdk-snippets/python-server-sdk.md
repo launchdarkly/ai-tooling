@@ -6,29 +6,62 @@ description: Onboarding sample and links for the LaunchDarkly Python server-side
 # Python (Server) — SDK detail
 
 - Official docs: [Python SDK reference](https://launchdarkly.com/docs/sdk/server-side/python)
+- API reference: [launchdarkly-server-sdk (Read the Docs)](https://launchdarkly-python-sdk.readthedocs.io/)
+- Published package: [launchdarkly-server-sdk (PyPI)](https://pypi.org/project/launchdarkly-server-sdk/)
 - Recipe (detect / install): [SDK Recipes](../sdk-recipes.md) (Python Server)
 
-**Includes:** Copy-paste onboarding sample below.
+Use a **current** `launchdarkly-server-sdk` release; see the [SDK releases page](https://github.com/launchdarkly/python-server-sdk/releases) and [version compatibility](https://launchdarkly.com/docs/sdk/server-side/python) (Python **3.9+** from SDK **9.12+**).
+
+**Install** ([Install the SDK](https://launchdarkly.com/docs/sdk/server-side/python#install-the-sdk)):
+
+```bash
+pip install launchdarkly-server-sdk
+```
+
+Optional observability ([Python observability](https://launchdarkly.com/docs/sdk/observability/python)) — requires Python SDK **9.12+**:
+
+```bash
+pip install launchdarkly-observability
+```
+
+**Import** (same topic):
+
+```python
+import ldclient
+from ldclient.config import Config
+
+# Optional — launchdarkly-observability package; requires Python SDK v9.12+
+# from ldobserve import ObservabilityPlugin
+```
+
+**Initialize:** Call **`ldclient.set_config(Config(...))`** once, then **`ldclient.get()`** for the singleton client ([Initialize the client](https://launchdarkly.com/docs/sdk/server-side/python#initialize-the-client)). With observability: `Config(sdk_key, plugins=[ObservabilityPlugin()])`. Worker processes that **fork** may need **`postfork()`** ([Considerations with worker-based servers](https://launchdarkly.com/docs/sdk/server-side/python#considerations-with-worker-based-servers)).
+
+**Includes:** Minimal onboarding script. SDK key: **`LAUNCHDARKLY_SDK_KEY`** ([Apply: environment configuration](../1.2-apply.md)).
 
 ```python
 import os
+import sys
+
 import ldclient
-from ldclient import Context
 from ldclient.config import Config
 
-if __name__ == '__main__':
-    # Set your LaunchDarkly SDK key.
-    # This is inlined as example only for onboarding.
-    # Never hardcode your SDK key in production.
-    ldclient.set_config(Config(os.environ['LAUNCHDARKLY_SDK_KEY']))
+if __name__ == "__main__":
+    sdk_key = os.environ.get("LAUNCHDARKLY_SDK_KEY")
+    if not sdk_key or not sdk_key.strip():
+        print(
+            "LAUNCHDARKLY_SDK_KEY is not set. Use Project settings > Environments > SDK key.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
 
-    if not ldclient.get().is_initialized():
-        print('SDK failed to initialize')
-        exit()
+    ldclient.set_config(Config(sdk_key))
+    client = ldclient.get()
 
-    # For onboarding purposes only we flush events as soon as
-    # possible so we quickly detect your connection.
-    # You don't have to do this in practice because events are automatically flushed.
-    ldclient.get().flush()
-    print('SDK successfully initialized')
+    if not client.is_initialized():
+        print("LaunchDarkly client failed to initialize", file=sys.stderr)
+        raise SystemExit(1)
+
+    # For onboarding only — events are normally flushed in the background.
+    client.flush()
+    print("LaunchDarkly client ready.")
 ```

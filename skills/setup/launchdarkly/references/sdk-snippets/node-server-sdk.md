@@ -18,11 +18,15 @@ import * as LaunchDarkly from '@launchdarkly/node-server-sdk';
 // Never hardcode your SDK key in production.
 const client = LaunchDarkly.init(process.env.LAUNCHDARKLY_SDK_KEY);
 
-client.once('ready', function () {
-  // For onboarding purposes only we flush events as soon as
-  // possible so we quickly detect your connection.
-  // You don't have to do this in practice because events are automatically flushed.
-  client.flush();
-  console.log('SDK successfully initialized!');
+try {
+  await client.waitForInitialization(5);
+  // initialization succeeded, flag values are now available
+} catch (err) {
+  // initialization failed or did not complete before timeout
+}
+
+client.on('initialized', () => {
+  // initialization succeeded, flag values are now available
+  const flagValue = client.variation('example-flag-key', false);
+  // etc.
 });
-```
