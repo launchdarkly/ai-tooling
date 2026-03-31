@@ -43,6 +43,8 @@ These are the most common stacks—check here first before scanning less common 
 
 **SDK detail:** [`sdk-snippets/javascript-browser-sdk.md`](sdk-snippets/javascript-browser-sdk.md) (includes onboarding sample)
 
+**API vs. other SDKs:** `launchdarkly-js-client-sdk` is correct on npm. The browser client is created with **`initialize()`** (returns `LDClient`)—see the [generated API docs](https://launchdarkly.github.io/js-client-sdk/). There is no `createClient` export on this package; if a snippet or tutorial uses `createClient`, it is wrong or meant for a different SDK—match **Docs** + the snippet file, not random samples.
+
 ### Node.js (Server)
 
 | Field | Value |
@@ -86,12 +88,14 @@ These are the most common stacks—check here first before scanning less common 
 | Field | Value |
 |-------|-------|
 | Package | `LaunchDarkly.ServerSdk` |
-| Detect files | `*.csproj`, `*.sln`, `*.fsproj` |
-| Detect patterns | `Microsoft.AspNetCore`, `Microsoft.NET` |
+| Detect files | `*.csproj`, `*.sln`, `*.fsproj` (look for `BlazorWebAssembly`, `blazorwasm`, `UseBlazorWebAssembly`, `blazorserver`, or `Microsoft.AspNetCore.Components` / `Blazor` in the project) |
+| Detect patterns | `Microsoft.AspNetCore`, `Microsoft.NET`, `Blazor`, `blazor`, `blazorserver` (host/server UI—**not** WASM-only client projects) |
 | Install | `dotnet add package LaunchDarkly.ServerSdk` |
 | Docs | [.NET SDK reference (server-side)](https://launchdarkly.com/docs/sdk/server-side/dotnet) |
 
 **SDK detail:** [`sdk-snippets/dotnet-server-sdk.md`](sdk-snippets/dotnet-server-sdk.md) (includes onboarding sample)
+
+**Blazor:** **Blazor Server** (and other server-hosted Blazor where .NET runs on the server) → this **server-side** SDK and an **SDK key**. **Blazor WebAssembly** runs in the browser → use **[.NET (Client)](#net-client)** (`LaunchDarkly.ClientSdk`, **Client-side ID**). Inspect `.csproj` / SDK props: WASM projects typically use the Blazor WebAssembly workload or `blazorwasm` / `UseBlazorWebAssembly`; do **not** treat those as server-only.
 
 ### Java (Server)
 
@@ -279,17 +283,21 @@ Client-side SDKs use a **Client-side ID** for browser and desktop clients where 
 
 **SDK detail:** [`sdk-snippets/browser-frameworks-sdk.md`](sdk-snippets/browser-frameworks-sdk.md)
 
+**API:** Same npm package and **`initialize()`** / `LDClient` API as [JavaScript (Browser)](#javascript-browser)—not `createClient`. Prefer [`javascript-browser-sdk.md`](sdk-snippets/javascript-browser-sdk.md) for a copy-paste sample.
+
 ### .NET (Client)
 
 | Field | Value |
 |-------|-------|
 | Package | `LaunchDarkly.ClientSdk` |
-| Detect files | `*.csproj`, `*.sln` |
-| Detect patterns | `Xamarin`, `MAUI`, `WPF`, `UWP`, `Avalonia` |
+| Detect files | `*.csproj`, `*.sln` (WASM: `blazorwasm`, `BlazorWebAssembly`, `UseBlazorWebAssembly` in project) |
+| Detect patterns | `Xamarin`, `MAUI`, `WPF`, `UWP`, `Avalonia`, `Blazor`, `blazor`, `blazorwasm` |
 | Install | `dotnet add package LaunchDarkly.ClientSdk` |
 | Docs | [.NET SDK reference (client-side)](https://launchdarkly.com/docs/sdk/client-side/dotnet) |
 
 **SDK detail:** [`sdk-snippets/dotnet-client-sdk.md`](sdk-snippets/dotnet-client-sdk.md)
+
+**Blazor WebAssembly:** Use this **client** SDK and a **Client-side ID**. **Blazor Server** (and server-rendered interactive Blazor) → **[.NET (Server)](#net-server)** with `LaunchDarkly.ServerSdk`.
 
 ### C++ (Client)
 
