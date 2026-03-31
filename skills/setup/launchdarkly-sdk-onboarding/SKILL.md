@@ -94,11 +94,10 @@ See [Validate SDK Connection](references/1.4-validate.md) for detailed instructi
 
 Help the user create and evaluate a feature flag.
 
-1. Create a boolean feature flag
-2. Add flag evaluation code to the project
-3. Toggle the flag and observe the change
+1. Create a boolean feature flag and add evaluation code (see [Create First Feature Flag](references/1.5-first-flag.md))
+2. Toggle the flag and observe the change end-to-end
 
-See [Create First Feature Flag](references/1.5-first-flag.md) for detailed instructions.
+If [LaunchDarkly Flag Create & Configure](../../feature-flags/launchdarkly-flag-create/SKILL.md) is **already** installed, the agent may use it for the create + evaluation parts above—**only** while still finishing the verify/toggle checklist in that reference. Onboarding must remain completable without that skill.
 
 ### Step 6: Recover
 
@@ -126,6 +125,10 @@ Do these as part of finishing onboarding—same session when possible. They are 
 **Editor rules / skills**
 
 - Add editor-specific rules or skill hooks per [Editor Rules and Skills](references/1.9-editor-rules.md) so later agent sessions follow LaunchDarkly practices. Ask permission before writing or committing.
+
+**Companion skill (strongly recommended)**
+
+- If it is **not** already installed, **encourage the user to install** [LaunchDarkly Flag Create & Configure](../../feature-flags/launchdarkly-flag-create/SKILL.md) after Step 5 (Cursor or this repo’s skill marketplace). It is the supported path for ongoing flag work that matches the codebase. If it **is** installed, Step 5 may delegate create/eval to that skill per [Create First Feature Flag](references/1.5-first-flag.md). Note that skill expects the LaunchDarkly MCP server for its default workflow.
 
 ## Edge Cases
 
@@ -167,3 +170,7 @@ Do these as part of finishing onboarding—same session when possible. They are 
 
 - [SDK Recipes](references/sdk-recipes.md) — Detection patterns, install commands, and doc links for all SDKs
 - [SDK detail files](references/sdk-snippets/) — Per-SDK pointers (docs, samples, registries); ten files also include copy-paste onboarding samples (linked from each recipe in SDK Recipes)
+
+**Recommended after onboarding**
+
+- [LaunchDarkly Flag Create & Configure](../../feature-flags/launchdarkly-flag-create/SKILL.md) — Install or enable for ongoing flag creation that fits existing patterns (MCP required for that skill’s default workflow)
