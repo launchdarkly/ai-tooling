@@ -123,6 +123,30 @@
         "devops",
         "mcp"
       ]
+    },
+    {
+      "name": "launchdarkly-metric-choose",
+      "description": "Choose the right metrics for a LaunchDarkly experiment, guarded rollout, or release policy. Use when the user wants to know which metrics to use, which is the primary metric for an experiment, what guardrails to add, or which events to monitor in a rollout. Surfaces what will auto-attach from existing release policies before making additional recommendations.",
+      "path": "skills/metrics/launchdarkly-metric-choose",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+    },
+    {
+      "name": "launchdarkly-metric-create",
+      "description": "Create a LaunchDarkly metric that measures what matters for an experiment or rollout. Use when the user wants to create a metric, track an event, measure page views, button clicks, conversion, latency, error rate, or any custom numeric or binary outcome. Instruments the event first when needed (including SDK setup and .env), then creates and verifies the metric.",
+      "path": "skills/metrics/launchdarkly-metric-create",
+      "version": "1.4.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+    },
+    {
+      "name": "launchdarkly-metric-instrument",
+      "description": "Instrument a LaunchDarkly metric event in a codebase by adding a track() call. Use when the user wants to wire up an event, instrument an action for a metric, add tracking to a feature, or confirm that an event is flowing to LaunchDarkly.",
+      "path": "skills/metrics/launchdarkly-metric-instrument",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     }
   ]
 }
