@@ -1,7 +1,7 @@
 {
   "name": "launchdarkly",
   "version": "1.0.1",
-  "description": "LaunchDarkly agent skills and mcp server for feature flag management, AI configuration, and skill authoring",
+  "description": "USER LEVEL: You create, toggle, and target feature flags without leaving the editor—rollouts and kill switches are one prompt away. PROJECT LEVEL: Flag lifecycle stays healthy—stale flags surface for cleanup, targeting rules copy across environments, and new flags follow codebase conventions. Feature flags from the assistant—discover, create, target, and retire LaunchDarkly flags with MCP and skills aligned to safer rollouts and cleanup. BEST SUITED FOR: • Teams using LaunchDarkly for progressive delivery and experimentation • Projects with many flags that need regular auditing and cleanup • Codebases where flag references in code must stay consistent with LD state",
   "author": {
     "name": "LaunchDarkly",
     "email": "support@launchdarkly.com"
