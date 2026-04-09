@@ -19,5 +19,11 @@
     "rollout",
     "cleanup",
     "mcp"
-  ]
+  ],
+  "skills": [
+    "./skills/ai-configs/",
+    "./skills/feature-flags/",
+    "./skills/metrics/"
+  ],
+  "mcpServers": "./.mcp.json"
 }
