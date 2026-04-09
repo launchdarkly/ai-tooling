@@ -1,6 +1,13 @@
 {
   "skills": [
     {
+      "name": "ai-configs",
+      "description": "Generate a weekly AI Backend Service Health report for Confluence. Queries the Datadog AI Configs dashboard for SLO status, latency, and error patterns, then creates a draft Confluence page following the team's established format. Use when the user asks to write a service health report, on-call report, weekly SLO review, or AI Configs health check.",
+      "path": "skills/service-health/ai-configs",
+      "version": "0.1.0",
+      "compatibility": "Requires Atlassian MCP server and Datadog MCP server with appropriate permissions."
+    },
+    {
       "name": "aiconfig-create",
       "description": "Guide for setting up AI configuration in your application. Helps you choose between agent vs completion mode, select the right approach for your stack, and create AI Configs that make sense for your use case.",
       "path": "skills/ai-configs/aiconfig-create",
