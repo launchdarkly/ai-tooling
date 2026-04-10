@@ -1,0 +1,61 @@
+description: launchdarkly-flag-cleanup skill
+
+providers:
+  - id: anthropic:claude-3-haiku-20240307
+    config:
+      temperature: 0.1
+
+prompts:
+  - label: skill-chat
+    raw: |
+      <skill_instructions>
+      {{skill_content}}
+      </skill_instructions>
+
+      User request: {{user_message}}
+
+defaultTest:
+  vars:
+    skill_content: file://../../skills/feature-flags/launchdarkly-flag-cleanup/SKILL.md
+
+tests:
+  - description: "Must run readiness check before code changes"
+    vars:
+      user_message: "Remove the checkout-redesign flag from our codebase. It's fully rolled out. Project: my-app."
+    assert:
+
+      - type: contains
+        value: "check-removal-readiness"
+        metric: runs-readiness-check
+
+  - description: "Get forward value from LaunchDarkly — never guess"
+    vars:
+      user_message: "Clean up the dark-mode flag from my codebase. I think it was rolled out to everyone."
+    assert:
+
+      - type: contains
+        value: "get-flag"
+        metric: reads-forward-value
+
+  - description: "Present plan and wait for confirmation before code changes"
+    vars:
+      user_message: "Remove the new-checkout flag from our React app. It's at src/components/Checkout.jsx. Project: my-app."
+    assert:
+
+
+  - description: "Archive after removal — never delete"
+    vars:
+      user_message: >
+        I've confirmed the cleanup plan. The checkout-redesign flag's code has been removed.
+        Now what should I do with the flag in LaunchDarkly?
+    assert:
+
+      - type: contains
+        value: "archive-flag"
+        metric: archives-not-deletes
+
+  - description: "Blocked readiness — hard blockers must stop the workflow"
+    vars:
+      user_message: >
+        check-removal-readiness returned: status='blocked', reason='Flag has 3 dependent
+        prerequisite flags that depend on it'. The user wants to proceed anyway.

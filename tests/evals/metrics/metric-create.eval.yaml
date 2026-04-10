@@ -1,0 +1,88 @@
+description: launchdarkly-metric-create skill
+
+providers:
+  - id: anthropic:claude-3-haiku-20240307
+    config:
+      temperature: 0.1
+
+prompts:
+  - label: skill-chat
+    raw: |
+      <skill_instructions>
+      {{skill_content}}
+      </skill_instructions>
+
+      User request: {{user_message}}
+
+defaultTest:
+  vars:
+    skill_content: file://../../skills/metrics/launchdarkly-metric-create/SKILL.md
+
+tests:
+  - description: "Happy path: custom value metric — must not prematurely create"
+    vars:
+      user_message: "I want to track the cart value at checkout. My LaunchDarkly project is my-app and my codebase is in ./checkout_proj"
+    assert:
+      - type: contains
+        value: "custom"
+        metric: identifies-custom-metric
+      - type: not-contains
+        value: "create-metric"
+        metric: no-premature-create
+
+  - description: "Click metric — must suggest click kind, not custom"
+    vars:
+      user_message: "I want to track when users click the checkout button on /cart. Project key is my-app."
+    assert:
+      - type: contains
+        value: "click"
+        metric: suggests-click-metric
+      - type: javascript
+        value: "!output.toLowerCase().includes('track(') && !output.toLowerCase().includes('sdk')"
+        metric: no-sdk-required
+
+  - description: "Pageview metric — must suggest pageview kind"
+    vars:
+      user_message: "I want to measure how many users visit the checkout page /checkout in project my-app"
+    assert:
+      - type: contains
+        value: "pageview"
+        metric: suggests-pageview
+      - type: javascript
+        value: "!output.toLowerCase().includes('track(') && !output.toLowerCase().includes('custom metric')"
+        metric: no-custom-for-pageview
+
+  - description: "Gate condition — must show proposal and wait, not immediately create"
+    vars:
+      user_message: "Create a metric called signup-rate, count type, for project my-app. Go ahead and do it now."
+    assert:
+      - type: not-contains
+        value: "create-metric()"
+        metric: no-immediate-create
+      - type: javascript
+        value: "output.toLowerCase().includes('proposed') || output.toLowerCase().includes('confirm') || output.toLowerCase().includes('please confirm') || output.toLowerCase().includes('shall i')"
+        metric: shows-proposal-step
+
+  - description: "Duplicate check — must call list-metrics before proposing"
+    vars:
+      user_message: "Create a metric called checkout-value in project my-app"
+    assert:
+      - type: contains
+        value: "list-metrics"
+        metric: checks-for-duplicates
+
+  - description: "Measure type ambiguity — must ask count vs occurrence"
+    vars:
+      user_message: "I want to track when users add items to their cart. Project is my-app, event key is cart-add."
+    assert:
+      - type: javascript
+        value: "(output.toLowerCase().includes('count') && output.toLowerCase().includes('occurrence')) || output.toLowerCase().includes('clarif') || output.toLowerCase().includes('which type') || output.toLowerCase().includes('measure type')"
+        metric: asks-measure-type
+
+  - description: "LD project vs codebase disambiguation"
+    vars:
+      user_message: "I want to create a metric in my checkout_proj"
+    assert:
+      - type: javascript
+        value: "output.toLowerCase().includes('project key') || output.toLowerCase().includes('launchdarkly project') || output.toLowerCase().includes('project name')"
+        metric: asks-for-ld-project

@@ -1,0 +1,39 @@
+description: aiconfig-update skill
+
+providers:
+  - id: anthropic:claude-3-haiku-20240307
+    config:
+      temperature: 0.1
+
+prompts:
+  - label: skill-chat
+    raw: |
+      <skill_instructions>
+      {{skill_content}}
+      </skill_instructions>
+
+      User request: {{user_message}}
+
+defaultTest:
+  vars:
+    skill_content: file://../../skills/ai-configs/aiconfig-update/SKILL.md
+
+tests:
+  - description: "Config vs variation scope — update the right level"
+    vars:
+      user_message: "I want to change the system prompt for my customer-support-agent config to be more formal. Project is my-ai-app."
+    assert:
+
+      - type: contains
+        value: "update-ai-config-variation"
+        metric: updates-variation-not-config
+
+  - description: "Deleting a config is irreversible — warn the user"
+    vars:
+      user_message: "Delete the customer-support-agent AI config. Project is my-ai-app."
+    assert:
+
+
+  - description: "Update model parameters on a variation"
+    vars:
+      user_message: "Lower the temperature to 0.2 on the v1 variation of my assistant-config. Project: my-ai-app."

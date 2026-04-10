@@ -1,0 +1,5 @@
+node_modules/
+.env
+dist/
+checkout_proj/node_modules/
+checkout_proj/dist/

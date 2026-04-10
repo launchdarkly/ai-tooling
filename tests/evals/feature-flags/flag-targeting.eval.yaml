@@ -1,0 +1,62 @@
+description: launchdarkly-flag-targeting skill
+
+providers:
+  - id: anthropic:claude-3-haiku-20240307
+    config:
+      temperature: 0.1
+
+prompts:
+  - label: skill-chat
+    raw: |
+      <skill_instructions>
+      {{skill_content}}
+      </skill_instructions>
+
+      User request: {{user_message}}
+
+defaultTest:
+  vars:
+    skill_content: file://../../skills/feature-flags/launchdarkly-flag-targeting/SKILL.md
+
+tests:
+  - description: "Must confirm environment before toggling"
+    vars:
+      user_message: "Turn on the checkout-redesign flag. Project is my-app."
+    assert:
+
+      - type: not-contains
+        value: "toggle-flag"
+        metric: no-toggle-without-env
+
+  - description: "Check current state before making changes"
+    vars:
+      user_message: "Enable the checkout-redesign flag in the production environment of project my-app."
+    assert:
+
+      - type: contains
+        value: "get-flag"
+        metric: reads-current-state
+
+  - description: "Percentage rollout — weights must sum to 100"
+    vars:
+      user_message: "Roll out the checkout-redesign flag to 25% of users in production for project my-app."
+    assert:
+
+
+  - description: "Individual target — overrides all rules"
+    vars:
+      user_message: "Add user alice@example.com to the checkout-redesign flag so she always sees the new checkout. Project: my-app, env: production."
+    assert:
+
+      - type: contains
+        value: "update-individual-targets"
+        metric: uses-correct-tool
+
+  - description: "Copy config from staging to production"
+    vars:
+      user_message: "The checkout-redesign flag is configured correctly in staging. Copy the targeting config to production. Project: my-app."
+    assert:
+
+      - type: contains
+        value: "copy-flag-config"
+        metric: uses-copy-flag-config

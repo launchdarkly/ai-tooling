@@ -1,0 +1,61 @@
+description: launchdarkly-flag-create skill
+
+providers:
+  - id: anthropic:claude-3-haiku-20240307
+    config:
+      temperature: 0.1
+
+prompts:
+  - label: skill-chat
+    raw: |
+      <skill_instructions>
+      {{skill_content}}
+      </skill_instructions>
+
+      User request: {{user_message}}
+
+defaultTest:
+  vars:
+    skill_content: file://../../skills/feature-flags/launchdarkly-flag-create/SKILL.md
+
+tests:
+  - description: "Happy path: explore codebase before creating"
+    vars:
+      user_message: "I want to add a feature flag to control the new checkout flow in my React app at ./frontend. LaunchDarkly project is my-app."
+    assert:
+
+      - type: not-contains
+        value: "create-flag"
+        metric: no-premature-create
+
+  - description: "Boolean flag is the default for feature toggles"
+    vars:
+      user_message: "Create a flag to toggle the dark mode feature on or off. Project is my-app."
+    assert:
+
+      - type: contains
+        value: "boolean"
+        metric: uses-boolean-kind
+
+  - description: "Temporary flag by default"
+    vars:
+      user_message: "Create a feature flag called new-pricing-experiment for our A/B test. Project is pricing-app."
+    assert:
+
+
+  - description: "Multivariate flag for A/B test"
+    vars:
+      user_message: "I want to A/B test between two different hero image layouts (variant-a and variant-b). Project is my-app."
+    assert:
+
+
+  - description: "Verify with get-flag after creation"
+    vars:
+      user_message: >
+        I've just created a flag called checkout-redesign in my-app. The agent used create-flag
+        with key: checkout-redesign. Now what?
+    assert:
+
+      - type: contains
+        value: "get-flag"
+        metric: verifies-with-get-flag

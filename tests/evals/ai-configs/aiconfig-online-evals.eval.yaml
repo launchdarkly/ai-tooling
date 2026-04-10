@@ -1,0 +1,38 @@
+description: aiconfig-online-evals skill
+
+providers:
+  - id: anthropic:claude-3-haiku-20240307
+    config:
+      temperature: 0.1
+
+prompts:
+  - label: skill-chat
+    raw: |
+      <skill_instructions>
+      {{skill_content}}
+      </skill_instructions>
+
+      User request: {{user_message}}
+
+defaultTest:
+  vars:
+    skill_content: file://../../skills/ai-configs/aiconfig-online-evals/SKILL.md
+
+tests:
+  - description: "Explain what online evals measure"
+    vars:
+      user_message: "What are online evals and why would I use them for my AI config?"
+    assert:
+
+
+  - description: "Sampling rate guidance"
+    vars:
+      user_message: "I want to evaluate 100% of my AI agent's responses for quality. Is that a good idea?"
+    assert:
+
+
+  - description: "Custom judge prompt design"
+    vars:
+      user_message: >
+        I want to automatically check if my customer support AI responses are empathetic
+        and don't promise things the product can't deliver. How do I set up a judge for this?

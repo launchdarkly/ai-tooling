@@ -1,0 +1,254 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "create-flag",
+      "description": "Create a new feature flag in a LaunchDarkly project.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "name": { "type": "string" },
+          "key": { "type": "string" },
+          "kind": { "type": "string", "enum": ["boolean", "multivariate"] },
+          "temporary": { "type": "boolean" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "description": { "type": "string" },
+          "variations": { "type": "array", "items": { "type": "object" } }
+        },
+        "required": ["projectKey", "name", "key"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get-flag",
+      "description": "Get detailed configuration for a single feature flag scoped to a specific environment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" },
+          "env": { "type": "string" }
+        },
+        "required": ["projectKey", "flagKey"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "list-flags",
+      "description": "Search and browse feature flags with optional filtering by state, type, and tags.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "env": { "type": "string" },
+          "state": { "type": "string", "enum": ["active", "inactive", "launched", "new"] },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "limit": { "type": "number" }
+        },
+        "required": ["projectKey"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "update-flag-settings",
+      "description": "Update flag metadata (name, description, tags, temporary status). These are project-wide changes, not environment-specific.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" },
+          "instructions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "enum": ["updateName", "updateDescription", "addTags", "removeTags", "markTemporary", "markPermanent"] },
+                "value": { "type": "string" },
+                "values": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "required": ["projectKey", "flagKey", "instructions"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "toggle-flag",
+      "description": "Turn flag targeting on or off in a specific environment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" },
+          "env": { "type": "string" },
+          "on": { "type": "boolean" },
+          "comment": { "type": "string" }
+        },
+        "required": ["projectKey", "flagKey", "env", "on"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "update-rollout",
+      "description": "Change the default rule (fallthrough) variation or percentage rollout. Weights are human-friendly percentages (0-100) that must sum to 100.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" },
+          "env": { "type": "string" },
+          "rolloutType": { "type": "string", "enum": ["percentage", "variation"] },
+          "variationIndex": { "type": "number" },
+          "rolloutWeights": { "type": "array", "items": { "type": "number" } },
+          "comment": { "type": "string" }
+        },
+        "required": ["projectKey", "flagKey", "env", "rolloutType"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "update-targeting-rules",
+      "description": "Add, remove, or modify custom targeting rules for a flag in an environment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" },
+          "env": { "type": "string" },
+          "instructions": { "type": "array", "items": { "type": "object" } },
+          "comment": { "type": "string" }
+        },
+        "required": ["projectKey", "flagKey", "env", "instructions"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "update-individual-targets",
+      "description": "Add or remove specific users/contexts from individual targeting (highest priority, overrides all rules).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" },
+          "env": { "type": "string" },
+          "instructions": { "type": "array", "items": { "type": "object" } },
+          "comment": { "type": "string" }
+        },
+        "required": ["projectKey", "flagKey", "env", "instructions"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "copy-flag-config",
+      "description": "Copy targeting configuration from one environment to another.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" },
+          "fromEnv": { "type": "string" },
+          "toEnv": { "type": "string" },
+          "comment": { "type": "string" }
+        },
+        "required": ["projectKey", "flagKey", "fromEnv", "toEnv"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "check-removal-readiness",
+      "description": "Detailed safety check for flag removal: orchestrates flag config, cross-env status, dependencies, code references in parallel. Returns verdict: safe / caution / blocked.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" }
+        },
+        "required": ["projectKey", "flagKey"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "find-stale-flags",
+      "description": "Find flags that are candidates for cleanup, sorted by staleness. Categories: never_requested, inactive_30d, launched_no_changes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "env": { "type": "string" },
+          "inactiveDays": { "type": "number" },
+          "includeOnly": { "type": "string", "enum": ["temporary", "all"] }
+        },
+        "required": ["projectKey"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get-flag-health",
+      "description": "Get combined health view for a single flag: lifecycle state, last-requested timestamp, targeting summary, age.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" },
+          "env": { "type": "string" }
+        },
+        "required": ["projectKey", "flagKey", "env"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get-flag-status-across-envs",
+      "description": "Check a flag's lifecycle status across all environments in a project.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" }
+        },
+        "required": ["projectKey", "flagKey"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "archive-flag",
+      "description": "Archive a flag in LaunchDarkly after code removal. Reversible (prefer over delete).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "projectKey": { "type": "string" },
+          "flagKey": { "type": "string" },
+          "comment": { "type": "string" }
+        },
+        "required": ["projectKey", "flagKey"]
+      }
+    }
+  }
+]
