@@ -17,12 +17,12 @@ You're using a skill that will guide you through introducing a new feature flag 
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `create-flag` — create a new feature flag in a project
-- `get-flag` — verify the flag was created correctly
+- `create-flag`: create a new feature flag in a project
+- `get-flag`: verify the flag was created correctly
 
 **Optional MCP tools (enhance workflow):**
-- `list-flags` — browse existing flags to understand naming conventions and tags
-- `update-flag-settings` — update flag metadata (name, description, tags, temporary/permanent status)
+- `list-flags`: browse existing flags to understand naming conventions and tags
+- `update-flag-settings`: update flag metadata (name, description, tags, temporary/permanent status)
 
 ## Workflow
 
@@ -68,7 +68,7 @@ Based on what the user needs, choose the appropriate flag configuration. See [Fl
 
 **Defaults to apply:**
 - Set `temporary: true` unless the user explicitly says this is a permanent/long-lived flag. Most flags are release flags that should eventually be cleaned up.
-- Generate a `key` from the name if not provided (e.g., "New Checkout Flow" → `new-checkout-flow`), but match the codebase's naming convention if one exists.
+- Generate a `key` from the name if not provided (e.g., "New Checkout Flow" -> `new-checkout-flow`), but match the codebase's naming convention if one exists.
 - Suggest relevant tags based on the feature area, team, or context the user mentions.
 
 ### Step 3: Create the Flag in LaunchDarkly
@@ -85,7 +85,7 @@ After creation:
 Now add the code to evaluate the flag, **matching the patterns you found in Step 1**.
 
 1. **Use the same SDK patterns** the codebase already uses. If there's a wrapper, use the wrapper. If there are constants, add the new key to the constants file.
-2. **Use an appropriate default value.** The default (fallback) value in code should be the "safe" behavior — typically the existing behavior before the flag. This ensures the feature stays off if the SDK can't reach LaunchDarkly.
+2. **Use an appropriate default value.** The default (fallback) value in code should be the "safe" behavior: typically the existing behavior before the flag. This ensures the feature stays off if the SDK can't reach LaunchDarkly.
 3. **Add the conditional logic.** Wrap the new behavior in a flag check.
 4. **Handle both branches.** Make sure the code path for each variation is clear and complete.
 
@@ -98,7 +98,7 @@ Confirm the flag is properly set up:
 1. **Code compiles/passes linting.** Run the project's build or lint step.
 2. **Flag exists in LaunchDarkly.** Use `get-flag` to confirm it was created with the right configuration.
 3. **Both code paths work.** The flag-off path preserves existing behavior; the flag-on path enables the new feature.
-4. **Default value is safe.** If LaunchDarkly is unreachable, the code falls back to the default — make sure that's the existing/safe behavior.
+4. **Default value is safe.** If LaunchDarkly is unreachable, the code falls back to the default: make sure that's the existing/safe behavior.
 
 ## Updating Flag Settings
 
@@ -126,5 +126,5 @@ Multiple instructions can be batched in a single call. These changes are project
 
 ## References
 
-- [Flag Types and Patterns](references/flag-types.md) — Boolean vs multivariate, naming conventions, configuration best practices
-- [SDK Evaluation Patterns](references/sdk-evaluation-patterns.md) — How to evaluate flags in each SDK, including common wrapper patterns
+- [Flag Types and Patterns](references/flag-types.md): Boolean vs multivariate, naming conventions, configuration best practices
+- [SDK Evaluation Patterns](references/sdk-evaluation-patterns.md): How to evaluate flags in each SDK, including common wrapper patterns

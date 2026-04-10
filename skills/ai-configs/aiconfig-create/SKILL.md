@@ -1,114 +1,164 @@
 ---
 name: aiconfig-create
-description: Guide for setting up AI configuration in your application. Helps you choose between agent vs completion mode, select the right approach for your stack, and create AI Configs that make sense for your use case.
-compatibility: Requires LaunchDarkly API access token with ai-configs:write permission or LaunchDarkly MCP server.
+description: "Create and configure AI Configs in LaunchDarkly. Helps you choose between agent vs completion mode, create the config, add variations with models and prompts, and verify the setup."
+license: Apache-2.0
+compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.2.0"
+  version: "1.0.0-experimental"
 ---
 
 # Create AI Config
 
-You're using a skill that will guide you through setting up AI configuration in your application. Your job is to explore the codebase to understand the use case and stack, choose agent vs completion mode, create the config following the right path, and verify it works.
+You're using a skill that will guide you through creating an AI Config in LaunchDarkly. Your job is to understand the use case, choose the right mode, create the config and its variations, and verify everything is set up correctly.
 
 ## Prerequisites
 
-- LaunchDarkly API access token with `ai-configs:write` permission or MCP server
-- LaunchDarkly project (use `aiconfig-projects` skill if needed)
+This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
-## Core Principles
+**Primary MCP tool:**
+- `setup-ai-config` -- create a config with its first variation in one step (recommended)
 
-1. **Understand the Use Case First**: Know what you're building before choosing a mode
-2. **Choose the Right Mode**: Agent mode vs completion mode depends on your framework and needs
-3. **Two-Step Creation**: Create config first, then create variations (model, prompts, parameters)
-4. **Verify via API**: The agent fetches the config to confirm it was created correctly
+**Alternative MCP tools (for more control):**
+- `create-ai-config` -- create just the config shell (key, name, mode)
+- `create-ai-config-variation` -- add a variation with model, prompts, and parameters
+- `get-ai-config` -- verify the config was created correctly
 
-## API Key Detection
+**Optional MCP tools (enhance workflow):**
+- `list-ai-configs` -- browse existing configs to understand naming conventions
+- `create-project` -- create a project if one doesn't exist yet
 
-1. **Check environment variables** — `LAUNCHDARKLY_API_KEY`, `LAUNCHDARKLY_API_TOKEN`, `LD_API_KEY`
-2. **Check MCP config** — Claude: `~/.claude/config.json` → `mcpServers.launchdarkly.env.LAUNCHDARKLY_API_KEY`
-3. **Prompt user** — Only if detection fails
+## Important: Bias Towards Action
+
+When the user provides enough context (use case, model, mode), proceed through the entire workflow without stopping to ask for details you can infer. Use reasonable defaults for unspecified fields: `default` for variation key, the use case as the basis for instructions/messages, kebab-case for config keys. Complete all steps (create + verify) in one pass.
 
 ## Workflow
 
-### Step 1: Understand Your Use Case
+### Step 1: Understand the Use Case
 
 Before creating, identify what you're building:
 
 - **What framework?** LangGraph, LangChain, CrewAI, OpenAI SDK, Anthropic SDK, custom
-- **What does the AI need?** Just text, or tools/function calling?
-- **Agent or completion?** See decision below
+- **What does the AI need?** Just text generation, or tools/function calling?
+- **Agent or completion?** See the decision matrix below
 
 ### Step 2: Choose Agent vs Completion Mode
 
-| Your Need | Mode |
-|-----------|------|
-| Persistent instructions across interactions | **Agent** |
-| LangGraph, CrewAI, AutoGen | **Agent** |
-| Direct OpenAI/Anthropic API calls | **Completion** |
-| Full control of message structure | **Completion** |
-| One-off text generation | **Completion** |
+This choice is about **input schema and framework compatibility**, not execution behavior. Agent mode returns an `instructions` string; completion mode returns a `messages` array. Both provide provider abstraction, A/B testing, and metrics tracking.
 
-**Both modes support tools.** Agent mode: single `instructions` string. Completion mode: full `messages` array.
+| Your Need | Mode | Why |
+|-----------|------|-----|
+| LangGraph, CrewAI, AutoGen frameworks | **Agent** | Frameworks expect goal/instruction input |
+| Persistent instructions across interactions | **Agent** | Single instructions string, SDK method: `aiclient.agent()` |
+| Direct OpenAI/Anthropic API calls | **Completion** | Messages array maps directly to provider APIs |
+| Full control of message structure | **Completion** | System/user/assistant role-based messages |
+| One-off text generation | **Completion** | Standard chat format |
+| Need online evaluations (LLM-as-judge) | **Completion** | Online evals are only available in completion mode |
 
-### Step 3: Create the Config
+**Both modes support tools.** Not all models support agent mode -- check model compatibility if using agent mode. If unsure, start with completion mode (it's the API default and more flexible).
 
-Follow [API Quick Start](references/api-quickstart.md) for curl examples:
+### Step 3: Create the Config (Recommended: One Step)
 
-1. **Create config** — `POST /projects/{projectKey}/ai-configs` (key, name, mode)
-2. **Create variation** — `POST /projects/{projectKey}/ai-configs/{configKey}/variations` (instructions or messages, modelConfigKey, model.parameters)
-3. **Attach tools** — After creation, PATCH variation to add tools (see `aiconfig-tools` skill)
+Use `setup-ai-config` to create the config and its first variation in one call. This is the recommended approach: it handles creation, variation setup, and verification automatically.
+
+**Config fields:**
+- `key` -- unique identifier (lowercase, hyphens)
+- `name` -- human-readable name
+- `mode` -- `"agent"` or `"completion"`
+- Optional: `description`, `tags`
+
+**Variation fields:**
+- `variationKey`, `variationName` -- identifiers for the first variation
+- `modelConfigKey` -- must be `Provider.model-id` format (e.g., `OpenAI.gpt-4o`, `Anthropic.claude-sonnet-4-5`)
+- `modelName` -- the model identifier (e.g., `gpt-4o`)
+
+**For agent mode**, provide:
+- `instructions` -- a string with the agent's system instructions
+
+Example agent-mode call:
+```json
+{
+  "projectKey": "my-project", "key": "support-agent", "name": "Support Agent",
+  "mode": "agent", "variationKey": "default", "variationName": "Default",
+  "modelConfigKey": "OpenAI.gpt-4o", "modelName": "gpt-4o",
+  "instructions": "You are a customer support agent. Help users resolve their issues."
+}
+```
+
+**For completion mode**, provide:
+- `messages` -- an array of `{role, content}` objects (system, user, assistant)
+
+Example completion-mode call:
+```json
+{
+  "projectKey": "my-project", "key": "product-descriptions", "name": "Product Descriptions",
+  "mode": "completion", "variationKey": "default", "variationName": "Default",
+  "modelConfigKey": "Anthropic.claude-sonnet-4-5", "modelName": "claude-sonnet-4-5",
+  "messages": [
+    {"role": "system", "content": "You are a product copywriter. Write compelling descriptions."},
+    {"role": "user", "content": "Write a description for: {{product_name}}"}
+  ]
+}
+```
+
+**Optional:**
+- `parameters` -- model parameters like `{temperature: 0.7, maxTokens: 2000}`
+
+The tool returns the full verified config detail with the variation attached.
+
+### Step 3 (Alternative): Two-Step Creation
+
+If the user asks for more control or a step-by-step approach, use the individual tools:
+
+1. `create-ai-config` -- create the config shell
+2. `create-ai-config-variation` -- add the variation with model, prompts, and parameters
+3. `get-ai-config` -- verify the result
+
+**Execute all three steps without stopping to ask for details.** Infer the variation key (`default`), name (`Default`), instructions/messages, and model from the user's request context. If the user asked for GPT-4o agent mode, you have enough to complete the entire flow. Only ask clarifying questions if the mode or model is truly ambiguous.
 
 ### Step 4: Verify
 
-After creation, verify the config:
+If you used `setup-ai-config`, verification is automatic: the response includes the full config with variations. Check:
 
-1. **Fetch via API:**
-   ```bash
-   curl -X GET "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/{configKey}" \
-     -H "Authorization: {api_token}" -H "LD-API-Version: beta"
-   ```
+1. Config exists with the correct mode
+2. Variation has a model assigned (not "NO MODEL")
+3. Instructions or messages are present
+4. Parameters are set
 
-2. **Confirm:**
-   - Config exists with correct mode
-   - Variations have model names (not "NO MODEL")
-   - modelConfigKey is set
-   - Parameters are present
+**Report results:**
+- Config created with correct structure
+- Variation has model assigned
+- Flag any missing model or parameters
+- Provide config URL: `https://app.launchdarkly.com/projects/{projectKey}/ai-configs/{configKey}`
 
-3. **Report results:**
-   - ✓ Config created with correct structure
-   - ✓ Variations have models assigned
-   - ⚠️ Flag any missing model or parameters
-   - Provide config URL: `https://app.launchdarkly.com/projects/{projectKey}/ai-configs/{configKey}`
+## modelConfigKey Format
 
-## Important Notes
+Required for models to display in the UI. Format: `{Provider}.{model-id}`
 
-- **modelConfigKey** must be `{Provider}.{model-id}` (e.g., `OpenAI.gpt-4o`) for models to show in UI
-- **Tools** must be created first (`aiconfig-tools` skill), then attached via PATCH
-- **Tools endpoint** is `/ai-tools`, NOT `/ai-configs/tools`
+- `OpenAI.gpt-4o`
+- `OpenAI.gpt-4o-mini`
+- `Anthropic.claude-sonnet-4-5`
+- `Anthropic.claude-3-5-sonnet`
+
+The `create-ai-config-variation` tool validates this format and rejects invalid values.
 
 ## Edge Cases
 
 | Situation | Action |
 |-----------|--------|
 | Config already exists | Ask if user wants to update instead |
-| Variation shows "NO MODEL" | PATCH variation with modelConfigKey and model |
-| Invalid modelConfigKey | Use values from model-configs API |
+| Variation shows "NO MODEL" | Use `update-ai-config-variation` to set modelConfigKey |
+| Need to attach tools | Create tools first (`aiconfig-tools` skill), then update the variation |
 
 ## What NOT to Do
 
 - Don't create configs without understanding the use case
 - Don't skip the two-step process (config then variation)
-- Don't try to attach tools during initial creation
-- Don't forget modelConfigKey (models won't show)
+- Don't try to attach tools during initial creation -- update the variation afterward
+- Don't forget modelConfigKey (models won't show in the UI)
 
 ## Related Skills
 
-- `aiconfig-tools` — Create tools before attaching
-- `aiconfig-variations` — Add more variations for experimentation
-- `aiconfig-update` — Modify configs based on learnings
-
-## References
-
-- [API Quick Start](references/api-quickstart.md)
-- [LaunchDarkly AI Configs Docs](https://docs.launchdarkly.com/home/ai-configs)
+- `aiconfig-tools` -- Create tools before attaching
+- `aiconfig-variations` -- Add more variations for experimentation
+- `aiconfig-update` -- Modify configs based on learnings

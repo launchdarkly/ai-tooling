@@ -146,13 +146,13 @@ Tags help organize flags in LaunchDarkly. Suggest tags based on:
 ## Best Practices for Variations
 
 ### Boolean Flags
-- Name variations: `true` → "Enabled" / "New behavior", `false` → "Disabled" / "Old behavior"
+- Name variations: `true` -> "Enabled" / "New behavior", `false` -> "Disabled" / "Old behavior"
 - Set `offVariation` to `false` (index 1)
 
 ### Multivariate Flags
 - Always include a "control" or "default" variation
 - Give every variation a descriptive `name`
-- Consider what the `offVariation` should be — typically the control/default
+- Consider what the `offVariation` should be: typically the control/default
 - Order variations with the default/control first
 
 ### Default Values in Code

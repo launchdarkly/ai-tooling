@@ -53,8 +53,8 @@ launchdarkly-flag-create/
 
 ## Related
 
-- [LaunchDarkly Flag Targeting](../launchdarkly-flag-targeting/) — Control targeting after creating a flag
-- [LaunchDarkly Flag Cleanup](../launchdarkly-flag-cleanup/) — Remove flags when they're no longer needed
+- [LaunchDarkly Flag Targeting](../launchdarkly-flag-targeting/): Control targeting after creating a flag
+- [LaunchDarkly Flag Cleanup](../launchdarkly-flag-cleanup/): Remove flags when they're no longer needed
 - [LaunchDarkly MCP Server](https://github.com/launchdarkly/mcp-server)
 - [LaunchDarkly Docs](https://docs.launchdarkly.com)
 

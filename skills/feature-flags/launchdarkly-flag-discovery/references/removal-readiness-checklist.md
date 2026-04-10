@@ -43,7 +43,7 @@ A systematic safety check to determine whether a feature flag can be safely remo
 - This flag has no prerequisites of its own (simpler removal)
 
 **Fail criteria (hard blocker):**
-- Other flags depend on this flag as a prerequisite — removing it would break their targeting logic
+- Other flags depend on this flag as a prerequisite: removing it would break their targeting logic
 
 ### 4. Code References
 
@@ -53,7 +53,7 @@ A systematic safety check to determine whether a feature flag can be safely remo
 - No code references found, or references only exist in the current repository (about to be cleaned up)
 
 **Caution criteria:**
-- Code references exist in multiple repositories — flag removal in code needs to be coordinated
+- Code references exist in multiple repositories: flag removal in code needs to be coordinated
 
 **Note:** Code reference scanning has limitations. It tracks static string matches and may miss dynamic flag key construction (`flag-${name}`) or have false positives from comments/documentation.
 
@@ -65,17 +65,17 @@ A systematic safety check to determine whether a feature flag can be safely remo
 - No expiring targets scheduled
 
 **Caution criteria:**
-- Expiring targets exist — someone actively set a future removal date. Coordinate with them.
+- Expiring targets exist: someone actively set a future removal date. Coordinate with them.
 
 ### 6. Flag Type
 
 **Check:** The `temporary` field on the flag.
 
 **Pass criteria:**
-- Flag is marked as `temporary` — it was intended to be removed
+- Flag is marked as `temporary`: it was intended to be removed
 
 **Caution criteria:**
-- Flag is marked as `permanent` — it may be intentionally long-lived. Confirm with the user before recommending removal.
+- Flag is marked as `permanent`: it may be intentionally long-lived. Confirm with the user before recommending removal.
 
 ## Readiness Levels
 
@@ -97,14 +97,14 @@ Hard blockers prevent safe removal.
 - Present each blocker with specifics
 - For prerequisite dependencies: user must update dependent flags first
 - For active targeting: user should toggle off and wait for a cool-down period
-- For active status: flag is still being used — don't remove
+- For active status: flag is still being used: don't remove
 
 ## Presenting Results
 
 Structure the assessment as:
 
-1. **Verdict** — Lead with safe / caution / blocked
-2. **Blockers** (if any) — Each with type and actionable detail
-3. **Warnings** (if any) — Each with type and context
-4. **Forward value** — What variation should replace the flag in code (only if safe or caution)
-5. **Next steps** — What to do now (proceed with cleanup, address warnings, resolve blockers)
+1. **Verdict**: Lead with safe / caution / blocked
+2. **Blockers** (if any): Each with type and actionable detail
+3. **Warnings** (if any): Each with type and context
+4. **Forward value**: What variation should replace the flag in code (only if safe or caution)
+5. **Next steps**: What to do now (proceed with cleanup, address warnings, resolve blockers)

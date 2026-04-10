@@ -5,10 +5,11 @@ An Agent Skill for updating, archiving, and deleting AI Configs and their variat
 ## Overview
 
 This skill teaches agents how to:
-- Update config metadata (name, description)
-- Modify variation instructions, messages, models, and parameters
-- Archive configs (reversible) or delete them (permanent)
-- Verify changes via API fetch
+- Assess config health using `get-ai-config-health` before making changes
+- Update config metadata (name, description, tags) via `update-ai-config`
+- Modify variation instructions, messages, models, and parameters via `update-ai-config-variation`
+- Archive configs (reversible) or delete them (permanent, irreversible)
+- Verify changes via `get-ai-config`
 
 ## Installation (Local)
 
@@ -16,8 +17,7 @@ Copy `skills/ai-configs/aiconfig-update/` into your agent client's skills path.
 
 ## Prerequisites
 
-- LaunchDarkly API access token with write permissions
-- Existing AI Config to modify
+This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 ## Usage
 
@@ -38,15 +38,13 @@ Archive the old chatbot config
 ```
 aiconfig-update/
 ├── SKILL.md
-├── README.md
-└── references/
-    └── api-quickstart.md
+└── README.md
 ```
 
 ## Related
 
-- [AI Config Create](../aiconfig-create/) — Create configs
-- [AI Config Variations](../aiconfig-variations/) — Add or test variations
+- [AI Config Create](../aiconfig-create/): Create configs
+- [AI Config Variations](../aiconfig-variations/): Add or test variations
 - [LaunchDarkly AI Configs Docs](https://docs.launchdarkly.com/home/ai-configs)
 
 ## License
