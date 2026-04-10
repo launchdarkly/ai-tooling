@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "LaunchDarkly Feature Management": {
+      "type": "http",
+      "url": "https://mcp.launchdarkly.com/mcp/fm",
+      "headers": {}
+    },
+    "LaunchDarkly AI Configs": {
+      "type": "http",
+      "url": "https://mcp.launchdarkly.com/mcp/aiconfigs",
+      "headers": {}
+    }
+  }
+}
