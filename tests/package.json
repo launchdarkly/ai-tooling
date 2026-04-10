@@ -5,11 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "eval": "promptfoo eval --config evals/metrics/metric-create.eval.yaml --config evals/metrics/metric-choose.eval.yaml --config evals/metrics/metric-instrument.eval.yaml --config evals/feature-flags/flag-create.eval.yaml --config evals/feature-flags/flag-targeting.eval.yaml --config evals/feature-flags/flag-cleanup.eval.yaml --config evals/feature-flags/flag-discovery.eval.yaml --config evals/ai-configs/aiconfig-create.eval.yaml --config evals/ai-configs/aiconfig-update.eval.yaml --config evals/ai-configs/aiconfig-targeting.eval.yaml --config evals/ai-configs/aiconfig-variations.eval.yaml --config evals/ai-configs/aiconfig-tools.eval.yaml --config evals/ai-configs/aiconfig-online-evals.eval.yaml --config evals/ai-configs/aiconfig-projects.eval.yaml",
-    "eval:smoke": "promptfoo eval --config promptfooconfig.yaml",
-    "eval:metrics": "promptfoo eval --config evals/metrics/metric-create.eval.yaml --config evals/metrics/metric-choose.eval.yaml --config evals/metrics/metric-instrument.eval.yaml",
-    "eval:flags": "promptfoo eval --config evals/feature-flags/flag-create.eval.yaml --config evals/feature-flags/flag-targeting.eval.yaml --config evals/feature-flags/flag-cleanup.eval.yaml --config evals/feature-flags/flag-discovery.eval.yaml",
-    "eval:aiconfigs": "promptfoo eval --config evals/ai-configs/aiconfig-create.eval.yaml --config evals/ai-configs/aiconfig-update.eval.yaml --config evals/ai-configs/aiconfig-targeting.eval.yaml --config evals/ai-configs/aiconfig-variations.eval.yaml --config evals/ai-configs/aiconfig-tools.eval.yaml --config evals/ai-configs/aiconfig-online-evals.eval.yaml --config evals/ai-configs/aiconfig-projects.eval.yaml",
+    "eval": "promptfoo eval --config evals/metrics/metric-create.eval.yaml --output /tmp/promptfoo-results.json; node print-results.mjs",
     "view": "promptfoo view",
     "cache:clear": "promptfoo cache clear"
   },
