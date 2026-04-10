@@ -28,6 +28,10 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 - `list-ai-configs` -- browse existing configs to understand naming conventions
 - `create-project` -- create a project if one doesn't exist yet
 
+## Important: Bias Towards Action
+
+When the user provides enough context (use case, model, mode), proceed through the entire workflow without stopping to ask for details you can infer. Use reasonable defaults for unspecified fields: `default` for variation key, the use case as the basis for instructions/messages, kebab-case for config keys. Complete all steps (create + verify) in one pass.
+
 ## Workflow
 
 ### Step 1: Understand the Use Case
@@ -40,15 +44,18 @@ Before creating, identify what you're building:
 
 ### Step 2: Choose Agent vs Completion Mode
 
-| Your Need | Mode |
-|-----------|------|
-| Persistent instructions across interactions | **Agent** |
-| LangGraph, CrewAI, AutoGen | **Agent** |
-| Direct OpenAI/Anthropic API calls | **Completion** |
-| Full control of message structure | **Completion** |
-| One-off text generation | **Completion** |
+This choice is about **input schema and framework compatibility**, not execution behavior. Agent mode returns an `instructions` string; completion mode returns a `messages` array. Both provide provider abstraction, A/B testing, and metrics tracking.
 
-**Both modes support tools.** Agent mode uses a single `instructions` string. Completion mode uses a full `messages` array with roles.
+| Your Need | Mode | Why |
+|-----------|------|-----|
+| LangGraph, CrewAI, AutoGen frameworks | **Agent** | Frameworks expect goal/instruction input |
+| Persistent instructions across interactions | **Agent** | Single instructions string, SDK method: `aiclient.agent()` |
+| Direct OpenAI/Anthropic API calls | **Completion** | Messages array maps directly to provider APIs |
+| Full control of message structure | **Completion** | System/user/assistant role-based messages |
+| One-off text generation | **Completion** | Standard chat format |
+| Need online evaluations (LLM-as-judge) | **Completion** | Online evals are only available in completion mode |
+
+**Both modes support tools.** Not all models support agent mode -- check model compatibility if using agent mode. If unsure, start with completion mode (it's the API default and more flexible).
 
 ### Step 3: Create the Config (Recommended: One Step)
 
@@ -68,8 +75,31 @@ Use `setup-ai-config` to create the config and its first variation in one call. 
 **For agent mode**, provide:
 - `instructions` -- a string with the agent's system instructions
 
+Example agent-mode call:
+```json
+{
+  "projectKey": "my-project", "key": "support-agent", "name": "Support Agent",
+  "mode": "agent", "variationKey": "default", "variationName": "Default",
+  "modelConfigKey": "OpenAI.gpt-4o", "modelName": "gpt-4o",
+  "instructions": "You are a customer support agent. Help users resolve their issues."
+}
+```
+
 **For completion mode**, provide:
 - `messages` -- an array of `{role, content}` objects (system, user, assistant)
+
+Example completion-mode call:
+```json
+{
+  "projectKey": "my-project", "key": "product-descriptions", "name": "Product Descriptions",
+  "mode": "completion", "variationKey": "default", "variationName": "Default",
+  "modelConfigKey": "Anthropic.claude-sonnet-4-5", "modelName": "claude-sonnet-4-5",
+  "messages": [
+    {"role": "system", "content": "You are a product copywriter. Write compelling descriptions."},
+    {"role": "user", "content": "Write a description for: {{product_name}}"}
+  ]
+}
+```
 
 **Optional:**
 - `parameters` -- model parameters like `{temperature: 0.7, maxTokens: 2000}`
@@ -78,11 +108,13 @@ The tool returns the full verified config detail with the variation attached.
 
 ### Step 3 (Alternative): Two-Step Creation
 
-If you need more control (e.g., custom headers, conditional logic), use the individual tools:
+If the user asks for more control or a step-by-step approach, use the individual tools:
 
 1. `create-ai-config` -- create the config shell
-2. `create-ai-config-variation` -- add the variation
+2. `create-ai-config-variation` -- add the variation with model, prompts, and parameters
 3. `get-ai-config` -- verify the result
+
+**Execute all three steps without stopping to ask for details.** Infer the variation key (`default`), name (`Default`), instructions/messages, and model from the user's request context. If the user asked for GPT-4o agent mode, you have enough to complete the entire flow. Only ask clarifying questions if the mode or model is truly ambiguous.
 
 ### Step 4: Verify
 

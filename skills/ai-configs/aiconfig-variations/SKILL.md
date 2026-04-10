@@ -51,18 +51,23 @@ What's the problem? Cost, quality, speed, accuracy? How will you measure success
 
 ### Step 3: Create Variations (Recommended: Clone with Overrides)
 
-Use `clone-ai-config-variation` to duplicate the baseline and override only what you're testing. This ensures everything stays constant except your test variable: the tool reads the source variation, merges your overrides, and creates the new variation.
+Use `clone-ai-config-variation` to duplicate the baseline and override only what you're testing. The tool reads the source variation, merges your overrides, and creates the new variation. Everything you **don't** pass is inherited from the source automatically.
 
-Provide:
+**Required fields:**
 - `sourceVariationKey` -- the baseline to clone from
 - `key` and `name` -- identifiers for the new variation (e.g., `gpt4o-mini-cost-test`)
-- Only the fields you want to change (e.g., `modelConfigKey` and `modelName` to test a cheaper model)
+
+**Override ONLY the fields you are testing.** Leave all other fields unset -- do not pass them even if you know their current values. The clone tool inherits them from the source. This enforces the one-variable-at-a-time principle:
+
+- Testing a cheaper model? Pass only `modelConfigKey` and `modelName`. Do NOT pass `instructions`, `messages`, or `parameters`.
+- Testing different instructions? Pass only `instructions`. Do NOT pass `modelConfigKey` or `modelName`.
+- Testing a parameter? Pass only `parameters`. Do NOT pass model or prompt fields.
 
 The response returns both the source and created variation, so you can immediately verify the diff.
 
 ### Step 3 (Alternative): Create from Scratch
 
-If you need full control, use `get-ai-config` to review the current state, then `create-ai-config-variation` with all fields specified manually.
+If you need full control, use `get-ai-config` first to review the current state, then `create-ai-config-variation` with all fields specified manually. Always fetch before creating so you understand the existing config's mode, model, and parameters.
 
 ### Step 4: Verify
 
@@ -73,18 +78,31 @@ If you used `clone-ai-config-variation`, the response includes both source and c
 - Only the intended variable differs between variations
 - Flag any issues
 
+**Note on API responses:** After calling a creation or clone tool, treat a successful response as confirmation that the operation succeeded. The API response may not echo back every field you sent (e.g., model fields may show defaults). Do not retry or assume failure based on response field values alone -- verify with `get-ai-config` if needed.
+
 ## modelConfigKey Format
 
 Required for models to display in the UI. Format: `{Provider}.{model-id}`:
 - `OpenAI.gpt-4o`, `OpenAI.gpt-4o-mini`
 - `Anthropic.claude-sonnet-4-5`, `Anthropic.claude-3-5-sonnet`
 
+## Safety: Protect the Baseline
+
+When the user wants to try a different model, prompt, or parameters, **always create a new variation alongside the baseline**. Never modify or delete the existing baseline variation. This applies even if the user says "replace" or "switch" -- the correct action is to create a new variation and let targeting/rollouts control traffic, not to edit the original.
+
+- Use `clone-ai-config-variation` or `create-ai-config-variation` to add the new variation
+- Do NOT use `update-ai-config-variation` on the baseline to change its model or instructions
+- Do NOT use `delete-ai-config-variation` on the baseline
+- Explain to the user that keeping the baseline enables comparison and safe rollback
+
 ## What NOT to Do
 
-- Don't test too many things at once
-- Don't forget modelConfigKey
+- Don't test too many things at once -- change one variable per variation
+- Don't pass unchanged fields when cloning -- let the tool inherit them from the source
+- Don't forget modelConfigKey (variations without it show as "NO MODEL" in the UI)
 - Don't make decisions on small sample sizes
-- Don't remove the baseline variation while testing
+- Don't modify or remove the baseline variation -- create new variations alongside it
+- Don't use `update-ai-config-variation` to "replace" a baseline -- create a new variation instead
 
 ## Related Skills
 

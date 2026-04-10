@@ -31,6 +31,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 2. **Framework Matters**: LangGraph/CrewAI often auto-generate schemas; OpenAI SDK needs manual schemas
 3. **Create Before Attach**: Tools must exist before you can attach them to variations
 4. **Verify**: The agent fetches the config to confirm attachment
+5. **Complete the Full Workflow**: Listing existing tools is a discovery step, not the end goal. After listing, always proceed to create the requested tool, attach it, and verify. Do not stop after exploration.
 
 ## Workflow
 
@@ -40,6 +41,14 @@ What should the AI be able to do?
 - Query databases, call APIs, perform calculations, send notifications
 - Check what exists in the codebase (API clients, functions)
 - Consider framework: LangGraph/LangChain auto-generate schemas; direct SDK needs manual schemas
+
+If the user asks to check existing tools first, or you have no codebase context about what tools exist, follow this exact order:
+1. `list-ai-tools` -- explore what exists
+2. `create-ai-tool` -- create the new tool (with a key different from existing ones)
+3. `update-ai-config-variation` -- attach it
+4. `get-ai-config` -- verify
+
+Call `list-ai-tools` as your **first** tool call before any creation. Never stop after listing alone -- always proceed through all four steps.
 
 ### Step 2: Create Tools
 
@@ -61,15 +70,16 @@ Use `create-ai-tool` with:
 
 ### Step 3: Attach to Variation
 
-Use `update-ai-config-variation` to attach tools. Pass the tool references in the `parameters` object:
+Use `update-ai-config-variation` to attach tools. Pass the tool references in the `tools` field:
 
 ```json
 {
-  "parameters": {
-    "tools": [
-      {"key": "search-database", "version": 1}
-    ]
-  }
+  "projectKey": "my-project",
+  "configKey": "support-chatbot",
+  "variationKey": "default",
+  "tools": [
+    {"key": "search-knowledge-base", "version": 1}
+  ]
 }
 ```
 

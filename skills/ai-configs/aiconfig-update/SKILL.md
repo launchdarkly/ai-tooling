@@ -63,9 +63,13 @@ Then use `get-ai-config` to review the full detail:
 - Tune parameters (temperature, maxTokens, etc.)
 - Attach or detach tools via the parameters object
 
-**Archive a config** -- Use `update-ai-config` with `archived: true`
+**Archive a config** -- Use `update-ai-config` with `archived: true`. Archiving is the **preferred** way to retire a config:
+- It is reversible (unarchive with `archived: false`)
+- The config is hidden from active lists but preserved
+- After calling the archive, treat a successful response as confirmation and proceed to verification
+- When a user says "remove", "retire", "decommission", or "no longer need", default to archiving unless they explicitly say "delete permanently"
 
-**Delete** -- Use `delete-ai-config` or `delete-ai-config-variation` (irreversible, requires `confirm: true`)
+**Delete** -- Use `delete-ai-config` or `delete-ai-config-variation` (irreversible, requires `confirm: true`). **Always suggest archiving first.** Only proceed with deletion if the user explicitly confirms they want permanent, irreversible removal.
 
 ### Step 3: Verify
 
@@ -81,7 +85,8 @@ Use `get-ai-config` to confirm the response shows your updated values.
 - Don't update production configs without testing in another variation first
 - Don't change multiple things at once -- make incremental changes
 - Don't skip verification
-- Don't delete without user confirmation
+- Don't delete without explicit user confirmation -- always suggest archiving first
+- Don't retry an update because the API response doesn't echo back the exact values you sent -- verify with `get-ai-config` instead
 
 ## Related Skills
 
