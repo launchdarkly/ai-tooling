@@ -93,13 +93,9 @@ curl -X PATCH \
   -H "Content-Type: application/json" \
   -H "LD-API-Version: beta" \
   -d '{
-    "model": {
-      "parameters": {
-        "tools": [
-          {"key": "search-database", "version": 1}
-        ]
-      }
-    }
+    "tools": [
+      {"key": "search-database", "version": 1}
+    ]
   }'
 ```
 
