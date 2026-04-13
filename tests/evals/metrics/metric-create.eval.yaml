@@ -3,7 +3,7 @@ description: launchdarkly-metric-create skill
 providers:
   - id: anthropic:claude-3-haiku-20240307
     config:
-      temperature: 0.1
+      temperature: 0
 
 prompts:
   - label: skill-chat
