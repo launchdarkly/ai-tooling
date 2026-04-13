@@ -29,7 +29,7 @@ tests:
         value: "The response correctly identifies this as a 'custom' metric type (not click or pageview), because it involves tracking a numeric cart value via a track() call."
         metric: identifies-custom-metric
       - type: llm-rubric
-        value: "The response does NOT immediately execute a create-metric tool call. It either asks for confirmation, shows a proposal, or gathers more information before creating."
+        value: "The response does NOT call create-metric in its reply. Showing a proposal does not count — the response must stop short of calling create-metric and explicitly wait for the user to confirm."
         metric: no-premature-create
 
   - description: "Click metric — must suggest click kind, not custom"
@@ -59,7 +59,7 @@ tests:
       user_message: "Create a metric called signup-rate, count type, for project my-app. Go ahead and do it now."
     assert:
       - type: llm-rubric
-        value: "The response shows a proposed metric configuration and asks the user to confirm before creating it. It does NOT silently execute the creation without any proposal or confirmation step."
+        value: "The response shows a proposed metric configuration but does NOT call create-metric in the same reply. It must ask the user to confirm before any creation happens. A response that shows a proposal and then immediately calls create-metric — even if it announces doing so — fails this check."
         metric: shows-proposal-step
 
   - description: "Duplicate check — must call list-metrics before proposing"
@@ -67,7 +67,7 @@ tests:
       user_message: "Create a metric called checkout-value in project my-app"
     assert:
       - type: llm-rubric
-        value: "The response mentions checking for existing metrics (e.g. calling list-metrics) before creating the new one, to avoid duplicates."
+        value: "The response performs some kind of discovery or lookup before proposing the metric — for example calling list-metric-events, list-metrics, or asking about existing metrics. A response that jumps directly from the user's request to a proposed configuration with no lookup or verification step whatsoever does not satisfy this."
         metric: checks-for-duplicates
 
   - description: "Measure type ambiguity — must ask count vs occurrence"
@@ -75,12 +75,242 @@ tests:
       user_message: "I want to track when users add items to their cart. Project is my-app, event key is cart-add."
     assert:
       - type: llm-rubric
-        value: "The response asks the user to clarify whether they want to count occurrences (total events) or unique users (conversion), rather than assuming one or the other."
+        value: "The response either asks the user to choose between measure types (occurrence vs. unique users), OR includes a parenthetical clarification immediately after the measure type that explains what it will measure — for example 'occurrence (did each user add to cart?)'. A bare 'Measure type: occurrence' with no parenthetical and no question about measure type does not satisfy this."
         metric: asks-measure-type
 
   - description: "LD project vs codebase disambiguation"
     vars:
       user_message: "I want to create a metric in my checkout_proj"
+    assert:
+      - type: llm-rubric
+        value: "The response recognizes that 'checkout_proj' appears to be a codebase directory, not a LaunchDarkly project key, and asks the user to provide their LaunchDarkly project key."
+        metric: asks-for-ld-project
+
+  # ─── Mutation tests ──────────────────────────────────────────────────────────
+  # These test the llm-rubric GRADER, not the skill.
+  # Each feeds a hand-crafted defective output through the grader via the
+  # echo-output provider (no LLM call, zero variance). The same rubric from
+  # the corresponding positive test is used.
+  #
+  # Semantics: FAIL = grader correctly rejected the defect (green in output)
+  #            PASS = grader missed the defect (red — rubric has a blind spot)
+
+  # [NEG] 1 — mirrors positive test 1 (custom metric + no premature create)
+  - description: "[NEG] Custom metric misidentified as pageview; create-metric called immediately"
+    provider: file://../../providers/echo-output.mjs
+    vars:
+      canned_output: |
+        Since you want to track visits to the checkout page where the cart value is recorded,
+        the appropriate metric kind is `pageview`. This will automatically track page visits
+        without any code changes needed.
+
+        Here is the proposed metric configuration:
+
+        Key:              checkout-cart-value
+        Kind:             pageview
+        URLs:             substring match on "/checkout"
+        Measure type:     occurrence
+        Success criteria: HigherThanBaseline
+
+        Creating the metric now:
+
+        ```
+        create-metric(
+          projectKey="my-app",
+          key="checkout-cart-value",
+          kind="pageview",
+          urls=[{ kind="substring", url="/checkout" }],
+          measureType="occurrence",
+          successCriteria="HigherThanBaseline"
+        )
+        ```
+
+        Done! The metric has been created.
+    assert:
+      - type: llm-rubric
+        value: "The response correctly identifies this as a 'custom' metric type (not click or pageview), because it involves tracking a numeric cart value via a track() call."
+        metric: identifies-custom-metric
+      - type: llm-rubric
+        value: "The response does NOT call create-metric in its reply. Showing a proposal does not count — the response must stop short of calling create-metric and explicitly wait for the user to confirm."
+        metric: no-premature-create
+
+  # [NEG] 2 — mirrors positive test 2 (click metric)
+  - description: "[NEG] Click metric misidentified as custom; SDK instrumentation suggested"
+    provider: file://../../providers/echo-output.mjs
+    vars:
+      canned_output: |
+        To track when users click the checkout button, we'll use a `custom` metric.
+        This requires instrumenting your code with a track() call.
+
+        Step 1: Add the track() call
+        In your click handler for the checkout button on /cart, add:
+
+        ```js
+        ldClient.track('checkout-btn-clicked')
+        ```
+
+        Step 2: Check for existing metrics
+        ```
+        list-metrics(projectKey="my-app")
+        ```
+
+        Proposed metric:
+        Key:          checkout-btn-clicked
+        Kind:         custom (requires SDK instrumentation)
+        Event key:    checkout-btn-clicked
+        Measure type: occurrence
+        Success criteria: HigherThanBaseline
+
+        Does this look good?
+    assert:
+      - type: llm-rubric
+        value: "The response recommends using a 'click' metric kind for tracking button clicks, NOT a custom metric or SDK track() call."
+        metric: suggests-click-metric
+      - type: llm-rubric
+        value: "The response does NOT instruct the user to add a track() call or install/configure the LaunchDarkly SDK. Click metrics do not require SDK instrumentation."
+        metric: no-sdk-required
+
+  # [NEG] 3 — mirrors positive test 3 (pageview metric)
+  - description: "[NEG] Pageview metric misidentified as custom; track() call suggested"
+    provider: file://../../providers/echo-output.mjs
+    vars:
+      canned_output: |
+        To measure how many users visit /checkout, we'll use a `custom` metric with a track() call.
+
+        Step 1: Add the track() call
+        In your /checkout route handler, add:
+
+        ```js
+        ldClient.track('checkout-page-viewed')
+        ```
+
+        Step 2: Check for existing metrics
+        ```
+        list-metrics(projectKey="my-app")
+        ```
+
+        Proposed metric:
+        Key:          checkout-page-viewed
+        Kind:         custom (requires SDK instrumentation)
+        Event key:    checkout-page-viewed
+        Measure type: occurrence
+        Success criteria: HigherThanBaseline
+
+        Does this look good?
+    assert:
+      - type: llm-rubric
+        value: "The response recommends using a 'pageview' metric kind to track page visits, NOT a custom metric or track() call."
+        metric: suggests-pageview
+      - type: llm-rubric
+        value: "The response does NOT suggest instrumenting a custom track() call or using a custom metric type for this page visit use case."
+        metric: no-custom-for-pageview
+
+  # [NEG] 4 — mirrors positive test 4 (gate condition)
+  - description: "[NEG] Proposal shown but create-metric called immediately without confirmation"
+    provider: file://../../providers/echo-output.mjs
+    vars:
+      canned_output: |
+        Here is the proposed configuration for the signup-rate metric:
+
+        Key:              signup-rate
+        Kind:             custom
+        Event key:        signup-submitted
+        Measure type:     count
+        Success criteria: HigherThanBaseline
+
+        Creating the metric now as requested:
+
+        ```
+        create-metric(
+          projectKey="my-app",
+          key="signup-rate",
+          name="Signup Rate",
+          kind="custom",
+          eventKey="signup-submitted",
+          measureType="count",
+          successCriteria="HigherThanBaseline"
+        )
+        ```
+
+        The metric has been created. Here is the verification:
+
+        ```
+        get-metric(projectKey="my-app", key="signup-rate")
+        ```
+    assert:
+      - type: llm-rubric
+        value: "The response shows a proposed metric configuration but does NOT call create-metric in the same reply. It must ask the user to confirm before any creation happens. A response that shows a proposal and then immediately calls create-metric — even if it announces doing so — fails this check."
+        metric: shows-proposal-step
+
+  # [NEG] 5 — mirrors positive test 5 (duplicate check)
+  - description: "[NEG] Proposed without any pre-creation discovery step"
+    provider: file://../../providers/echo-output.mjs
+    vars:
+      canned_output: |
+        Sure! Here is the proposed metric configuration:
+
+        Key:          checkout-value
+        Kind:         custom
+        Event key:    checkout-completed
+        Measure type: value (average)
+        Success criteria: HigherThanBaseline
+        Unit:         USD
+
+        Shall I go ahead and create this?
+    assert:
+      - type: llm-rubric
+        value: "The response performs some kind of discovery or lookup before proposing the metric — for example calling list-metric-events, list-metrics, or asking about existing metrics. A response that jumps directly from the user's request to a proposed configuration with no lookup or verification step whatsoever does not satisfy this."
+        metric: checks-for-duplicates
+
+  # [NEG] 6 — mirrors positive test 6 (measure type ambiguity)
+  - description: "[NEG] Measure type silently assumed, no explanation or question"
+    provider: file://../../providers/echo-output.mjs
+    vars:
+      canned_output: |
+        To track when users add items to their cart, we'll create a `custom` metric.
+
+        First, let's check if the `cart-add` event is flowing:
+
+        ```
+        list-metric-events(projectKey="my-app")
+        ```
+
+        Proposed metric:
+        Key:          cart-add
+        Kind:         custom
+        Event key:    cart-add
+        Measure type: occurrence
+        Success criteria: HigherThanBaseline
+
+        Let me know if you'd like to change anything about this configuration.
+    assert:
+      - type: llm-rubric
+        value: "The response either asks the user to choose between measure types (occurrence vs. unique users), OR includes a parenthetical clarification immediately after the measure type that explains what it will measure — for example 'occurrence (did each user add to cart?)'. A bare 'Measure type: occurrence' with no parenthetical and no question about measure type does not satisfy this."
+        metric: asks-measure-type
+
+  # [NEG] 7 — mirrors positive test 7 (project disambiguation)
+  - description: "[NEG] checkout_proj treated as LaunchDarkly project key without asking"
+    provider: file://../../providers/echo-output.mjs
+    vars:
+      canned_output: |
+        Let's walk through creating a new metric in your checkout_proj project.
+
+        First, let's see what events are currently flowing in checkout_proj:
+
+        ```
+        list-metric-events(projectKey="checkout_proj")
+        ```
+
+        Now let's check for any existing metrics:
+
+        ```
+        list-metrics(projectKey="checkout_proj")
+        ```
+
+        What kind of metric would you like to create?
+        - pageview — track page visits
+        - click — track button/link clicks
+        - custom — track a custom event
     assert:
       - type: llm-rubric
         value: "The response recognizes that 'checkout_proj' appears to be a codebase directory, not a LaunchDarkly project key, and asks the user to provide their LaunchDarkly project key."
