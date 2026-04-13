@@ -77,6 +77,11 @@ results.forEach((r, i) => {
 console.log(`\nPositive tests: ${posPassed}/${posTotal} passed`);
 console.log(`Mutation tests: ${negConfirmed}/${negTotal} defects correctly detected`);
 
+if (posPassed < posTotal) {
+  console.error(`\n[CI] ${posTotal - posPassed} positive test(s) failed — exiting 1`);
+  process.exitCode = 1;
+}
+
 // Token usage — read from top-level stats (most accurate source)
 const stats = data?.results?.stats ?? {};
 const tu = stats.tokenUsage ?? {};
