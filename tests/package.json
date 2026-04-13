@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "eval": "promptfoo eval --config evals/metrics/metric-create.eval.yaml --no-cache --output /tmp/promptfoo-results.json; node print-results.mjs",
+    "eval": "SKILL_ROOT=$(cd ../skills && pwd) PROVIDER_ROOT=$(pwd)/providers promptfoo eval --config evals/metrics/metric-create.eval.yaml --no-cache --output /tmp/promptfoo-results.json; node print-results.mjs",
     "view": "promptfoo view",
     "cache:clear": "promptfoo cache clear"
   },

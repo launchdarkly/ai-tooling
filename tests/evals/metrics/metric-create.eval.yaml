@@ -16,7 +16,7 @@ prompts:
 
 defaultTest:
   vars:
-    skill_content: file://../../../skills/metrics/launchdarkly-metric-create/SKILL.md
+    skill_content: file://{{env.SKILL_ROOT}}/metrics/launchdarkly-metric-create/SKILL.md
   options:
     provider: anthropic:claude-3-haiku-20240307
 
@@ -97,7 +97,7 @@ tests:
 
   # [NEG] 1 — mirrors positive test 1 (custom metric + no premature create)
   - description: "[NEG] Custom metric misidentified as pageview; create-metric called immediately"
-    provider: file://../../providers/echo-output.mjs
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
       canned_output: |
         Since you want to track visits to the checkout page where the cart value is recorded,
@@ -136,7 +136,7 @@ tests:
 
   # [NEG] 2 — mirrors positive test 2 (click metric)
   - description: "[NEG] Click metric misidentified as custom; SDK instrumentation suggested"
-    provider: file://../../providers/echo-output.mjs
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
       canned_output: |
         To track when users click the checkout button, we'll use a `custom` metric.
@@ -172,7 +172,7 @@ tests:
 
   # [NEG] 3 — mirrors positive test 3 (pageview metric)
   - description: "[NEG] Pageview metric misidentified as custom; track() call suggested"
-    provider: file://../../providers/echo-output.mjs
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
       canned_output: |
         To measure how many users visit /checkout, we'll use a `custom` metric with a track() call.
@@ -207,7 +207,7 @@ tests:
 
   # [NEG] 4 — mirrors positive test 4 (gate condition)
   - description: "[NEG] Proposal shown but create-metric called immediately without confirmation"
-    provider: file://../../providers/echo-output.mjs
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
       canned_output: |
         Here is the proposed configuration for the signup-rate metric:
@@ -244,7 +244,7 @@ tests:
 
   # [NEG] 5 — mirrors positive test 5 (duplicate check)
   - description: "[NEG] Proposed without any pre-creation discovery step"
-    provider: file://../../providers/echo-output.mjs
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
       canned_output: |
         Sure! Here is the proposed metric configuration:
@@ -264,7 +264,7 @@ tests:
 
   # [NEG] 6 — mirrors positive test 6 (measure type ambiguity)
   - description: "[NEG] Measure type silently assumed, no explanation or question"
-    provider: file://../../providers/echo-output.mjs
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
       canned_output: |
         To track when users add items to their cart, we'll create a `custom` metric.
@@ -290,7 +290,7 @@ tests:
 
   # [NEG] 7 — mirrors positive test 7 (project disambiguation)
   - description: "[NEG] checkout_proj treated as LaunchDarkly project key without asking"
-    provider: file://../../providers/echo-output.mjs
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
       canned_output: |
         Let's walk through creating a new metric in your checkout_proj project.
