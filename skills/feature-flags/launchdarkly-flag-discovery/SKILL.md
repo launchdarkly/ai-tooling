@@ -17,14 +17,14 @@ You're using a skill that will guide you through auditing and understanding the 
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `list-flags` — search and browse flags with filtering by state, type, tags
-- `get-flag` — get full configuration for a single flag in a specific environment
-- `get-flag-status-across-envs` — check a flag's lifecycle status across all environments
+- `list-flags`: search and browse flags with filtering by state, type, tags
+- `get-flag`: get full configuration for a single flag in a specific environment
+- `get-flag-status-across-envs`: check a flag's lifecycle status across all environments
 
 **Optional MCP tools (enhance depth):**
-- `find-stale-flags` — find flags that are candidates for cleanup, sorted by staleness
-- `get-flag-health` — get combined health view for a single flag (merges status + config)
-- `check-removal-readiness` — detailed safety check for a specific flag
+- `find-stale-flags`: find flags that are candidates for cleanup, sorted by staleness
+- `get-flag-health`: get combined health view for a single flag (merges status + config)
+- `check-removal-readiness`: detailed safety check for a specific flag
 
 ## Workflow
 
@@ -44,15 +44,15 @@ Adapt your approach to the user's goal:
 
 **For a broad audit:**
 - Use `list-flags` scoped to a critical environment (default to `production`).
-- Note the total count — this tells you the scale of the flag surface area.
+- Note the total count: this tells you the scale of the flag surface area.
 - Filter by `state` (active, inactive, launched, new) to segment the landscape.
-- Filter by `type` (temporary vs permanent) — temporary flags are the primary cleanup targets.
+- Filter by `type` (temporary vs permanent): temporary flags are the primary cleanup targets.
 
 **For cleanup planning:**
-- Use `find-stale-flags` — this is the most efficient entry point. It returns a prioritized list of cleanup candidates sorted by staleness, categorized as:
-  - `never_requested` — created but never evaluated (possibly abandoned)
-  - `inactive_30d` — no SDK evaluations in the specified period
-  - `launched_no_changes` — fully rolled out, no recent changes
+- Use `find-stale-flags`: this is the most efficient entry point. It returns a prioritized list of cleanup candidates sorted by staleness, categorized as:
+  - `never_requested`: created but never evaluated (possibly abandoned)
+  - `inactive_30d`: no SDK evaluations in the specified period
+  - `launched_no_changes`: fully rolled out, no recent changes
 - Default `inactiveDays` is 30. Increase for conservative cleanup (60, 90) or decrease for aggressive cleanup (7, 14).
 - Default `includeOnly` is `temporary`. Set to `all` to include permanent flags.
 
@@ -68,9 +68,9 @@ Key signals to evaluate:
 
 | Signal | What it tells you |
 |--------|-------------------|
-| **Lifecycle state** | Where the flag is in its journey (new → active → launched → inactive) |
-| **Last requested** | When an SDK last evaluated this flag — staleness indicator |
-| **Targeting complexity** | Number of rules and targets — removal complexity indicator |
+| **Lifecycle state** | Where the flag is in its journey (new -> active -> launched -> inactive) |
+| **Last requested** | When an SDK last evaluated this flag: staleness indicator |
+| **Targeting complexity** | Number of rules and targets: removal complexity indicator |
 | **Cross-environment consistency** | Whether the flag behaves the same everywhere |
 | **Flag age + temporary status** | Old temporary flags are strong cleanup candidates |
 
@@ -80,18 +80,18 @@ Use `get-flag-status-across-envs` to check if a flag is consistent across enviro
 
 Group flags into actionable categories:
 
-1. **Ready to remove** — Inactive everywhere, temporary, no dependencies. Direct the user to the [flag cleanup skill](../launchdarkly-flag-cleanup/SKILL.md) for code removal.
-2. **Likely safe, needs verification** — Launched (fully rolled out), no rule changes recently. The user should confirm the rollout is intentionally complete.
-3. **Needs investigation** — Active in some environments but not others, or has complex targeting. Don't recommend action without more context.
-4. **Leave alone** — Active flags doing their job, or permanent flags that are intentionally long-lived.
+1. **Ready to remove**: Inactive everywhere, temporary, no dependencies. Direct the user to the [flag cleanup skill](../launchdarkly-flag-cleanup/SKILL.md) for code removal.
+2. **Likely safe, needs verification**: Launched (fully rolled out), no rule changes recently. The user should confirm the rollout is intentionally complete.
+3. **Needs investigation**: Active in some environments but not others, or has complex targeting. Don't recommend action without more context.
+4. **Leave alone**: Active flags doing their job, or permanent flags that are intentionally long-lived.
 
 ### Step 5: Assess Removal Readiness (When Applicable)
 
 If the user wants to know whether a specific flag can be removed, use `check-removal-readiness`. This tool orchestrates multiple API calls in parallel and returns a structured verdict:
 
-- **`safe`** — No blockers or warnings. Proceed with cleanup.
-- **`caution`** — Warnings exist (code references, expiring targets, permanent flag type). Present and let the user decide.
-- **`blocked`** — Hard blockers (dependent flags, active requests, targeting rules). Must resolve first.
+- **`safe`**: No blockers or warnings. Proceed with cleanup.
+- **`caution`**: Warnings exist (code references, expiring targets, permanent flag type). Present and let the user decide.
+- **`blocked`**: Hard blockers (dependent flags, active requests, targeting rules). Must resolve first.
 
 See [Removal Readiness Checklist](references/removal-readiness-checklist.md) for the full details on interpreting each signal.
 
@@ -107,7 +107,7 @@ Structure your response based on what the user asked for:
 
 ## Important Context
 
-- **"Launched" means fully rolled out** — targeting is on, a single variation is served to everyone, and no changes have been made recently. It doesn't mean "recently deployed."
+- **"Launched" means fully rolled out**: targeting is on, a single variation is served to everyone, and no changes have been made recently. It doesn't mean "recently deployed."
 - **"Inactive" doesn't always mean safe to remove.** The flag might be used in code that hasn't shipped yet, or referenced as a prerequisite by another flag.
 - **Permanent flags can be inactive on purpose.** Some flags are designed to be dormant until needed (kill switches, emergency toggles). Don't automatically flag these for cleanup.
 - **Weights are scaled by 1000 in the API.** A weight of `60000` means 60%. Always convert to human-readable percentages.
@@ -115,5 +115,5 @@ Structure your response based on what the user asked for:
 
 ## References
 
-- [Flag Health Signals](references/flag-health-signals.md) — How to interpret lifecycle states, staleness, and health data
-- [Removal Readiness Checklist](references/removal-readiness-checklist.md) — Full safety assessment before recommending flag removal
+- [Flag Health Signals](references/flag-health-signals.md): How to interpret lifecycle states, staleness, and health data
+- [Removal Readiness Checklist](references/removal-readiness-checklist.md): Full safety assessment before recommending flag removal

@@ -16,7 +16,7 @@ The simplest targeting change.
 
 **Notes:**
 - Turning a flag OFF makes it serve the `offVariation` to everyone, regardless of rules or targets.
-- Turning a flag ON activates the full targeting evaluation (individual targets → rules → default rule).
+- Turning a flag ON activates the full targeting evaluation (individual targets -> rules -> default rule).
 
 ## Percentage Rollouts (Default Rule)
 
@@ -178,7 +178,7 @@ The `ruleId` (also shown as `_id`) can be found in the flag's current configurat
 }
 ```
 
-Rule order matters — rules evaluate top to bottom, first match wins.
+Rule order matters: rules evaluate top to bottom, first match wins.
 
 ### Update a rule's variation
 
@@ -217,7 +217,7 @@ Rule order matters — rules evaluate top to bottom, first match wins.
 
 ## Individual Targets
 
-Individual targets are the highest priority — they override all rules.
+Individual targets are the highest priority: they override all rules.
 
 ### Add users to a variation
 
@@ -316,4 +316,4 @@ Multiple instructions can be batched. For example, turning on and setting a roll
 }
 ```
 
-This is preferred over multiple separate calls — it's atomic (all changes apply together or none do).
+This is preferred over multiple separate calls: it's atomic (all changes apply together or none do).

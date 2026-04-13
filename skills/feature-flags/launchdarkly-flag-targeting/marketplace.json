@@ -1,6 +1,6 @@
 {
   "name": "launchdarkly-flag-targeting",
-  "description": "Control LaunchDarkly feature flag targeting including toggling, rollouts, rules, individual targets, and cross-environment copying",
+  "description": "Control LaunchDarkly feature flag targeting including toggling, rollouts, rules, individual targets, cross-environment copying, and approval workflows",
   "version": "1.0.0-experimental",
   "author": "LaunchDarkly",
   "repository": "https://github.com/launchdarkly/agent-skills",

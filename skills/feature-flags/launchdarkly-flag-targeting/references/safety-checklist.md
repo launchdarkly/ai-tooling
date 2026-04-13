@@ -24,9 +24,15 @@ Run through this checklist before applying any targeting changes, especially in 
 
 Some environments require approval for changes.
 
-- [ ] If the API returns `requiresApproval: true`, inform the user
-- [ ] Provide the approval URL so they can follow the workflow
-- [ ] Do NOT attempt to bypass approval
+- [ ] If any mutation tool returns `requiresApproval: true`, inform the user
+- [ ] Provide the approval URL if one was returned
+- [ ] Offer to create an approval request with `create-approval-request` using the returned `instructions`
+- [ ] Include a clear description of the intended change in the approval request
+- [ ] Do NOT attempt to bypass approval or auto-approve
+- [ ] If checking on a previous request, use `list-approval-requests`
+- [ ] Only apply a request (`apply-approval-request`) if reviewStatus is "approved"
+
+See [Approval Workflows](approval-workflows.md) for the complete reference.
 
 ### 5. Audit Trail
 
@@ -52,7 +58,7 @@ Some environments require approval for changes.
 
 - [ ] The values match exactly what the SDK sends as the user/context key
 - [ ] Individual targets are intended to override rules (they always win)
-- [ ] Using `replaceTargets` intentionally — it replaces ALL targets, not just adds
+- [ ] Using `replaceTargets` intentionally: it replaces ALL targets, not just adds
 
 ## For Cross-Environment Copies
 
