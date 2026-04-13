@@ -39,7 +39,17 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Run evals
+      - name: Run eval — metric-create
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: npm run eval
+        run: npm run eval:create
+
+      - name: Run eval — metric-choose
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npm run eval:choose
+
+      - name: Run eval — metric-instrument
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npm run eval:instrument

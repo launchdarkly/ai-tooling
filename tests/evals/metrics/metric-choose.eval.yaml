@@ -1,0 +1,265 @@
+description: launchdarkly-metric-choose skill
+
+providers:
+  - id: anthropic:claude-3-haiku-20240307
+    config:
+      temperature: 0.1
+
+prompts:
+  - label: skill-chat
+    raw: |
+      <skill_instructions>
+      {{skill_content}}
+      </skill_instructions>
+
+      User request: {{user_message}}
+
+defaultTest:
+  vars:
+    skill_content: file://{{env.SKILL_ROOT}}/metrics/launchdarkly-metric-choose/SKILL.md
+  options:
+    provider: anthropic:claude-3-haiku-20240307
+
+tests:
+  - description: "Experiment path — must ask for hypothesis before naming metrics"
+    vars:
+      user_message: "I want to pick metrics for my A/B test on the new checkout flow. Project is my-app."
+    assert:
+      - type: llm-rubric
+        value: "The response must ask the user a direct question about the experiment's success hypothesis before listing any specific metric recommendations. If the response contains a labelled metric recommendation (e.g. 'Primary metric:', 'Guardrail:', 'Recommended metrics:') without first containing such a question, it fails this check."
+        metric: asks-for-hypothesis
+
+  - description: "Guarded rollout path — must call list-release-policies"
+    vars:
+      user_message: "I'm doing a guarded rollout of my new auth service. Which metrics should I use? Project is my-app."
+    assert:
+      - type: llm-rubric
+        value: "The response calls list-release-policies (or explicitly states it would) to surface which metrics auto-attach from the project's release policies before recommending additional ones. A response that jumps straight to metric recommendations without checking release policies does NOT satisfy this."
+        metric: checks-release-policies
+
+  - description: "At-risk metric warning — must check event health before recommending"
+    vars:
+      user_message: "I want to use page-load-time as the primary metric for my experiment. My hypothesis is: if this change succeeds, page-load-time will decrease. Project is my-app, flag key is checkout-v2."
+    assert:
+      - type: llm-rubric
+        value: "The response calls list-metric-events (or explicitly states it would call list-metric-events as part of its workflow) to check whether the page-load-time event key has recent activity before endorsing it as a primary metric."
+        metric: checks-event-health
+      - type: llm-rubric
+        value: "The response explicitly warns that if the metric's event key is not flowing it is at-risk, OR it says it will check event health and flag any metric whose events are not flowing. It does NOT silently endorse page-load-time as the primary metric without any mention of event health."
+        metric: warns-at-risk
+
+  - description: "Advisory only — must not call create-metric or configure experiment"
+    vars:
+      user_message: "Set up all the metrics for my experiment on the recommendations feature in project my-app. Go ahead and do everything."
+    assert:
+      - type: llm-rubric
+        value: "The response must NOT contain a create-metric() tool call anywhere. If the text 'create-metric(' appears in the response — in any code block, inline, or described as being executed — the response fails this check unconditionally. The skill is advisory only."
+        metric: advisory-only
+
+  - description: "Inventory step — must call list-metrics before recommending"
+    vars:
+      user_message: "What metrics should I use for my experiment? Project key is my-app."
+    assert:
+      - type: llm-rubric
+        value: "The response calls list-metrics (or explicitly states it would) to inventory the project's available metrics before making any recommendation. A response that names specific metrics to use without first checking what exists does NOT satisfy this."
+        metric: calls-list-metrics
+
+  - description: "Context disambiguation — must ask experiment vs rollout vs policy"
+    vars:
+      user_message: "I need to pick some metrics for my feature launch."
+    assert:
+      - type: llm-rubric
+        value: "The response must contain a direct question asking the user whether this is for an experiment, a guarded rollout, or a release policy. A response that states 'I'll treat this as...' or assumes a context type without explicitly asking the user to confirm fails this check."
+        metric: asks-for-context
+
+  # ─── Mutation tests ──────────────────────────────────────────────────────────
+  # These test the llm-rubric GRADER, not the skill.
+  # Each feeds a hand-crafted defective output through the grader via the
+  # echo-output provider (no LLM call, zero variance). The same rubric from
+  # the corresponding positive test is used.
+  #
+  # Semantics: FAIL = grader correctly rejected the defect (green in output)
+  #            PASS = grader missed the defect (red — rubric has a blind spot)
+
+  # [NEG] 1 — mirrors positive test 1 (asks-for-hypothesis)
+  - description: "[NEG] Experiment metrics recommended without asking for hypothesis"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        For your A/B test on the new checkout flow in my-app, here are my recommendations:
+
+        First, let me check what metrics are available:
+
+        ```
+        list-metrics(projectKey="my-app")
+        ```
+
+        Based on the available metrics, here is what I recommend:
+
+        Primary metric: checkout-conversion (occurrence, HigherThanBaseline)
+          → Directly measures whether users complete checkout
+
+        Guardrail: api-error-rate (count, LowerThanBaseline)
+          → Guards against regressions that could impact all users
+
+        Supporting signal: time-on-checkout-page (value, LowerThanBaseline)
+          → Confirms the new flow isn't adding friction
+
+        Does this look good?
+    assert:
+      - type: llm-rubric
+        value: "The response must ask the user a direct question about the experiment's success hypothesis before listing any specific metric recommendations. If the response contains a labelled metric recommendation (e.g. 'Primary metric:', 'Guardrail:', 'Recommended metrics:') without first containing such a question, it fails this check."
+        metric: asks-for-hypothesis
+
+  # [NEG] 2 — mirrors positive test 2 (checks-release-policies)
+  - description: "[NEG] Rollout metrics recommended without checking release policies"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        For your guarded rollout of the new auth service in my-app, here are the metrics I recommend:
+
+        Let me check what metrics are available:
+
+        ```
+        list-metrics(projectKey="my-app")
+        ```
+
+        Recommended rollout metrics:
+        1. auth-error-rate (count, LowerThanBaseline) — detects auth failures in the new service
+        2. p95-latency (value, LowerThanBaseline) — guards against slowdowns
+        3. auth-success-rate (occurrence, HigherThanBaseline) — confirms login flow health
+
+        These three metrics provide strong coverage for a guarded rollout. Fewer is better — avoid adding more than 4-5 to prevent false positive rollbacks.
+
+        Would you like to proceed with these?
+    assert:
+      - type: llm-rubric
+        value: "The response calls list-release-policies (or explicitly states it would) to surface which metrics auto-attach from the project's release policies before recommending additional ones. A response that jumps straight to metric recommendations without checking release policies does NOT satisfy this."
+        metric: checks-release-policies
+
+  # [NEG] 3 — mirrors positive test 3 (checks-event-health + warns-at-risk)
+  - description: "[NEG] Metric recommended as primary without checking event health"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        Great choice! page-load-time is a solid primary metric for your experiment.
+
+        Let me check what's in the project:
+
+        ```
+        list-metrics(projectKey="my-app")
+        ```
+
+        Here is my recommendation:
+
+        Primary metric: page-load-time (value, LowerThanBaseline)
+          → Directly measures the performance impact of your change
+
+        Guardrail: error-rate (count, LowerThanBaseline)
+          → Ensures no regressions
+
+        The page-load-time metric is a great fit for a performance experiment — it has a clear
+        success direction and is easy to interpret.
+
+        Would you like to proceed with this configuration?
+    assert:
+      - type: llm-rubric
+        value: "The response calls list-metric-events (or explicitly states it would) to check whether the page-load-time event key has recent activity before endorsing it as a primary metric."
+        metric: checks-event-health
+      - type: llm-rubric
+        value: "The response explicitly warns that if the metric's event key is not flowing, the metric is at-risk and should not be used as the primary metric for an experiment — it does NOT silently recommend a metric without addressing event health."
+        metric: warns-at-risk
+
+  # [NEG] 4 — mirrors positive test 4 (advisory-only)
+  - description: "[NEG] create-metric called in an advisory context"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        Sure! Let me set up everything for your recommendations experiment in my-app.
+
+        First, let me check existing metrics:
+
+        ```
+        list-metrics(projectKey="my-app")
+        ```
+
+        I don't see a recommendation-clicks metric, so I'll create it now:
+
+        ```
+        create-metric(
+          projectKey="my-app",
+          key="recommendation-clicks",
+          kind="custom",
+          eventKey="recommendation-clicked",
+          measureType="count",
+          successCriteria="HigherThanBaseline"
+        )
+        ```
+
+        Done! The metric has been created. Here is your experiment setup:
+
+        Primary: recommendation-clicks (count, HigherThanBaseline)
+        Guardrail: error-rate (count, LowerThanBaseline)
+
+        Your experiment is ready to configure in the LaunchDarkly UI.
+    assert:
+      - type: llm-rubric
+        value: "The response must NOT contain a create-metric() tool call anywhere. If the text 'create-metric(' appears in the response — in any code block, inline, or described as being executed — the response fails this check unconditionally. The skill is advisory only."
+        metric: advisory-only
+
+  # [NEG] 5 — mirrors positive test 5 (calls-list-metrics)
+  - description: "[NEG] Specific metrics recommended without inventory lookup"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        For your experiment in project my-app, here are my metric recommendations:
+
+        Primary metric: checkout-conversion (occurrence, HigherThanBaseline)
+          → Directly measures the core business outcome
+
+        Guardrail: api-error-rate (count, LowerThanBaseline)
+          → Protects against regressions that affect all users
+
+        Supporting signal: session-duration (value, HigherThanBaseline)
+          → Confirms users are more engaged with the new experience
+
+        One of each type is usually the right amount. More secondary metrics add noise and
+        interpretation burden.
+
+        Does this look right for your experiment?
+    assert:
+      - type: llm-rubric
+        value: "The response calls list-metrics (or explicitly states it would) to inventory the project's available metrics before making any recommendation. A response that names specific metrics to use without first checking what exists does NOT satisfy this."
+        metric: calls-list-metrics
+
+  # [NEG] 6 — mirrors positive test 6 (asks-for-context)
+  - description: "[NEG] Context assumed without asking experiment vs rollout vs policy"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        For your feature launch in my-app, I'll treat this as a guarded rollout since you're
+        releasing a new feature to users.
+
+        First, let me check your project's metrics:
+
+        ```
+        list-metrics(projectKey="my-app")
+        ```
+
+        And check release policies:
+
+        ```
+        list-release-policies(projectKey="my-app")
+        ```
+
+        Recommended rollout metrics:
+        1. error-rate (count, LowerThanBaseline)
+        2. p95-latency (value, LowerThanBaseline)
+
+        These will guard against regressions during the launch.
+
+        Want to add any domain-specific metrics on top of these?
+    assert:
+      - type: llm-rubric
+        value: "The response must contain a direct question asking the user whether this is for an experiment, a guarded rollout, or a release policy. A response that states 'I'll treat this as...' or assumes a context type without explicitly asking the user to confirm fails this check."
+        metric: asks-for-context
