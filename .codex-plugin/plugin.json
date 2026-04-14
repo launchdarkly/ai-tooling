@@ -8,7 +8,7 @@
   },
   "homepage": "https://github.com/launchdarkly/mcp-server",
   "repository": "https://github.com/launchdarkly/mcp-server.git",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": [
     "launchdarkly",
     "feature-flags",
