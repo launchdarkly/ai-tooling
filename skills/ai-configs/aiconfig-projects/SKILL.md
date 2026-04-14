@@ -128,12 +128,12 @@ Follow the chosen reference guide to implement project management. Key considera
 
 After creating the project, verify it works:
 
-1. **Fetch via API to confirm it exists:**
+1. **Fetch to confirm it exists.** Prefer the MCP `get-project` tool over raw `curl` — it returns a typed object you can inspect directly. If you must call the REST API:
    ```bash
    curl -X GET "https://app.launchdarkly.com/api/v2/projects/{projectKey}?expand=environments" \
      -H "Authorization: {api_token}"
    ```
-   Confirm the response includes the project, environments, and SDK keys.
+   **Do not pipe the response straight into a `.environments.items[]`-style `jq` filter.** The shape of `environments` varies by `expand` parameter — sometimes it's `{items: [...]}`, sometimes a bare array — and a hand-rolled filter will fail with `Cannot index array with string "items"`. Run `jq -e .` first to inspect the actual shape, or use `jq '.environments | if type == "object" then .items else . end'` to handle both.
 
 2. **Test SDK integration:**
    Run a quick verification to ensure the SDK key works:

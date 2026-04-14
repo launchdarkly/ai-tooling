@@ -1,0 +1,140 @@
+# Phase 1 Analysis Checklist
+
+A read-only audit the skill runs in **Step 1** before touching any code. Do not write files, install packages, or create LaunchDarkly resources during this phase. Produce a structured summary and stop for user confirmation.
+
+## What to scan
+
+### 1. Dependency manifests (most reliable signal)
+
+Check the top-level files for the target service:
+
+| Language | Files |
+|----------|-------|
+| Python | `pyproject.toml`, `requirements.txt`, `setup.py`, `Pipfile`, `uv.lock` |
+| TypeScript / JavaScript | `package.json`, `pnpm-lock.yaml`, `yarn.lock` |
+| Go | `go.mod`, `go.sum` |
+| Ruby | `Gemfile`, `Gemfile.lock` |
+| .NET | `*.csproj`, `packages.config` |
+
+Extract: language, package manager, and any LLM provider SDKs already installed.
+
+### 2. Provider imports
+
+Grep the source tree for provider SDK imports so you know which one the app actually uses (dependencies can be unused):
+
+| Provider | Python grep | TypeScript/JS grep |
+|----------|-------------|---------------------|
+| OpenAI | `from openai`, `import openai` | `from 'openai'`, `require('openai')` |
+| Anthropic | `from anthropic`, `import anthropic` | `from '@anthropic-ai/sdk'` |
+| Bedrock | `import boto3`, `bedrock-runtime` | `@aws-sdk/client-bedrock-runtime` |
+| Gemini | `from google import genai`, `google.generativeai` | `@google/generative-ai` |
+| LangChain | `from langchain`, `langchain_openai`, `langchain_anthropic` | `langchain`, `@langchain/openai` |
+| LangGraph | `from langgraph`, `create_react_agent` | `@langchain/langgraph` |
+| CrewAI | `from crewai` | — |
+
+### 3. Hardcoded model configs
+
+Look for the three things that need to move into the AI Config:
+
+1. **Model name** — grep for string literals:
+   - `"gpt-4o"`, `"gpt-4o-mini"`, `"gpt-4-turbo"`, `"o1"`, `"o1-mini"`
+   - `"claude-opus-"`, `"claude-sonnet-"`, `"claude-haiku-"`, `"claude-3-"`
+   - `"gemini-"`, `"mistral-"`, `"meta.llama"`, `"anthropic.claude-"`
+2. **Parameters** — grep for keys: `temperature=`, `max_tokens=`, `maxTokens:`, `top_p=`, `topP:`, `top_k=`, `stop_sequences=`
+3. **System prompts / instructions** — grep for:
+   - `"role": "system"` (OpenAI/Anthropic completion)
+   - `system="` or `system:` (Anthropic top-level system)
+   - `instructions="` (agent frameworks, CrewAI, LangGraph `create_react_agent(prompt=)`)
+   - Long triple-quoted strings above provider calls
+
+For each hit, record the file path, line number, and current value.
+
+### 4. Existing LaunchDarkly SDK usage
+
+If `LDClient` / `ldclient` is already initialized in the codebase, **reuse it** — do not create a second base client in Stage 2. Grep for:
+
+- Python: `import ldclient`, `ldclient.set_config`, `ldclient.get()`
+- TypeScript/JS: `@launchdarkly/node-server-sdk`, `init(LD_SDK_KEY)`, `@launchdarkly/react-client-sdk`
+- Environment variables: `LD_SDK_KEY`, `LAUNCHDARKLY_SDK_KEY`, `LAUNCHDARKLY_API_KEY`
+
+### 5. Mode decision: completion or agent
+
+Walk the decision tree once per call site, using the call shape as the primary signal:
+
+| Call shape | Mode |
+|------------|------|
+| `openai.chat.completions.create(messages=[...])` | **completion** |
+| `anthropic.messages.create(system=..., messages=[...])` | **completion** |
+| `bedrock.converse(messages=[...])` | **completion** |
+| `create_react_agent(llm, tools, prompt=...)` | **agent** |
+| `Agent(role=..., goal=..., backstory=...)` (CrewAI) | **agent** |
+| Custom react loop: LLM-call → tool-call → LLM-call | **agent** |
+| One-shot `llm.invoke("some question")` | **completion** |
+
+**Default to completion mode** when unclear — it is more flexible and is the only mode that supports judges attached via the LaunchDarkly UI (Stage 5).
+
+### 6. Monorepo / multi-service scope
+
+If the repo contains multiple services, **ask the user which service to instrument**. Do not migrate every service in one pass.
+
+## SDK routing table
+
+Feeds into Stage 2 (install + wrap). Quoted from the `ai-configs-relaunch-guides/AGENT-SETUP-PROMPT.md` SDK routing table.
+
+| Language | Base SDK | AI SDK | Docs |
+|----------|----------|--------|------|
+| Node.js / TypeScript | `@launchdarkly/node-server-sdk` | `@launchdarkly/server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/node-js |
+| Python | `launchdarkly-server-sdk` | `launchdarkly-server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/python |
+| Go | `github.com/launchdarkly/go-server-sdk/v7` | `github.com/launchdarkly/go-server-sdk/ldai` | https://docs.launchdarkly.com/sdk/ai/go |
+| Ruby | `launchdarkly-server-sdk` | `launchdarkly-server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/ruby |
+| .NET | `LaunchDarkly.ServerSdk` | `LaunchDarkly.ServerSdk.Ai` | https://docs.launchdarkly.com/sdk/ai/dotnet |
+
+**Node.js provider-specific helper packages** (optional, for auto-tracking in Stage 4):
+
+| Provider | Package | Helper |
+|----------|---------|--------|
+| OpenAI | `@launchdarkly/server-sdk-ai-openai` | `OpenAIProvider.createAIMetrics` + `trackMetricsOf` |
+| LangChain | `@launchdarkly/server-sdk-ai-langchain` | **Manual today** — no single-call auto-helper. Use `tracker.trackDuration` + `trackTokens` + `trackSuccess`/`trackError` around `ainvoke`. |
+| Vercel AI SDK | `@launchdarkly/server-sdk-ai-vercel` | `trackVercelAISDKGenerateTextMetrics` |
+
+Python currently ships helper packages for OpenAI (`ldai_openai`) and LangChain (`ldai_langchain`). The LangChain Python package exposes runner classes (`LangChainModelRunner`, `LangChainAgentRunner`, `LangGraphAgentGraphRunner`) and helper functions (`get_ai_metrics_from_response`, `get_ai_usage_from_response`) — **not** a single-node callback handler. For single-node LangChain calls, use manual tracker wiring with `response.usage_metadata`. See [sdk-ai-tracker-patterns.md](sdk-ai-tracker-patterns.md) for the full matrix and the manual snippet.
+
+## Phase 1 output format
+
+Return this shape to the user, then **stop and wait for confirmation**:
+
+```
+Service:             <service name / path>
+Language:            <Python 3.12 / Node.js 20 / Go 1.22 / ...>
+Package manager:     <uv / poetry / pnpm / go mod / ...>
+LLM provider:        <OpenAI / Anthropic / Bedrock / LangChain + OpenAI / ...>
+Existing LD SDK:     <none / launchdarkly-server-sdk already initialized at src/ld.py:12>
+Target mode:         <completion / agent>
+
+Hardcoded migration targets:
+  - <file>:<line>   model="gpt-4o"
+  - <file>:<line>   temperature=0.7, max_tokens=2000
+  - <file>:<line>   system="You are..."  (27 lines)
+
+Tools detected:      <none / ['search', 'calculator'] at file.py:LN>
+Retry wrapper:       <none / @retry(3) at file.py:LN>
+Scope:               <single service / monorepo: picked "service-x">
+
+Proposed plan:
+  Stage 1 (Extract):  Build manifest from the 3 targets above
+  Stage 2 (Wrap):     Create AI Config 'chat-assistant' in completion mode; inline fallback mirrors current values
+  Stage 3 (Tools):    Skipped (no function calling) / Attach 2 tools via aiconfig-tools
+  Stage 4 (Tracking): Inline tracker wiring (track_duration + track_tokens + track_success/error)
+  Stage 5 (Evals):    Attach built-in 'accuracy' judge at 0.25 sampling via aiconfig-online-evals
+```
+
+## STOP
+
+Do not proceed to Stage 1 (Step 2 in the main workflow) until the user confirms:
+
+1. The service boundary is right
+2. The hardcoded targets list is complete
+3. The mode choice matches their intent
+4. The stage plan is acceptable (e.g. skip tools? skip evals for now?)
+
+If the user corrects anything, update the summary and ask again. Do not proceed under ambiguity.
