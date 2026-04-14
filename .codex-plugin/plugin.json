@@ -6,8 +6,8 @@
     "name": "LaunchDarkly",
     "url": "https://launchdarkly.com"
   },
-  "homepage": "https://github.com/launchdarkly/mcp-server",
-  "repository": "https://github.com/launchdarkly/mcp-server.git",
+  "homepage": "https://launchdarkly.com",
+  "repository": "https://github.com/launchdarkly/agent-skills.git",
   "license": "Apache-2.0",
   "keywords": [
     "launchdarkly",
