@@ -54,6 +54,30 @@
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
+      "name": "apply",
+      "description": "Apply LaunchDarkly SDK onboarding: install dependency (or dual-SDK pair), configure env and secrets with consent, add init at entrypoint(s), verify compile. Nested under sdk-install; next is run.",
+      "path": "skills/onboarding/sdk-install/apply",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires integration plan and LaunchDarkly credentials (see parent onboarding)"
+    },
+    {
+      "name": "detect",
+      "description": "Detect repository stack for LaunchDarkly SDK onboarding: languages, frameworks, package managers, monorepo targets, entrypoints, existing LD usage. Nested under sdk-install; next is plan.",
+      "path": "skills/onboarding/sdk-install/detect",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires access to the project repository"
+    },
+    {
+      "name": "first-flag",
+      "description": "Create a boolean first flag, add evaluation, toggle on/off for end-to-end proof. Parent onboarding Step 6; uses MCP, API, or ldcli; optional flag-create skill.",
+      "path": "skills/onboarding/first-flag",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires SDK installed (parent Step 5) and LaunchDarkly project access"
+    },
+    {
       "name": "launchdarkly-flag-cleanup",
       "description": "Safely remove a feature flag from code while preserving production behavior. Use when the user wants to remove a flag from code, delete flag references, or create a PR that hardcodes the winning variation after a rollout is complete.",
       "path": "skills/feature-flags/launchdarkly-flag-cleanup",
@@ -151,6 +175,48 @@
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+    },
+    {
+      "name": "mcp-configure",
+      "description": "Configure the LaunchDarkly hosted MCP server during onboarding. Use when the parent LaunchDarkly onboarding skill reaches Step 4 (MCP). Supports Cursor, Claude Code, Windsurf, GitHub Copilot, and other MCP-compatible agents. OAuth authentication; no API keys for the hosted server.",
+      "path": "skills/onboarding/mcp-configure",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires an MCP-compatible coding agent and a LaunchDarkly account"
+    },
+    {
+      "name": "onboarding",
+      "description": "Onboard a project to LaunchDarkly: kickoff roadmap, resumable log, explore repo, MCP, companion flag skills, nested SDK install (detect/plan/apply), first flag. Use when adding LaunchDarkly, setting up or integrating feature flags in a project, SDK integration, or 'onboard me'.",
+      "path": "skills/onboarding",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires an MCP-capable coding agent, `npx` on PATH for optional skill installs, and a LaunchDarkly account. SDK keys, client-side IDs, mobile keys, and API tokens are only needed when the step that uses them runs (see Prerequisites).",
+      "tags": [
+        "launchdarkly",
+        "feature-flags",
+        "feature-management",
+        "onboarding",
+        "sdk",
+        "mcp",
+        "getting-started",
+        "setup"
+      ]
+    },
+    {
+      "name": "plan",
+      "description": "Generate a minimal LaunchDarkly SDK integration plan from detected stack: choose SDK type(s), dual-SDK server+client when required, files to change, env conventions. Nested under sdk-install; follows detect, precedes apply.",
+      "path": "skills/onboarding/sdk-install/plan",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires completed or equivalent detect context (see sibling detect skill)"
+    },
+    {
+      "name": "sdk-install",
+      "description": "Install and initialize the correct LaunchDarkly SDK during onboarding by running nested skills in order: detect, plan, apply. Parent onboarding Step 6 is first flag.",
+      "path": "skills/onboarding/sdk-install",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires a supported language/framework in the project. SDK credentials are required by [Apply](apply/SKILL.md), not for [Detect](detect/SKILL.md) / [Plan](plan/SKILL.md) alone (see parent onboarding **Prerequisites**)."
     }
   ]
 }
