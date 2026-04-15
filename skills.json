@@ -1,12 +1,28 @@
 {
   "skills": [
     {
+      "name": "aiconfig-ai-metrics",
+      "description": "Instrument an existing codebase with LaunchDarkly AI Config tracking. Walks the four-tier ladder (managed runner \u2192 provider package \u2192 custom extractor + trackMetricsOf \u2192 raw manual) and picks the lowest-ceremony option that still captures duration, tokens, and success/error.",
+      "path": "skills/ai-configs/aiconfig-ai-metrics",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the LaunchDarkly server-side AI SDK (`launchdarkly-server-sdk-ai` for Python or `@launchdarkly/server-sdk-ai` for Node) and an existing AI Config."
+    },
+    {
       "name": "aiconfig-create",
       "description": "Create and configure AI Configs in LaunchDarkly. Helps you choose between agent vs completion mode, create the config, add variations with models and prompts, and verify the setup.",
       "path": "skills/ai-configs/aiconfig-create",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+    },
+    {
+      "name": "aiconfig-custom-metrics",
+      "description": "Create, track, retrieve, update, and delete custom business metrics for AI Configs. Covers full lifecycle: define metric kinds via API, emit events via SDK, and query results.",
+      "path": "skills/ai-configs/aiconfig-custom-metrics",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the LaunchDarkly server SDK and a LaunchDarkly API token with the `writer` role for metric management."
     },
     {
       "name": "aiconfig-migrate",
