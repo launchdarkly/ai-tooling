@@ -27,6 +27,15 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `ai-configs/aiconfig-tools` | Create and attach tools for function calling |
 | `ai-configs/aiconfig-projects` | Create and manage projects to organize AI Configs |
 
+### Onboarding
+
+| Skill | Description |
+|-------|-------------|
+| `onboarding` | End-to-end LaunchDarkly setup: kickoff roadmap, MCP, SDK install, first flag |
+| `onboarding/mcp-configure` | Configure the LaunchDarkly hosted MCP server (OAuth, no API keys needed) |
+| `onboarding/sdk-install` | Install and initialize the correct SDK via detect, plan, and apply sub-steps |
+| `onboarding/first-flag` | Create a boolean flag, evaluate it, toggle on/off for end-to-end proof |
+
 ## Install as a Cursor Plugin
 
 This repo is a [Cursor plugin](https://cursor.com/docs/plugins/building). Installing it gives you all the skills above plus the LaunchDarkly MCP server, so the agent can read and modify your flags directly.
