@@ -1,5 +1,5 @@
 ---
-name: launchdarkly-onboarding-mcp-configure
+name: mcp-configure
 description: "Configure the LaunchDarkly hosted MCP server during onboarding. Use when the parent LaunchDarkly onboarding skill reaches Step 4 (MCP). Supports Cursor, Claude Code, Windsurf, GitHub Copilot, and other MCP-compatible agents. OAuth authentication; no API keys for the hosted server."
 license: Apache-2.0
 compatibility: Requires an MCP-compatible coding agent and a LaunchDarkly account

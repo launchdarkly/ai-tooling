@@ -1,0 +1,21 @@
+{
+  "name": "onboarding",
+  "description": "Onboard a project to LaunchDarkly: kickoff roadmap, resumable log, explore repo, MCP, companion flag skills, nested SDK install (detect/plan/apply), first flag.",
+  "version": "0.1.0",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/agent-skills",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "feature-flags",
+    "feature-management",
+    "onboarding",
+    "sdk",
+    "mcp",
+    "getting-started",
+    "setup"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}

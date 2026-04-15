@@ -1,5 +1,5 @@
 ---
-name: launchdarkly-onboarding-sdk-detect
+name: detect
 description: "Detect repository stack for LaunchDarkly SDK onboarding: languages, frameworks, package managers, monorepo targets, entrypoints, existing LD usage. Nested under sdk-install; next is plan."
 license: Apache-2.0
 compatibility: Requires access to the project repository

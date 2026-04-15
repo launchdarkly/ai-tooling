@@ -1,5 +1,5 @@
 ---
-name: launchdarkly-onboarding-first-flag
+name: first-flag
 description: "Create a boolean first flag, add evaluation, toggle on/off for end-to-end proof. Parent onboarding Step 6; uses MCP, API, or ldcli; optional flag-create skill."
 license: Apache-2.0
 compatibility: Requires SDK installed (parent Step 5) and LaunchDarkly project access

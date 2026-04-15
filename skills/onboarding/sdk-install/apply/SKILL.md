@@ -1,5 +1,5 @@
 ---
-name: launchdarkly-onboarding-sdk-apply
+name: apply
 description: "Apply LaunchDarkly SDK onboarding: install dependency (or dual-SDK pair), configure env and secrets with consent, add init at entrypoint(s), verify compile. Nested under sdk-install; next is run."
 license: Apache-2.0
 compatibility: Requires integration plan and LaunchDarkly credentials (see parent onboarding)

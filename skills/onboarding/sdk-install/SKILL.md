@@ -1,5 +1,5 @@
 ---
-name: launchdarkly-onboarding-sdk-install
+name: sdk-install
 description: "Install and initialize the correct LaunchDarkly SDK during onboarding by running nested skills in order: detect, plan, apply. Parent onboarding Step 6 is first flag."
 license: Apache-2.0
 compatibility: Requires a supported language/framework in the project. SDK credentials are required by [Apply](apply/SKILL.md), not for [Detect](detect/SKILL.md) / [Plan](plan/SKILL.md) alone (see parent onboarding **Prerequisites**).

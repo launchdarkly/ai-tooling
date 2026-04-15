@@ -1,5 +1,5 @@
 ---
-name: launchdarkly-onboarding-sdk-plan
+name: plan
 description: "Generate a minimal LaunchDarkly SDK integration plan from detected stack: choose SDK type(s), dual-SDK server+client when required, files to change, env conventions. Nested under sdk-install; follows detect, precedes apply."
 license: Apache-2.0
 compatibility: Requires completed or equivalent detect context (see sibling detect skill)
