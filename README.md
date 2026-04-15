@@ -44,7 +44,7 @@ This repo is a [Claude Code plugin](https://code.claude.com/docs/en/create-plugi
 1. Open Claude Code and run `/plugin install`.
 2. Search for **LaunchDarkly**, or install directly from the repo URL:
    ```
-   https://github.com/launchdarkly/agent-skills
+   https://github.com/launchdarkly/ai-tooling
    ```
 3. Authenticate the LaunchDarkly MCP server when prompted with your [API access token](https://docs.launchdarkly.com/home/account/api).
 
@@ -57,7 +57,7 @@ This repo is a [Cursor plugin](https://cursor.com/docs/plugins/building). Instal
 1. Open Cursor and go to **Settings > Plugins**.
 2. Search for **LaunchDarkly** in the marketplace, or install from the repo URL:
    ```
-   https://github.com/launchdarkly/agent-skills
+   https://github.com/launchdarkly/ai-tooling
    ```
 Once installed, the skills and MCP server are available across all your projects.
 
@@ -65,11 +65,11 @@ Once installed, the skills and MCP server are available across all your projects
 
 ```bash
 # Clone the repo
-git clone https://github.com/launchdarkly/agent-skills.git
-cd agent-skills
+git clone https://github.com/launchdarkly/ai-tooling.git
+cd ai-tooling
 
 # If your agent supports skills.sh installs:
-npx skills add launchdarkly/agent-skills
+npx skills add launchdarkly/ai-tooling
 
 # Or manually copy a skill into your agent's skills path:
 cp -r skills/feature-flags/launchdarkly-flag-cleanup <your-agent-skills-dir>/
