@@ -23,7 +23,8 @@
   "skills": [
     "skills/ai-configs",
     "skills/feature-flags",
-    "skills/metrics"
+    "skills/metrics",
+    "skills/onboarding"
   ],
   "mcpServers": ".mcp.json"
 }
