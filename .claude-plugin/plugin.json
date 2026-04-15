@@ -1,0 +1,23 @@
+{
+  "name": "launchdarkly",
+  "version": "1.0.0",
+  "description": "LaunchDarkly agent skills and MCP server for feature flag management, AI configuration, and metrics",
+  "author": {
+    "name": "LaunchDarkly",
+    "email": "support@launchdarkly.com"
+  },
+  "homepage": "https://launchdarkly.com",
+  "repository": "https://github.com/launchdarkly/agent-skills",
+  "license": "Apache-2.0",
+  "logo": "logo.svg",
+  "keywords": [
+    "launchdarkly",
+    "feature-flags",
+    "feature-management",
+    "ai-config",
+    "targeting",
+    "rollout",
+    "cleanup",
+    "mcp"
+  ]
+}
