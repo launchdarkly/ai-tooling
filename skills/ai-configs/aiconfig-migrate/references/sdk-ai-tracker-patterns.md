@@ -122,7 +122,7 @@ config.tracker.track_tool_call("search_kb")
 config.tracker.track_tool_call("search_kb", graph_key="support-flow")
 ```
 
-The Node tracker has no individual `trackToolCall` method — tool-call metrics flow through the provider-specific auto-helpers (`trackOpenAIMetrics`, `trackMetricsOf` with a custom extractor) or via the `trackMetricsOf` wrapper. If you need per-tool-name granularity on Node today, track it as custom data via the base SDK's `ldClient.track()`.
+The Node tracker has no individual `trackToolCall` method — tool-call metrics flow through the `trackMetricsOf` wrapper (the extractor can count tool calls on the response and include them in the `LDAIMetrics` it returns). If you need per-tool-name granularity on Node today, track it as custom data via the base SDK's `ldClient.track()`.
 
 ### `track_tool_calls` / (Python only, batch)
 
@@ -189,87 +189,117 @@ Use alongside `track_eval_scores` if you want both the numeric scores and the ju
 
 ## Auto-tracking helpers
 
-These wrap the provider call and extract duration + tokens + success/error in one step. Prefer them over manual tracking when the helper exists for your provider — fewer moving parts and no chance of drift between manual blocks.
+The canonical tracking surface is **`trackMetricsOf` composed with a provider-package `getAIMetricsFromResponse` extractor** (Tier 2) — or, one level up, the managed runners (`ManagedModel` / `TrackedChat` / `initChat`) which track everything automatically and don't require any tracker calls at all (Tier 1). Both Python and Node SDK READMEs document this tiering exclusively as of this writing.
+
+Legacy single-purpose helpers (`track_openai_metrics`, `track_bedrock_converse_metrics`, `trackVercelAISDKGenerateTextMetrics`) still exist in the SDK source, but no current README uses them. **Do not introduce them in new code.** They're listed below with a `[legacy]` tag so you can recognize them in existing codebases, not so you'll reach for them.
 
 ### Python
 
-| Helper | Signature | Notes |
-|--------|-----------|-------|
-| `track_duration_of(func)` | `tracker.track_duration_of(lambda: provider_call())` | Wraps a sync callable; captures duration. Does not track tokens or success — pair with explicit `track_tokens` + `track_success`. |
-| `track_metrics_of(func, metrics_extractor)` | `tracker.track_metrics_of(func, extractor)` | Sync wrapper; calls `extractor(result)` to get a metrics object, then records tokens + duration + success. Use for custom providers. |
-| `track_metrics_of_async(func, metrics_extractor)` | `await tracker.track_metrics_of_async(async_func, extractor)` | Async variant. |
-| `track_openai_metrics(func)` | `tracker.track_openai_metrics(lambda: openai_client.chat.completions.create(...))` | OpenAI-specific. Extracts tokens from `response.usage` and records duration + success in one call. |
-| `track_bedrock_converse_metrics(res)` | `tracker.track_bedrock_converse_metrics(bedrock_response)` | Bedrock Converse API. Pass the response object, not a callable. Returns the same response so you can chain it. |
+| Helper | Signature | Tier | Notes |
+|--------|-----------|------|-------|
+| `track_metrics_of(func, extractor)` | `tracker.track_metrics_of(func, extractor)` | **2 / 3** | **Canonical generic wrapper.** Sync. Calls `extractor(result)` to get an `LDAIMetrics` object; records tokens + duration + success. Use a provider package's `Provider.get_ai_metrics_from_response` as the extractor for Tier 2, or write a small custom function for Tier 3. |
+| `track_metrics_of_async(func, extractor)` | `await tracker.track_metrics_of_async(async_func, extractor)` | 2 / 3 | Async variant. |
+| `track_duration_of(func)` | `tracker.track_duration_of(lambda: provider_call())` | 4 | Wraps a sync callable; captures duration only. Pair with explicit `track_tokens` + `track_success`. Useful when the response shape makes `track_metrics_of` awkward. |
+| `track_openai_metrics(func)` | `tracker.track_openai_metrics(lambda: openai_client.chat.completions.create(...))` | **[legacy]** | Predates the `ldai_openai` provider package. Replace with `track_metrics_of(call_openai, OpenAIProvider.get_ai_metrics_from_response)`. |
+| `track_bedrock_converse_metrics(res)` | `tracker.track_bedrock_converse_metrics(bedrock_response)` | **[legacy]** | Predates `track_metrics_of`. Replace with a Converse extractor passed to `track_metrics_of`. See [bedrock-tracking.md](../../aiconfig-ai-metrics/references/bedrock-tracking.md). |
 
-Example — OpenAI auto-tracking:
+Example — OpenAI via `track_metrics_of` + the provider package extractor (current pattern):
 ```python
-completion = config.tracker.track_openai_metrics(
-    lambda: openai_client.chat.completions.create(
+from ldai_openai import OpenAIProvider
+
+def call_openai():
+    return openai_client.chat.completions.create(
         model=config.model.name,
         messages=[m.to_dict() for m in config.messages or []],
     )
+
+completion = config.tracker.track_metrics_of(
+    call_openai,
+    OpenAIProvider.get_ai_metrics_from_response,
 )
 ```
 
-Example — Bedrock Converse auto-tracking:
+Example — custom extractor for Anthropic direct (Tier 3):
 ```python
-raw = bedrock_runtime.converse(
-    modelId=config.model.name,
-    messages=[{"role": "user", "content": [{"text": user_input}]}],
+from ldai.providers.types import LDAIMetrics, TokenUsage
+
+def anthropic_extractor(response) -> LDAIMetrics:
+    return LDAIMetrics(
+        success=True,
+        usage=TokenUsage(
+            total=response.usage.input_tokens + response.usage.output_tokens,
+            input=response.usage.input_tokens,
+            output=response.usage.output_tokens,
+        ),
+    )
+
+response = config.tracker.track_metrics_of(
+    lambda: anthropic_client.messages.create(...),
+    anthropic_extractor,
 )
-response = config.tracker.track_bedrock_converse_metrics(raw)
 ```
 
 ### Node.js / TypeScript
 
-| Helper | Signature | Notes |
-|--------|-----------|-------|
-| `trackDurationOf<T>(func)` | `await tracker.trackDurationOf(async () => ...)` | Wraps an async callable; captures duration only. |
-| `trackMetricsOf<T>(extractor, func)` | `await tracker.trackMetricsOf((result) => extractor(result), async () => ...)` | Generic metrics wrapper. `extractor` maps the provider response to `LDAIMetrics`. Use for custom providers or when the per-provider helper doesn't exist. |
-| `trackStreamMetricsOf<T>(streamCreator, extractor)` | `tracker.trackStreamMetricsOf(() => stream, async (s) => metricsFromStream(s))` | Stream variant — extractor returns a promise that resolves once the stream is drained. |
-| `trackOpenAIMetrics<T>(func)` | `await tracker.trackOpenAIMetrics(async () => openai.chat.completions.create(...))` | OpenAI-specific. Extracts tokens from `response.usage` and records everything. |
-| `trackBedrockConverseMetrics<T>(res)` | `tracker.trackBedrockConverseMetrics(bedrockResponse)` | Takes the response directly (not a callable) and returns it. |
-| `trackVercelAISDKGenerateTextMetrics<T>(func)` | `await tracker.trackVercelAISDKGenerateTextMetrics(async () => generateText({...}))` | Vercel AI SDK `generateText`. |
+| Helper | Signature | Tier | Notes |
+|--------|-----------|------|-------|
+| `trackMetricsOf<T>(extractor, func)` | `await tracker.trackMetricsOf((result) => extractor(result), async () => ...)` | **2 / 3** | **Canonical generic wrapper.** `extractor` maps provider response → `LDAIMetrics`. Use a provider package's `Provider.getAIMetricsFromResponse` for Tier 2 (`@launchdarkly/server-sdk-ai-openai`, `-langchain`, `-vercel`) or a small custom function for Tier 3. |
+| `trackStreamMetricsOf<T>(extractor, streamCreator)` | `tracker.trackStreamMetricsOf(async (chunks) => extractor(chunks), () => createStream())` | 2 / 3 | Stream variant. Does **not** capture TTFT automatically — if you need TTFT, use the manual pattern in [streaming-tracking.md](../../aiconfig-ai-metrics/references/streaming-tracking.md). |
+| `trackDurationOf<T>(func)` | `await tracker.trackDurationOf(async () => ...)` | 4 | Wraps an async callable; captures duration only. Pair with explicit `trackTokens` + `trackSuccess`. |
+| `trackOpenAIMetrics<T>(func)` | `await tracker.trackOpenAIMetrics(async () => openai.chat.completions.create(...))` | **[legacy]** | Predates `@launchdarkly/server-sdk-ai-openai`. Replace with `trackMetricsOf(OpenAIProvider.getAIMetricsFromResponse, () => ...)`. |
+| `trackBedrockConverseMetrics<T>(res)` | `tracker.trackBedrockConverseMetrics(bedrockResponse)` | **[legacy]** | Replace with a Converse extractor passed to `trackMetricsOf`. |
+| `trackVercelAISDKGenerateTextMetrics<T>(func)` | `await tracker.trackVercelAISDKGenerateTextMetrics(async () => generateText({...}))` | **[legacy]** | Replace with `trackMetricsOf` + `VercelAISDKProvider.getAIMetricsFromResponse` from `@launchdarkly/server-sdk-ai-vercel`. |
 
-Example — OpenAI via the provider helper package:
+Example — OpenAI via `trackMetricsOf` + the provider package (current pattern):
 ```typescript
 import { OpenAIProvider } from '@launchdarkly/server-sdk-ai-openai';
 
 const response = await aiConfig.tracker.trackMetricsOf(
-  (result) => OpenAIProvider.createAIMetrics(result),
+  OpenAIProvider.getAIMetricsFromResponse,
   () => openai.chat.completions.create({
     model: aiConfig.model?.name ?? 'gpt-4o',
-    messages: aiConfig.messages ?? [],
+    messages: [...(aiConfig.messages ?? []), { role: 'user', content: userPrompt }],
   }),
 );
 ```
 
-Example — built-in `trackOpenAIMetrics`:
+Example — LangChain via `trackMetricsOf` (works for any model LangChain wraps, including Anthropic and Bedrock):
 ```typescript
-const response = await aiConfig.tracker.trackOpenAIMetrics(() =>
-  openai.chat.completions.create({
-    model: aiConfig.model?.name ?? 'gpt-4o',
-    messages: aiConfig.messages ?? [],
-  }),
+import { LangChainProvider } from '@launchdarkly/server-sdk-ai-langchain';
+
+const llm = await LangChainProvider.createLangChainModel(aiConfig);
+const response = await aiConfig.tracker.trackMetricsOf(
+  LangChainProvider.getAIMetricsFromResponse,
+  () => llm.invoke(messages),
 );
 ```
 
-### Anthropic has no built-in auto-helper (either SDK)
+### Tier 1 — Managed runners (mention)
 
-Neither Python nor Node ships a `track_anthropic_metrics` helper. For Anthropic direct calls, use manual `trackDuration` + `trackTokens` + `trackSuccess`/`trackError`, or route through Bedrock Converse which does have a helper.
+For chat-loop applications, both SDKs expose a higher-level API that handles tracking end-to-end with no tracker calls at all:
 
-## Manual vs auto decision table
+- Python: `ai_client.create_model(...)` → `ManagedModel`, then `await model.invoke(user_input)`
+- Node: `aiClient.initChat(...)` / `aiClient.createChat(...)` → `TrackedChat`, then `await chat.invoke(userInput)`
 
-| Situation | Recommended pattern |
-|-----------|---------------------|
-| OpenAI SDK (Python or Node) | `track_openai_metrics` / `trackOpenAIMetrics` |
-| Bedrock Converse (Python or Node) | `track_bedrock_converse_metrics` / `trackBedrockConverseMetrics` |
-| Vercel AI SDK `generateText` (Node) | `trackVercelAISDKGenerateTextMetrics` |
-| LangChain (Python or Node) | Use the provider helper package if installed, else manual |
-| Anthropic direct SDK | **Manual** (no auto-helper) |
-| Gemini / Google GenAI direct | **Manual** |
-| Custom provider / proxy | `track_metrics_of` / `trackMetricsOf` with a custom extractor |
-| Streaming response | `trackStreamMetricsOf` (Node) or manual with `track_time_to_first_token` |
+The managed runner handles message history, provider dispatch (via the installed provider package — OpenAI, LangChain, Vercel), and tracker wiring. If the migration target is conversational, this is the right tier and you don't need anything from the tables above.
+
+### Anthropic has no provider package today
+
+Neither `@launchdarkly/server-sdk-ai-anthropic` nor `launchdarkly-server-sdk-ai-anthropic` exists as of this writing. For Anthropic direct calls, write a custom extractor and pass it to `track_metrics_of` / `trackMetricsOf` — see the Python example above or the full walk-through in [anthropic-tracking.md](../../aiconfig-ai-metrics/references/anthropic-tracking.md). If the app is open to LangChain, routing Anthropic through `ChatAnthropic` and the LangChain provider package recovers Tier 2 with zero extractor code.
+
+## Tier decision table
+
+| Situation | Tier | Pattern |
+|-----------|------|---------|
+| Chat loop (history, turn-based), any provider with a package | **1** | `ManagedModel` / `TrackedChat` / `initChat` — no tracker calls |
+| OpenAI direct SDK, non-chat shape | **2** | `trackMetricsOf(OpenAIProvider.getAIMetricsFromResponse, fn)` |
+| LangChain / LangGraph (any underlying model), non-chat shape | **2** | `trackMetricsOf(LangChainProvider.getAIMetricsFromResponse, fn)` |
+| Vercel AI SDK, non-chat shape (Node only) | **2** | `trackMetricsOf` with the Vercel provider package's extractor |
+| Anthropic direct SDK | **3** | Custom extractor reading `response.usage.input_tokens` / `output_tokens` |
+| Bedrock Converse (no provider package) | **3** | Custom extractor reading `response.usage.inputTokens` / `outputTokens` (or route via LangChain for Tier 2) |
+| Gemini / Google GenAI, Cohere, custom HTTP | **3** | Custom extractor |
+| Streaming response with TTFT required | **4** | Manual `trackTimeToFirstToken` + `trackDuration` + `trackTokens` + `trackSuccess` — see [streaming-tracking.md](../../aiconfig-ai-metrics/references/streaming-tracking.md) |
+| Streaming response without TTFT (Node) | **2 / 3** | `trackStreamMetricsOf(extractor, streamFn)` |
 
 ## Streaming responses
 

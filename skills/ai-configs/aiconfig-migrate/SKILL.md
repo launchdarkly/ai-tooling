@@ -228,91 +228,64 @@ Delegate: **`aiconfig-ai-metrics`** wires the per-request `tracker.track_*` call
 
 Hand off: print the AI Config key, variation key, provider, and whether the call is streaming, then tell the user: *"Run `/aiconfig-ai-metrics` with these inputs, then come back here."* Do not auto-invoke. Return here for sub-step 5 (verify) once they're done.
 
-1. **Locate the tracker.** It's attached to the config object returned in Stage 2: `config.tracker` (Python) or `aiConfig.tracker` (Node).
+1. **Locate the tracker.** It's attached to the config object returned in Stage 2: `config.tracker` (Python) or `aiConfig.tracker` (Node). Tier 1 (managed runner) tracks automatically and does not need an explicit tracker call at all — if the app is a chat loop, use `ai_client.create_model(...)` / `aiClient.initChat(...)` and skip to sub-step 4.
 
-2. **Wrap the provider call** with duration, success, error, and token tracking.
+2. **Pick a tier from the four-tier ladder.** The delegate skill's [SKILL.md](../aiconfig-ai-metrics/SKILL.md) has the full walk-through; the condensed version for migration-context decisions:
 
-   **Python — manual tracking:**
+   | Tier | When to use | Pattern |
+   |---|---|---|
+   | **1 — Managed runner** | The call site is a chat loop (turn-based, maintains history). | `ManagedModel` / `TrackedChat` — automatic tracking, no tracker calls. |
+   | **2 — Provider package + `trackMetricsOf`** | Non-chat shape where a provider package exists: OpenAI, LangChain/LangGraph, Vercel AI SDK. | `tracker.trackMetricsOf(Provider.getAIMetricsFromResponse, fn)` |
+   | **3 — Custom extractor + `trackMetricsOf`** | Anthropic direct, Gemini, Bedrock, Cohere, custom HTTP. | `tracker.trackMetricsOf(myExtractor, fn)` — one small function mapping response → `LDAIMetrics`. |
+   | **4 — Raw manual** | Streaming with TTFT, partial tracking, unusual shapes. | Explicit `trackDuration` + `trackTokens` + `trackSuccess` / `trackError`. |
+
+   **Do not introduce `track_openai_metrics` / `track_bedrock_converse_metrics` / `trackVercelAISDKGenerateTextMetrics` in new code.** They still exist in the SDK but have been replaced by `trackMetricsOf` composed with a provider-package extractor. Current Python and Node SDK READMEs document the new pattern exclusively.
+
+3. **Wire the chosen tier.** The delegate skill has full Python + Node examples for each tier plus per-provider files. A condensed Tier 2/3 example for reference — OpenAI via the provider package:
+
+   **Python:**
    ```python
-   import time
-   from ldai.tracker import TokenUsage
+   from ldai_openai import OpenAIProvider
+   import openai
 
-   start = time.time()
+   client = openai.OpenAI()
+
+   def call_openai():
+       return client.chat.completions.create(
+           model=config.model.name,
+           messages=[{"role": "system", "content": config.messages[0].content},
+                     {"role": "user", "content": user_prompt}],
+       )
+
    try:
-       response = openai_client.chat.completions.create(...)
-       config.tracker.track_duration(int((time.time() - start) * 1000))
-       config.tracker.track_success()
-       config.tracker.track_tokens(TokenUsage(
-           input=response.usage.prompt_tokens,
-           output=response.usage.completion_tokens,
-           total=response.usage.total_tokens,
-       ))
+       response = config.tracker.track_metrics_of(
+           call_openai,
+           OpenAIProvider.get_ai_metrics_from_response,
+       )
    except Exception:
        config.tracker.track_error()
        raise
    ```
 
-   **Node — manual tracking:**
+   **Node:**
    ```typescript
-   const start = Date.now();
+   import { OpenAIProvider } from '@launchdarkly/server-sdk-ai-openai';
+
    try {
-     const response = await openai.chat.completions.create(/* ... */);
-     aiConfig.tracker.trackDuration(Date.now() - start);
-     aiConfig.tracker.trackSuccess();
-     aiConfig.tracker.trackTokens({
-       input: response.usage?.prompt_tokens ?? 0,
-       output: response.usage?.completion_tokens ?? 0,
-       total: response.usage?.total_tokens ?? 0,
-     });
-   } catch (error) {
+     const response = await aiConfig.tracker.trackMetricsOf(
+       OpenAIProvider.getAIMetricsFromResponse,
+       () => openaiClient.chat.completions.create({
+         model: aiConfig.model!.name,
+         messages: [...aiConfig.messages, { role: 'user', content: userPrompt }],
+       }),
+     );
+   } catch (err) {
      aiConfig.tracker.trackError();
-     throw error;
+     throw err;
    }
    ```
 
-3. **Prefer auto-tracking helpers where available.** They capture duration, tokens, and success/error in one call and avoid drift between manual blocks.
-
-   | Provider | Python method | Node method |
-   |----------|--------------|-------------|
-   | OpenAI (any chat completion) | `tracker.track_openai_metrics(lambda: ...)` | `tracker.trackOpenAIMetrics(() => ...)` |
-   | Bedrock (Converse API) | `tracker.track_bedrock_converse_metrics(response)` | `tracker.trackBedrockConverseMetrics(response)` |
-   | Vercel AI SDK (`generateText`) | — | `tracker.trackVercelAISDKGenerateTextMetrics(() => ...)` |
-   | LangChain (single-node model call) | **Manual** — wrap `ainvoke` in try/except and call `tracker.track_duration` + `track_success` + `track_tokens` using `response.usage_metadata` (see snippet below) | **Manual** (same pattern; LangChain.js usage metadata is standardized) |
-   | LangGraph multi-node (EXPERIMENTAL) | `ldai_langchain.LDMetricsCallbackHandler` — requires `node_keys: Set[str]` and `fn_name_to_config_key: Dict[str, str]` constructor args. Marked not production-ready. Not suitable for single-node react-agent shapes. | — |
-   | Custom / any other | `tracker.track_metrics_of(func, extractor)` | `tracker.trackMetricsOf(extractor, () => ...)` |
-
-   **Do not hallucinate a `LaunchDarklyCallbackHandler` or `ldai.langchain` module.** Neither exists. The real Python package is `ldai_langchain` (underscore, top-level), it exposes `LangChainModelRunner`, `LangChainAgentRunner`, `LangChainRunnerFactory`, `LangGraphAgentGraphRunner`, and helper functions — none of which is a single-node plug-and-play callback. For the common single-node LangChain case, manual tracking via `response.usage_metadata` is the recommended path.
-
-   **LangChain single-node manual tracking pattern** (Python):
-
-   ```python
-   import time
-   from ldai.tracker import TokenUsage
-
-   start = time.time()
-   try:
-       response = await model.ainvoke([
-           {"role": "system", "content": config.instructions},
-           *state.messages,
-       ])
-       config.tracker.track_duration(int((time.time() - start) * 1000))
-       config.tracker.track_success()
-       # LangChain standardizes token usage across providers on AIMessage.usage_metadata
-       if hasattr(response, "usage_metadata") and response.usage_metadata:
-           um = response.usage_metadata
-           config.tracker.track_tokens(TokenUsage(
-               input=um.get("input_tokens", 0),
-               output=um.get("output_tokens", 0),
-               total=um.get("total_tokens", 0),
-           ))
-   except Exception:
-       config.tracker.track_error()
-       raise
-   ```
-
-   `AIMessage.usage_metadata` is LangChain's standardized token usage field — it works across providers (OpenAI, Anthropic, Bedrock, Gemini) because LangChain normalizes the provider-specific shapes behind the scenes.
-
-   There is no built-in Anthropic direct-API helper in either SDK. For Anthropic direct calls (not via LangChain), use the manual pattern from the "Node — manual tracking" block above, or switch the call through Bedrock Converse.
+   For Anthropic direct, Bedrock (no provider package), Gemini, and custom HTTP, write a small extractor returning `LDAIMetrics` — see the delegate skill's [anthropic-tracking.md](../aiconfig-ai-metrics/references/anthropic-tracking.md) and [bedrock-tracking.md](../aiconfig-ai-metrics/references/bedrock-tracking.md). LangChain single-node and LangGraph go through the `launchdarkly-server-sdk-ai-langchain` / `@launchdarkly/server-sdk-ai-langchain` provider package with `LangChainProvider.get_ai_metrics_from_response`.
 
 4. **Wire feedback tracking if the app has thumbs-up/down UI.** Both SDKs expose `trackFeedback` with a `{kind}` argument.
 
@@ -420,9 +393,9 @@ Delegate: **`aiconfig-online-evals`** (sub-step 3, optional — only for UI-atta
 - Don't claim you "delegated to `aiconfig-create`" or any other sibling skill. This skill does not auto-invoke. At each handoff, print the inputs and tell the user to run the sibling slash-command, then wait. Anything else misleads the user about what just happened.
 - Don't skip the `/aiconfig-targeting` step between Stage 2 and Stage 4. A freshly created variation returns `enabled=False` until targeting promotes it to fallthrough — Stage 2 verification will silently take the fallback path on every request.
 - Don't attempt a multi-agent graph migration in one pass. Migrate a single agent first; use [agent-graph-reference.md](references/agent-graph-reference.md) as the next-step read.
-- Don't use `track_request()` in Python — it does not exist in `launchdarkly-server-sdk-ai`. Use `track_duration()` + `track_success()`/`track_error()` explicitly, or prefer `track_openai_metrics` / `track_metrics_of` auto-helpers.
+- Don't use `track_request()` in Python — it does not exist in `launchdarkly-server-sdk-ai`. Use `track_metrics_of` with a provider-package or custom extractor, or drop to explicit `track_duration` + `track_tokens` + `track_success` / `track_error` if you're on the streaming path.
 - Don't tuple-unpack the return of `completion_config` / `agent_config` / `completionConfig` / `agentConfig`. They return a **single** config object (e.g. `AIAgentConfig`, `AICompletionConfig`), not `(config, tracker)`. The tracker is at `config.tracker`. LLMs hallucinate the tuple shape because pre-v0.x SDKs used to return one — the current API does not.
-- Don't import `LaunchDarklyCallbackHandler` from `ldai.langchain` — neither the class nor the dotted module path exists. The real Python LangChain helper package is `ldai_langchain` (top-level module, underscore), and it does not expose a single-node callback handler. For single-node LangChain calls, use manual tracker wiring with `response.usage_metadata` (see `references/sdk-ai-tracker-patterns.md`).
+- Don't import `LaunchDarklyCallbackHandler` from `ldai.langchain` — neither the class nor the dotted module path exists. The real Python LangChain helper package is `ldai_langchain` (top-level module, underscore). For single-node LangChain calls, use `track_metrics_of(fn, LangChainProvider.get_ai_metrics_from_response)` — the provider package normalizes `AIMessage.usage_metadata` for you across OpenAI / Anthropic / Bedrock / Gemini. See [sdk-ai-tracker-patterns.md](references/sdk-ai-tracker-patterns.md) for the full matrix.
 
 ## Related Skills
 
