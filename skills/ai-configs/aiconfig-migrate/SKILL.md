@@ -224,7 +224,9 @@ Delegate: **`aiconfig-tools`** (sub-step 2).
 
 ### Step 5: Instrument the tracker (Stage 4)
 
-This stage has **no delegate**. The tracker wiring is inline because no existing skill covers the AI `tracker.track_*` methods — the `launchdarkly-metric-instrument` skill is for `ldClient.track()` feature metrics, which is a different API. See [sdk-ai-tracker-patterns.md](references/sdk-ai-tracker-patterns.md) for the full per-method Python + Node matrix.
+Delegate: **`aiconfig-ai-metrics`** wires the per-request `tracker.track_*` calls (duration, tokens, success/error, feedback) around the provider call. Use **`aiconfig-custom-metrics`** alongside it if the app needs business metrics beyond the built-in AI ones. Note: do not confuse this with `launchdarkly-metric-instrument`, which is for `ldClient.track()` feature metrics — a different API. See [sdk-ai-tracker-patterns.md](references/sdk-ai-tracker-patterns.md) for the full per-method Python + Node matrix that the delegate skill draws on.
+
+Hand off: print the AI Config key, variation key, provider, and whether the call is streaming, then tell the user: *"Run `/aiconfig-ai-metrics` with these inputs, then come back here."* Do not auto-invoke. Return here for sub-step 5 (verify) once they're done.
 
 1. **Locate the tracker.** It's attached to the config object returned in Stage 2: `config.tracker` (Python) or `aiConfig.tracker` (Node).
 
