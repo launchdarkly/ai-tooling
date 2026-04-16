@@ -3,7 +3,7 @@
   "description": "Safely automate feature flag cleanup workflows using LaunchDarkly MCP server",
   "version": "1.0.0-experimental",
   "author": "LaunchDarkly",
-  "repository": "https://github.com/launchdarkly/agent-skills",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],
   "tags": [
     "launchdarkly",

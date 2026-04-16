@@ -3,7 +3,7 @@
   "description": "Control LaunchDarkly feature flag targeting including toggling, rollouts, rules, individual targets, cross-environment copying, and approval workflows",
   "version": "1.0.0-experimental",
   "author": "LaunchDarkly",
-  "repository": "https://github.com/launchdarkly/agent-skills",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],
   "tags": [
     "launchdarkly",

@@ -157,7 +157,7 @@ Perform these in **order** in the **same assistant turn**, then **stop at D1** u
 | **0** -- Onboarding log | Create or refresh `LAUNCHDARKLY_ONBOARDING.md` (or `docs/...`) | Resumable checklist, context, next-step pointer |
 | **1** -- Explore project | Detect language, framework, existing LD usage, environment type | Stack summary for the user |
 | **2** -- Detect agent | Cursor, Claude Code, Copilot, etc. | Correct `--agent` for `npx skills add` |
-| **3** -- Companion skills | `npx skills add ...` flag skills from `launchdarkly/agent-skills` | `launchdarkly-flag-*` skills available |
+| **3** -- Companion skills | `npx skills add ...` flag skills from `launchdarkly/ai-tooling` | `launchdarkly-flag-*` skills available |
 | **4** -- MCP | Configure LaunchDarkly MCP; user restarts; agent auto-verifies on next turn | MCP tools (or ldcli/API fallback) |
 | **5** -- SDK install | detect -> plan -> apply ([sdk-install](sdk-install/SKILL.md)) | Packages + init wired to env vars |
 | **6** -- First flag | Create boolean flag, evaluate, toggle, add interactive demo ([first-flag](first-flag/SKILL.md)) | End-to-end proof + visible "wow" moment |
@@ -227,15 +227,15 @@ Determine which coding agent is running so MCP config and `npx skills add --agen
 
 Install flag-management skills from the public repo so later steps can delegate when appropriate (see **Bundled vs public** below).
 
-**From `launchdarkly/agent-skills` (flag workflows):**
+**From `launchdarkly/ai-tooling` (flag workflows):**
 
 ```bash
-npx skills add launchdarkly/agent-skills --skill launchdarkly-flag-create launchdarkly-flag-discovery launchdarkly-flag-targeting launchdarkly-flag-cleanup -y --agent <detected-agent>
+npx skills add launchdarkly/ai-tooling --skill launchdarkly-flag-create launchdarkly-flag-discovery launchdarkly-flag-targeting launchdarkly-flag-cleanup -y --agent <detected-agent>
 ```
 
 Replace `<detected-agent>` with the value from Step 2. Confirm success; skip skills already installed.
 
-**Bundled vs public:** Orchestration and setup for this flow live **in this folder** -- parent [SKILL.md](SKILL.md), nested [mcp-configure](mcp-configure/SKILL.md), [sdk-install](sdk-install/SKILL.md) (detect / plan / apply), [first-flag](first-flag/SKILL.md), and `references/` ([SDK recipes](references/sdk/recipes.md), [snippets](references/sdk/snippets/), summary, editor rules, etc.). The command above installs **flag-management** skills from the public [launchdarkly/agent-skills](https://github.com/launchdarkly/agent-skills) repo only.
+**Bundled vs public:** Orchestration and setup for this flow live **in this folder** -- parent [SKILL.md](SKILL.md), nested [mcp-configure](mcp-configure/SKILL.md), [sdk-install](sdk-install/SKILL.md) (detect / plan / apply), [first-flag](first-flag/SKILL.md), and `references/` ([SDK recipes](references/sdk/recipes.md), [snippets](references/sdk/snippets/), summary, editor rules, etc.). The command above installs **flag-management** skills from the public [launchdarkly/ai-tooling](https://github.com/launchdarkly/ai-tooling) repo only.
 
 ### Step 4: Configure the MCP Server
 
@@ -264,7 +264,7 @@ Create and evaluate a boolean flag; toggle and observe end-to-end.
 
 Install or refresh flag skills via:
 
-`npx skills add launchdarkly/agent-skills --skill launchdarkly-flag-create -y --agent <detected-agent>`
+`npx skills add launchdarkly/ai-tooling --skill launchdarkly-flag-create -y --agent <detected-agent>`
 
 See D9 in [first-flag](first-flag/SKILL.md) for the blocking stop on auth errors.
 
@@ -352,4 +352,4 @@ This is **not** the same file as `LAUNCHDARKLY_ONBOARDING.md`. The onboarding lo
 
 **Public flag skills (install via Step 3)**
 
-- [github.com/launchdarkly/agent-skills](https://github.com/launchdarkly/agent-skills) -- `launchdarkly-flag-create`, `launchdarkly-flag-discovery`, `launchdarkly-flag-targeting`, `launchdarkly-flag-cleanup`
+- [github.com/launchdarkly/ai-tooling](https://github.com/launchdarkly/ai-tooling) -- `launchdarkly-flag-create`, `launchdarkly-flag-discovery`, `launchdarkly-flag-targeting`, `launchdarkly-flag-cleanup`
