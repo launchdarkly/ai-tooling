@@ -3,7 +3,7 @@
   "description": "Onboard a project to LaunchDarkly: kickoff roadmap, resumable log, explore repo, MCP, companion flag skills, nested SDK install (detect/plan/apply), first flag.",
   "version": "0.1.0",
   "author": "LaunchDarkly",
-  "repository": "https://github.com/launchdarkly/agent-skills",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],
   "tags": [
     "launchdarkly",

@@ -14,7 +14,7 @@ The SDK is connected. Now help the user create their first feature flag and see 
 
 This skill is nested under [LaunchDarkly onboarding](../SKILL.md); the parent **Step 6** is **first flag**. **Prior:** [Apply code changes](../sdk-install/apply/SKILL.md).
 
-**Optional -- Flag Create skill already installed:** If the **`launchdarkly-flag-create`** skill from [github.com/launchdarkly/agent-skills](https://github.com/launchdarkly/agent-skills) is available in the session (install with `npx skills add launchdarkly/agent-skills --skill launchdarkly-flag-create -y --agent <agent>`), you may use it for **creating the flag** and **choosing evaluation code** that matches the repo. You must still complete **default off -> verify OFF -> toggle on -> verify ON** (Steps 3-5 below). **Do not** require that skill: this page stays the full fallback when it is missing or MCP-only flows conflict with the user's setup.
+**Optional -- Flag Create skill already installed:** If the **`launchdarkly-flag-create`** skill from [github.com/launchdarkly/ai-tooling](https://github.com/launchdarkly/ai-tooling) is available in the session (install with `npx skills add launchdarkly/ai-tooling --skill launchdarkly-flag-create -y --agent <agent>`), you may use it for **creating the flag** and **choosing evaluation code** that matches the repo. You must still complete **default off -> verify OFF -> toggle on -> verify ON** (Steps 3-5 below). **Do not** require that skill: this page stays the full fallback when it is missing or MCP-only flows conflict with the user's setup.
 
 ## Security: Credential handling
 
@@ -350,7 +350,7 @@ The user has successfully:
 
 This is the "proof point" moment -- the user has a working feature flag they can toggle in real-time. The demo element makes it tangible and shareable.
 
-**Encourage the next skill:** Suggest they **install or enable** the **`launchdarkly-flag-create`** skill from [github.com/launchdarkly/agent-skills](https://github.com/launchdarkly/agent-skills) (`npx skills add launchdarkly/agent-skills --skill launchdarkly-flag-create -y --agent <agent>`) so future work -- creating flags that match repo conventions, wrapping features, and verifying wiring -- has a dedicated playbook. Offer to help them add it if they are unsure how.
+**Encourage the next skill:** Suggest they **install or enable** the **`launchdarkly-flag-create`** skill from [github.com/launchdarkly/ai-tooling](https://github.com/launchdarkly/ai-tooling) (`npx skills add launchdarkly/ai-tooling --skill launchdarkly-flag-create -y --agent <agent>`) so future work -- creating flags that match repo conventions, wrapping features, and verifying wiring -- has a dedicated playbook. Offer to help them add it if they are unsure how.
 
 ## Error handling
 
@@ -373,7 +373,7 @@ For non-auth errors (flag creation failures, SDK key mismatches, flags returning
 
 **Next steps to suggest:**
 
-- **Install** **`launchdarkly-flag-create`** from [github.com/launchdarkly/agent-skills](https://github.com/launchdarkly/agent-skills) if it is not already available -- this onboarding flow only covers a first boolean flag; that skill guides real-world flag creation aligned with existing code patterns (requires LaunchDarkly MCP per that skill's prerequisites).
+- **Install** **`launchdarkly-flag-create`** from [github.com/launchdarkly/ai-tooling](https://github.com/launchdarkly/ai-tooling) if it is not already available -- this onboarding flow only covers a first boolean flag; that skill guides real-world flag creation aligned with existing code patterns (requires LaunchDarkly MCP per that skill's prerequisites).
 - Use **`launchdarkly-flag-targeting`** from the same distribution to set up percentage rollouts and targeting rules
 - Read the [LaunchDarkly docs](https://docs.launchdarkly.com) for advanced topics like contexts, experimentation, and metrics
 

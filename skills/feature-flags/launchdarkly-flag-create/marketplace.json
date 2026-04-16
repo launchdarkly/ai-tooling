@@ -3,7 +3,7 @@
   "description": "Create and configure LaunchDarkly feature flags in a way that fits the existing codebase",
   "version": "1.0.0-experimental",
   "author": "LaunchDarkly",
-  "repository": "https://github.com/launchdarkly/agent-skills",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],
   "tags": [
     "launchdarkly",
