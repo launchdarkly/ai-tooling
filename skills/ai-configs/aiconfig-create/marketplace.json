@@ -1,0 +1,20 @@
+{
+  "name": "aiconfig-create",
+  "description": "Create and configure AI Configs in LaunchDarkly: agent vs completion mode, configs, variations with models and prompts, and verification.",
+  "version": "1.0.0-experimental",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "ai-configs",
+    "ai-config",
+    "llm",
+    "prompts",
+    "variations",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}

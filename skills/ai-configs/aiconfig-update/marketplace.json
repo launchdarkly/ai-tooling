@@ -1,0 +1,19 @@
+{
+  "name": "aiconfig-update",
+  "description": "Update, archive, and delete LaunchDarkly AI Configs and variations: metadata, models, parameters, instructions, and lifecycle.",
+  "version": "1.0.0-experimental",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "ai-configs",
+    "ai-config",
+    "lifecycle",
+    "maintenance",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}
