@@ -70,7 +70,7 @@ Use `create-ai-tool` with:
 
 ### Step 3: Attach to Variation
 
-Use `update-ai-config-variation` to attach tools. Pass the tool references in the `tools` field:
+Use `update-ai-config-variation` to attach tools. **Pass only the `tools` field.** Do not bundle `instructions`, `messages`, `model`, or `parameters` into this PATCH unless the user has explicitly asked you to also update those fields. Those fields may have been edited in the LaunchDarkly UI since the variation was created, and including them in a tool-attachment PATCH will silently clobber the UI edits.
 
 ```json
 {
@@ -82,6 +82,8 @@ Use `update-ai-config-variation` to attach tools. Pass the tool references in th
   ]
 }
 ```
+
+If you observe a UI-clear bug where attaching tools wipes other fields, **do not work around it by re-sending those fields from the previous `get-ai-config` response** — that masks the bug and can resurrect stale values that the user has since edited. Report the bug instead.
 
 ### Step 4: Verify
 
@@ -110,6 +112,7 @@ LangGraph, CrewAI, and AutoGen often generate schemas from function definitions.
 - Don't try to attach tools during config creation -- update the variation afterward
 - Don't skip clear tool descriptions (LLM needs them to decide when to call)
 - Don't forget to verify attachment after updating the variation
+- Don't bundle `instructions`, `messages`, `model`, or `parameters` into the tool-attachment PATCH. Send `tools` alone unless the user explicitly asked for a multi-field update — bundled PATCHes silently clobber UI edits to the other fields.
 
 ## Related Skills
 

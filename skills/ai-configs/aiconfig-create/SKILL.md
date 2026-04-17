@@ -70,7 +70,7 @@ Use `setup-ai-config` to create the config and its first variation in one call. 
 **Variation fields:**
 - `variationKey`, `variationName` -- identifiers for the first variation
 - `modelConfigKey` -- must be `Provider.model-id` format (e.g., `OpenAI.gpt-4o`, `Anthropic.claude-sonnet-4-5`)
-- `modelName` -- the model identifier (e.g., `gpt-4o`)
+- `modelName` -- the model identifier (e.g., `gpt-4o`). **Always pass this in the initial call** — leaving it off produces a variation that displays "NO MODEL" and forces a second PATCH to set it. The field is `modelName`; it is **not** `name` or `model.name` on this endpoint.
 
 **For agent mode**, provide:
 - `instructions` -- a string with the agent's system instructions
@@ -125,11 +125,19 @@ If you used `setup-ai-config`, verification is automatic: the response includes 
 3. Instructions or messages are present
 4. Parameters are set
 
+**Use `get-ai-config` for the verification call — do not drop to raw `curl` + `jq`.** The MCP tool returns a typed object you can inspect directly. Hand-rolled `jq` filters against the REST response routinely break: the AI Configs detail endpoint returns the variation list under different keys depending on `expand`, and a filter like `.variations.items[]` will fail with `Cannot index array with string "items"` when the response shape is a bare array. If you must call the REST API, use `jq -e .` first to inspect the actual shape before drilling in.
+
 **Report results:**
 - Config created with correct structure
 - Variation has model assigned
 - Flag any missing model or parameters
 - Provide config URL: `https://app.launchdarkly.com/projects/{projectKey}/ai-configs/{configKey}`
+
+### Step 5: Make the variation servable
+
+`setup-ai-config` and `create-ai-config-variation` create the variation but **do not promote it to fallthrough**. The new config will return `enabled=False` to every consumer until targeting is updated. This is the single most common "I created a config but my SDK still gets the fallback" failure.
+
+**Always end this skill by telling the user to run `aiconfig-targeting`** to set the new variation as the fallthrough (or as a targeted rule) in the environment they intend to ship to. Do not consider the workflow complete until that step is acknowledged.
 
 ## modelConfigKey Format
 
@@ -156,6 +164,9 @@ The `create-ai-config-variation` tool validates this format and rejects invalid 
 - Don't skip the two-step process (config then variation)
 - Don't try to attach tools during initial creation -- update the variation afterward
 - Don't forget modelConfigKey (models won't show in the UI)
+- Don't omit `modelName` from the initial variation call. It is required at create time; setting it via a follow-up PATCH is a workaround for a bug, not the intended flow. The PATCH field is also `modelName`, not `name`.
+- Don't drop to raw `curl` + `jq` for verification. Use `get-ai-config` (MCP) — it returns a typed object and avoids brittle `jq` filters that break on response-shape variation.
+- Don't consider the workflow complete until the user has been told to run `aiconfig-targeting`. A created variation that isn't promoted to fallthrough returns `enabled=False` to every consumer.
 
 ## Related Skills
 
