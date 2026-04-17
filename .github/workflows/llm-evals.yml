@@ -1,0 +1,55 @@
+name: LLM Evals
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - "skills/metrics/**"
+      - "tests/evals/**"
+      - "tests/providers/**"
+      - "tests/print-results.mjs"
+      - "tests/package.json"
+      - ".github/workflows/llm-evals.yml"
+  pull_request:
+    paths:
+      - "skills/metrics/**"
+      - "tests/evals/**"
+      - "tests/providers/**"
+      - "tests/print-results.mjs"
+      - "tests/package.json"
+      - ".github/workflows/llm-evals.yml"
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: tests/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run eval — metric-create
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npm run eval:create
+
+      - name: Run eval — metric-choose
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npm run eval:choose
+
+      - name: Run eval — metric-instrument
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npm run eval:instrument

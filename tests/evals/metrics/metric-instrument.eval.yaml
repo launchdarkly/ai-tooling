@@ -1,0 +1,236 @@
+description: launchdarkly-metric-instrument skill
+
+providers:
+  - id: anthropic:claude-3-haiku-20240307
+    config:
+      temperature: 0
+
+prompts:
+  - label: skill-chat
+    raw: |
+      <skill_instructions>
+      {{skill_content}}
+      </skill_instructions>
+
+      User request: {{user_message}}
+
+defaultTest:
+  vars:
+    skill_content: file://{{env.SKILL_ROOT}}/metrics/launchdarkly-metric-instrument/SKILL.md
+  options:
+    provider: anthropic:claude-3-haiku-20240307
+
+tests:
+  - description: "Server-side SDK — must pass context as second argument to track()"
+    vars:
+      user_message: "My Node.js app already has the LD client initialized. I need the track() call for checkout-completed — just show me the code. Project is my-app."
+    assert:
+      - type: llm-rubric
+        value: "The code snippet must include a context variable as the second parameter of the track() call — e.g. ldClient.track('checkout-completed', context). A bare ldClient.track('eventKey') call with only one argument fails this check for a server-side SDK, regardless of any explanation about context being automatic."
+        metric: uses-server-signature
+
+  - description: "Value metric — must use metricValue parameter, not data"
+    vars:
+      user_message: "Add a track() call for api-response-time, a server-side value metric that measures request latency in milliseconds. My Node.js app already has the LD client initialized. I need to record the actual latency value. Project is my-app."
+    assert:
+      - type: llm-rubric
+        value: "The response must pass an explicit numeric variable (e.g. responseTimeMs, latencyMs) as the metricValue argument. LaunchDarkly does NOT measure latency automatically — the number must be passed. A response that says latency will be aggregated automatically without an explicit value in the call fails."
+        metric: uses-metric-value
+
+  - description: "Verify events flow — must instruct list-metric-events after instrumentation"
+    vars:
+      user_message: "The LD client is already initialized in my React app. Help me add a track() call for login-success. Project is my-app."
+    assert:
+      - type: llm-rubric
+        value: "The response instructs the user to verify the event is flowing after adding the track() call — specifically by calling list-metric-events (or mentioning that list-metric-events should be used) to confirm the event key appears in LaunchDarkly."
+        metric: verifies-events-flow
+
+  - description: "Confirm placement — must show candidate location before writing code"
+    vars:
+      user_message: "The LD client is already initialized in my React app. I need to add a track() call for purchase-completed somewhere in the checkout flow. Where should it go, and can you write it? Project is my-app."
+    assert:
+      - type: llm-rubric
+        value: "The response must either ask the user where the track() call should go, OR name a specific candidate file or function and ask the user to confirm it. A response that writes track() code with no mention of placement — no question about location, no candidate location named — does NOT satisfy this."
+        metric: confirms-placement
+
+  - description: "SDK setup — must call get-project or get-environment for SDK key"
+    vars:
+      user_message: "I need to set up the LaunchDarkly SDK from scratch and add a track() call for signup-completed in my Node.js app. Project is my-app."
+    assert:
+      - type: llm-rubric
+        value: "The response calls get-project or get-environment to retrieve the SDK key for the correct environment, rather than instructing the user to find and copy the SDK key manually from the LaunchDarkly dashboard."
+        metric: calls-get-project-or-env
+
+  - description: "Detect existing SDK patterns before writing new code"
+    vars:
+      user_message: "Add a track() call for button-clicked to my React app. Project is my-app."
+    assert:
+      - type: llm-rubric
+        value: "The response must search for or ask about existing LaunchDarkly SDK setup or track() calls BEFORE writing the final track() implementation. A note like 'make sure the SDK is set up' that appears AFTER showing the implementation code does NOT satisfy this — the detection or question must come first."
+        metric: checks-existing-patterns
+
+  # ─── Mutation tests ──────────────────────────────────────────────────────────
+  # These test the llm-rubric GRADER, not the skill.
+  # Each feeds a hand-crafted defective output through the grader via the
+  # echo-output provider (no LLM call, zero variance). The same rubric from
+  # the corresponding positive test is used.
+  #
+  # Semantics: FAIL = grader correctly rejected the defect (green in output)
+  #            PASS = grader missed the defect (red — rubric has a blind spot)
+
+  # [NEG] 1 — mirrors positive test 1 (uses-server-signature)
+  - description: "[NEG] Server-side app given client-side track() signature without context"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        Since the LD client is already set up in your Node.js app, I'll add the track() call
+        for checkout-completed in the right place.
+
+        Here's the call to add in your checkout handler:
+
+        ```typescript
+        ldClient.track('checkout-completed');
+        ```
+
+        That's all that's needed — the LD client will attach the event to the current user
+        automatically.
+
+        After adding this, trigger a checkout and verify the event appears in LaunchDarkly.
+    assert:
+      - type: llm-rubric
+        value: "The code snippet must include a context variable as the second parameter of the track() call — e.g. ldClient.track('checkout-completed', context). A bare ldClient.track('eventKey') call with only one argument fails this check for a server-side SDK, regardless of any explanation about context being automatic."
+        metric: uses-server-signature
+
+  # [NEG] 2 — mirrors positive test 2 (uses-metric-value)
+  - description: "[NEG] Value metric tracked with no numeric value passed at all"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        Since api-response-time is a value metric, I'll add a track() call to your request handler.
+
+        Here's the call to add after the response is sent:
+
+        ```typescript
+        ldClient.track('api-response-time', context);
+        ```
+
+        This records the event in LaunchDarkly. The latency measurement will be aggregated
+        automatically based on when the event fires.
+
+        After adding this, trigger a request and verify the api-response-time event appears
+        in LaunchDarkly.
+    assert:
+      - type: llm-rubric
+        value: "The response must pass an explicit numeric variable (e.g. responseTimeMs, latencyMs) as the metricValue argument. LaunchDarkly does NOT measure latency automatically — the number must be passed. A response that says latency will be aggregated automatically without an explicit value in the call fails."
+        metric: uses-metric-value
+
+  # [NEG] 3 — mirrors positive test 3 (verifies-events-flow)
+  - description: "[NEG] track() call added but no verification step instructed"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        I'll add the track() call for login-success in your app.
+
+        First, let me check for existing SDK patterns in your codebase.
+
+        Based on a typical React app setup, here's where to add the call — in your login
+        success handler:
+
+        ```typescript
+        ldClient.track('login-success');
+        ```
+
+        Make sure the LD client is initialized before this runs. Once you've added the call
+        and deployed or run locally, the event will start flowing to LaunchDarkly.
+
+        Next steps: you can now attach the login-success event key to a metric in the
+        LaunchDarkly UI.
+    assert:
+      - type: llm-rubric
+        value: "The response instructs the user to verify the event is flowing after adding the track() call — specifically by calling list-metric-events (or mentioning that list-metric-events should be used) to confirm the event key appears in LaunchDarkly."
+        metric: verifies-events-flow
+
+  # [NEG] 4 — mirrors positive test 4 (confirms-placement)
+  - description: "[NEG] track() code written immediately without discussing placement"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        I'll add the track() call for purchase-completed to your React checkout flow.
+
+        Here's the implementation:
+
+        ```typescript
+        ldClient.track('purchase-completed');
+        ```
+
+        The LD client will record the event for any active experiments or metrics tied to
+        the purchase-completed event key.
+
+        After adding this, trigger a test purchase and verify the event appears in LaunchDarkly
+        using list-metric-events.
+    assert:
+      - type: llm-rubric
+        value: "The response must either ask the user where the track() call should go, OR name a specific candidate file or function and ask the user to confirm it. A response that writes track() code with no mention of placement — no question about location, no candidate location named — does NOT satisfy this."
+        metric: confirms-placement
+
+  # [NEG] 5 — mirrors positive test 5 (calls-get-project-or-env)
+  - description: "[NEG] User told to find SDK key manually instead of fetching it via tool"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        Since you need to set up the LD SDK from scratch, here are the steps:
+
+        Step 1: Install the SDK
+        ```
+        npm install launchdarkly-node-server-sdk
+        ```
+
+        Step 2: Get your SDK key
+        Go to your LaunchDarkly dashboard → Project settings → Environments, and copy the
+        SDK key for the environment you want to use (e.g. production or staging).
+
+        Step 3: Initialize the client
+        ```typescript
+        import { init } from 'launchdarkly-node-server-sdk';
+
+        const ldClient = init('YOUR_SDK_KEY_HERE');
+        await ldClient.waitForInitialization();
+        ```
+
+        Step 4: Add the track() call
+        ```typescript
+        ldClient.track('signup-completed', context);
+        ```
+
+        After deploying, verify the event appears in LaunchDarkly.
+    assert:
+      - type: llm-rubric
+        value: "The response calls get-project or get-environment to retrieve the SDK key for the correct environment, rather than instructing the user to find and copy the SDK key manually from the LaunchDarkly dashboard."
+        metric: calls-get-project-or-env
+
+  # [NEG] 6 — mirrors positive test 6 (checks-existing-patterns)
+  - description: "[NEG] New track() code written without checking existing SDK patterns"
+    provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
+    vars:
+      canned_output: |
+        I'll add a track() call for button-clicked to your React app.
+
+        Here's the implementation to add to your button click handler:
+
+        ```typescript
+        function MyButton({ onClick }) {
+          const handleClick = () => {
+            ldClient.track('button-clicked');
+            onClick?.();
+          };
+
+          return <button onClick={handleClick}>Click me</button>;
+        }
+        ```
+
+        After adding this, click the button and verify the event appears in LaunchDarkly
+        using list-metric-events.
+    assert:
+      - type: llm-rubric
+        value: "The response must search for or ask about existing LaunchDarkly SDK setup or track() calls BEFORE writing the final track() implementation. A note like 'make sure the SDK is set up' that appears AFTER showing the implementation code does NOT satisfy this — the detection or question must come first."
+        metric: checks-existing-patterns
