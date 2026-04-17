@@ -1,0 +1,20 @@
+{
+  "name": "aiconfig-online-evals",
+  "description": "Attach LLM-as-a-judge evaluators to AI Config variations: custom judges, sampling rates, and quality monitoring.",
+  "version": "0.1.0",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "ai-configs",
+    "ai-config",
+    "online-evaluation",
+    "llm-as-judge",
+    "quality",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}

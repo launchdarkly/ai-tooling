@@ -6,28 +6,64 @@
       "path": "skills/ai-configs/aiconfig-create",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "ai-configs",
+        "ai-config",
+        "llm",
+        "prompts",
+        "variations",
+        "mcp"
+      ]
     },
     {
       "name": "aiconfig-online-evals",
       "description": "Attach judges to AI Config variations for automatic LLM-as-a-judge evaluation. Create custom judges, configure sampling rates, and monitor quality scores.",
       "path": "skills/ai-configs/aiconfig-online-evals",
       "version": "0.1.0",
-      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.14.0+ or Node.js v0.16.1+ for automatic metric recording."
+      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.14.0+ or Node.js v0.16.1+ for automatic metric recording.",
+      "tags": [
+        "launchdarkly",
+        "ai-configs",
+        "ai-config",
+        "online-evaluation",
+        "llm-as-judge",
+        "quality",
+        "mcp"
+      ]
     },
     {
       "name": "aiconfig-projects",
       "description": "Guide for setting up LaunchDarkly projects in your codebase. Helps you assess your stack, choose the right approach, and integrate project management that makes sense for your architecture.",
       "path": "skills/ai-configs/aiconfig-projects",
       "version": "0.4.0",
-      "compatibility": "Requires LaunchDarkly API access token with projects:write permission or LaunchDarkly MCP server."
+      "compatibility": "Requires LaunchDarkly API access token with projects:write permission or LaunchDarkly MCP server.",
+      "tags": [
+        "launchdarkly",
+        "ai-configs",
+        "ai-config",
+        "projects",
+        "provisioning",
+        "iac",
+        "mcp"
+      ]
     },
     {
       "name": "aiconfig-targeting",
       "description": "Configure AI Config targeting rules to control which variations serve to different users. Enable percentage rollouts, attribute-based rules, segment targeting, and guarded rollouts.",
       "path": "skills/ai-configs/aiconfig-targeting",
       "version": "0.1.0",
-      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission."
+      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission.",
+      "tags": [
+        "launchdarkly",
+        "ai-configs",
+        "ai-config",
+        "targeting",
+        "rollout",
+        "segments",
+        "mcp"
+      ]
     },
     {
       "name": "aiconfig-tools",
@@ -35,7 +71,16 @@
       "path": "skills/ai-configs/aiconfig-tools",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "ai-configs",
+        "ai-config",
+        "tools",
+        "function-calling",
+        "agents",
+        "mcp"
+      ]
     },
     {
       "name": "aiconfig-update",
@@ -43,7 +88,15 @@
       "path": "skills/ai-configs/aiconfig-update",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "ai-configs",
+        "ai-config",
+        "lifecycle",
+        "maintenance",
+        "mcp"
+      ]
     },
     {
       "name": "aiconfig-variations",
@@ -51,7 +104,16 @@
       "path": "skills/ai-configs/aiconfig-variations",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "ai-configs",
+        "ai-config",
+        "variations",
+        "experimentation",
+        "ab-testing",
+        "mcp"
+      ]
     },
     {
       "name": "apply",
