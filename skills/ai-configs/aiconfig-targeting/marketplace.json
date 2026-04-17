@@ -1,0 +1,20 @@
+{
+  "name": "aiconfig-targeting",
+  "description": "Configure AI Config targeting: percentage rollouts, attribute rules, segments, and guarded rollouts.",
+  "version": "0.1.0",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "ai-configs",
+    "ai-config",
+    "targeting",
+    "rollout",
+    "segments",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}
