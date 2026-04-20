@@ -47,11 +47,11 @@ Use this matrix to decide whether Tier 2 (provider package) is available for you
 | Framework / provider | Python provider package | Node provider package | Reference |
 |---|---|---|---|
 | OpenAI (direct SDK) | `launchdarkly-server-sdk-ai-openai` | `@launchdarkly/server-sdk-ai-openai` | [openai-tracking.md](references/openai-tracking.md) |
-| LangChain / LangGraph | `launchdarkly-server-sdk-ai-langchain` | `@launchdarkly/server-sdk-ai-langchain` | (use the LangChain provider docs) |
+| LangChain / LangGraph | `launchdarkly-server-sdk-ai-langchain` | `@launchdarkly/server-sdk-ai-langchain` | [langchain-tracking.md](references/langchain-tracking.md) |
 | Vercel AI SDK | — | `@launchdarkly/server-sdk-ai-vercel` | (use the Vercel provider docs) |
 | AWS Bedrock (Converse or InvokeModel) | — (use LangChain-aws or custom extractor) | — (use LangChain-aws or custom extractor) | [bedrock-tracking.md](references/bedrock-tracking.md) |
 | Anthropic direct SDK | — | — | [anthropic-tracking.md](references/anthropic-tracking.md) |
-| Gemini / Google GenAI | — | — | Tier 3 custom extractor |
+| Gemini / Google GenAI | — | — | [gemini-tracking.md](references/gemini-tracking.md) |
 | Cohere, Mistral, custom HTTP | — | — | Tier 3 custom extractor |
 | **Any provider, streaming + TTFT** | — (Tier 4 only) | `trackStreamMetricsOf` (no TTFT) + manual TTFT | [streaming-tracking.md](references/streaming-tracking.md) |
 
@@ -64,7 +64,7 @@ Guardrails that apply to every tier:
 1. **Always check `config.enabled`** before making the tracked call. A disabled config means the user has flagged the feature off — you should short-circuit to whatever fallback the app uses (cached response, error, degraded path) rather than making the provider call at all.
 2. **Wrap the existing call, don't rewrite it.** Tier 2 and Tier 3 are designed to slot around an unmodified provider call. If you find yourself rewriting the call to fit the tracker, you're at the wrong tier — drop down one.
 3. **Errors go through the tracker too.** `trackMetricsOf` handles the success path; errors still need an explicit `tracker.trackError()` in the catch block (or a try/except around the whole thing). Tier 1 handles both paths automatically.
-4. **Flush in short-lived processes.** In serverless, cron jobs, CLI scripts — anything that exits quickly — call `ldClient.flush()` (sync or await) before the process terminates, or the tracker events never leave the machine.
+4. **Always flush before close.** Call `ldClient.flush()` (Python: `ldclient.get().flush()`; Node: `await ldClient.flush()`) before closing the client. Trailing events are at risk of being lost otherwise — in short-lived scripts and long-running services alike. In Node, `ldClient.close()` returns a Promise; await it.
 
 ### 4. Verify
 

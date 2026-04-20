@@ -17,6 +17,8 @@ Agent mode returns an `instructions` string. Completion mode returns a `messages
 
 **Caveat:** judges cannot be attached to agent-mode variations via the LaunchDarkly UI. Agent mode evaluations must go through the programmatic judge API (`create_judge(...).evaluate(input, output)`). See `aiconfig-online-evals` for the programmatic path.
 
+**Model construction for LangChain / LangGraph.** When the framework runs on top of LangChain (which includes LangGraph's `create_react_agent` and most custom graphs), build the chat model with `create_langchain_model(ai_config)` (Python) or `LangChainProvider.createLangChainModel(aiConfig)` (Node). These helpers forward every variation parameter (`temperature`, `max_tokens`, `top_p`, …) and handle LaunchDarkly→LangChain provider-name mapping internally. Do not hand-roll `init_chat_model(model=..., model_provider=...)` — it silently drops every variation parameter. See [langchain-tracking.md](../../aiconfig-ai-metrics/references/langchain-tracking.md) for the canonical single-model and LangGraph patterns, including the per-message token-aggregation extractor used with `track_metrics_of_async` / `trackMetricsOf`.
+
 ## Wiring `agent_config` into each framework
 
 ### LangGraph `create_react_agent`
@@ -228,7 +230,7 @@ graph = builder.compile()
 - `TOOLS` (a static list) → `TOOL_IMPLEMENTATIONS` (a name-to-callable dict) + `build_tools_from_config(ai_config)` (a per-request builder). This is the dynamic tool factory pattern from the devrel-agents-tutorial, adapted to plain callables.
 - `call_model` fetches an `AIAgentConfig` per invocation, builds tools from `ai_config.tools`, binds them, and injects `ai_config.instructions` as the system message (replacing `runtime.context.system_prompt`).
 - The `"tools"` node is replaced with a factory that reads the active tool list from state — so both `bind_tools` and `ToolNode` always run against the same list. If you skip this step and leave `ToolNode(TOOLS)` hardcoded, the LLM and the executor will disagree on what's available and the graph will misbehave.
-- Tracker calls wrap the provider call inside `call_model`. On Node, use `trackDuration` / `trackSuccess` / `trackTokens` or `trackOpenAIMetrics` via the helper package.
+- Tracker calls wrap the provider call inside `call_model`. The snippet above uses explicit `track_duration` + `track_tokens` + `track_success` because the sample model is hand-constructed via `load_chat_model(name).bind_tools(...)` without passing variation parameters. If you switch to `create_langchain_model(ai_config).bind_tools(tools)`, variation parameters flow through and you can collapse the block to `track_metrics_of_async(lambda: model.ainvoke(...), get_ai_metrics_from_response)`. Same story on Node: `LangChainProvider.createLangChainModel(aiConfig)` + `tracker.trackMetricsOf(LangChainProvider.getAIMetricsFromResponse, ...)`.
 - The existing `Context` dataclass is kept as the fallback shape — its defaults become the `AIAgentConfigDefault` values, so the app still runs exactly as before when LaunchDarkly is unreachable.
 
 **Gotcha:** the `"tools"` node above reads `_active_tools` from state. That means your `State` TypedDict has to include it. If it doesn't, either add the field, or take the simpler route of fetching the AI Config **once at graph-compile time** (at module load) and accepting that tool changes require a restart. The per-invocation pattern above is strictly better but adds one state field.

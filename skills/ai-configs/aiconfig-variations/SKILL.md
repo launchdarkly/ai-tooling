@@ -46,7 +46,7 @@ What's the problem? Cost, quality, speed, accuracy? How will you measure success
 |------|--------------|
 | Reduce cost | Cheaper model (e.g., `gpt-4o-mini`) |
 | Improve quality | Better model or more detailed prompt |
-| Reduce latency | Faster model, lower `maxTokens` |
+| Reduce latency | Faster model, lower `max_tokens` |
 | Increase accuracy | Different model family (Claude vs GPT-4) |
 
 ### Step 3: Create Variations (Recommended: Clone with Overrides)

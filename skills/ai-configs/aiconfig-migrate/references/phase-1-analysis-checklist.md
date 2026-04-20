@@ -93,11 +93,11 @@ Feeds into Stage 2 (install + wrap). Quoted from the `ai-configs-relaunch-guides
 
 | Provider | Package | Helper |
 |----------|---------|--------|
-| OpenAI | `@launchdarkly/server-sdk-ai-openai` | `OpenAIProvider.createAIMetrics` + `trackMetricsOf` |
-| LangChain | `@launchdarkly/server-sdk-ai-langchain` | **Manual today** — no single-call auto-helper. Use `tracker.trackDuration` + `trackTokens` + `trackSuccess`/`trackError` around `ainvoke`. |
-| Vercel AI SDK | `@launchdarkly/server-sdk-ai-vercel` | `trackVercelAISDKGenerateTextMetrics` |
+| OpenAI | `@launchdarkly/server-sdk-ai-openai` | `OpenAIProvider.getAIMetricsFromResponse` + `trackMetricsOf` |
+| LangChain / LangGraph | `@launchdarkly/server-sdk-ai-langchain` | `LangChainProvider.createLangChainModel(config)` (forwards all variation parameters and handles provider-name mapping) + `LangChainProvider.getAIMetricsFromResponse` with `trackMetricsOf` |
+| Vercel AI SDK | `@launchdarkly/server-sdk-ai-vercel` | `VercelAISDKProvider.getAIMetricsFromGenerateText` + `trackMetricsOf` |
 
-Python currently ships helper packages for OpenAI (`ldai_openai`) and LangChain (`ldai_langchain`). The LangChain Python package exposes runner classes (`LangChainModelRunner`, `LangChainAgentRunner`, `LangGraphAgentGraphRunner`) and helper functions (`get_ai_metrics_from_response`, `get_ai_usage_from_response`) — **not** a single-node callback handler. For single-node LangChain calls, use manual tracker wiring with `response.usage_metadata`. See [sdk-ai-tracker-patterns.md](sdk-ai-tracker-patterns.md) for the full matrix and the manual snippet.
+Python currently ships helper packages for OpenAI (`ldai_openai`) and LangChain (`ldai_langchain`). The LangChain Python package exposes `create_langchain_model(config)` (builds a LangChain chat model from the AI Config, forwarding every variation parameter and mapping LD provider names to LangChain equivalents), `convert_messages_to_langchain`, and `get_ai_metrics_from_response` — the same package covers LangGraph. Use `create_langchain_model(config)` + `track_metrics_of_async(lambda: llm.ainvoke(messages), get_ai_metrics_from_response)` as the canonical single-call pattern. See [langchain-tracking.md](../../aiconfig-ai-metrics/references/langchain-tracking.md) for both LangChain and LangGraph patterns and [sdk-ai-tracker-patterns.md](sdk-ai-tracker-patterns.md) for the full tracker-method matrix.
 
 ## Phase 1 output format
 

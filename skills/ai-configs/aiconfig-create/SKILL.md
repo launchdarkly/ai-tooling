@@ -102,7 +102,7 @@ Example completion-mode call:
 ```
 
 **Optional:**
-- `parameters` -- model parameters like `{temperature: 0.7, maxTokens: 2000}`
+- `parameters` -- model parameters like `{temperature: 0.7, max_tokens: 2000}` (match the UI's snake_case keys)
 
 The tool returns the full verified config detail with the variation attached.
 
