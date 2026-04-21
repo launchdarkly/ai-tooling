@@ -54,13 +54,14 @@ If the user **declines** broader changes: keep only the LD package addition if p
 
 ### Permission before secrets
 
-**D7 -- BLOCKING:** Call your structured question tool now.
+**D7 -- BLOCKING (MANDATORY -- DO NOT SKIP):** Call your structured question tool now. This decision point exists for security compliance -- the user must explicitly choose how secrets are handled. Skipping this and proceeding to write keys without consent is a critical failure.
 - question: "The SDK needs an SDK key (or client-side ID / mobile key) for your environment. How would you like to set up the secret?"
 - options:
   - "I'll tell you where to put it"
   - "I'll set up the secret myself -- just tell me what variable name to use"
   - "Write it to a `.env` file for me"
-- STOP. Do not write the question as text. Do not fetch keys from LaunchDarkly or write real values into the repo without the user selecting an option first.
+  - "I don't have an account yet -- help me sign up" -> point to https://app.launchdarkly.com/signup?source=agent, pause SDK key setup until account is ready
+- STOP. Do not write the question as text. Do not fetch keys from LaunchDarkly or write real values into the repo without the user selecting an option first. Do not infer the answer from context or prior conversation -- always present this choice.
 
 **If the user chooses option 1 ("Tell me where to put it"):**
 1. Ask where they want the secret written (file path, secrets manager, etc.)
@@ -78,6 +79,13 @@ If the user **declines** broader changes: keep only the LD package addition if p
 1. Ask how they want to provide the key: paste it, or have the agent fetch it via MCP/API
 2. Follow the [Write to `.env`](#write-to-env-when-the-user-consents) section below
 3. Ensure `.env` is in `.gitignore` before writing any real values
+
+**If the user chooses option 4 ("I don't have an account yet"):**
+1. Point them to https://app.launchdarkly.com/signup?source=agent
+2. Explain that SDK key setup requires an account -- they can complete setup after signing up
+3. Write placeholder variable names to `.env` (no real values) so the code compiles
+4. Continue with Step 3 (init code) using the placeholder env var references. The app will fail to connect to LaunchDarkly until real keys are set, which is expected.
+5. Note in the onboarding log that key setup is pending account creation
 
 ### Fetching keys via MCP
 

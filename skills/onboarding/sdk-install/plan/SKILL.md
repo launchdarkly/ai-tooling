@@ -125,14 +125,11 @@ Only LaunchDarkly SDK packages will be added unless the user explicitly approves
 
 After presenting the plan:
 
-**D6 -- BLOCKING:** Call your structured question tool now.
-- question: "Here's the integration plan. Does this look right?"
-- options:
-  - "Yes, approve and proceed" -> begin applying
-  - "I'd like to change something" -> let user specify changes
-- STOP. Do not write the question as text. Do not begin installing packages, writing files, or modifying code until the user selects an option.
+**D6 -- NON-BLOCKING (proceed unless objected):** Present the plan summary to the user with a note like "Here's what I'm going to do -- say stop or let me know if anything looks wrong." Then **continue into [Apply code changes](../apply/SKILL.md)** without waiting for explicit approval. If the user objects or says something looks wrong, stop and adjust the plan before continuing.
 
-If the entrypoint is ambiguous or multiple SDKs could apply, ask those specific questions as part of the plan presentation (each as its own blocking decision point using the same pattern).
+This is intentionally non-blocking to reduce ceremony. The plan is visible to the user and they can interrupt at any time. The real safety gates are D7 (secret consent) and D8 (non-LD dependency changes) in the apply step.
+
+If the entrypoint is ambiguous or multiple SDKs could apply, those specific questions **are** blocking -- ask them as part of the plan presentation using your structured question tool and wait for an answer before proceeding.
 
 **Do not** ask for SDK keys, client-side IDs, or mobile keys as part of plan confirmation -- the parent flow collects those at [Apply code changes](../apply/SKILL.md). The **Key type** column above is for technical planning only, not a prompt for secrets.
 
