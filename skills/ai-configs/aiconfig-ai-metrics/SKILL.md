@@ -34,7 +34,7 @@ A call to `track_openai_metrics` / `trackOpenAIMetrics` / `track_bedrock_convers
 Before picking a tier, find the provider call and answer these questions:
 
 - [ ] **Shape?** Is it a chat loop (history + turn-based), a one-shot completion, an agent step, or something else? → drives Tier 1 vs 2.
-- [ ] **Framework?** Raw provider SDK? LangChain / LangGraph? Vercel AI SDK? CrewAI? → drives which Tier-2 provider package (if any) applies.
+- [ ] **Framework?** Raw provider SDK? LangChain / LangGraph? Vercel AI SDK? CrewAI? Strands? → drives which Tier-2 provider package (if any) applies.
 - [ ] **Provider?** OpenAI, Anthropic, Bedrock, Gemini, Azure, custom HTTP? → cross-reference with the package availability matrix below.
 - [ ] **Streaming?** If yes, you'll need TTFT tracking, which means Tier 4 for the TTFT part even if the rest is Tier 2.
 - [ ] **Language?** Python or Node? Provider-package coverage differs between them.
@@ -52,6 +52,7 @@ Use this matrix to decide whether Tier 2 (provider package) is available for you
 | AWS Bedrock (Converse or InvokeModel) | — (use LangChain-aws or custom extractor) | — (use LangChain-aws or custom extractor) | [bedrock-tracking.md](references/bedrock-tracking.md) |
 | Anthropic direct SDK | — | — | [anthropic-tracking.md](references/anthropic-tracking.md) |
 | Gemini / Google GenAI | — | — | [gemini-tracking.md](references/gemini-tracking.md) |
+| Strands Agents | — (Tier 3 custom extractor) | — (Tier 3 custom extractor) | [strands-tracking.md](references/strands-tracking.md) |
 | Cohere, Mistral, custom HTTP | — | — | Tier 3 custom extractor |
 | **Any provider, streaming + TTFT** | — (Tier 4 only) | `trackStreamMetricsOf` (no TTFT) + manual TTFT | [streaming-tracking.md](references/streaming-tracking.md) |
 

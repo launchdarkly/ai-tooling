@@ -1,6 +1,6 @@
 # Agent-Mode Frameworks
 
-How to wire an AI Config in **agent mode** into the frameworks that take a goal/instructions string: LangGraph, CrewAI, and custom ReAct loops. Also covers the **dynamic tool loading** pattern from the devrel-agents-tutorial — how to extract tool names from `config.tools` at runtime and instantiate the actual tool implementations without hardcoding.
+How to wire an AI Config in **agent mode** into the frameworks that take a goal/instructions string: LangGraph, CrewAI, Strands, and custom ReAct loops. Also covers the **dynamic tool loading** pattern from the devrel-agents-tutorial — how to extract tool names from `config.tools` at runtime and instantiate the actual tool implementations without hardcoding.
 
 ## When to pick agent mode
 
@@ -12,6 +12,7 @@ Completion mode is the default and covers direct provider calls (OpenAI, Anthrop
 | Takes `role`, `goal`, `backstory` | CrewAI `Agent` | `Agent(role="researcher", goal="...", backstory="...")` |
 | Custom ReAct loop with a system instruction separated from messages | hand-rolled | `system = "You can use search..."; while not done: ...` |
 | Multi-step tool use with persistent instructions across turns | LangGraph / LangChain `AgentExecutor` | The system prompt stays stable across a long interaction |
+| Provider-agnostic agent with `@tool` decorators and `invoke_async` | Strands `Agent` | `Agent(model=OpenAIModel(...), system_prompt="You are...", tools=[search])` |
 
 Agent mode returns an `instructions` string. Completion mode returns a `messages` array. Both modes support tools, parameters, and the same tracker — the only difference is the input shape the SDK returns to you.
 
@@ -89,6 +90,116 @@ def build_crew_agent(ai_client, user_id: str):
 - Or store a structured JSON blob in `instructions` and parse it in the app
 
 Prompt variables are cleaner and keep the AI Config human-readable in the UI.
+
+### Strands `Agent`
+
+Strands is a provider-agnostic, async-first agent SDK. The same `Agent` class runs against Anthropic, OpenAI, and Bedrock by swapping the `model` argument; tools are plain `@tool`-decorated Python functions passed through the constructor; and `SlidingWindowConversationManager` keeps short-term memory across `invoke_async` turns without external state. Agent-mode `instructions` maps directly to `Agent(system_prompt=...)`.
+
+Strands does not ship a first-party LaunchDarkly provider package. To serve multiple providers from a single AI Config key, dispatch on `agent_config.provider.name` and construct the matching Strands model class.
+
+**Provider dispatcher.** Drop `parameters.tools` before passing params into the Strands model class — LaunchDarkly surfaces attached tools via a flat `parameters.tools` shape in the variation payload, but Strands receives tools via the `Agent` constructor. Passing `tools` through a second time via model `params` is an error.
+
+```python
+from strands.models.anthropic import AnthropicModel
+from strands.models.openai import OpenAIModel
+
+
+def create_strands_model(agent_config):
+    """Map an LDAIAgentConfig to the matching Strands model class by provider."""
+    provider = (agent_config.provider.name if agent_config.provider else "").lower()
+    model_id = agent_config.model.name
+    params = dict(agent_config.model.to_dict().get("parameters") or {})
+    # LD surfaces attached tools via parameters.tools; Strands takes tools via
+    # Agent(tools=[...]). Drop the key before passing params to the model class.
+    params.pop("tools", None)
+
+    if provider == "anthropic":
+        # AnthropicModel requires max_tokens as a kwarg, not inside params.
+        max_tokens = int(
+            params.pop("max_tokens", None) or params.pop("maxTokens", None) or 1024
+        )
+        return AnthropicModel(model_id=model_id, max_tokens=max_tokens, params=params or None)
+    if provider == "openai":
+        # Pass parameters through as-is — gpt-5 wants max_completion_tokens,
+        # gpt-4o wants max_tokens. Keep that choice in the LD variation.
+        return OpenAIModel(model_id=model_id, params=params)
+    raise ValueError(f"Unsupported provider for Strands: {provider!r}")
+```
+
+**Call site.** Build the agent once per request, pull the tracker off the config, and wrap `invoke_async` with `track_duration_of` — Strands is Tier 3 (custom extractor) because there is no provider package.
+
+```python
+from strands import Agent, tool
+from strands.agent.conversation_manager.sliding_window_conversation_manager import (
+    SlidingWindowConversationManager,
+)
+from ldai.client import AIAgentConfigDefault, ModelConfig, ProviderConfig
+from ldai.tracker import TokenUsage
+from ldclient import Context
+
+
+@tool
+def get_order_status(order_id: str) -> str:
+    """Look up the status of a customer order by order ID."""
+    ...
+
+
+FALLBACK = AIAgentConfigDefault(
+    enabled=True,
+    model=ModelConfig(name="gpt-5", parameters={"max_completion_tokens": 2000}),
+    provider=ProviderConfig(name="openai"),
+    instructions="You are a helpful assistant.",
+)
+
+
+def track_strands_metrics(tracker, result):
+    """Record token usage from a Strands AgentResult on the LD tracker.
+
+    accumulated_usage aggregates tokens across every provider call in the turn,
+    including tool-calling round trips — unlike the single-response shape from
+    Anthropic or OpenAI direct.
+    """
+    usage = getattr(result.metrics, "accumulated_usage", {}) or {}
+    input_tokens = usage.get("inputTokens", 0)
+    output_tokens = usage.get("outputTokens", 0)
+    total = usage.get("totalTokens", 0) or (input_tokens + output_tokens)
+    if total > 0:
+        tracker.track_tokens(TokenUsage(input=input_tokens, output=output_tokens, total=total))
+
+
+async def run_turn(ai_client, user_id: str, user_input: str):
+    context = Context.builder(user_id).kind("user").build()
+    agent_config = ai_client.agent_config("strands-agent", context, FALLBACK)
+
+    if not agent_config.enabled:
+        return disabled_response()
+
+    agent = Agent(
+        name="order-assistant",
+        model=create_strands_model(agent_config),
+        system_prompt=agent_config.instructions,
+        tools=[get_order_status],
+        conversation_manager=SlidingWindowConversationManager(window_size=40),
+    )
+    tracker = agent_config.tracker
+
+    try:
+        result = await tracker.track_duration_of(lambda: agent.invoke_async(user_input))
+        tracker.track_success()
+        track_strands_metrics(tracker, result)
+        return result.message["content"][0]["text"]
+    except Exception:
+        tracker.track_error()
+        raise
+```
+
+**Key points:**
+- `system_prompt=agent_config.instructions` — the instructions string replaces the hardcoded system prompt.
+- `create_strands_model(agent_config)` is the provider-dispatch seam. Add a branch per provider the variation can serve.
+- The tracker is Tier 3: `tracker.track_duration_of(...)` + an explicit `track_tokens` call fed by `track_strands_metrics`. See [strands-tracking.md](../../aiconfig-ai-metrics/references/strands-tracking.md) for the single-call `track_metrics_of_async` variant and the per-field breakdown of `accumulated_usage`.
+- Always `ldclient.get().flush()` before process exit in short-lived scripts — trailing events can otherwise be lost.
+
+**TypeScript caveat.** The Strands TypeScript SDK ships `BedrockModel` and `OpenAIModel` only — it cannot run Anthropic-backed variations. If the app needs to serve both OpenAI and Anthropic from a single AI Config, use the Python SDK.
 
 ### Custom `StateGraph` (bind_tools + ToolNode)
 

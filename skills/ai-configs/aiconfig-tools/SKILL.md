@@ -107,6 +107,7 @@ LaunchDarkly stores the tool schema once — the flat `{type, name, description,
 | Gemini (`google-genai`) | `{function_declarations: [{name, description, parameters}]}` (Python) / `{functionDeclarations: [...]}` (Node) | `GenerateContentConfig.tools=[...]` |
 | OpenAI Responses API | LaunchDarkly's flat shape passes through unchanged | top-level `tools=[...]` |
 | LangChain / LangGraph | `LangChainProvider.createLangChainModel(config)` and pass `ai_config.tools` (or your own `StructuredTool` list) into `bind_tools(...)` / `create_react_agent(tools=[...])` | framework-native; no per-call conversion |
+| Strands Agents | LaunchDarkly's flat shape; drop `parameters.tools` before passing params to the Strands model class (`AnthropicModel`, `OpenAIModel`) — Python `@tool`-decorated callables stay in code | `Agent(tools=[...])` constructor; no per-call conversion |
 
 Minimal conversion snippets (Python):
 

@@ -38,7 +38,7 @@ When the user provides enough context (use case, model, mode), proceed through t
 
 Before creating, identify what you're building:
 
-- **What framework?** LangGraph, LangChain, CrewAI, OpenAI SDK, Anthropic SDK, custom
+- **What framework?** LangGraph, LangChain, CrewAI, Strands, OpenAI SDK, Anthropic SDK, custom
 - **What does the AI need?** Just text generation, or tools/function calling?
 - **Agent or completion?** See the decision matrix below
 
@@ -48,7 +48,7 @@ This choice is about **input schema and framework compatibility**, not execution
 
 | Your Need | Mode | Why |
 |-----------|------|-----|
-| LangGraph, CrewAI, AutoGen frameworks | **Agent** | Frameworks expect goal/instruction input |
+| LangGraph, CrewAI, Strands, AutoGen frameworks | **Agent** | Frameworks expect goal/instruction input |
 | Persistent instructions across interactions | **Agent** | Single instructions string, SDK method: `aiclient.agent()` |
 | Direct OpenAI/Anthropic API calls | **Completion** | Messages array maps directly to provider APIs |
 | Full control of message structure | **Completion** | System/user/assistant role-based messages |

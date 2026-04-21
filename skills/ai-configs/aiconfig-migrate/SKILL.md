@@ -1,6 +1,6 @@
 ---
 name: aiconfig-migrate
-description: "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation in five stages: extract prompts, wrap in the AI SDK, add tools, add tracking, add evals/judges. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini) to a managed AI Config, or stage a full hardcoded-to-LaunchDarkly migration."
+description: "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation in five stages: extract prompts, wrap in the AI SDK, add tools, add tracking, add evals/judges. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini, Strands) to a managed AI Config, or stage a full hardcoded-to-LaunchDarkly migration."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
@@ -47,7 +47,7 @@ Run the phase-1 checklist and produce a structured summary. **This step writes n
 Use [phase-1-analysis-checklist.md](references/phase-1-analysis-checklist.md) to scan:
 
 1. **Language and package manager** — Python (pip/poetry/uv), TypeScript/JavaScript (npm/pnpm/yarn), Go, Ruby, .NET
-2. **LLM provider** — OpenAI, Anthropic, Bedrock, Gemini, LangChain, LangGraph, CrewAI
+2. **LLM provider** — OpenAI, Anthropic, Bedrock, Gemini, LangChain, LangGraph, CrewAI, Strands
 3. **Existing LaunchDarkly usage** — any pre-existing `LDClient` or `ldclient` initialization to reuse
 4. **Hardcoded model configs** — model name string literals, temperature / max_tokens / top_p, system prompts, instruction strings
 5. **Mode decision** — completion mode (chat messages array) or agent mode (single instructions string). Completion mode is the default and the only mode that supports judges attached in the UI.
@@ -212,6 +212,7 @@ Skip this step if the audited app has no function calling / tools. Otherwise:
    - `anthropic.messages.create(tools=[...])` — Anthropic direct
    - `create_react_agent(tools=[...])` — LangGraph prebuilt ReAct
    - `Agent(tools=[...])` — CrewAI
+   - `Agent(tools=[...])` — Strands (Python `@tool`-decorated callables passed through the constructor; TS SDK uses Zod-schema tools)
    - **Custom `StateGraph`** — module-level `TOOLS = [...]` list referenced in **both** `model.bind_tools(TOOLS)` and `ToolNode(TOOLS)`. This is the `langchain-ai/react-agent` template shape; the list is usually in a `tools.py` module. Grep for `bind_tools(` and `ToolNode(` together — they will point at the same list.
 
    Record each tool's name, description, and JSON schema.
@@ -374,7 +375,9 @@ Delegate: **`aiconfig-online-evals`** (sub-step 3, optional — only for UI-atta
 | App uses LangChain `ChatOpenAI(model=...)` | Read `config.model.name` and pass it as `ChatOpenAI(model=config.model.name)`; keep LangChain for the call itself |
 | Retry wrapper around the provider call | Move tracker inside the retry — failures in the same request should share one `track_error`, and success tracking should fire only after the final attempt |
 | App has no tools — Stage 3 skipped | Move directly from Stage 2 verification to Stage 4 (tracking) |
-| Mode mismatch: user said agent, audit shows one-shot chat | Choose completion mode unless the app uses LangGraph `create_react_agent`, CrewAI `Agent`, or a similar goal-driven framework |
+| Mode mismatch: user said agent, audit shows one-shot chat | Choose completion mode unless the app uses LangGraph `create_react_agent`, CrewAI `Agent`, Strands `Agent`, or a similar goal-driven framework |
+| App uses Strands Agents (Python) | Agent mode. Build a `create_strands_model` dispatcher keyed on `agent_config.provider.name` that returns `AnthropicModel(model_id=..., max_tokens=...)` or `OpenAIModel(model_id=..., params=...)`. Drop `parameters.tools` before passing params to the model class — Strands receives tools via `Agent(tools=[...])`. Tracking is Tier 3: wrap `invoke_async` with `tracker.track_duration_of(...)` and record tokens from `result.metrics.accumulated_usage`. See [agent-mode-frameworks.md § Strands Agent](references/agent-mode-frameworks.md) and [strands-tracking.md](../aiconfig-ai-metrics/references/strands-tracking.md) |
+| Strands app on TypeScript | TS SDK ships `BedrockModel` and `OpenAIModel` only — cannot serve Anthropic-backed variations. Use the Python SDK if multi-provider variations are required |
 | TypeScript app using Anthropic SDK | No `trackAnthropicMetrics` helper exists. Use Tier 3: `trackMetricsOf` with a small custom extractor that reads `response.usage.input_tokens` / `response.usage.output_tokens` and returns `LDAIMetrics`. See [anthropic-tracking.md](../aiconfig-ai-metrics/references/anthropic-tracking.md) in the `aiconfig-ai-metrics` skill for the exact extractor |
 | Fallback would silently crash because `LD_SDK_KEY` is missing | Log a startup warning; proceed with the fallback. Never raise at import time |
 | Multi-agent graph (supervisor + workers) | Stop after migrating a single agent. Agent graphs are currently **Python-only** (`launchdarkly-server-sdk-ai.agent_graph`). Read [agent-graph-reference.md](references/agent-graph-reference.md) for the graph-level migration path — it is deliberately out of this skill's main scope |
