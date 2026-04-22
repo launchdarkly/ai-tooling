@@ -82,8 +82,8 @@ The tracker object (`config.tracker` / `aiConfig.tracker`) provides these method
 
 | Method (Python ↔ Node) | Tier | What it does |
 |---|---|---|
-| `track_metrics_of(extractor, fn)` / `trackMetricsOf(extractor, fn)` | **2 / 3** | Wraps a provider call, captures duration + success/error, calls your extractor for tokens. **This is the default generic tracker.** |
-| `track_metrics_of_async(extractor, fn)` (Python) | 2 / 3 | Async variant of the above. |
+| `track_metrics_of(func, extractor)` (Python) / `trackMetricsOf(extractor, fn)` (Node) | **2 / 3** | Wraps a provider call, captures duration + success/error, calls your extractor for tokens. **This is the default generic tracker.** Note the Python and Node arg orders are reversed. |
+| `track_metrics_of_async(func, extractor)` (Python) | 2 / 3 | Async variant of the above. Python: `func, extractor`. |
 | `trackStreamMetricsOf(extractor, streamFn)` (Node only) | 2 / 3 | Streaming variant. Captures per-chunk usage when the extractor handles chunks. Does **not** auto-capture TTFT. |
 | `track_duration(ms)` / `trackDuration(ms)` | 4 | Record latency in milliseconds. |
 | `track_duration_of(fn)` / `trackDurationOf(fn)` | 4 | Wraps a callable and records duration automatically. Does not capture tokens or success — pair with explicit calls. |
