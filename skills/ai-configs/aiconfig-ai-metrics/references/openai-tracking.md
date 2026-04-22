@@ -89,6 +89,8 @@ ai_config = ai_client.completion_config("my-config-key", context, default_config
 if not ai_config.enabled:
     return None
 
+tracker = ai_config.create_tracker()
+
 def call_openai():
     return client.chat.completions.create(
         model=ai_config.model.name,
@@ -98,7 +100,7 @@ def call_openai():
         ],
     )
 
-response = ai_config.tracker.track_metrics_of(
+response = tracker.track_metrics_of(
     call_openai,
     OpenAIProvider.get_ai_metrics_from_response,
 )
@@ -116,7 +118,8 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const aiConfig = await aiClient.completionConfig('my-config-key', context, defaultConfig);
 if (!aiConfig.enabled) return null;
 
-const response = await aiConfig.tracker.trackMetricsOf(
+const tracker = aiConfig.createTracker!();
+const response = await tracker.trackMetricsOf(
   OpenAIProvider.getAIMetricsFromResponse,
   () => client.chat.completions.create({
     model: aiConfig.model!.name,
@@ -132,19 +135,20 @@ return response.choices[0].message.content;
 **Error handling.** `trackMetricsOf` records `success: true` on return and lets exceptions propagate. Wrap with try/catch to capture errors:
 
 ```typescript
+const tracker = aiConfig.createTracker!();
 try {
-  const response = await aiConfig.tracker.trackMetricsOf(
+  const response = await tracker.trackMetricsOf(
     OpenAIProvider.getAIMetricsFromResponse,
     () => client.chat.completions.create({ /* ... */ }),
   );
   return response.choices[0].message.content;
 } catch (err) {
-  aiConfig.tracker.trackError();
+  tracker.trackError();
   throw err;
 }
 ```
 
-Python follows the same shape with `try` / `except` and `config.tracker.track_error()`.
+Python follows the same shape with `try` / `except` and `tracker.track_error()`.
 
 ## Tier 3 — Custom extractor (fallback)
 
@@ -163,7 +167,8 @@ def my_openai_extractor(response) -> LDAIMetrics:
         ),
     )
 
-response = ai_config.tracker.track_metrics_of(call_openai, my_openai_extractor)
+tracker = ai_config.create_tracker()
+response = tracker.track_metrics_of(call_openai, my_openai_extractor)
 ```
 
 ## Tier 4 — Manual (streaming only)
@@ -172,4 +177,4 @@ For OpenAI streaming calls you need manual tracking because the current provider
 
 ## Legacy: `track_openai_metrics` / `trackOpenAIMetrics`
 
-You may see existing code that calls `config.tracker.track_openai_metrics(lambda: openai.chat.completions.create(...))` or the Node equivalent. These helpers still work but are no longer the recommended pattern — they predate the provider packages and the generic `trackMetricsOf` + `getAIMetricsFromResponse` composition. **Do not introduce them in new code.** If you're migrating an existing codebase, leave them in place unless the user has specifically asked for a cleanup pass — the migration from the legacy helper to the new pattern is mechanical but not free.
+You may see existing code that calls `config.tracker.track_openai_metrics(lambda: openai.chat.completions.create(...))` or the Node equivalent. (Note: the `config.tracker` property itself was removed in Python v0.18.0 / Node v0.17.0 in favor of the `create_tracker()` / `createTracker()` factory — that code is pre-0.17/0.18 and will need updating regardless.) These helpers still work but are no longer the recommended pattern — they predate the provider packages and the generic `trackMetricsOf` + `getAIMetricsFromResponse` composition. **Do not introduce them in new code.** If you're migrating an existing codebase, leave them in place unless the user has specifically asked for a cleanup pass — the migration from the legacy helper to the new pattern is mechanical but not free.

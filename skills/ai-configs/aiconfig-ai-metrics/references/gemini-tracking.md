@@ -78,11 +78,12 @@ def call_with_tracking(ai_config, user_prompt: str) -> str | None:
             ),
         )
 
+    tracker = ai_config.create_tracker()
     try:
-        response = ai_config.tracker.track_metrics_of(call_gemini, gemini_metrics)
+        response = tracker.track_metrics_of(call_gemini, gemini_metrics)
         return response.text
     except Exception:
-        ai_config.tracker.track_error()
+        tracker.track_error()
         raise
 ```
 
@@ -148,8 +149,9 @@ async function callWithTracking(
 
   const params = (aiConfig.model?.parameters ?? {}) as Record<string, unknown>;
 
+  const tracker = aiConfig.createTracker!();
   try {
-    const response = await aiConfig.tracker.trackMetricsOf(
+    const response = await tracker.trackMetricsOf(
       geminiMetrics,
       () => genAI.models.generateContent({
         model: aiConfig.model!.name,
@@ -162,7 +164,7 @@ async function callWithTracking(
     );
     return response.text ?? null;
   } catch (err) {
-    aiConfig.tracker.trackError();
+    tracker.trackError();
     throw err;
   }
 }

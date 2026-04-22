@@ -37,14 +37,15 @@ llm = create_langchain_model(config)
 messages = convert_messages_to_langchain(config.messages or [])
 messages.append(HumanMessage(content=user_prompt))
 
+tracker = config.create_tracker()
 try:
-    completion = await config.tracker.track_metrics_of_async(
+    completion = await tracker.track_metrics_of_async(
         lambda: llm.ainvoke(messages),
         get_ai_metrics_from_response,
     )
     return completion.content
 except Exception:
-    config.tracker.track_error()
+    tracker.track_error()
     raise
 ```
 
@@ -64,14 +65,15 @@ const llm = await LangChainProvider.createLangChainModel(aiConfig);
 const messages = LangChainProvider.convertMessagesToLangChain(aiConfig.messages ?? []);
 messages.push(new HumanMessage(userPrompt));
 
+const tracker = aiConfig.createTracker!();
 try {
-  const completion = await aiConfig.tracker.trackMetricsOf(
+  const completion = await tracker.trackMetricsOf(
     LangChainProvider.getAIMetricsFromResponse,
     () => llm.invoke(messages),
   );
   return completion.content;
 } catch (err) {
-  aiConfig.tracker.trackError();
+  tracker.trackError();
   throw err;
 }
 ```
@@ -130,7 +132,7 @@ async def track_langgraph_metrics(tracker, func):
         raise
 
 result = await track_langgraph_metrics(
-    agent_config.tracker,
+    agent_config.create_tracker(),
     lambda: agent.ainvoke(
         {"messages": [{"role": "user", "content": user_prompt}]},
         config={"configurable": {"thread_id": thread_id}},
@@ -172,7 +174,8 @@ const langgraphMetrics = (result: any): LDAIMetrics => {
   return { success: true, usage: total > 0 ? { input, output, total } : undefined };
 };
 
-const result = await agentConfig.tracker.trackMetricsOf(
+const agentTracker = agentConfig.createTracker!();
+const result = await agentTracker.trackMetricsOf(
   langgraphMetrics,
   () => agent.invoke(
     { messages: [{ role: 'user', content: userPrompt }] },

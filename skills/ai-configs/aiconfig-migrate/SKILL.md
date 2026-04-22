@@ -86,14 +86,14 @@ This manifest is the contract for the next four stages. Review it with the user.
 This is the first stage that writes code. It has six sub-steps.
 
 1. **Install the AI SDK.** Detect the package manager from Step 1, then install:
-   - Python: `launchdarkly-server-sdk` + `launchdarkly-server-sdk-ai>=0.17.0`
-   - Node.js/TypeScript: `@launchdarkly/node-server-sdk` + `@launchdarkly/server-sdk-ai`
+   - Python: `launchdarkly-server-sdk` + `launchdarkly-server-sdk-ai>=0.18.0`
+   - Node.js/TypeScript: `@launchdarkly/node-server-sdk` + `@launchdarkly/server-sdk-ai>=0.17.0`
    - Go: `github.com/launchdarkly/go-server-sdk/v7` + `github.com/launchdarkly/go-server-sdk/ldai`
 
    Tier-2 provider packages (install in Stage 4, only if you're using the matching provider):
-   - OpenAI: `launchdarkly-server-sdk-ai-openai>=0.3.0` (Python) / `@launchdarkly/server-sdk-ai-openai` (Node)
-   - LangChain / LangGraph: `launchdarkly-server-sdk-ai-langchain>=0.4.1` (Python) / `@launchdarkly/server-sdk-ai-langchain` (Node)
-   - Vercel AI SDK (Node only): `@launchdarkly/server-sdk-ai-vercel`
+   - OpenAI: `launchdarkly-server-sdk-ai-openai>=0.4.0` (Python) / `@launchdarkly/server-sdk-ai-openai>=0.5.5` (Node)
+   - LangChain / LangGraph: `launchdarkly-server-sdk-ai-langchain>=0.5.0` (Python) / `@launchdarkly/server-sdk-ai-langchain>=0.5.5` (Node)
+   - Vercel AI SDK (Node only): `@launchdarkly/server-sdk-ai-vercel>=0.5.5`
    - Anthropic, Gemini, Bedrock — no provider package published; use Tier-3 custom extractor (see `aiconfig-ai-metrics`)
 
 2. **Initialize `LDAIClient` once at startup.** Reuse any existing `LDClient` — do not create a second base client. Place the initialization in the same module that owns existing app config.
@@ -180,7 +180,7 @@ This is the first stage that writes code. It has six sub-steps.
        return disabled_response()
 
    # config is a single AIAgentConfig object — NOT a (config, tracker) tuple.
-   # The tracker lives at config.tracker.
+   # Obtain the tracker once per execution via the factory: tracker = config.create_tracker()
    model_name = f"{config.provider.name}/{config.model.name}"
    instructions = config.instructions
    params = config.model.parameters or {}
@@ -235,7 +235,7 @@ Delegate: **`aiconfig-ai-metrics`** wires the per-request `tracker.track_*` call
 
 Hand off: print the AI Config key, variation key, provider, and whether the call is streaming, then tell the user: *"Run `/aiconfig-ai-metrics` with these inputs, then come back here."* Do not auto-invoke. Return here for sub-step 5 (verify) once they're done.
 
-1. **Locate the tracker.** It's attached to the config object returned in Stage 2: `config.tracker` (Python) or `aiConfig.tracker` (Node). Tier 1 (managed runner) tracks automatically and does not need an explicit tracker call at all — if the app is a chat loop, use `ai_client.create_model(...)` / `aiClient.initChat(...)` and skip to sub-step 4.
+1. **Create the tracker.** Obtain a per-execution tracker via the factory on the config returned in Stage 2: `tracker = config.create_tracker()` (Python v0.18.0+) or `const tracker = aiConfig.createTracker!();` (Node v0.17.0+). Call the factory once per request and reuse the returned `tracker` for every tracking call in that request — each call mints a fresh `runId` that groups all events for the execution and is used for billing. Tier 1 (managed runner) tracks automatically and does not need an explicit tracker call at all — if the app is a chat loop, use `ai_client.create_model(...)` / `aiClient.initChat(...)` and skip to sub-step 4.
 
 2. **Pick a tier from the four-tier ladder.** The delegate skill's [SKILL.md](../aiconfig-ai-metrics/SKILL.md) has the full walk-through; the condensed version for migration-context decisions:
 
@@ -257,6 +257,8 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
 
    client = openai.OpenAI()
 
+   tracker = config.create_tracker()
+
    def call_openai():
        return client.chat.completions.create(
            model=config.model.name,
@@ -265,12 +267,12 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
        )
 
    try:
-       response = config.tracker.track_metrics_of(
+       response = tracker.track_metrics_of(
            call_openai,
            OpenAIProvider.get_ai_metrics_from_response,
        )
    except Exception:
-       config.tracker.track_error()
+       tracker.track_error()
        raise
    ```
 
@@ -278,8 +280,9 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
    ```typescript
    import { OpenAIProvider } from '@launchdarkly/server-sdk-ai-openai';
 
+   const tracker = aiConfig.createTracker!();
    try {
-     const response = await aiConfig.tracker.trackMetricsOf(
+     const response = await tracker.trackMetricsOf(
        OpenAIProvider.getAIMetricsFromResponse,
        () => openaiClient.chat.completions.create({
          model: aiConfig.model!.name,
@@ -287,7 +290,7 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
        }),
      );
    } catch (err) {
-     aiConfig.tracker.trackError();
+     tracker.trackError();
      throw err;
    }
    ```
@@ -299,14 +302,16 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
    **Python:**
    ```python
    from ldai.tracker import FeedbackKind
-   config.tracker.track_feedback({"kind": FeedbackKind.Positive})
+   tracker.track_feedback({"kind": FeedbackKind.Positive})
    ```
 
    **Node:**
    ```typescript
    import { LDFeedbackKind } from '@launchdarkly/server-sdk-ai';
-   aiConfig.tracker.trackFeedback({ kind: LDFeedbackKind.Positive });
+   tracker.trackFeedback({ kind: LDFeedbackKind.Positive });
    ```
+
+   **Deferred feedback across processes.** If the thumbs-up UI fires in a different process than the one that produced the response, do **not** call `create_tracker()` again in the consumer — that mints a new `runId`. Persist the tracker's resumption token (`tracker.resumption_token` in Python, `tracker.resumptionToken` in Node) alongside the message, then rehydrate the tracker with `LDAIConfigTracker.from_resumption_token(...)` (Python) or `aiClient.createTracker(token, context)` (Node) in the feedback handler.
 
 5. **Verify.** Hit the wrapped endpoint in staging, then open the AI Config in LaunchDarkly → Monitoring tab. Duration, token, and generation counts should appear within 1–2 minutes. If nothing shows up, walk the checklist in [sdk-ai-tracker-patterns.md](references/sdk-ai-tracker-patterns.md) under "Troubleshooting."
 
@@ -331,7 +336,7 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
 
    The delegate handles creating custom judge AI Configs, attaching them via the variation PATCH endpoint, and setting fallthrough on each judge config. Offline eval does **not** go through this delegate — it's a Playground workflow, not an API write.
 
-4. **For programmatic direct-judge: wire `create_judge` + `evaluate` + `track_eval_scores`.** This is the only path at Stage 5 that writes code. The correct shape:
+4. **For programmatic direct-judge: wire `create_judge` + `evaluate` + `track_judge_result`.** This is the only path at Stage 5 that writes code. The correct shape (Python v0.18.0+):
 
    ```python
    from ldai.client import AIJudgeConfigDefault
@@ -348,20 +353,21 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
            output_text,
            sampling_rate=0.25,                  # optional; default 1.0 (always eval)
        )
-       if result:
-           config.tracker.track_eval_scores(result.evals)
+       if result.sampled:
+           tracker.track_judge_result(result)
    ```
 
-   Three rules:
+   Four rules:
    - **`create_judge` returns `Optional[Judge]`.** Always guard with `if judge and judge.enabled:` — it returns `None` if the judge AI Config is disabled for the context or the provider is missing. A direct `.evaluate()` on a `None` return will raise `AttributeError`.
    - **Pass `AIJudgeConfigDefault`**, not `AICompletionConfigDefault`. The `create_judge` `default` parameter is typed `Optional[AIJudgeConfigDefault]`; passing the completion type will not type-check and is a doc-level bug in some older examples.
    - **`sampling_rate` is a parameter on `evaluate()`**, not on `create_judge`. It defaults to `1.0` (evaluate every call). For live paths, pass something lower (0.1–0.25) to control cost.
+   - **`evaluate()` always returns a `JudgeResult` in v0.18.0+** (never `None`). Check `result.sampled` to know whether the evaluation actually ran, and call `track_judge_result(result)` — the consolidated method replaces the earlier `track_eval_scores` / `track_judge_response` pair. Node uses `trackJudgeResult(result)` and `LDJudgeResult` with the same `sampled` field.
 
    **Ask the user which judge AI Config key to use.** LaunchDarkly ships three built-in judges — Accuracy, Relevance, Toxicity — but the actual AI Config **keys** for the built-ins are not canonical SDK constants and aren't documented. Have the user open **AI Configs > Library** in the LD UI and copy the key of the judge they want to reference, or create a custom judge AI Config via `aiconfig-create` first.
 
 5. **Verify.**
    - **UI-attached auto judges:** trigger a request in staging, open the Monitoring tab → "Evaluator metrics" dropdown. Scores appear within 1–2 minutes at the configured sampling rate.
-   - **Programmatic direct-judge:** hit the wrapped endpoint and confirm `track_eval_scores` lands on the parent config's Monitoring tab.
+   - **Programmatic direct-judge:** hit the wrapped endpoint and confirm `track_judge_result` lands on the parent config's Monitoring tab.
    - **Offline eval:** run the dataset through the LD Playground, compare baseline vs new-variation scores side by side. No runtime wiring required.
 
 Delegate: **`aiconfig-online-evals`** (sub-step 3, optional — only for UI-attached judges or custom-judge creation; offline eval doesn't delegate).
@@ -380,7 +386,7 @@ Delegate: **`aiconfig-online-evals`** (sub-step 3, optional — only for UI-atta
 | Strands app on TypeScript | TS SDK ships `BedrockModel` and `OpenAIModel` only — cannot serve Anthropic-backed variations. Use the Python SDK if multi-provider variations are required |
 | TypeScript app using Anthropic SDK | No `trackAnthropicMetrics` helper exists. Use Tier 3: `trackMetricsOf` with a small custom extractor that reads `response.usage.input_tokens` / `response.usage.output_tokens` and returns `LDAIMetrics`. See [anthropic-tracking.md](../aiconfig-ai-metrics/references/anthropic-tracking.md) in the `aiconfig-ai-metrics` skill for the exact extractor |
 | Fallback would silently crash because `LD_SDK_KEY` is missing | Log a startup warning; proceed with the fallback. Never raise at import time |
-| Multi-agent graph (supervisor + workers) | Stop after migrating a single agent. Agent graphs are currently **Python-only** (`launchdarkly-server-sdk-ai.agent_graph`). Read [agent-graph-reference.md](references/agent-graph-reference.md) for the graph-level migration path — it is deliberately out of this skill's main scope |
+| Multi-agent graph (supervisor + workers) | Stop after migrating a single agent. Agent Graph Definitions landed in **both** SDKs — Python via `launchdarkly-server-sdk-ai.agent_graph` and Node via the graph API added in `@launchdarkly/server-sdk-ai` v0.17.0. Read [agent-graph-reference.md](references/agent-graph-reference.md) for the graph-level migration path — it is deliberately out of this skill's main scope |
 | Single-agent (ReAct, tool loop) + agent mode | Default to offline eval via the LD Playground + Datasets for Stage 5. UI-attached judges are completion-only today, and programmatic direct-judge adds per-call cost that is usually not worth it until after the migration is live and stable. Point at `/tutorials/offline-evals` |
 | Tool with a Pydantic `args_schema` (LangChain `@tool`) | Extract the schema via `tool.args_schema.model_json_schema()`; do not hand-write the JSON schema for the delegate |
 | Custom `StateGraph` with module-level `TOOLS` list bound via `.bind_tools(TOOLS)` and run through `ToolNode(TOOLS)` (e.g. the `langchain-ai/react-agent` template) | Find the `TOOLS` list (usually in a separate `tools.py` module). Extract schemas the same way. Swap **both** call sites — `.bind_tools(...)` and `ToolNode(...)` — to read from the same `config.tools`-derived list |
@@ -403,7 +409,9 @@ Delegate: **`aiconfig-online-evals`** (sub-step 3, optional — only for UI-atta
 - Don't skip the `/aiconfig-targeting` step between Stage 2 and Stage 4. A freshly created variation returns `enabled=False` until targeting promotes it to fallthrough — Stage 2 verification will silently take the fallback path on every request.
 - Don't attempt a multi-agent graph migration in one pass. Migrate a single agent first; use [agent-graph-reference.md](references/agent-graph-reference.md) as the next-step read.
 - Don't use `track_request()` in Python — it does not exist in `launchdarkly-server-sdk-ai`. Use `track_metrics_of` with a provider-package or custom extractor, or drop to explicit `track_duration` + `track_tokens` + `track_success` / `track_error` if you're on the streaming path.
-- Don't tuple-unpack the return of `completion_config` / `agent_config` / `completionConfig` / `agentConfig`. They return a **single** config object (e.g. `AIAgentConfig`, `AICompletionConfig`), not `(config, tracker)`. The tracker is at `config.tracker`. LLMs hallucinate the tuple shape because pre-v0.x SDKs used to return one — the current API does not.
+- Don't tuple-unpack the return of `completion_config` / `agent_config` / `completionConfig` / `agentConfig`. They return a **single** config object (e.g. `AIAgentConfig`, `AICompletionConfig`), not `(config, tracker)`. Obtain the tracker by calling `config.create_tracker()` / `aiConfig.createTracker!()`. LLMs hallucinate both the tuple shape and the earlier `config.tracker` property — the current API (Python v0.18.0+, Node v0.17.0+) is a factory.
+- Don't call `create_tracker()` / `createTracker()` more than once per execution. Each call mints a new tracker with a new `runId`, which is used to group events and drive billing. If multiple tracking calls need to happen in a single request, stash the tracker in a local and reuse it.
+- Don't pass `graph_key=...` to `tracker.track_*()` methods in Python — that keyword argument was removed in v0.18.0. Trackers obtained inside a graph traversal are automatically configured with the correct graph key.
 - Don't import `LaunchDarklyCallbackHandler` from `ldai.langchain` — neither the class nor the dotted module path exists. The real Python LangChain helper package is `ldai_langchain` (top-level module, underscore). For single-node LangChain calls, build the model with `create_langchain_model(config)` (forwards all variation parameters and handles LaunchDarkly→LangChain provider-name mapping internally) and track with `track_metrics_of_async(lambda: llm.ainvoke(messages), get_ai_metrics_from_response)`. Do not reach for `init_chat_model` + a hand-rolled provider-name mapping — that path silently drops every variation parameter (temperature, max_tokens, top_p). See [langchain-tracking.md](../aiconfig-ai-metrics/references/langchain-tracking.md) for both single-model and LangGraph patterns.
 
 ## Related Skills

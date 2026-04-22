@@ -54,13 +54,13 @@ def build_agent(ai_client: LDAIClient, user_id: str, tools: list):
         tools=tools,
         prompt=config.instructions,
     )
-    return agent, config.tracker
+    return agent, config.create_tracker()
 ```
 
 **Key points:**
 - `prompt=config.instructions` — the instructions string replaces the hardcoded prompt
 - `model=` and `temperature=` come from `config.model`
-- The tracker is returned alongside the agent so the caller can wire Stage 4 tracking around `agent.invoke(...)`
+- A fresh tracker is minted via `config.create_tracker()` and returned alongside the agent so the caller can wire Stage 4 tracking around `agent.invoke(...)`. Each call to `create_tracker()` produces a new `runId`; the caller should treat the returned tracker as owning the execution.
 
 ### CrewAI `Agent`
 
@@ -181,7 +181,7 @@ async def run_turn(ai_client, user_id: str, user_input: str):
         tools=[get_order_status],
         conversation_manager=SlidingWindowConversationManager(window_size=40),
     )
-    tracker = agent_config.tracker
+    tracker = agent_config.create_tracker()
 
     try:
         result = await tracker.track_duration_of(lambda: agent.invoke_async(user_input))
@@ -292,6 +292,7 @@ async def call_model(state: State, runtime: Runtime[Context]):
     tools = build_tools_from_config(ai_config)
     model = load_chat_model(ai_config.model.name).bind_tools(tools)
     instructions = ai_config.instructions
+    tracker = ai_config.create_tracker()
 
     import time
     start = time.time()
@@ -302,17 +303,17 @@ async def call_model(state: State, runtime: Runtime[Context]):
                 [{"role": "system", "content": instructions}, *state.messages]
             ),
         )
-        ai_config.tracker.track_duration(int((time.time() - start) * 1000))
-        ai_config.tracker.track_success()
+        tracker.track_duration(int((time.time() - start) * 1000))
+        tracker.track_success()
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             from ldai.tracker import TokenUsage
-            ai_config.tracker.track_tokens(TokenUsage(
+            tracker.track_tokens(TokenUsage(
                 input=response.usage_metadata.get("input_tokens", 0),
                 output=response.usage_metadata.get("output_tokens", 0),
                 total=response.usage_metadata.get("total_tokens", 0),
             ))
     except Exception:
-        ai_config.tracker.track_error()
+        tracker.track_error()
         raise
 
     # Stash tools on state so the "tools" node picks up the same list
@@ -358,7 +359,7 @@ def build_react_loop(ai_client, user_id: str):
 
     system_prompt = config.instructions
     model_name = config.model.name
-    tracker = config.tracker
+    tracker = config.create_tracker()
 
     for turn in range(MAX_TURNS):
         start = time.time()

@@ -22,7 +22,7 @@ def call_streaming_with_tracking(ai_config, user_prompt: str) -> str | None:
     if not ai_config.enabled:
         return None
 
-    tracker = ai_config.tracker
+    tracker = ai_config.create_tracker()
     start_time = time.time()
     first_token_time = None
 
@@ -106,7 +106,7 @@ async function callStreamingWithTracking(
 ): Promise<string | null> {
   if (!aiConfig.enabled) return null;
 
-  const { tracker } = aiConfig;
+  const tracker = aiConfig.createTracker!();
   const startTime = Date.now();
   let firstTokenTime: number | null = null;
 
@@ -162,7 +162,8 @@ async function callStreamingWithTracking(
 If the app doesn't need TTFT, the Node SDK has a built-in streaming wrapper that handles tokens + success/error + duration:
 
 ```typescript
-const response = await aiConfig.tracker.trackStreamMetricsOf(
+const tracker = aiConfig.createTracker!();
+const response = await tracker.trackStreamMetricsOf(
   (chunks) => {
     // Extract usage from the final chunk
     const final = chunks[chunks.length - 1];

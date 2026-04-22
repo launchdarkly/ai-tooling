@@ -46,11 +46,12 @@ def call_with_tracking(ai_config, user_prompt: str) -> str | None:
             messages=[{"role": "user", "content": user_prompt}],
         )
 
+    tracker = ai_config.create_tracker()
     try:
-        response = ai_config.tracker.track_metrics_of(call_anthropic, anthropic_extractor)
+        response = tracker.track_metrics_of(call_anthropic, anthropic_extractor)
         return response.content[0].text
     except Exception:
-        ai_config.tracker.track_error()
+        tracker.track_error()
         raise
 ```
 
@@ -79,8 +80,9 @@ async function callWithTracking(
 
   const systemContent = aiConfig.messages?.[0]?.content ?? '';
 
+  const tracker = aiConfig.createTracker!();
   try {
-    const response = await aiConfig.tracker.trackMetricsOf(
+    const response = await tracker.trackMetricsOf(
       anthropicExtractor,
       () => client.messages.create({
         model: aiConfig.model!.name,
@@ -91,7 +93,7 @@ async function callWithTracking(
     );
     return response.content[0].type === 'text' ? response.content[0].text : null;
   } catch (err) {
-    aiConfig.tracker.trackError();
+    tracker.trackError();
     throw err;
   }
 }
@@ -113,7 +115,8 @@ from ldai_langchain import LangChainProvider
 ai_config = ai_client.completion_config("my-config-key", context, default_config)
 llm = await LangChainProvider.create_langchain_model(ai_config)  # ChatAnthropic under the hood
 
-response = ai_config.tracker.track_metrics_of(
+tracker = ai_config.create_tracker()
+response = tracker.track_metrics_of(
     lambda: llm.invoke(messages),
     LangChainProvider.get_ai_metrics_from_response,
 )

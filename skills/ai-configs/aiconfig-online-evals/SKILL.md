@@ -1,7 +1,7 @@
 ---
 name: aiconfig-online-evals
 description: Attach judges to AI Config variations for automatic LLM-as-a-judge evaluation. Create custom judges, configure sampling rates, and monitor quality scores.
-compatibility: Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.14.0+ or Node.js v0.16.1+ for automatic metric recording.
+compatibility: Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.18.0+ or Node.js v0.17.0+ for automatic metric recording and the consolidated `track_judge_result` / `trackJudgeResult` API.
 metadata:
   author: launchdarkly
   version: "0.1.0"
@@ -16,7 +16,7 @@ Attach judges to AI Config variations for automatic quality scoring using LLM-as
 - LaunchDarkly account with AI Configs enabled
 - API access token with write permissions
 - Existing AI Config with variations (use `aiconfig-create` skill)
-- For automatic metric recording: Python AI SDK v0.14.0+ or Node.js AI SDK v0.16.1+
+- For automatic metric recording and the consolidated judge-result API: Python AI SDK v0.18.0+ or Node.js AI SDK v0.17.0+
 
 ## API Key Detection
 
@@ -375,18 +375,19 @@ async def async_main():
     input_text = 'You are a helpful assistant. How can you help me?'
     output_text = 'I can answer any question you have.'
 
-    # Evaluate the input/output pair
-    judge_response = await judge.evaluate(input_text, output_text)
+    # Evaluate the input/output pair — always returns a JudgeResult in v0.18.0+
+    judge_result = await judge.evaluate(input_text, output_text)
 
-    if judge_response is None:
+    if not judge_result.sampled:
         print("Judge evaluation was skipped (sample rate or configuration issue)")
         return
 
-    # Track scores on the AI Config tracker if needed:
-    # aiConfig.tracker.track_eval_scores(judge_response.evals)
+    # Track the consolidated result on the AI Config tracker if needed:
+    # tracker = ai_config.create_tracker()
+    # tracker.track_judge_result(judge_result)
 
-    print("Judge Response:")
-    print(json.dumps(judge_response.to_dict(), indent=2, default=str))
+    print("Judge Result:")
+    print(json.dumps(judge_result.to_dict(), indent=2, default=str))
 
     # Always flush events before closing — trailing events are at risk of being
     # lost otherwise, in short-lived scripts and long-running services alike.
@@ -394,7 +395,7 @@ async def async_main():
     ldclient.get().close()
 ```
 
-> **Note:** Direct evaluation does not automatically record metrics. Use `tracker.track_eval_scores()` to record scores for the AI Config you're evaluating.
+> **Note:** Direct evaluation does not automatically record metrics. Obtain a tracker via `ai_config.create_tracker()` / `aiConfig.createTracker!()` and call `tracker.track_judge_result(result)` / `tracker.trackJudgeResult(result)` to record scores for the AI Config you're evaluating. (This consolidates the earlier `track_eval_scores` + `track_judge_response` pair that was removed in Python v0.18.0 / Node v0.17.0.)
 
 ## Sampling Rates
 
