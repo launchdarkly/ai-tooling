@@ -6,7 +6,7 @@ All method names and signatures below are verified against `launchdarkly-server-
 
 ## Breaking changes in v0.17.0 (Node) / v0.18.0 (Python)
 
-Both SDKs replaced the `config.tracker` property with a **`create_tracker` / `createTracker` factory**. Each call to the factory mints a fresh tracker with a unique `runId` for that execution, so tracking events can be grouped per-run (and used for billing). **Call the factory once at the start of each execution and reuse the returned tracker for all calls within that execution.**
+Both SDKs replaced the `config.tracker` property with a **`create_tracker` / `createTracker` factory**. Each call to the factory mints a fresh tracker with a unique `runId` for that execution, so every tracking event from a single run can be grouped together and viewed as one unit in the Monitoring tab. **Call the factory once at the start of each execution and reuse the returned tracker for all calls within that execution.**
 
 ```python
 # Python v0.18.0+
