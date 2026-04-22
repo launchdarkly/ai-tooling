@@ -68,8 +68,8 @@ def strands_extractor(result) -> LDAIMetrics:
 async def run_turn(agent, tracker, user_input):
     try:
         result = await tracker.track_metrics_of_async(
-            strands_extractor,
             lambda: agent.invoke_async(user_input),
+            strands_extractor,
         )
         return result.message["content"][0]["text"]
     except Exception:
