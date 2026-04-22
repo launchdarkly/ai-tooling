@@ -138,9 +138,16 @@ After creating the project, verify it works:
 2. **Test SDK integration:**
    Run a quick verification to ensure the SDK key works:
    ```python
-   from ldclient import set_config, Config
-   set_config(Config("{sdk_key}"))
+   import ldclient
+   from ldclient.config import Config
+
+   ldclient.set_config(Config("{sdk_key}"))
    # SDK initializes successfully
+
+   # Always flush events before closing — trailing events are at risk of being
+   # lost otherwise, in short-lived scripts and long-running services alike.
+   ldclient.get().flush()
+   ldclient.get().close()
    ```
 
 3. **Report results:**

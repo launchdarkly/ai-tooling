@@ -22,7 +22,7 @@ CHAT_FALLBACK = AICompletionConfigDefault(
     enabled=True,
     model=ModelConfig(
         name="gpt-4o",
-        parameters={"temperature": 0.7, "maxTokens": 2000},
+        parameters={"temperature": 0.7, "max_tokens": 2000},
     ),
     provider=ProviderConfig(name="openai"),
     messages=[
@@ -69,7 +69,7 @@ const CHAT_FALLBACK: LDAICompletionConfigDefault = {
   enabled: true,
   model: {
     name: 'gpt-4o',
-    parameters: { temperature: 0.7, maxTokens: 2000 },
+    parameters: { temperature: 0.7, max_tokens: 2000 },
   },
   provider: { name: 'openai' },
   messages: [
@@ -123,7 +123,7 @@ A JSON/YAML file holds every config's fallback; a loader at startup builds the d
       "enabled": true,
       "model": {
         "name": "gpt-4o",
-        "parameters": { "temperature": 0.7, "maxTokens": 2000 }
+        "parameters": { "temperature": 0.7, "max_tokens": 2000 }
       },
       "provider": { "name": "openai" },
       "messages": [
@@ -266,6 +266,6 @@ Fallback drift is a feature, not a bug. If you regenerate on every deploy, a sta
 
 1. **Fallback mirrors pre-migration behavior.** If the hardcoded model was `gpt-4o`, the fallback model is `gpt-4o`. If the hardcoded temperature was `0.7`, the fallback temperature is `0.7`. The fallback is the contract that says "app behavior doesn't change if LaunchDarkly is unreachable."
 2. **Always set `enabled=True` in the fallback.** If the fallback has `enabled=False`, the disabled path runs every time LaunchDarkly is unreachable — an outage escalates into a full service outage. Make the fallback a real, working config unless the feature is explicitly off-by-default.
-3. **Fallback must be a fully-specified `AICompletionConfigDefault` / `AIAgentConfigDefault`.** Do not pass `AICompletionConfigDefault(enabled=False)` as a "placeholder" — the SDK will not synthesize missing fields. You must supply `model`, `provider`, and `messages`/`instructions` if `enabled=True`.
+3. **Fallback is optional — but if you pass one, specify it fully.** Omitting the fallback argument is valid; the SDK returns a disabled config when LaunchDarkly is unreachable, and your `if not config.enabled:` branch handles the disabled path. Pass a fallback when you want the app to keep serving traffic on LaunchDarkly unreachable — in that case it must be a fully-specified `AICompletionConfigDefault` / `AIAgentConfigDefault` with `model`, `provider`, and `messages`/`instructions`. Do not pass `AICompletionConfigDefault(enabled=False)` as a "placeholder" — it collapses into the disabled path and gives you nothing the omitted-fallback case wouldn't.
 4. **Do not delete the fallback after migration.** It is required for the `enabled=False` path and for SDK-unreachable scenarios. Treat it as load-bearing production code, not scaffolding.
 5. **Keep fallback type imports stable.** `AICompletionConfigDefault` is for completion mode; `AIAgentConfigDefault` is for agent mode. Using the wrong one will fail at runtime when the SDK tries to coerce the fallback.

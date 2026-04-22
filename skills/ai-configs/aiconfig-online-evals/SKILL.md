@@ -330,6 +330,9 @@ async def async_main():
         print("Judge results:")
         print(json.dumps(results_to_display, indent=2, default=str))
 
+    # Always flush events before closing — trailing events are at risk of being
+    # lost otherwise, in short-lived scripts and long-running services alike.
+    ldclient.get().flush()
     ldclient.get().close()
 ```
 
@@ -385,6 +388,9 @@ async def async_main():
     print("Judge Response:")
     print(json.dumps(judge_response.to_dict(), indent=2, default=str))
 
+    # Always flush events before closing — trailing events are at risk of being
+    # lost otherwise, in short-lived scripts and long-running services alike.
+    ldclient.get().flush()
     ldclient.get().close()
 ```
 

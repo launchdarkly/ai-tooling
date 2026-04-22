@@ -22,7 +22,7 @@ Copy `skills/ai-configs/aiconfig-migrate/` into your agent client's skills path.
 
 - Remotely hosted LaunchDarkly MCP server
 - `LD_SDK_KEY` environment variable (server-side SDK key, starts with `sdk-`)
-- An application with hardcoded LLM calls (OpenAI, Anthropic, Bedrock, Gemini, LangChain, LangGraph, or CrewAI)
+- An application with hardcoded LLM calls (OpenAI, Anthropic, Bedrock, Gemini, LangChain, LangGraph, CrewAI, or Strands)
 
 ## Usage
 

@@ -95,6 +95,130 @@ If you observe a UI-clear bug where attaching tools wipes other fields, **do not
 - Tool attached to variation
 - Flag any issues
 
+## Per-provider schema at the call site
+
+LaunchDarkly stores the tool schema once — the flat `{type, name, description, parameters}` shape you passed to `create-ai-tool`. Your application reads it back via `config.model.parameters.tools` (completion mode) or `agent_config.model.parameters.tools` (agent mode), then converts to the shape the provider SDK expects. LaunchDarkly never makes the provider call; your code does. The handlers that implement each tool also stay in application code — LaunchDarkly stores the schema, your application owns the behavior.
+
+| Provider / framework | Target shape | Where it goes on the call |
+|---|---|---|
+| OpenAI Chat Completions (direct SDK) | `{type: "function", function: {name, description, parameters}}` | top-level `tools=[...]` |
+| Anthropic direct SDK | `{name, description, input_schema}` — rename `parameters` → `input_schema` | top-level `tools=[...]` |
+| Bedrock Converse | `{toolSpec: {name, description, inputSchema: {json: parameters}}}` | inside `toolConfig.tools=[...]` |
+| Gemini (`google-genai`) | `{function_declarations: [{name, description, parameters}]}` (Python) / `{functionDeclarations: [...]}` (Node) | `GenerateContentConfig.tools=[...]` |
+| OpenAI Responses API | LaunchDarkly's flat shape passes through unchanged | top-level `tools=[...]` |
+| LangChain / LangGraph | `LangChainProvider.createLangChainModel(config)` and pass `ai_config.tools` (or your own `StructuredTool` list) into `bind_tools(...)` / `create_react_agent(tools=[...])` | framework-native; no per-call conversion |
+| Strands Agents | LaunchDarkly's flat shape; drop `parameters.tools` before passing params to the Strands model class (`AnthropicModel`, `OpenAIModel`) — Python `@tool`-decorated callables stay in code | `Agent(tools=[...])` constructor; no per-call conversion |
+
+Minimal conversion snippets (Python):
+
+```python
+ld_tools = (ai_config.model.to_dict().get("parameters") or {}).get("tools", []) or []
+
+# OpenAI Chat Completions
+openai_tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": t["name"],
+            "description": t.get("description", ""),
+            "parameters": t.get("parameters", {"type": "object", "properties": {}}),
+        },
+    }
+    for t in ld_tools
+]
+
+# Anthropic
+anthropic_tools = [
+    {
+        "name": t["name"],
+        "description": t.get("description", ""),
+        "input_schema": t.get("parameters", {"type": "object", "properties": {}}),
+    }
+    for t in ld_tools
+]
+
+# Bedrock Converse
+bedrock_tool_config = {
+    "tools": [
+        {
+            "toolSpec": {
+                "name": t["name"],
+                "description": t.get("description", ""),
+                "inputSchema": {"json": t.get("parameters", {"type": "object", "properties": {}})},
+            }
+        }
+        for t in ld_tools
+    ]
+}
+
+# Gemini
+gemini_tools = [
+    {
+        "function_declarations": [
+            {
+                "name": t["name"],
+                "description": t.get("description", ""),
+                "parameters": t.get("parameters", {"type": "object", "properties": {}}),
+            }
+            for t in ld_tools
+        ]
+    }
+] if ld_tools else []
+```
+
+## Agent loop with tool calls
+
+An agent that uses tools runs a short loop: call the provider, dispatch any tool calls, loop again, stop when the provider returns a final answer. Three rules apply regardless of provider:
+
+1. **Bound the loop.** `MAX_STEPS = 5` is a safe default. A runaway tool loop is almost always a prompt or schema bug, not a case that needs 50 iterations.
+2. **Track every tool invocation.** Call `tracker.track_tool_call(tool_name)` / `tracker.trackToolCall(toolName)` for each tool the agent actually executes. This is what the Monitoring tab counts as tool usage.
+3. **Break on the provider's "no more tool calls" signal.** The exact signal differs per provider: OpenAI Chat Completions → `choice.finish_reason != "tool_calls"`; Anthropic → `response.stop_reason != "tool_use"`; Bedrock Converse → `response["stopReason"] != "tool_use"`; Gemini → `response.function_calls` empty; OpenAI Responses API → no `function_call` items in `response.output`.
+
+Skeleton (Python, Anthropic — the other providers follow the same shape with their own stop-reason check and tool-result formatting):
+
+```python
+messages = [{"role": "user", "content": initial_input}]
+MAX_STEPS = 5
+for _ in range(MAX_STEPS):
+    response = tracker.track_metrics_of(
+        lambda: anthropic_client.messages.create(
+            model=agent.model.name,
+            system=agent.instructions,
+            messages=messages,
+            tools=anthropic_tools,
+            **params,
+        ),
+        anthropic_metrics,
+    )
+    if response.stop_reason != "tool_use":
+        break
+
+    messages.append({"role": "assistant", "content": response.content})
+
+    tool_results = []
+    for block in response.content:
+        if block.type != "tool_use":
+            continue
+        if block.name not in tool_handlers:
+            raise ValueError(f"Unknown tool: {block.name}")
+        result = tool_handlers[block.name](**block.input)
+        tracker.track_tool_call(block.name)
+        tool_results.append({
+            "type": "tool_result",
+            "tool_use_id": block.id,
+            "content": result,
+        })
+    messages.append({"role": "user", "content": tool_results})
+```
+
+Per-provider tool-call payload shapes live in the `aiconfig-ai-metrics` references:
+
+- [openai-tracking.md](../aiconfig-ai-metrics/references/openai-tracking.md) — Chat Completions + Responses API
+- [anthropic-tracking.md](../aiconfig-ai-metrics/references/anthropic-tracking.md) — `tool_use` blocks and `tool_result` payloads
+- [bedrock-tracking.md](../aiconfig-ai-metrics/references/bedrock-tracking.md) — `toolUse` / `toolResult` Converse format
+- [gemini-tracking.md](../aiconfig-ai-metrics/references/gemini-tracking.md) — `functionCalls` / `functionResponse` parts
+- [langchain-tracking.md](../aiconfig-ai-metrics/references/langchain-tracking.md) — LangGraph tool loop inherits from `create_react_agent`
+
 ## Orchestrator Note
 
 LangGraph, CrewAI, and AutoGen often generate schemas from function definitions. You still need to create tools in LaunchDarkly and attach keys to variations so the SDK knows what's available.

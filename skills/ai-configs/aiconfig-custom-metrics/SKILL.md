@@ -480,7 +480,7 @@ class SessionMetricsTracker:
 1. **Create Before Track** - Metric must exist before tracking events
 2. **Use Numeric Metrics** - Set `isNumeric=True` for aggregation
 3. **Consistent Keys** - Use same key in `create_metric()` and `ld_client.track()`
-4. **Flush in Serverless** - Call `ld_client.flush()` before Lambda terminates
+4. **Always flush before close** - Call `ld_client.flush()` (await in Node) before `close()`. Trailing events are at risk of being lost otherwise, in short-lived scripts and long-running services alike. This is not a serverless-only rule; it applies to any process that exits.
 5. **Rate Limit** - Don't track on every keystroke
 
 ## Viewing Metrics

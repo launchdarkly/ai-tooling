@@ -1,6 +1,6 @@
 ---
 name: aiconfig-migrate
-description: "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation in five stages: extract prompts, wrap in the AI SDK, add tools, add tracking, add evals/judges. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini) to a managed AI Config, or stage a full hardcoded-to-LaunchDarkly migration."
+description: "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation in five stages: extract prompts, wrap in the AI SDK, add tools, add tracking, add evals/judges. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini, Strands) to a managed AI Config, or stage a full hardcoded-to-LaunchDarkly migration."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
@@ -47,9 +47,9 @@ Run the phase-1 checklist and produce a structured summary. **This step writes n
 Use [phase-1-analysis-checklist.md](references/phase-1-analysis-checklist.md) to scan:
 
 1. **Language and package manager** — Python (pip/poetry/uv), TypeScript/JavaScript (npm/pnpm/yarn), Go, Ruby, .NET
-2. **LLM provider** — OpenAI, Anthropic, Bedrock, Gemini, LangChain, LangGraph, CrewAI
+2. **LLM provider** — OpenAI, Anthropic, Bedrock, Gemini, LangChain, LangGraph, CrewAI, Strands
 3. **Existing LaunchDarkly usage** — any pre-existing `LDClient` or `ldclient` initialization to reuse
-4. **Hardcoded model configs** — model name string literals, temperature / maxTokens / topP, system prompts, instruction strings
+4. **Hardcoded model configs** — model name string literals, temperature / max_tokens / top_p, system prompts, instruction strings
 5. **Mode decision** — completion mode (chat messages array) or agent mode (single instructions string). Completion mode is the default and the only mode that supports judges attached in the UI.
 
 **Phase 1 output** (return to user as a structured summary):
@@ -86,9 +86,15 @@ This manifest is the contract for the next four stages. Review it with the user.
 This is the first stage that writes code. It has six sub-steps.
 
 1. **Install the AI SDK.** Detect the package manager from Step 1, then install:
-   - Python: `launchdarkly-server-sdk` + `launchdarkly-server-sdk-ai`
+   - Python: `launchdarkly-server-sdk` + `launchdarkly-server-sdk-ai>=0.17.0`
    - Node.js/TypeScript: `@launchdarkly/node-server-sdk` + `@launchdarkly/server-sdk-ai`
    - Go: `github.com/launchdarkly/go-server-sdk/v7` + `github.com/launchdarkly/go-server-sdk/ldai`
+
+   Tier-2 provider packages (install in Stage 4, only if you're using the matching provider):
+   - OpenAI: `launchdarkly-server-sdk-ai-openai>=0.3.0` (Python) / `@launchdarkly/server-sdk-ai-openai` (Node)
+   - LangChain / LangGraph: `launchdarkly-server-sdk-ai-langchain>=0.4.1` (Python) / `@launchdarkly/server-sdk-ai-langchain` (Node)
+   - Vercel AI SDK (Node only): `@launchdarkly/server-sdk-ai-vercel`
+   - Anthropic, Gemini, Bedrock — no provider package published; use Tier-3 custom extractor (see `aiconfig-ai-metrics`)
 
 2. **Initialize `LDAIClient` once at startup.** Reuse any existing `LDClient` — do not create a second base client. Place the initialization in the same module that owns existing app config.
 
@@ -124,7 +130,7 @@ This is the first stage that writes code. It has six sub-steps.
 
    fallback = AICompletionConfigDefault(
        enabled=True,
-       model=ModelConfig(name="gpt-4o", parameters={"temperature": 0.7, "maxTokens": 2000}),
+       model=ModelConfig(name="gpt-4o", parameters={"temperature": 0.7, "max_tokens": 2000}),
        provider=ProviderConfig(name="openai"),
        messages=[LDMessage(role="system", content="You are a helpful assistant...")],
    )
@@ -157,7 +163,7 @@ This is the first stage that writes code. It has six sub-steps.
    response = openai_client.chat.completions.create(
        model=config.model.name,
        temperature=params.get("temperature"),
-       max_tokens=params.get("maxTokens"),
+       max_tokens=params.get("max_tokens"),
        messages=[m.to_dict() for m in (config.messages or [])] + [
            {"role": "user", "content": user_input},
        ],
@@ -206,6 +212,7 @@ Skip this step if the audited app has no function calling / tools. Otherwise:
    - `anthropic.messages.create(tools=[...])` — Anthropic direct
    - `create_react_agent(tools=[...])` — LangGraph prebuilt ReAct
    - `Agent(tools=[...])` — CrewAI
+   - `Agent(tools=[...])` — Strands (Python `@tool`-decorated callables passed through the constructor; TS SDK uses Zod-schema tools)
    - **Custom `StateGraph`** — module-level `TOOLS = [...]` list referenced in **both** `model.bind_tools(TOOLS)` and `ToolNode(TOOLS)`. This is the `langchain-ai/react-agent` template shape; the list is usually in a `tools.py` module. Grep for `bind_tools(` and `ToolNode(` together — they will point at the same list.
 
    Record each tool's name, description, and JSON schema.
@@ -285,7 +292,7 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
    }
    ```
 
-   For Anthropic direct, Bedrock (no provider package), Gemini, and custom HTTP, write a small extractor returning `LDAIMetrics` — see the delegate skill's [anthropic-tracking.md](../aiconfig-ai-metrics/references/anthropic-tracking.md) and [bedrock-tracking.md](../aiconfig-ai-metrics/references/bedrock-tracking.md). LangChain single-node and LangGraph go through the `launchdarkly-server-sdk-ai-langchain` / `@launchdarkly/server-sdk-ai-langchain` provider package with `LangChainProvider.get_ai_metrics_from_response`.
+   For Anthropic direct, Bedrock (no provider package), Gemini, and custom HTTP, write a small extractor returning `LDAIMetrics` — see the delegate skill's [anthropic-tracking.md](../aiconfig-ai-metrics/references/anthropic-tracking.md), [bedrock-tracking.md](../aiconfig-ai-metrics/references/bedrock-tracking.md), and [gemini-tracking.md](../aiconfig-ai-metrics/references/gemini-tracking.md). LangChain single-node and LangGraph go through the `launchdarkly-server-sdk-ai-langchain` / `@launchdarkly/server-sdk-ai-langchain` provider package. Build the model with `create_langchain_model(config)` / `LangChainProvider.createLangChainModel(config)` (forwards all variation parameters) and track with `get_ai_metrics_from_response` / `LangChainProvider.getAIMetricsFromResponse`. See [langchain-tracking.md](../aiconfig-ai-metrics/references/langchain-tracking.md).
 
 4. **Wire feedback tracking if the app has thumbs-up/down UI.** Both SDKs expose `trackFeedback` with a `{kind}` argument.
 
@@ -368,8 +375,10 @@ Delegate: **`aiconfig-online-evals`** (sub-step 3, optional — only for UI-atta
 | App uses LangChain `ChatOpenAI(model=...)` | Read `config.model.name` and pass it as `ChatOpenAI(model=config.model.name)`; keep LangChain for the call itself |
 | Retry wrapper around the provider call | Move tracker inside the retry — failures in the same request should share one `track_error`, and success tracking should fire only after the final attempt |
 | App has no tools — Stage 3 skipped | Move directly from Stage 2 verification to Stage 4 (tracking) |
-| Mode mismatch: user said agent, audit shows one-shot chat | Choose completion mode unless the app uses LangGraph `create_react_agent`, CrewAI `Agent`, or a similar goal-driven framework |
-| TypeScript app using Anthropic SDK | No `trackAnthropicMetrics` helper exists — use manual `trackDuration` + `trackTokens` + `trackSuccess`/`trackError` (see the Step 5 manual block) |
+| Mode mismatch: user said agent, audit shows one-shot chat | Choose completion mode unless the app uses LangGraph `create_react_agent`, CrewAI `Agent`, Strands `Agent`, or a similar goal-driven framework |
+| App uses Strands Agents (Python) | Agent mode. Build a `create_strands_model` dispatcher keyed on `agent_config.provider.name` that returns `AnthropicModel(model_id=..., max_tokens=...)` or `OpenAIModel(model_id=..., params=...)`. Drop `parameters.tools` before passing params to the model class — Strands receives tools via `Agent(tools=[...])`. Tracking is Tier 3: wrap `invoke_async` with `tracker.track_duration_of(...)` and record tokens from `result.metrics.accumulated_usage`. See [agent-mode-frameworks.md § Strands Agent](references/agent-mode-frameworks.md) and [strands-tracking.md](../aiconfig-ai-metrics/references/strands-tracking.md) |
+| Strands app on TypeScript | TS SDK ships `BedrockModel` and `OpenAIModel` only — cannot serve Anthropic-backed variations. Use the Python SDK if multi-provider variations are required |
+| TypeScript app using Anthropic SDK | No `trackAnthropicMetrics` helper exists. Use Tier 3: `trackMetricsOf` with a small custom extractor that reads `response.usage.input_tokens` / `response.usage.output_tokens` and returns `LDAIMetrics`. See [anthropic-tracking.md](../aiconfig-ai-metrics/references/anthropic-tracking.md) in the `aiconfig-ai-metrics` skill for the exact extractor |
 | Fallback would silently crash because `LD_SDK_KEY` is missing | Log a startup warning; proceed with the fallback. Never raise at import time |
 | Multi-agent graph (supervisor + workers) | Stop after migrating a single agent. Agent graphs are currently **Python-only** (`launchdarkly-server-sdk-ai.agent_graph`). Read [agent-graph-reference.md](references/agent-graph-reference.md) for the graph-level migration path — it is deliberately out of this skill's main scope |
 | Single-agent (ReAct, tool loop) + agent mode | Default to offline eval via the LD Playground + Datasets for Stage 5. UI-attached judges are completion-only today, and programmatic direct-judge adds per-call cost that is usually not worth it until after the migration is live and stable. Point at `/tutorials/offline-evals` |
@@ -395,7 +404,7 @@ Delegate: **`aiconfig-online-evals`** (sub-step 3, optional — only for UI-atta
 - Don't attempt a multi-agent graph migration in one pass. Migrate a single agent first; use [agent-graph-reference.md](references/agent-graph-reference.md) as the next-step read.
 - Don't use `track_request()` in Python — it does not exist in `launchdarkly-server-sdk-ai`. Use `track_metrics_of` with a provider-package or custom extractor, or drop to explicit `track_duration` + `track_tokens` + `track_success` / `track_error` if you're on the streaming path.
 - Don't tuple-unpack the return of `completion_config` / `agent_config` / `completionConfig` / `agentConfig`. They return a **single** config object (e.g. `AIAgentConfig`, `AICompletionConfig`), not `(config, tracker)`. The tracker is at `config.tracker`. LLMs hallucinate the tuple shape because pre-v0.x SDKs used to return one — the current API does not.
-- Don't import `LaunchDarklyCallbackHandler` from `ldai.langchain` — neither the class nor the dotted module path exists. The real Python LangChain helper package is `ldai_langchain` (top-level module, underscore). For single-node LangChain calls, use `track_metrics_of(fn, LangChainProvider.get_ai_metrics_from_response)` — the provider package normalizes `AIMessage.usage_metadata` for you across OpenAI / Anthropic / Bedrock / Gemini. See [sdk-ai-tracker-patterns.md](references/sdk-ai-tracker-patterns.md) for the full matrix.
+- Don't import `LaunchDarklyCallbackHandler` from `ldai.langchain` — neither the class nor the dotted module path exists. The real Python LangChain helper package is `ldai_langchain` (top-level module, underscore). For single-node LangChain calls, build the model with `create_langchain_model(config)` (forwards all variation parameters and handles LaunchDarkly→LangChain provider-name mapping internally) and track with `track_metrics_of_async(lambda: llm.ainvoke(messages), get_ai_metrics_from_response)`. Do not reach for `init_chat_model` + a hand-rolled provider-name mapping — that path silently drops every variation parameter (temperature, max_tokens, top_p). See [langchain-tracking.md](../aiconfig-ai-metrics/references/langchain-tracking.md) for both single-model and LangGraph patterns.
 
 ## Related Skills
 

@@ -60,7 +60,7 @@ Then use `get-ai-config` to review the full detail:
 **Update a variation** -- Use `update-ai-config-variation`:
 - Switch model (provide new `modelConfigKey` and `modelName`)
 - Change instructions or messages
-- Tune parameters (temperature, maxTokens, etc.)
+- Tune parameters (temperature, max_tokens, etc.)
 - Attach or detach tools via the parameters object
 
 **Archive a config** -- Use `update-ai-config` with `archived: true`. Archiving is the **preferred** way to retire a config:

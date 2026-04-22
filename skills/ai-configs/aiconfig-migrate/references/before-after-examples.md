@@ -47,7 +47,7 @@ FALLBACK = AICompletionConfigDefault(
     enabled=True,
     model=ModelConfig(
         name="gpt-4o",
-        parameters={"temperature": 0.7, "maxTokens": 2000},
+        parameters={"temperature": 0.7, "max_tokens": 2000},
     ),
     provider=ProviderConfig(name="openai"),
     messages=[LDMessage(role="system", content="You are a helpful assistant. Answer concisely.")],
@@ -64,7 +64,7 @@ def answer(user_id: str, user_question: str) -> str:
     response = openai_client.chat.completions.create(
         model=config.model.name,
         temperature=params.get("temperature"),
-        max_tokens=params.get("maxTokens"),
+        max_tokens=params.get("max_tokens"),
         messages=[m.to_dict() for m in (config.messages or [])] + [
             {"role": "user", "content": user_question},
         ],
@@ -122,7 +122,7 @@ const FALLBACK: LDAICompletionConfigDefault = {
   enabled: true,
   model: {
     name: 'claude-sonnet-4-5',
-    parameters: { maxTokens: 1024 },
+    parameters: { max_tokens: 1024 },
   },
   provider: { name: 'anthropic' },
   messages: [
@@ -154,7 +154,7 @@ export async function answer(userId: string, userQuestion: string): Promise<stri
 
   const response = await anthropic.messages.create({
     model: aiConfig.model?.name ?? 'claude-sonnet-4-5',
-    max_tokens: (aiConfig.model?.parameters?.maxTokens as number) ?? 1024,
+    max_tokens: (aiConfig.model?.parameters?.max_tokens as number) ?? 1024,
     system: systemMessage,
     messages,
   });

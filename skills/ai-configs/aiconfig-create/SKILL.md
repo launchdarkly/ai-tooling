@@ -38,7 +38,7 @@ When the user provides enough context (use case, model, mode), proceed through t
 
 Before creating, identify what you're building:
 
-- **What framework?** LangGraph, LangChain, CrewAI, OpenAI SDK, Anthropic SDK, custom
+- **What framework?** LangGraph, LangChain, CrewAI, Strands, OpenAI SDK, Anthropic SDK, custom
 - **What does the AI need?** Just text generation, or tools/function calling?
 - **Agent or completion?** See the decision matrix below
 
@@ -48,8 +48,8 @@ This choice is about **input schema and framework compatibility**, not execution
 
 | Your Need | Mode | Why |
 |-----------|------|-----|
-| LangGraph, CrewAI, AutoGen frameworks | **Agent** | Frameworks expect goal/instruction input |
-| Persistent instructions across interactions | **Agent** | Single instructions string, SDK method: `aiclient.agent()` |
+| LangGraph, CrewAI, Strands, AutoGen frameworks | **Agent** | Frameworks expect goal/instruction input |
+| Persistent instructions across interactions | **Agent** | Single instructions string, SDK method: `agent_config()` (Python) / `agentConfig()` (Node) |
 | Direct OpenAI/Anthropic API calls | **Completion** | Messages array maps directly to provider APIs |
 | Full control of message structure | **Completion** | System/user/assistant role-based messages |
 | One-off text generation | **Completion** | Standard chat format |
@@ -102,7 +102,7 @@ Example completion-mode call:
 ```
 
 **Optional:**
-- `parameters` -- model parameters like `{temperature: 0.7, maxTokens: 2000}`
+- `parameters` -- model parameters like `{temperature: 0.7, max_tokens: 2000}` (match the UI's snake_case keys)
 
 The tool returns the full verified config detail with the variation attached.
 
