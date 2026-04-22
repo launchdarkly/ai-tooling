@@ -49,7 +49,7 @@ This choice is about **input schema and framework compatibility**, not execution
 | Your Need | Mode | Why |
 |-----------|------|-----|
 | LangGraph, CrewAI, Strands, AutoGen frameworks | **Agent** | Frameworks expect goal/instruction input |
-| Persistent instructions across interactions | **Agent** | Single instructions string, SDK method: `aiclient.agent()` |
+| Persistent instructions across interactions | **Agent** | Single instructions string, SDK method: `agent_config()` (Python) / `agentConfig()` (Node) |
 | Direct OpenAI/Anthropic API calls | **Completion** | Messages array maps directly to provider APIs |
 | Full control of message structure | **Completion** | System/user/assistant role-based messages |
 | One-off text generation | **Completion** | Standard chat format |
