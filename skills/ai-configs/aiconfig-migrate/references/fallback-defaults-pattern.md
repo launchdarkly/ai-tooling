@@ -262,6 +262,51 @@ def dump_defaults(api_token: str, project_key: str, environment: str) -> dict:
 
 Fallback drift is a feature, not a bug. If you regenerate on every deploy, a stale fallback (one that missed a recent production change) only shows up when LaunchDarkly is unreachable — an already-degraded path. If you would rather the fallback be *exactly* the last-shipped production value, regenerate on deploy. If you would rather the fallback be *exactly* the original hardcoded value, use Pattern 1 or commit the file once and never regenerate.
 
+## Template placeholders: Mustache in the fallback, not Python `.format()`
+
+If the instructions or system message in the fallback contains a runtime-interpolated variable, it **must** be in Mustache `{{ variable }}` form — the same form the LaunchDarkly UI stores — and the interpolation must go through the SDK's `variables` argument, not `str.format()` or template-literal substitution.
+
+**Wrong** (silent regression when LaunchDarkly is unreachable):
+
+```python
+SYSTEM_PROMPT = "You are a helpful assistant. The time is {system_time}."
+
+FALLBACK = AIAgentConfigDefault(
+    enabled=True,
+    model=ModelConfig(name="gpt-4o"),
+    provider=ProviderConfig(name="openai"),
+    instructions=SYSTEM_PROMPT.format(system_time=datetime.now().isoformat()),
+    # ^^^^^^^^^^^^^^^^^^^^^^^ This resolves `{system_time}` at import time, so the fallback
+    # always ships a stale value. When LaunchDarkly serves the variation it's resolved
+    # correctly via Mustache; when the fallback runs it isn't — behavior diverges.
+)
+```
+
+**Right**:
+
+```python
+SYSTEM_PROMPT = "You are a helpful assistant. The time is {{ system_time }}."
+
+FALLBACK = AIAgentConfigDefault(
+    enabled=True,
+    model=ModelConfig(name="gpt-4o"),
+    provider=ProviderConfig(name="openai"),
+    instructions=SYSTEM_PROMPT,   # Mustache literal; interpolation happens per-request
+)
+
+# Per-request — LD-served and fallback both interpolate through the 4th argument
+config = ai_client.agent_config(
+    AGENT_CONFIG_KEY,
+    context,
+    FALLBACK,
+    variables={"system_time": datetime.now().isoformat()},
+)
+```
+
+The SDK runs both paths through the same Mustache renderer. Leaving a Python-style `{var}` literal in the fallback ships a silent regression: LaunchDarkly serves correctly-interpolated output; the fallback ships the unrendered literal, or (worse) a value frozen at import time.
+
+Same rule applies to JS template literals and any other non-Mustache scheme — rewrite to `{{ variable }}` before handing off to `/aiconfig-create`.
+
 ## Critical rules (apply to all three patterns)
 
 1. **Fallback mirrors pre-migration behavior.** If the hardcoded model was `gpt-4o`, the fallback model is `gpt-4o`. If the hardcoded temperature was `0.7`, the fallback temperature is `0.7`. The fallback is the contract that says "app behavior doesn't change if LaunchDarkly is unreachable."

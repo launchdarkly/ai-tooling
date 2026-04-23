@@ -20,6 +20,58 @@ Agent mode returns an `instructions` string. Completion mode returns a `messages
 
 **Model construction for LangChain / LangGraph.** When the framework runs on top of LangChain (which includes LangGraph's `create_react_agent` and most custom graphs), build the chat model with `create_langchain_model(ai_config)` (Python) or `LangChainProvider.createLangChainModel(aiConfig)` (Node). These helpers forward every variation parameter (`temperature`, `max_tokens`, `top_p`, …) and handle LaunchDarkly→LangChain provider-name mapping internally. Do not hand-roll `init_chat_model(model=..., model_provider=...)` — it silently drops every variation parameter. See [langchain-tracking.md](../../aiconfig-ai-metrics/references/langchain-tracking.md) for the canonical single-model and LangGraph patterns, including the per-message token-aggregation extractor used with `track_metrics_of_async` / `trackMetricsOf`.
 
+## Tool-scoped and app-scoped knobs go in `model.custom`
+
+If the Stage 1 audit identified configuration that isn't a native model parameter — the kind of thing a provider SDK will reject with `unexpected keyword argument` if you forward it — these fields belong in `ModelConfig(custom={...})`, **not** `ModelConfig(parameters={...})`. Typical examples:
+
+- `max_search_results` (tool behavior — how many hits the search tool returns)
+- `chunk_size` / `chunk_overlap` (RAG preprocessing knobs)
+- `retry_budget` / `retry_backoff` (app-level retry policy)
+- `enable_reranking`, `use_cache`, any boolean feature toggle the agent consumes
+- any value that governs **tool behavior** or **app behavior** rather than **model behavior**
+
+`create_langchain_model` / `LangChainProvider.createLangChainModel` forwards every key in `parameters` wholesale to the provider SDK. Anthropic, OpenAI, and Gemini all raise on unknown kwargs — a `max_search_results` entry in `parameters` crashes the request with `AsyncMessages.create() got an unexpected keyword argument 'max_search_results'`. Put the same field in `custom` and the helper leaves it alone; the app reads it where it's needed.
+
+```python
+# Fallback: mirror the hardcoded knob shape using custom
+FALLBACK = AIAgentConfigDefault(
+    enabled=True,
+    model=ModelConfig(
+        name="claude-sonnet-4-5-20250929",
+        parameters={"temperature": 0.3, "max_tokens": 2000},  # provider-bound
+        custom={"max_search_results": 10},                    # app-scoped
+    ),
+    provider=ProviderConfig(name="anthropic"),
+    instructions="You are a helpful assistant.",
+)
+
+# In the tool or app code that needs the knob:
+def search(query: str) -> dict:
+    ai_config = get_current_agent_config()
+    max_results = ai_config.model.get_custom("max_search_results") or 10
+    return TavilySearch(max_results=max_results).invoke({"query": query})
+```
+
+Mirror the same shape on the LaunchDarkly variation. **MCP caveat.** The `update-ai-config-variation` MCP tool does not currently expose the `custom` field — to populate `model.custom` on an existing variation, PATCH it through the REST API directly:
+
+```bash
+curl -X PATCH \
+  "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/variations/$VARIATION_ID" \
+  -H "Authorization: $LD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"patch":[{"op":"add","path":"/model/custom","value":{"max_search_results":10}}]}'
+```
+
+### Getting knobs into tools: two patterns, different tradeoffs
+
+Tools need read access to `model.custom` at call time. There are two idiomatic shapes; each has a different cost profile:
+
+1. **Re-call `agent_config()` inside the tool.** Simplest to reason about: the tool fetches a fresh `AIAgentConfig` with the current targeting, reads `ai_config.model.get_custom("max_search_results")`, and proceeds. Works with any framework. The cost is that each tool invocation emits another `$ld:ai:agent:config` evaluation event, which inflates agent-config usage counts on the Monitoring tab in proportion to how often tools run. For low-frequency tool calls this is fine; for a chatty agent that calls search on every turn it's noisy.
+
+2. **Populate `runtime.context` at `call_model` time (LangGraph).** LangGraph-idiomatic: in the `call_model` node, read `ai_config.model.get_custom(...)` once, stash the values on a request-scoped context object, and have the tool read from `runtime.context` instead of re-fetching. One config fetch per turn instead of one per tool call. The cost is that you have to rebuild the compiled graph with a refreshed `Context` on each turn (or use LangGraph's `context_schema` + per-invocation `config={"configurable": {...}}` plumbing) — non-trivial if the graph is compiled once at module load today.
+
+Pick pattern 1 for simplicity and pattern 2 only when usage-count amplification actually matters. Document the choice in the repo README so the next migrator knows which shape they're looking at.
+
 ## Wiring `agent_config` into each framework
 
 ### LangGraph `create_react_agent`

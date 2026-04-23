@@ -50,8 +50,9 @@ Use [phase-1-analysis-checklist.md](references/phase-1-analysis-checklist.md) to
 2. **LLM provider** — OpenAI, Anthropic, Bedrock, Gemini, LangChain, LangGraph, CrewAI, Strands
 3. **Existing LaunchDarkly usage** — any pre-existing `LDClient` or `ldclient` initialization to reuse
 4. **Hardcoded model configs** — model name string literals, temperature / max_tokens / top_p, system prompts, instruction strings
-5. **Hardcoded app-scoped knobs** — search result limits, retry budgets, tool-timeout overrides, feature toggles, any config dataclass field (`Context.max_search_results`, `Settings.enable_reranking`, etc.) that isn't a prompt or model parameter but still governs agent behavior. These belong in `model.custom` on the variation (not `model.parameters`, which is forwarded to the provider SDK). They are the field most often overlooked in migration audits because they look like "just application config" — but if the agent's behavior depends on them, they're part of the AI Config's surface.
-6. **Mode decision** — completion mode (chat messages array) or agent mode (single instructions string). Completion mode is the default and the only mode that supports judges attached in the UI.
+5. **Template placeholders in prompts** — Python `.format()` calls on prompt strings, f-strings embedded in prompt constants, JS/TS template literals, `%(var)s` / `%s` printf-style, any hand-rolled `str.replace("__VAR__", ...)`. Flag the placeholder name and the source of the runtime value — they all need to be rewritten to Mustache `{{ variable }}` syntax in Stage 2 so the fallback renders identically to the LaunchDarkly-served path. Leaving non-Mustache placeholders in the fallback is a silent regression mode.
+6. **Hardcoded app-scoped knobs** — search result limits, retry budgets, tool-timeout overrides, feature toggles, any config dataclass field (`Context.max_search_results`, `Settings.enable_reranking`, etc.) that isn't a prompt or model parameter but still governs agent behavior. These belong in `model.custom` on the variation (not `model.parameters`, which is forwarded to the provider SDK). They are the field most often overlooked in migration audits because they look like "just application config" — but if the agent's behavior depends on them, they're part of the AI Config's surface.
+7. **Mode decision** — completion mode (chat messages array) or agent mode (single instructions string). Completion mode is the default and the only mode that supports judges attached in the UI.
 
 **Phase 1 output** (return to user as a structured summary):
 
@@ -84,7 +85,7 @@ This manifest is the contract for the next four stages. Review it with the user.
 
 ### Step 3: Wrap the call in the AI SDK (Stage 2)
 
-This is the first stage that writes code. It has six sub-steps.
+This is the first stage that writes code. It has eight sub-steps.
 
 1. **Install the AI SDK.** Detect the package manager from Step 1, then install:
    - Python: `launchdarkly-server-sdk` + `launchdarkly-server-sdk-ai>=0.18.0`
@@ -121,9 +122,36 @@ This is the first stage that writes code. It has six sub-steps.
 
 3. **Hand off to `aiconfig-create`.** Print the extracted model, prompt/instructions, parameters, and mode from Step 2's manifest, then tell the user: *"Run `/aiconfig-create` with these inputs, then come back here."* Supply the config key you want the code to call (e.g. `chat-assistant`). Do not attempt to auto-invoke the sibling skill — wait for the user to finish it before continuing.
 
-   **After `aiconfig-create` finishes, the user must also run `/aiconfig-targeting` to promote the new variation to fallthrough.** A freshly created variation returns `enabled=False` to every consumer until targeting is updated. Skip this and Stage 2 verification (sub-step 7 below) will silently take the fallback path on every request.
+   **After `aiconfig-create` finishes, the user must also run `/aiconfig-targeting` to promote the new variation to fallthrough.** A freshly created variation returns `enabled=False` to every consumer until targeting is updated. Skip this and Stage 2 verification (sub-step 8 below) will silently take the fallback path on every request.
 
-4. **Build the fallback.** Mirror the hardcoded values you extracted. Use `AICompletionConfigDefault` / `AIAgentConfigDefault` in Python, plain object literals in Node. See [fallback-defaults-pattern.md](references/fallback-defaults-pattern.md) for inline, file-backed, and bootstrap-generated patterns.
+4. **Rewrite template placeholders to Mustache syntax.** If the hardcoded prompt interpolates runtime values with Python `.format()`, f-strings, JS template literals, or any other non-Mustache syntax (e.g. `{system_time}`, `${userName}`, `%(topic)s`), rewrite every placeholder to `{{ variable }}` Mustache form. Do this in **both** the file you're about to send to `/aiconfig-create` *and* the fallback string you'll write in sub-step 5. The AI SDK interpolates variables through a Mustache renderer on the LD-served path *and* the fallback path using the fourth-argument `variables` dict to `completion_config(...)` / `completionConfig(...)`. Leaving a Python-style `{system_time}` literal in the fallback ships a silent regression when LaunchDarkly is unreachable — the renderer won't match the single-brace form and the literal `{system_time}` goes to the provider as part of the prompt.
+
+   **Before:**
+   ```python
+   SYSTEM_PROMPT = "You are a helpful assistant. The time is {system_time}."
+   prompt = SYSTEM_PROMPT.format(system_time=datetime.now().isoformat())
+   ```
+
+   **After (in source):**
+   ```python
+   SYSTEM_PROMPT = "You are a helpful assistant. The time is {{ system_time }}."
+   # .format() is removed at the call site — the SDK interpolates via `variables`
+   config = ai_client.completion_config(
+       CONFIG_KEY,
+       context,
+       fallback,
+       variables={"system_time": datetime.now().isoformat()},
+   )
+   ```
+
+   Common shapes to rewrite:
+   - Python `"{var}"` / `"{var!s}"` / `"%(var)s"` → `"{{ var }}"`
+   - JS/TS `` `${var}` `` template literals inside prompt strings → `"{{ var }}"`
+   - Any hand-rolled `str.replace("__VAR__", value)` scheme → `"{{ var }}"`
+
+   See [fallback-defaults-pattern.md § Template placeholders](references/fallback-defaults-pattern.md) for the fallback-specific variant.
+
+5. **Build the fallback.** Mirror the hardcoded values you extracted. Use `AICompletionConfigDefault` / `AIAgentConfigDefault` in Python, plain object literals in Node. See [fallback-defaults-pattern.md](references/fallback-defaults-pattern.md) for inline, file-backed, and bootstrap-generated patterns.
 
    **Python fallback (completion mode):**
    ```python
@@ -137,7 +165,7 @@ This is the first stage that writes code. It has six sub-steps.
    )
    ```
 
-5. **Replace the hardcoded call site.** Swap the hardcoded model/prompt/params for a `completion_config` / `completionConfig` (or `agent_config` / `agentConfig`) call, then read the returned fields into the existing provider call. Keep the provider call intact.
+6. **Replace the hardcoded call site.** Swap the hardcoded model/prompt/params for a `completion_config` / `completionConfig` (or `agent_config` / `agentConfig`) call, then read the returned fields into the existing provider call. Keep the provider call intact.
 
    **Python — before:**
    ```python
@@ -197,9 +225,9 @@ This is the first stage that writes code. It has six sub-steps.
 
    See [before-after-examples.md](references/before-after-examples.md) for full Python OpenAI, Node Anthropic, and LangGraph agent-mode paired snippets.
 
-6. **Check `config.enabled`.** If it returns `False`, handle the disabled path without crashing and without calling the provider. The check is required — not optional.
+7. **Check `config.enabled`.** If it returns `False`, handle the disabled path without crashing and without calling the provider. The check is required — not optional.
 
-7. **Verify.** Run the app with a valid `LD_SDK_KEY`; confirm the call succeeds and the response matches pre-migration output. Then temporarily set `LD_SDK_KEY=sdk-invalid` (or unset it) and confirm the fallback path runs without error. Both paths must work before moving to Stage 3.
+8. **Verify.** Run the app with a valid `LD_SDK_KEY`; confirm the call succeeds and the response matches pre-migration output. Then temporarily set `LD_SDK_KEY=sdk-invalid` (or unset it) and confirm the fallback path runs without error. Both paths must work before moving to Stage 3.
 
 Delegate: **`aiconfig-create`** (sub-step 3).
 
@@ -422,7 +450,8 @@ Delegate: **`aiconfig-online-evals`** (sub-step 3, optional — only for UI-atta
 - Don't call `create_tracker()` / `createTracker()` more than once per execution. Each call mints a new tracker with a new `runId`, and events landing on different `runId`s won't be grouped as one execution in the Monitoring tab. If multiple tracking calls need to happen in a single request, stash the tracker in a local and reuse it.
 - Don't pass `graph_key=...` to `tracker.track_*()` methods in Python — that keyword argument was removed in v0.18.0. Trackers obtained inside a graph traversal are automatically configured with the correct graph key.
 - Don't import `LaunchDarklyCallbackHandler` from `ldai.langchain` — neither the class nor the dotted module path exists. The real Python LangChain helper package is `ldai_langchain` (top-level module, underscore). For single-node LangChain calls, build the model with `create_langchain_model(config)` (forwards all variation parameters and handles LaunchDarkly→LangChain provider-name mapping internally) and track with `track_metrics_of_async(lambda: llm.ainvoke(messages), get_ai_metrics_from_response)`. Do not reach for `init_chat_model` + a hand-rolled provider-name mapping — that path silently drops every variation parameter (temperature, max_tokens, top_p). See [langchain-tracking.md](../aiconfig-ai-metrics/references/langchain-tracking.md) for both single-model and LangGraph patterns.
-- **If the repo already contains a `load_chat_model` / `init_chat_model` wrapper, delete it — don't just avoid using it.** Many LangChain templates (including `langchain-ai/react-agent`) ship a `utils.load_chat_model` helper that wraps `init_chat_model(model, model_provider=provider)`. Leaving it in place means every future change in the repo will import the familiar function and silently drop the variation's parameters. Replace every call site with `create_langchain_model(ai_config)`, then delete the wrapper module (or at least the offending function) in the same commit. Same rule applies to hand-rolled `TOOL_REGISTRY` / `resolve_tools` / `ALL_TOOLS` helpers once `ldai_langchain.langchain_helper.build_structured_tools` is wired in — delete the hand-rolled version so the next reader can't reach for it.
+- **If the repo already contains a `load_chat_model(f"{provider}/{name}")` helper, delete it — don't just avoid using it.** This exact shape ships with `langchain-ai/react-agent` and is copied into dozens of derivative repos; look for `utils.load_chat_model`, `utils.build_model`, or any one-arg `init_chat_model` wrapper that splits a `"provider/model"` string. Re-using it is the first-run failure mode: the agent will import the familiar function, the migration will look complete, and every variation parameter (temperature, max_tokens, top_p, stop sequences) will silently drop on the floor because `init_chat_model` only receives the name and provider. `create_langchain_model(ai_config)` is a one-for-one replacement that forwards the whole `model.parameters` dict. Replace every call site, then delete the wrapper file-side (or at least the offending function) in the same commit so the next reader can't reach for it.
+- **Same rule applies to hand-rolled `resolve_tools` / `TOOL_REGISTRY` / `ALL_TOOLS` helpers.** If the template already has a `resolve_tools(tool_keys)` or an `ALL_TOOLS` module-level list, import `build_structured_tools` from `ldai_langchain.langchain_helper` and delete the hand-rolled version. `build_structured_tools(ai_config, TOOL_REGISTRY_DICT)` reads `ai_config.model.parameters.tools` and wraps the matching callables as LangChain `StructuredTool`s with the LD tool key as the `StructuredTool.name` — so `ToolNode` lookup works without a second mapping. Don't leave both in the repo.
 - Don't put app-scoped knobs in `model.parameters`. `create_langchain_model` forwards every key in `parameters` to the provider SDK via `init_chat_model`, so a `max_search_results` / `retry_budget` / `feature_toggle` entry there will crash the provider at runtime with an unexpected-keyword-argument error. Put those fields in `model.custom` and read them with `ai_config.model.get_custom("key")`. The MCP `update-ai-config-variation` tool does not currently expose `custom` — to set it, PATCH the variation directly via the REST API. See [langchain-tracking.md § `model.parameters` vs `model.custom`](../aiconfig-ai-metrics/references/langchain-tracking.md).
 - Don't re-encode tool schemas inside the fallback. When LaunchDarkly is unreachable the fallback should run without tools (or with whatever minimal provider-bound parameters the app needs to keep operating). Building a `_FALLBACK_TOOLS` array that duplicates the AI Config's tool schema re-introduces the hardcoded config the migration was supposed to move out of code.
 
