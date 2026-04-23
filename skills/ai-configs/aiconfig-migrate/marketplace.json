@@ -1,0 +1,20 @@
+{
+  "name": "aiconfig-migrate",
+  "description": "Migrate apps with hardcoded LLM prompts to LaunchDarkly AI Configs in stages: extract prompts, AI SDK wrapper, tools, tracking, and online evals.",
+  "version": "0.1.0",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "ai-configs",
+    "ai-config",
+    "migration",
+    "llm",
+    "prompts",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}

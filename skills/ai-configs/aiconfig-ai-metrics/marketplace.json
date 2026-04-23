@@ -1,0 +1,21 @@
+{
+  "name": "aiconfig-ai-metrics",
+  "description": "Instrument code with LaunchDarkly AI Config metrics: managed runners, trackMetricsOf with provider packages, custom extractors, and manual tracking for duration, tokens, success/error, and streaming TTFT.",
+  "version": "1.0.0-experimental",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "ai-configs",
+    "ai-config",
+    "metrics",
+    "observability",
+    "instrumentation",
+    "monitoring",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}
