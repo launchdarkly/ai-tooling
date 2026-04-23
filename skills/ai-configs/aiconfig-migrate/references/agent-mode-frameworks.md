@@ -20,6 +20,27 @@ Agent mode returns an `instructions` string. Completion mode returns a `messages
 
 **Model construction for LangChain / LangGraph.** When the framework runs on top of LangChain (which includes LangGraph's `create_react_agent` and most custom graphs), build the chat model with `create_langchain_model(ai_config)` (Python) or `LangChainProvider.createLangChainModel(aiConfig)` (Node). These helpers forward every variation parameter (`temperature`, `max_tokens`, `top_p`, …) and handle LaunchDarkly→LangChain provider-name mapping internally. Do not hand-roll `init_chat_model(model=..., model_provider=...)` — it silently drops every variation parameter. See [langchain-tracking.md](../../aiconfig-ai-metrics/references/langchain-tracking.md) for the canonical single-model and LangGraph patterns, including the per-message token-aggregation extractor used with `track_metrics_of_async` / `trackMetricsOf`.
 
+## Framework-agnostic invariants for the run-scoped pattern
+
+The concrete examples below use specific frameworks (LangGraph, CrewAI, Strands) and specific node names (`setup_run`, `call_model`, `finalize`). Treat those as incidentals. The three invariants below apply to **any** agent framework — DSPy, AutoGen, Pydantic AI, Haystack, LlamaIndex agents, or a hand-rolled tool loop in pure Python/TypeScript. If the framework has its own idioms, translate these three rules onto them:
+
+1. **Resolve `agent_config()` / `agentConfig()` once per user turn.** Every call is a flag evaluation and emits a `$ld:ai:agent:config` event. Re-fetching inside a loop step or a tool body amplifies the event count per turn and lets a mid-turn targeting change swap the variation between LLM calls. Do the resolve at the highest scope that corresponds to "one user-input-to-final-response cycle" — a handler function, a LangGraph entry node, a CrewAI `kickoff`, whatever the framework exposes.
+2. **Mint one tracker via `create_tracker()` / `createTracker!()` per user turn.** Same scope as the `agent_config` call. The `runId` ties every event from one turn together; per-step factory calls fragment the correlation and reset the SDK's at-most-once guards. If the framework has a multi-turn session (chat thread), each turn inside the session still gets its own fresh tracker — sessions share a `thread_id`, not a `runId`.
+3. **Emit the five at-most-once methods once at the end of the turn.** `track_duration` / `track_tokens` / `track_success` / `track_error` / `track_time_to_first_token` each fire at most once per tracker. Accumulate inside the loop body (sum token usage across steps, stash a `perf_counter_ns` timer up top), emit once after the loop exits or in a dedicated finalize node. `track_tool_calls` / `track_feedback` / `track_judge_result` are per-event — call them as many times as the agent does those things.
+
+What "one user turn" means differs by app shape:
+
+| App shape | "One turn" = |
+|-----------|--------------|
+| Request/response HTTP handler | One request |
+| Chat loop (one session across many user inputs) | One user input (not the whole session) |
+| LangGraph `app.ainvoke(...)` / `createReactAgent().invoke(...)` | One call to `ainvoke` / `invoke` |
+| Custom ReAct loop with its own `for` iteration | The full loop run, not one iteration |
+| Batch job / dataset walk | One row — each sample is its own run |
+| Streaming response (SSE / WebSocket) | The full stream (open → last chunk), not one chunk |
+
+If you can answer "what's the smallest unit at which I'd want to see a single 'execution' in the Monitoring tab?" — that's the turn. Mint exactly one tracker there.
+
 ## Tool-scoped and app-scoped knobs go in `model.custom`
 
 If the Stage 1 audit identified configuration that isn't a native model parameter — the kind of thing a provider SDK will reject with `unexpected keyword argument` if you forward it — these fields belong in `ModelConfig(custom={...})`, **not** `ModelConfig(parameters={...})`. Typical examples:
@@ -529,6 +550,122 @@ graph = builder.compile()
   2. **Session-scoped key.** Use the LangGraph `thread_id`, or the chat-session ID, or whatever the longest-lived identifier is below "real user." MAU scales with session count, not turn count.
   3. **Per-turn `uuid4()`.** Only in demos, or if you genuinely need per-run isolation for experiment targeting and are willing to pay the MAU. Document the decision in the repo README so the next migrator doesn't swap it out without reading the tradeoff.
 - **State field serialization.** If you add a LangGraph `checkpointer`, exclude the run-scoped fields (`tracker`, `model`, `tools`, `start_perf_ns`) from the checkpoint — they're non-serializable and only meaningful inside one turn anyway.
+
+### Node.js — LangGraph.js `createReactAgent` (prebuilt)
+
+For apps built on `@langchain/langgraph`'s prebuilt `createReactAgent`, the loop happens inside one `agent.invoke(...)` call — you don't own the nodes. That makes the run-scoped pattern simpler than the Python custom-`StateGraph` shape above: resolve `agentConfig` once, mint the tracker once, wrap the whole `agent.invoke` in one `tracker.trackMetricsOf(...)` call per user turn.
+
+```typescript
+import { init } from '@launchdarkly/node-server-sdk';
+import { initAi, type LDAIAgentConfig, type LDAIMetrics } from '@launchdarkly/server-sdk-ai';
+import { LangChainProvider } from '@launchdarkly/server-sdk-ai-langchain';
+import { createReactAgent } from '@langchain/langgraph/prebuilt';
+import { MemorySaver } from '@langchain/langgraph';
+
+const ldClient = init(process.env.LD_SDK_KEY!);
+await ldClient.waitForInitialization({ timeout: 10 });
+const aiClient = initAi(ldClient);
+
+// Sum token usage across every message the agent produced in one turn.
+// Multiple fallback field names cover the provider variation LangChain
+// normalizes over (OpenAI, Anthropic, Bedrock, Gemini, …).
+function langgraphMetrics(result: any): LDAIMetrics {
+  let input = 0, output = 0, total = 0;
+  for (const msg of result.messages ?? []) {
+    const usage = msg.response_metadata?.token_usage ?? msg.usage_metadata;
+    if (!usage) continue;
+    input += usage.input_tokens ?? usage.prompt_tokens ?? usage.promptTokens ?? 0;
+    output += usage.output_tokens ?? usage.completion_tokens ?? usage.completionTokens ?? 0;
+    total += usage.total_tokens ?? usage.totalTokens ?? 0;
+  }
+  if (total === 0) total = input + output;
+  return { success: true, usage: total > 0 ? { input, output, total } : undefined };
+}
+
+async function runTurn(userInput: string, threadId: string): Promise<string | null> {
+  const context = { kind: 'user' as const, key: threadId };
+  const agentConfig: LDAIAgentConfig = await aiClient.agentConfig(
+    'react-agent',
+    context,
+    FALLBACK,                            // LDAIAgentConfigDefault literal
+  );
+
+  if (!agentConfig.enabled) return null;
+
+  // Build everything once per user turn.
+  const llm = await LangChainProvider.createLangChainModel(agentConfig);
+  const agent = createReactAgent({
+    llm,
+    tools: buildTools(agentConfig),      // factory pattern — see below
+    prompt: agentConfig.instructions,
+    checkpointer: new MemorySaver(),     // reuse across turns if you want chat memory
+  });
+
+  // One tracker per user turn. Fresh runId. At-most-once guards reset.
+  const tracker = agentConfig.createTracker!();
+
+  try {
+    const result = await tracker.trackMetricsOf(
+      langgraphMetrics,
+      () => agent.invoke(
+        { messages: [{ role: 'user', content: userInput }] },
+        { configurable: { thread_id: threadId } },
+      ),
+    );
+    const messages = result.messages ?? [];
+    return messages.length ? String(messages[messages.length - 1].content) : null;
+  } catch (err) {
+    tracker.trackError();
+    throw err;
+  }
+}
+```
+
+**Tool factories in TypeScript.** The same pattern as Python — a record of `(agentConfig) => tool` factories, applied per-turn so each tool closes over the live variation's `model.custom` knobs:
+
+```typescript
+import { tool } from '@langchain/core/tools';
+import { z } from 'zod';
+
+type ToolFactory = (agentConfig: LDAIAgentConfig) => ReturnType<typeof tool>;
+
+function makeSearch(agentConfig: LDAIAgentConfig) {
+  const maxResults =
+    (agentConfig.model?.custom?.max_search_results as number | undefined) ?? 10;
+  return tool(
+    async ({ query }: { query: string }) => {
+      const res = await fetch(`https://api.tavily.com/search?q=${encodeURIComponent(query)}&n=${maxResults}`);
+      return await res.json();
+    },
+    {
+      name: 'search',
+      description: 'Search the web for current information on a given topic.',
+      schema: z.object({ query: z.string() }),
+    },
+  );
+}
+
+const TOOL_FACTORIES: Record<string, ToolFactory> = {
+  search: makeSearch,
+};
+
+function buildTools(agentConfig: LDAIAgentConfig) {
+  const attached = ((agentConfig.model?.parameters?.tools as Array<{ name: string }>) ?? [])
+    .map((t) => t.name);
+  return attached
+    .filter((name) => name in TOOL_FACTORIES)
+    .map((name) => TOOL_FACTORIES[name](agentConfig));
+}
+```
+
+**Key differences from Python custom-`StateGraph`:**
+
+- Because LangGraph.js's `createReactAgent` is prebuilt, you don't write a `setup_run` / `call_model` / `finalize` graph — `agent.invoke(...)` is the single call that represents the turn, so wrapping it in one `trackMetricsOf` call is sufficient. The at-most-once guards are naturally satisfied by the single wrapping call.
+- No dynamic `ToolNode` wrapper needed. `createReactAgent` takes a tool list at construction; construct the agent per-turn (inside `runTurn`) so the tools can close over the current `agentConfig`.
+- `agentConfig.createTracker!()` uses the TypeScript non-null assertion `!` because `createTracker` is typed optional on `LDAIConfig` (it's absent when the config is disabled, which you've already guarded above via `if (!agentConfig.enabled)`).
+- Multi-turn chat: if you want `runTurn` to be called three times in a row for one session (shared `threadId` / `MemorySaver`), each call still mints its own tracker inside `runTurn`. The `threadId` threads conversation memory through `checkpointer`; the `runId` identifies each turn independently.
+
+**Custom `StateGraph` in Node.js.** If the app uses a hand-rolled `StateGraph` with its own `call_model` / tool nodes (uncommon in Node compared to Python, but possible), the same run-scoped architecture from the Python section above applies — `setup_run` as an entry node, `tools_node` wrapper around `new ToolNode(state.tools).invoke(...)`, `finalize` as a terminal node. The TypeScript syntax differs but the node responsibilities are identical. Prefer `createReactAgent` unless the app genuinely needs graph-level control.
 
 ### Custom ReAct loop
 

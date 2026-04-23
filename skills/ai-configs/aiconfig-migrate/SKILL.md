@@ -18,6 +18,30 @@ You're using a skill that will guide you through migrating an application from h
 > 2. **`load_chat_model` wrapper reuse.** If the repo already contains a `load_chat_model(f"{provider}/{name}")` helper (ships with `langchain-ai/react-agent` and clones), **delete it** — don't just avoid using it. It wraps `init_chat_model(...)` with only name + provider, silently dropping every variation parameter (temperature, max_tokens, top_p). Replace with `create_langchain_model(ai_config)` at every call site and remove the wrapper in the same commit so the next reader can't reach for it.
 > 3. **Fallthrough not flipped after `/aiconfig-create`.** A freshly-created AI Config has its fallthrough pointing at an auto-generated disabled variation, so the SDK returns `ai_config.enabled=False` until targeting is updated. Run `/aiconfig-targeting` (or the inline shortcut in `/aiconfig-create` Step 5) to point the fallthrough at your new variation before Stage 2 verification.
 
+## Coverage — which shapes are well-trodden vs require extrapolation
+
+The skill is optimized for Python and Node.js / TypeScript; other languages are install-only. Within Python and Node the coverage tiers are:
+
+| Shape | Python | Node.js | Reference |
+|-------|--------|---------|-----------|
+| One-shot completion (direct OpenAI / Anthropic / Bedrock / Gemini call) | ✅ Worked example | ✅ Worked example | [before-after-examples.md](references/before-after-examples.md), per-provider docs in `aiconfig-ai-metrics/references/` |
+| Chat loop via managed runner (`ManagedModel` / `TrackedChat`) | ✅ Tier 1 pattern | ✅ Tier 1 pattern | [aiconfig-ai-metrics SKILL.md](../aiconfig-ai-metrics/SKILL.md) |
+| LangChain single-call | ✅ Worked example | ✅ Worked example | [langchain-tracking.md](../aiconfig-ai-metrics/references/langchain-tracking.md) |
+| LangGraph `create_react_agent` / `createReactAgent` (prebuilt) | ✅ Worked example | ✅ Worked example | [agent-mode-frameworks.md § LangGraph](references/agent-mode-frameworks.md) |
+| LangGraph custom `StateGraph` with run-scoped tracker (setup_run + call_model + finalize) | ✅ Deep worked example | ⚠️ Mentioned — translate from Python | [agent-mode-frameworks.md § Custom `StateGraph`](references/agent-mode-frameworks.md) |
+| CrewAI `Agent` | ✅ Worked example | — (not a Node framework) | [agent-mode-frameworks.md § CrewAI](references/agent-mode-frameworks.md) |
+| Strands `Agent` | ✅ Worked example | ⚠️ BedrockModel + OpenAIModel only (no Anthropic) | [agent-mode-frameworks.md § Strands](references/agent-mode-frameworks.md) |
+| Custom ReAct loop (hand-rolled, any framework or none) | ✅ Worked example | ⚠️ Apply framework-agnostic invariants; translate from Python | [agent-mode-frameworks.md § Custom ReAct loop](references/agent-mode-frameworks.md) |
+| Vercel AI SDK (`generateText` / `streamText`) | — (not a Python framework) | ⚠️ Provider package exists; no worked example in skill | `aiconfig-ai-metrics` provider-package matrix |
+| Streaming (SSE / WebSocket) | ⚠️ Delegated to `aiconfig-ai-metrics` streaming doc | ⚠️ Same — use `trackStreamMetricsOf` + manual TTFT | [streaming-tracking.md](../aiconfig-ai-metrics/references/streaming-tracking.md) |
+| Multi-agent graph (supervisor + workers) | ⚠️ Out of main scope; see reference | ⚠️ Out of main scope; see reference | [agent-graph-reference.md](references/agent-graph-reference.md) |
+| Non-LangGraph agent frameworks (Pydantic AI, DSPy, AutoGen, Haystack, LlamaIndex agents, Semantic Kernel) | ⚠️ Apply the three invariants; no framework-specific example | ⚠️ Same | [agent-mode-frameworks.md § Framework-agnostic invariants](references/agent-mode-frameworks.md) |
+| Go, Ruby, .NET | ℹ️ Install commands only | ℹ️ Install commands only | [phase-1-analysis-checklist.md § SDK routing table](references/phase-1-analysis-checklist.md) |
+
+**Reading the key:** ✅ = follow the skill verbatim; ⚠️ = the architecture applies but you'll translate idioms or cross-reference another skill; ℹ️ = skill doesn't go past the install step.
+
+If the target app is in the ⚠️ column, start by reading [agent-mode-frameworks.md § Framework-agnostic invariants](references/agent-mode-frameworks.md) — those three rules (one `agent_config` per turn, one tracker per turn, at-most-once methods fire once at turn end) apply regardless of framework, and every code snippet in this skill is an instantiation of them. Translate the Python example's shape onto the target framework's primitives.
+
 ## Prerequisites
 
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment, and an application that already calls an LLM provider with hardcoded model, prompt, and parameter values.
