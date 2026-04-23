@@ -79,12 +79,9 @@ def call_with_tracking(ai_config, user_prompt: str) -> str | None:
         )
 
     tracker = ai_config.create_tracker()
-    try:
-        response = tracker.track_metrics_of(call_gemini, gemini_metrics)
-        return response.text
-    except Exception:
-        tracker.track_error()
-        raise
+    # track_metrics_of handles the error path internally (records + re-raises).
+    response = tracker.track_metrics_of(call_gemini, gemini_metrics)
+    return response.text
 ```
 
 **Node** — `@google/genai`:
@@ -150,23 +147,19 @@ async function callWithTracking(
   const params = (aiConfig.model?.parameters ?? {}) as Record<string, unknown>;
 
   const tracker = aiConfig.createTracker!();
-  try {
-    const response = await tracker.trackMetricsOf(
-      geminiMetrics,
-      () => genAI.models.generateContent({
-        model: aiConfig.model!.name,
-        contents,
-        config: {
-          systemInstruction,
-          ...geminiConfigFields(params),
-        },
-      }),
-    );
-    return response.text ?? null;
-  } catch (err) {
-    tracker.trackError();
-    throw err;
-  }
+  // trackMetricsOf handles the error path (records + re-throws).
+  const response = await tracker.trackMetricsOf(
+    geminiMetrics,
+    () => genAI.models.generateContent({
+      model: aiConfig.model!.name,
+      contents,
+      config: {
+        systemInstruction,
+        ...geminiConfigFields(params),
+      },
+    }),
+  );
+  return response.text ?? null;
 }
 ```
 
@@ -174,7 +167,7 @@ Notes on the extractor shape:
 
 - Gemini uses `snake_case` in Python (`prompt_token_count`) and `camelCase` in Node (`promptTokenCount`). The LD `TokenUsage` / `LDAIMetrics` type is the same in both.
 - `total_token_count` already includes input + output from Google; do not recompute it.
-- `success: true` in the extractor is not a lie — `trackMetricsOf` only calls the extractor on the success path. Errors go through the catch block and `trackError()`.
+- `success: true` in the extractor is not a lie — `trackMetricsOf` only calls the extractor on the success path. On the error path, `trackMetricsOf` records `trackError()` internally and re-throws; no caller-side catch block is required.
 
 ## Tools
 

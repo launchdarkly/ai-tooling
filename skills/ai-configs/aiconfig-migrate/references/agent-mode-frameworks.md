@@ -618,20 +618,16 @@ async function runTurn(userInput: string, threadId: string): Promise<string | nu
   // One tracker per user turn. Fresh runId. At-most-once guards reset.
   const tracker = agentConfig.createTracker!();
 
-  try {
-    const result = await tracker.trackMetricsOf(
-      langgraphMetrics,
-      () => agent.invoke(
-        { messages: [{ role: 'user', content: userInput }] },
-        { configurable: { thread_id: threadId } },
-      ),
-    );
-    const messages = result.messages ?? [];
-    return messages.length ? String(messages[messages.length - 1].content) : null;
-  } catch (err) {
-    tracker.trackError();
-    throw err;
-  }
+  // trackMetricsOf handles the error path (records + re-throws).
+  const result = await tracker.trackMetricsOf(
+    langgraphMetrics,
+    () => agent.invoke(
+      { messages: [{ role: 'user', content: userInput }] },
+      { configurable: { thread_id: threadId } },
+    ),
+  );
+  const messages = result.messages ?? [];
+  return messages.length ? String(messages[messages.length - 1].content) : null;
 }
 ```
 

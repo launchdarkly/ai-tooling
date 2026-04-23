@@ -47,12 +47,10 @@ def call_with_tracking(ai_config, user_prompt: str) -> str | None:
         )
 
     tracker = ai_config.create_tracker()
-    try:
-        response = tracker.track_metrics_of(call_anthropic, anthropic_extractor)
-        return response.content[0].text
-    except Exception:
-        tracker.track_error()
-        raise
+    # track_metrics_of catches, tracks the error, and re-raises automatically.
+    # No need for an except block unless the caller wants to handle the exception.
+    response = tracker.track_metrics_of(call_anthropic, anthropic_extractor)
+    return response.content[0].text
 ```
 
 **Node** — direct Anthropic SDK:
@@ -81,21 +79,18 @@ async function callWithTracking(
   const systemContent = aiConfig.messages?.[0]?.content ?? '';
 
   const tracker = aiConfig.createTracker!();
-  try {
-    const response = await tracker.trackMetricsOf(
-      anthropicExtractor,
-      () => client.messages.create({
-        model: aiConfig.model!.name,
-        max_tokens: 1024,
-        system: systemContent,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
-    );
-    return response.content[0].type === 'text' ? response.content[0].text : null;
-  } catch (err) {
-    tracker.trackError();
-    throw err;
-  }
+  // trackMetricsOf catches, records the error, and re-throws automatically.
+  // No try/catch needed unless the caller wants to handle the thrown exception.
+  const response = await tracker.trackMetricsOf(
+    anthropicExtractor,
+    () => client.messages.create({
+      model: aiConfig.model!.name,
+      max_tokens: 1024,
+      system: systemContent,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
+  );
+  return response.content[0].type === 'text' ? response.content[0].text : null;
 }
 ```
 
@@ -103,7 +98,7 @@ Notes on the extractor shape:
 
 - Anthropic returns `input_tokens` / `output_tokens` on `response.usage`. Compute `total` yourself; Anthropic does not provide it.
 - `LDAIMetrics` is a typed surface — Python has it at `ldai.providers.types`, Node exports it from `@launchdarkly/server-sdk-ai`. Keep the extractor pure: no side effects, no network calls.
-- `success: true` in the extractor is not a lie — `trackMetricsOf` only calls the extractor on the success path. Errors go through the catch block and `trackError()`.
+- `success: true` in the extractor is not a lie — `trackMetricsOf` only calls the extractor on the success path. On the error path, `trackMetricsOf` records `trackError()` internally and re-throws; no caller-side catch block is required.
 
 ## Tier 2 option — route via LangChain
 

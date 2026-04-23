@@ -48,12 +48,9 @@ def call_with_tracking(ai_config, user_prompt: str) -> str | None:
         return bedrock.converse(**kwargs)
 
     tracker = ai_config.create_tracker()
-    try:
-        response = tracker.track_metrics_of(call_bedrock, bedrock_converse_extractor)
-        return response["output"]["message"]["content"][0]["text"]
-    except Exception:
-        tracker.track_error()
-        raise
+    # track_metrics_of handles the error path internally (records + re-raises).
+    response = tracker.track_metrics_of(call_bedrock, bedrock_converse_extractor)
+    return response["output"]["message"]["content"][0]["text"]
 ```
 
 **Node:**
@@ -82,20 +79,16 @@ async function callWithTracking(
   const systemContent = aiConfig.messages?.[0]?.content;
 
   const tracker = aiConfig.createTracker!();
-  try {
-    const response = await tracker.trackMetricsOf(
-      bedrockConverseExtractor,
-      () => bedrock.send(new ConverseCommand({
-        modelId: aiConfig.model!.name,
-        messages: [{ role: 'user', content: [{ text: userPrompt }] }],
-        ...(systemContent ? { system: [{ text: systemContent }] } : {}),
-      })),
-    );
-    return response.output?.message?.content?.[0]?.text ?? null;
-  } catch (err) {
-    tracker.trackError();
-    throw err;
-  }
+  // trackMetricsOf handles the error path (records + re-throws).
+  const response = await tracker.trackMetricsOf(
+    bedrockConverseExtractor,
+    () => bedrock.send(new ConverseCommand({
+      modelId: aiConfig.model!.name,
+      messages: [{ role: 'user', content: [{ text: userPrompt }] }],
+      ...(systemContent ? { system: [{ text: systemContent }] } : {}),
+    })),
+  );
+  return response.output?.message?.content?.[0]?.text ?? null;
 }
 ```
 

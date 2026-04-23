@@ -88,15 +88,12 @@ messages = convert_messages_to_langchain(config.messages or [])
 messages.append(HumanMessage(content=user_prompt))
 
 tracker = config.create_tracker()
-try:
-    completion = await tracker.track_metrics_of_async(
-        lambda: llm.ainvoke(messages),
-        get_ai_metrics_from_response,
-    )
-    return completion.content
-except Exception:
-    tracker.track_error()
-    raise
+# track_metrics_of_async handles the error path internally (records + re-raises).
+completion = await tracker.track_metrics_of_async(
+    lambda: llm.ainvoke(messages),
+    get_ai_metrics_from_response,
+)
+return completion.content
 ```
 
 **Node:**
@@ -116,16 +113,12 @@ const messages = LangChainProvider.convertMessagesToLangChain(aiConfig.messages 
 messages.push(new HumanMessage(userPrompt));
 
 const tracker = aiConfig.createTracker!();
-try {
-  const completion = await tracker.trackMetricsOf(
-    LangChainProvider.getAIMetricsFromResponse,
-    () => llm.invoke(messages),
-  );
-  return completion.content;
-} catch (err) {
-  tracker.trackError();
-  throw err;
-}
+// trackMetricsOf handles the error path (records + re-throws).
+const completion = await tracker.trackMetricsOf(
+  LangChainProvider.getAIMetricsFromResponse,
+  () => llm.invoke(messages),
+);
+return completion.content;
 ```
 
 Both `create_langchain_model` and `LangChainProvider.createLangChainModel` raise at model-creation time if the matching LangChain provider integration is not installed. For example, if the variation's `provider.name` is `anthropic`, your environment needs `langchain-anthropic` (Python) or `@langchain/anthropic` (Node). The error surface is LangChain's, not LaunchDarkly's — install the missing integration and re-run.

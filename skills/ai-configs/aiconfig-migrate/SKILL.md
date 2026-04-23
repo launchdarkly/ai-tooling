@@ -361,14 +361,12 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
                      {"role": "user", "content": user_prompt}],
        )
 
-   try:
-       response = tracker.track_metrics_of(
-           call_openai,
-           OpenAIProvider.get_ai_metrics_from_response,
-       )
-   except Exception:
-       tracker.track_error()
-       raise
+   # track_metrics_of catches exceptions, records the error on the tracker,
+   # and re-raises — no need to wrap this in try/except just for tracking.
+   response = tracker.track_metrics_of(
+       call_openai,
+       OpenAIProvider.get_ai_metrics_from_response,
+   )
    ```
 
    **Node:**
@@ -376,18 +374,14 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
    import { OpenAIProvider } from '@launchdarkly/server-sdk-ai-openai';
 
    const tracker = aiConfig.createTracker!();
-   try {
-     const response = await tracker.trackMetricsOf(
-       OpenAIProvider.getAIMetricsFromResponse,
-       () => openaiClient.chat.completions.create({
-         model: aiConfig.model!.name,
-         messages: [...aiConfig.messages, { role: 'user', content: userPrompt }],
-       }),
-     );
-   } catch (err) {
-     tracker.trackError();
-     throw err;
-   }
+   // trackMetricsOf handles the error path (records + re-throws).
+   const response = await tracker.trackMetricsOf(
+     OpenAIProvider.getAIMetricsFromResponse,
+     () => openaiClient.chat.completions.create({
+       model: aiConfig.model!.name,
+       messages: [...aiConfig.messages, { role: 'user', content: userPrompt }],
+     }),
+   );
    ```
 
    For Anthropic direct, Bedrock (no provider package), Gemini, and custom HTTP, write a small extractor returning `LDAIMetrics` — see the delegate skill's [anthropic-tracking.md](../aiconfig-ai-metrics/references/anthropic-tracking.md), [bedrock-tracking.md](../aiconfig-ai-metrics/references/bedrock-tracking.md), and [gemini-tracking.md](../aiconfig-ai-metrics/references/gemini-tracking.md). LangChain single-node and LangGraph go through the `launchdarkly-server-sdk-ai-langchain` / `@launchdarkly/server-sdk-ai-langchain` provider package. Build the model with `create_langchain_model(config)` / `LangChainProvider.createLangChainModel(config)` (forwards all variation parameters) and track with `get_ai_metrics_from_response` / `LangChainProvider.getAIMetricsFromResponse`. See [langchain-tracking.md](../aiconfig-ai-metrics/references/langchain-tracking.md).

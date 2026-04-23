@@ -387,7 +387,7 @@ async def async_main():
     # tracker.track_judge_result(judge_result)
 
     print("Judge Result:")
-    print(json.dumps(judge_result.to_dict(), indent=2, default=str))
+    print(json.dumps(judge_result.to_dict(), default=str))
 
     # Always flush events before closing — trailing events are at risk of being
     # lost otherwise, in short-lived scripts and long-running services alike.

@@ -132,23 +132,18 @@ const response = await tracker.trackMetricsOf(
 return response.choices[0].message.content;
 ```
 
-**Error handling.** `trackMetricsOf` records `success: true` on return and lets exceptions propagate. Wrap with try/catch to capture errors:
+**Error handling.** `trackMetricsOf` catches exceptions internally, records `trackError()` on the tracker, and re-throws — so you do **not** need a try/catch block that calls `trackError()` yourself. Call the wrapper directly; if the caller wants to log or handle the exception, do that in addition to (not instead of) letting it propagate:
 
 ```typescript
 const tracker = aiConfig.createTracker!();
-try {
-  const response = await tracker.trackMetricsOf(
-    OpenAIProvider.getAIMetricsFromResponse,
-    () => client.chat.completions.create({ /* ... */ }),
-  );
-  return response.choices[0].message.content;
-} catch (err) {
-  tracker.trackError();
-  throw err;
-}
+const response = await tracker.trackMetricsOf(
+  OpenAIProvider.getAIMetricsFromResponse,
+  () => client.chat.completions.create({ /* ... */ }),
+);
+return response.choices[0].message.content;
 ```
 
-Python follows the same shape with `try` / `except` and `tracker.track_error()`.
+Python behaves the same with `track_metrics_of`. Do not add `except: tracker.track_error()` on top — it's a noop that would also trip the at-most-once guard.
 
 ## Tier 3 — Custom extractor (fallback)
 

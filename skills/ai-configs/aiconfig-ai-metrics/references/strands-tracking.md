@@ -66,15 +66,12 @@ def strands_extractor(result) -> LDAIMetrics:
 
 
 async def run_turn(agent, tracker, user_input):
-    try:
-        result = await tracker.track_metrics_of_async(
-            lambda: agent.invoke_async(user_input),
-            strands_extractor,
-        )
-        return result.message["content"][0]["text"]
-    except Exception:
-        tracker.track_error()
-        raise
+    # track_metrics_of_async handles the error path internally (records + re-raises).
+    result = await tracker.track_metrics_of_async(
+        lambda: agent.invoke_async(user_input),
+        strands_extractor,
+    )
+    return result.message["content"][0]["text"]
 ```
 
 Pick the style that matches the rest of the codebase — the two variants record the same metrics.

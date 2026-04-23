@@ -64,7 +64,7 @@ Guardrails that apply to every tier:
 
 1. **Always check `config.enabled`** before making the tracked call. A disabled config means the user has flagged the feature off — you should short-circuit to whatever fallback the app uses (cached response, error, degraded path) rather than making the provider call at all.
 2. **Wrap the existing call, don't rewrite it.** Tier 2 and Tier 3 are designed to slot around an unmodified provider call. If you find yourself rewriting the call to fit the tracker, you're at the wrong tier — drop down one.
-3. **Errors go through the tracker too.** `trackMetricsOf` handles the success path; errors still need an explicit `tracker.trackError()` in the catch block (or a try/except around the whole thing). Tier 1 handles both paths automatically.
+3. **Errors are handled inside `trackMetricsOf`.** The wrapper catches exceptions, records `trackError()` internally, and re-raises — do **not** add `except: tracker.trackError()` on top, it's a noop that also trips the at-most-once guard. Tier 1 handles both paths automatically. At Tier 4 (manual, streaming, `track_duration_of`) the caller does own the error-tracking call.
 4. **Always flush before close.** Call `ldClient.flush()` (Python: `ldclient.get().flush()`; Node: `await ldClient.flush()`) before closing the client. Trailing events are at risk of being lost otherwise — in short-lived scripts and long-running services alike. In Node, `ldClient.close()` returns a Promise; await it.
 
 ### 4. Verify
