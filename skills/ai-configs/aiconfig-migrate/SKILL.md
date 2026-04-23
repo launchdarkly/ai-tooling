@@ -121,9 +121,15 @@ This manifest is the contract for the next four stages. Review it with the user.
 
 ### Step 3: Wrap the call in the AI SDK (Stage 2)
 
-This is the first stage that writes code. It has eight sub-steps.
+This is the first stage that writes code. It has nine sub-steps.
 
-1. **Install the AI SDK.** Detect the package manager from Step 1, then install:
+1. **Delete any hand-rolled model / tool wrappers the audit flagged.** Do this *before* installing the new SDK so the replacement lands in a repo without confusing fallback imports. The two shapes the Stage 1 audit should have surfaced:
+   - **`load_chat_model(f"{provider}/{name}")` or any `init_chat_model(...)` wrapper.** Ships with `langchain-ai/react-agent` and many derivative repos. Delete the function and its module; the replacement is `create_langchain_model(ai_config)` (installed in the next sub-step). Leaving the wrapper in place means the next edit in this repo will import the familiar helper and silently drop variation parameters.
+   - **Hand-rolled `resolve_tools` / `TOOL_REGISTRY` / `ALL_TOOLS` helpers that hard-code a static tool list.** Delete them; `ldai_langchain.langchain_helper.build_structured_tools(ai_config, TOOL_REGISTRY_DICT)` is the canonical replacement and gets wired in Stage 3. If you leave the hand-rolled version, both shapes will live side-by-side and the next contributor will pick the familiar one.
+
+   Commit the deletion separately from the SDK install if the repo's review process benefits from it — otherwise bundle with sub-step 2.
+
+2. **Install the AI SDK.** Detect the package manager from Step 1, then install:
    - Python: `launchdarkly-server-sdk` + `launchdarkly-server-sdk-ai>=0.18.0`
    - Node.js/TypeScript: `@launchdarkly/node-server-sdk` + `@launchdarkly/server-sdk-ai@^0.17.0`
    - Go: `github.com/launchdarkly/go-server-sdk/v7` + `github.com/launchdarkly/go-server-sdk/ldai`
@@ -134,17 +140,30 @@ This is the first stage that writes code. It has eight sub-steps.
    - Vercel AI SDK (Node only): `@launchdarkly/server-sdk-ai-vercel@^0.5.5`
    - Anthropic, Gemini, Bedrock — no provider package published; use Tier-3 custom extractor (see `aiconfig-ai-metrics`)
 
-2. **Initialize `LDAIClient` once at startup.** Reuse any existing `LDClient` — do not create a second base client. Place the initialization in the same module that owns existing app config.
+3. **Initialize `LDAIClient` once at startup.** Reuse any existing `LDClient` — do not create a second base client. Place the initialization in the same module that owns existing app config.
 
    **Python:**
    ```python
+   import os
    import ldclient
    from ldclient.config import Config
    from ldai.client import LDAIClient
 
    # Order matters: ldclient.get() raises if called before ldclient.set_config().
    # The set_config call is what initializes the singleton; .get() just returns it.
-   ldclient.set_config(Config(os.environ["LD_SDK_KEY"]))
+   sdk_key = os.environ.get("LD_SDK_KEY")
+   if sdk_key:
+       ldclient.set_config(Config(sdk_key))
+   else:
+       # Missing key: init in offline mode so the app still starts and the fallback
+       # path runs on every call. Never raise at import time for a missing env var —
+       # that turns a config gap into a boot failure.
+       import logging
+       logging.getLogger(__name__).warning(
+           "LD_SDK_KEY not set; AI Configs will use fallback values only."
+       )
+       ldclient.set_config(Config("", offline=True))
+
    ai_client = LDAIClient(ldclient.get())
    ```
 
@@ -153,16 +172,24 @@ This is the first stage that writes code. It has eight sub-steps.
    import { init } from '@launchdarkly/node-server-sdk';
    import { initAi } from '@launchdarkly/server-sdk-ai';
 
-   const ldClient = init(process.env.LD_SDK_KEY!);
-   await ldClient.waitForInitialization({ timeout: 10 });
+   // The Node SDK does not have an explicit offline mode — a missing or invalid
+   // key fails fast during waitForInitialization, and every agent_config /
+   // completion_config call returns the fallback. Log a warning; do not throw.
+   if (!process.env.LD_SDK_KEY) {
+     console.warn('LD_SDK_KEY not set; AI Configs will use fallback values only.');
+   }
+   const ldClient = init(process.env.LD_SDK_KEY ?? 'sdk-offline');
+   await ldClient.waitForInitialization({ timeout: 10 }).catch(() => {
+     // Swallow init failures in offline mode; fallback path runs.
+   });
    const aiClient = initAi(ldClient);
    ```
 
-3. **Hand off to `aiconfig-create`.** Print the extracted model, prompt/instructions, parameters, and mode from Step 2's manifest, then tell the user: *"Run `/aiconfig-create` with these inputs, then come back here."* Supply the config key you want the code to call (e.g. `chat-assistant`). Do not attempt to auto-invoke the sibling skill — wait for the user to finish it before continuing.
+4. **Hand off to `aiconfig-create`.** Print the extracted model, prompt/instructions, parameters, and mode from Step 2's manifest, then tell the user: *"Run `/aiconfig-create` with these inputs, then come back here."* Supply the config key you want the code to call (e.g. `chat-assistant`). Do not attempt to auto-invoke the sibling skill — wait for the user to finish it before continuing.
 
-   **After `aiconfig-create` finishes, the user must also run `/aiconfig-targeting` to promote the new variation to fallthrough.** A freshly created variation returns `enabled=False` to every consumer until targeting is updated. Skip this and Stage 2 verification (sub-step 8 below) will silently take the fallback path on every request.
+   **After `aiconfig-create` finishes, the user must also run `/aiconfig-targeting` to promote the new variation to fallthrough.** A freshly created variation returns `enabled=False` to every consumer until targeting is updated. Skip this and Stage 2 verification (sub-step 9 below) will silently take the fallback path on every request.
 
-4. **Rewrite template placeholders to Mustache syntax.** If the hardcoded prompt interpolates runtime values with Python `.format()`, f-strings, JS template literals, or any other non-Mustache syntax (e.g. `{system_time}`, `${userName}`, `%(topic)s`), rewrite every placeholder to `{{ variable }}` Mustache form. Do this in **both** the file you're about to send to `/aiconfig-create` *and* the fallback string you'll write in sub-step 5. The AI SDK interpolates variables through a Mustache renderer on the LD-served path *and* the fallback path using the fourth-argument `variables` dict to `completion_config(...)` / `completionConfig(...)`. Leaving a Python-style `{system_time}` literal in the fallback ships a silent regression when LaunchDarkly is unreachable — the renderer won't match the single-brace form and the literal `{system_time}` goes to the provider as part of the prompt.
+5. **Rewrite template placeholders to Mustache syntax.** If the hardcoded prompt interpolates runtime values with Python `.format()`, f-strings, JS template literals, or any other non-Mustache syntax (e.g. `{system_time}`, `${userName}`, `%(topic)s`), rewrite every placeholder to `{{ variable }}` Mustache form. Do this in **both** the file you're about to send to `/aiconfig-create` *and* the fallback string you'll write in sub-step 6. The AI SDK interpolates variables through a Mustache renderer on the LD-served path *and* the fallback path using the fourth-argument `variables` dict to `completion_config(...)` / `completionConfig(...)`. Leaving a Python-style `{system_time}` literal in the fallback ships a silent regression when LaunchDarkly is unreachable — the renderer won't match the single-brace form and the literal `{system_time}` goes to the provider as part of the prompt.
 
    **Before:**
    ```python
@@ -189,7 +216,7 @@ This is the first stage that writes code. It has eight sub-steps.
 
    See [fallback-defaults-pattern.md § Template placeholders](references/fallback-defaults-pattern.md) for the fallback-specific variant.
 
-5. **Build the fallback.** Mirror the hardcoded values you extracted. Use `AICompletionConfigDefault` / `AIAgentConfigDefault` in Python, plain object literals in Node. See [fallback-defaults-pattern.md](references/fallback-defaults-pattern.md) for inline, file-backed, and bootstrap-generated patterns.
+6. **Build the fallback.** Mirror the hardcoded values you extracted. Use `AICompletionConfigDefault` / `AIAgentConfigDefault` in Python, plain object literals in Node. See [fallback-defaults-pattern.md](references/fallback-defaults-pattern.md) for inline, file-backed, and bootstrap-generated patterns.
 
    **Python fallback (completion mode):**
    ```python
@@ -203,7 +230,7 @@ This is the first stage that writes code. It has eight sub-steps.
    )
    ```
 
-6. **Replace the hardcoded call site.** Swap the hardcoded model/prompt/params for a `completion_config` / `completionConfig` (or `agent_config` / `agentConfig`) call, then read the returned fields into the existing provider call. Keep the provider call intact.
+7. **Replace the hardcoded call site.** Swap the hardcoded model/prompt/params for a `completion_config` / `completionConfig` (or `agent_config` / `agentConfig`) call, then read the returned fields into the existing provider call. Keep the provider call intact.
 
    **Python — before:**
    ```python
@@ -263,11 +290,11 @@ This is the first stage that writes code. It has eight sub-steps.
 
    See [before-after-examples.md](references/before-after-examples.md) for full Python OpenAI, Node Anthropic, and LangGraph agent-mode paired snippets.
 
-7. **Check `config.enabled`.** If it returns `False`, handle the disabled path without crashing and without calling the provider. The check is required — not optional.
+8. **Check `config.enabled`.** If it returns `False`, handle the disabled path without crashing and without calling the provider. The check is required — not optional.
 
-8. **Verify.** Run the app with a valid `LD_SDK_KEY`; confirm the call succeeds and the response matches pre-migration output. Then temporarily set `LD_SDK_KEY=sdk-invalid` (or unset it) and confirm the fallback path runs without error. Both paths must work before moving to Stage 3.
+9. **Verify.** Run the app with a valid `LD_SDK_KEY`; confirm the call succeeds and the response matches pre-migration output. Then temporarily set `LD_SDK_KEY=sdk-invalid` (or unset it) and confirm the fallback path runs without error. Both paths must work before moving to Stage 3.
 
-Delegate: **`aiconfig-create`** (sub-step 3).
+Delegate: **`aiconfig-create`** (sub-step 4).
 
 ### Step 4: Move tools into the config (Stage 3)
 

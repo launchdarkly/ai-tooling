@@ -394,6 +394,39 @@ class State(TypedDict, total=False):
     token_accumulator: TokenUsage       # Sum of usage_metadata across loop iterations
     disabled_message: str               # Set iff ai_config.enabled is False
 
+# -----------------------------------------------------------------------------
+# TypedDict vs @dataclass — two valid shapes for State, pick the one that
+# matches the repo you're migrating.
+#
+# This example uses TypedDict with subscript access (state["tools"]). Many
+# LangGraph templates, including langchain-ai/react-agent, use a
+# @dataclass(slots=True) shape with attribute access (state.tools) instead.
+# Either works — LangGraph supports both — and you should NOT convert the
+# repo's existing shape during migration unless the audit found another
+# reason. The substantive change is the field set and reducers, not the
+# declaration style.
+#
+# @dataclass equivalent:
+#
+#     from dataclasses import dataclass, field
+#     from langgraph.graph.message import add_messages
+#     from typing import Annotated
+#
+#     @dataclass
+#     class State:
+#         messages: Annotated[List[Any], add_messages] = field(default_factory=list)
+#         tracker: Optional[Any] = None
+#         model: Optional[Any] = None
+#         tools: List[Any] = field(default_factory=list)
+#         start_perf_ns: int = 0
+#         token_accumulator: Optional[TokenUsage] = None
+#         disabled_message: Optional[str] = None
+#
+# With the @dataclass shape, the nodes below become `state.tools`, `state.tracker`,
+# etc. — same references, attribute access. `tools_node` becomes
+# `ToolNode(list(state.tools)).ainvoke({"messages": list(state.messages)})`.
+# -----------------------------------------------------------------------------
+
 
 async def setup_run(state: State, config: RunnableConfig) -> Dict[str, Any]:
     """Runs once per user turn. Resolves the AI Config, mints the tracker,
@@ -416,7 +449,16 @@ async def setup_run(state: State, config: RunnableConfig) -> Dict[str, Any]:
     )
 
     if not ai_config.enabled:
-        return {"disabled_message": "Feature is currently unavailable."}
+        # Return BOTH a flag the router can short-circuit on AND an AIMessage
+        # appended to state["messages"]. Downstream consumers (UI, tests, the
+        # caller that invoked the graph) read the last message — setting only
+        # `disabled_message` without touching `messages` produces a graph
+        # whose last-message shape depends on state entry, which surprises
+        # readers. Every node return should leave `messages` in a valid shape.
+        return {
+            "disabled_message": "Feature is currently unavailable.",
+            "messages": [AIMessage(content="Feature is currently unavailable.")],
+        }
 
     # Three-tier tool-registry contract. Don't conflate these:
     #   1. TOOL_FACTORIES          — {name: factory}   at module scope (static, never changes)
