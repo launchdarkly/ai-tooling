@@ -27,7 +27,9 @@ temperature = ai_config.model.get_parameter("temperature")
 max_search_results = ai_config.model.get_custom("max_search_results") or 10
 ```
 
-**MCP caveat.** The LaunchDarkly MCP `update-ai-config-variation` tool does not currently expose the `custom` field on a variation. To set `model.custom`, PATCH the variation directly against the REST API:
+**MCP caveat — two paths, pick one.** The LaunchDarkly MCP `update-ai-config-variation` tool does not currently expose the top-level `custom` field on a variation. You have two options:
+
+*Option A — PATCH via REST API.* Cleanest shape (value lands at `model.custom` where the Python/Node SDKs expose it via `get_custom(...)` / `custom` accessors) but requires a separate `LD_API_KEY` with write scope:
 
 ```bash
 curl -X PATCH \
@@ -37,7 +39,28 @@ curl -X PATCH \
   -d '{"patch":[{"op":"add","path":"/model/custom","value":{"max_search_results":10}}]}'
 ```
 
-Nothing in the tracker or provider packages reads `custom` — it's a pass-through bucket for your application to pull from via `config.model.get_custom(key)`.
+*Option B — write via MCP under `parameters`, read via a defensive accessor.* MCP does accept a `custom` entry inside `parameters`, but it lands at `model.parameters.custom` instead of `model.custom`. This shape is **not** what the provider SDK wants — `create_langchain_model` forwards every `parameters` key to `init_chat_model`, so naming the key `custom` at the `parameters` level would still get forwarded (and rejected). The workaround is to keep the shape but have the app read from both locations via a defensive accessor:
+
+```python
+def get_custom(ai_config, key: str, default=None):
+    """Read an app-scoped knob from model.custom, falling back to
+    model.parameters['custom'] to cover the MCP-inserted shape.
+    Remove the fallback once the MCP tool exposes top-level custom."""
+    # Preferred shape (REST API / future MCP versions)
+    value = ai_config.model.get_custom(key)
+    if value is not None:
+        return value
+    # MCP fallback shape — parameters.custom as a nested dict
+    params = ai_config.model.parameters or {}
+    nested = params.get("custom") or {}
+    return nested.get(key, default)
+
+max_results = get_custom(ai_config, "max_search_results", default=10)
+```
+
+Two things to verify when using Option B: (1) the key inside `parameters.custom` is not passed on to the provider SDK — `init_chat_model` forwards `parameters` wholesale, so if the variation accidentally puts the knob directly in `parameters` (not under `parameters.custom`) it will still crash the provider. The nested-under-`custom`-dict shape is required. (2) Remove the defensive reader once MCP exposes `model.custom` directly — the fallback is a migration aid, not a permanent interface.
+
+Nothing in the tracker or provider packages reads `custom` — it's a pass-through bucket for your application to pull from via `config.model.get_custom(key)` (or the defensive accessor above while the MCP gap remains).
 
 ## Tier 2 — LangChain (single model, not a graph)
 
