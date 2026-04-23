@@ -1,6 +1,6 @@
 ---
 name: aiconfig-migrate
-description: "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation in five stages: extract prompts, wrap in the AI SDK, add tools, add tracking, add evals/judges. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini, Strands) to a managed AI Config, or stage a full hardcoded-to-LaunchDarkly migration."
+description: "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation in five stages: audit the code, wrap the call, move the tools, add tracking, attach evaluators. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini, Strands) to a managed AI Config, or stage a full hardcoded-to-LaunchDarkly migration."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
@@ -10,7 +10,13 @@ metadata:
 
 # Migrate to AI Configs
 
-You're using a skill that will guide you through migrating an application from hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation. Your job is to audit the existing code, extract the hardcoded model and prompt, wrap the call site in the AI SDK with a safe fallback, move tools into the config, instrument the tracker, and attach evaluations — in that order, stopping at each stage for the user to confirm.
+You're using a skill that will guide you through migrating an application from hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation. Your job is to run the migration in **five stages**, stopping at each stage for the user to confirm:
+
+1. **Audit the code** — read-only scan that produces a structured list of everything hardcoded (prompt, model, parameters, tools, app-scoped knobs).
+2. **Wrap the call** — install the SDK, create the AI Config in LaunchDarkly with a fallback that mirrors the hardcoded values, and rewrite the call site to fetch the config fresh on every request.
+3. **Move the tools** — extract each tool's JSON schema, attach it to the AI Config, and swap every call site that references the old tool list.
+4. **Add tracking** — wire the per-request tracker (duration, tokens, success/error) around the provider call.
+5. **Attach evaluators** — either offline evals via the Playground + Datasets, or online judges that score sampled traffic automatically.
 
 > **⚠️ Three first-run failure modes to know before you touch code.** Each has cost agents hours of "my migration looks done but the SDK is broken" debugging:
 >
@@ -72,13 +78,13 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 ### Minimum viable migration
 
-Stages 1–4 (audit, extract, wrap, optional tools, tracker) are independently shippable. **A migration that stops after Stage 4 is complete, production-ready, and delivers the core value** — externalized prompts and model config, targeting, variation A/B testing, and Monitoring-tab metrics. Stage 5 (evaluations) is a quality-of-life addition, not a gate. Do not block a Stage-4 rollout on evals; ship the run-scoped tracker path, verify metrics flow, then come back for Stage 5 when the team has time to curate a dataset.
+Stages 1–4 (audit, wrap, tools, tracker) are independently shippable. **A migration that stops after Stage 4 is complete, production-ready, and delivers the core value** — externalized prompts and model config, targeting, variation A/B testing, and Monitoring-tab metrics. Stage 5 (evaluators) is a quality-of-life addition, not a gate. Do not block a Stage-4 rollout on evaluators; ship the run-scoped tracker path, verify metrics flow, then come back for Stage 5 when the team has time to curate a dataset.
 
 That said, do not *skip* Stage 4. A migration without the tracker gives you externalized prompts but no visibility, which is most of the payoff left on the floor.
 
-### Step 1: Audit the codebase (read-only)
+### Step 1: Audit the codebase (Stage 1)
 
-Run the phase-1 checklist and produce a structured summary. **This step writes no code and creates no LaunchDarkly resources.**
+This is the first stage. It is **read-only** — no code writes, no LaunchDarkly resources created. The goal is to scan the repo and produce a structured manifest of every hardcoded value that needs to move, then hand the manifest back to the user for confirmation before any code is touched in Stage 2.
 
 Use [phase-1-analysis-checklist.md](references/phase-1-analysis-checklist.md) to scan:
 
@@ -90,7 +96,17 @@ Use [phase-1-analysis-checklist.md](references/phase-1-analysis-checklist.md) to
 6. **Hardcoded app-scoped knobs** — search result limits, retry budgets, tool-timeout overrides, feature toggles, any config dataclass field (`Context.max_search_results`, `Settings.enable_reranking`, etc.) that isn't a prompt or model parameter but still governs agent behavior. These belong in `model.custom` on the variation (not `model.parameters`, which is forwarded to the provider SDK). They are the field most often overlooked in migration audits because they look like "just application config" — but if the agent's behavior depends on them, they're part of the AI Config's surface.
 7. **Mode decision** — completion mode (chat messages array) or agent mode (single instructions string). Completion mode is the default and the only mode that supports judges attached in the UI.
 
-**Phase 1 output** (return to user as a structured summary):
+For each hardcoded target the audit finds, record:
+
+- File path and line range
+- Current value (model name, full prompt text, parameter dict)
+- Target AI Config field (`model.name`, `model.parameters.temperature`, `messages[].content`, `instructions`)
+- Whether the surrounding call uses function calling / tools (drives Stage 3)
+- Whether the surrounding call has retry logic (affects where Stage 4 tracker calls go)
+
+This manifest is the contract for the next four stages.
+
+**Stage 1 output** (return to user as a structured summary):
 
 ```
 Language: Python 3.12
@@ -105,21 +121,9 @@ Hardcoded targets:
 Proposed plan: single AI Config key `chat-assistant`, mirror fallback, Stage 3 (tools) skipped (no function calling), Stage 4 (tracking) inline, Stage 5 (evals) attach built-in accuracy judge.
 ```
 
-**STOP.** Present this summary and wait for the user to confirm before proceeding to Stage 1 extract. This is the same stop point as the `AGENT-SETUP-PROMPT.md` Phase 1 pattern.
+**STOP.** Present this summary and wait for the user to confirm before proceeding to Stage 2. **This is the most important checkpoint in the workflow** — if the audit is wrong, every stage after this will be wrong. The user should cross-check the hardcoded-targets list against what they know is in the code before giving the go-ahead.
 
-### Step 2: Extract prompts (Stage 1)
-
-Turn the audit into a concrete migration manifest — still read-only. For each hardcoded target from Step 1, record:
-
-- File path and line range
-- Current value (model name, full prompt text, parameter dict)
-- Target AI Config field (`model.name`, `model.parameters.temperature`, `messages[].content`, `instructions`)
-- Whether the surrounding call uses function calling / tools (drives Stage 3)
-- Whether the surrounding call has retry logic (affects where Stage 4 tracker calls go)
-
-This manifest is the contract for the next four stages. Review it with the user. Do not mutate any files in this step.
-
-### Step 3: Wrap the call in the AI SDK (Stage 2)
+### Step 2: Wrap the call in the AI SDK (Stage 2)
 
 This is the first stage that writes code. It has nine sub-steps.
 
@@ -185,7 +189,7 @@ This is the first stage that writes code. It has nine sub-steps.
    const aiClient = initAi(ldClient);
    ```
 
-4. **Hand off to `aiconfig-create`.** Print the extracted model, prompt/instructions, parameters, and mode from Step 2's manifest, then tell the user: *"Run `/aiconfig-create` with these inputs, then come back here."* Supply the config key you want the code to call (e.g. `chat-assistant`). Do not attempt to auto-invoke the sibling skill — wait for the user to finish it before continuing.
+4. **Hand off to `aiconfig-create`.** Print the extracted model, prompt/instructions, parameters, and mode from the Stage 1 manifest, then tell the user: *"Run `/aiconfig-create` with these inputs, then come back here."* Supply the config key you want the code to call (e.g. `chat-assistant`). Do not attempt to auto-invoke the sibling skill — wait for the user to finish it before continuing.
 
    **After `aiconfig-create` finishes, the user must also run `/aiconfig-targeting` to promote the new variation to fallthrough.** A freshly created variation returns `enabled=False` to every consumer until targeting is updated. Skip this and Stage 2 verification (sub-step 9 below) will silently take the fallback path on every request.
 
@@ -296,7 +300,7 @@ This is the first stage that writes code. It has nine sub-steps.
 
 Delegate: **`aiconfig-create`** (sub-step 4).
 
-### Step 4: Move tools into the config (Stage 3)
+### Step 3: Move tools into the config (Stage 3)
 
 Skip this step if the audited app has no function calling / tools. Otherwise:
 
@@ -323,7 +327,7 @@ Skip this step if the audited app has no function calling / tools. Otherwise:
 
 Delegate: **`aiconfig-tools`** (sub-step 2).
 
-### Step 5: Instrument the tracker (Stage 4)
+### Step 4: Instrument the tracker (Stage 4)
 
 Delegate: **`aiconfig-ai-metrics`** wires the per-request `tracker.track_*` calls (duration, tokens, success/error, feedback) around the provider call. Use **`aiconfig-custom-metrics`** alongside it if the app needs business metrics beyond the built-in AI ones. Note: do not confuse this with `launchdarkly-metric-instrument`, which is for `ldClient.track()` feature metrics — a different API. See [sdk-ai-tracker-patterns.md](references/sdk-ai-tracker-patterns.md) for the full per-method Python + Node matrix that the delegate skill draws on.
 
@@ -415,7 +419,7 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
 
 5. **Verify.** Hit the wrapped endpoint in staging, then open the AI Config in LaunchDarkly → Monitoring tab. Duration, token, and generation counts should appear within 1–2 minutes. If nothing shows up, walk the checklist in [sdk-ai-tracker-patterns.md](references/sdk-ai-tracker-patterns.md) under "Troubleshooting."
 
-### Step 6: Attach evaluations (Stage 5)
+### Step 5: Attach evaluations (Stage 5)
 
 1. **Decide between three evaluation paths.** This is the most commonly misunderstood stage — there are **three** paths, not two, and the right default for a migration context is often the one people skip.
 
@@ -539,7 +543,7 @@ These are ordered by how likely they are to show up as a first-run failure. The 
 
 ### API surface gotchas
 
-- Don't use `launchdarkly-metric-instrument` for Step 5. That skill is for `ldClient.track()` feature metrics, not AI `tracker.track_*` calls — they are different APIs.
+- Don't use `launchdarkly-metric-instrument` for Stage 4 (tracking). That skill is for `ldClient.track()` feature metrics, not AI `tracker.track_*` calls — they are different APIs.
 - Don't use `track_request()` in Python — it does not exist in `launchdarkly-server-sdk-ai`. Use `track_metrics_of` with a provider-package or custom extractor, or drop to explicit `track_duration` + `track_tokens` + `track_success` / `track_error` if you're on the streaming path.
 - Don't pass `graph_key=...` to `tracker.track_*()` methods in Python — that keyword argument was removed in v0.18.0. Trackers obtained inside a graph traversal are automatically configured with the correct graph key.
 

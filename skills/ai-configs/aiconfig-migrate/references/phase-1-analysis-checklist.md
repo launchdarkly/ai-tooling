@@ -147,8 +147,8 @@ Retry wrapper:          <none / @retry(3) at file.py:LN>
 Scope:                  <single service / monorepo: picked "service-x">
 
 Proposed plan:
-  Stage 1 (Extract):  Build manifest from the 3 targets above; flag placeholders for Mustache rewrite and knobs for model.custom
-  Stage 2 (Wrap):     Create AI Config 'chat-assistant' in completion mode; inline fallback mirrors current values (Mustache syntax)
+  Stage 1 (Audit):    Read-only manifest of hardcoded targets; flag placeholders for Mustache rewrite and knobs for model.custom
+  Stage 2 (Wrap):     Install SDK, create AI Config 'chat-assistant', inline fallback mirrors current values (Mustache syntax), rewrite the call site
   Stage 3 (Tools):    Skipped (no function calling) / Attach 2 tools via aiconfig-tools
   Stage 4 (Tracking): Inline tracker wiring (track_duration + track_tokens + track_success/error) — run-scoped tracker for agent loops
   Stage 5 (Evals):    Attach built-in 'accuracy' judge at 0.25 sampling via aiconfig-online-evals
