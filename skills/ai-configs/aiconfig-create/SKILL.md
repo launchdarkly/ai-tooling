@@ -12,6 +12,8 @@ metadata:
 
 You're using a skill that will guide you through creating an AI Config in LaunchDarkly. Your job is to understand the use case, choose the right mode, create the config and its variations, and verify everything is set up correctly.
 
+> **⚠️ This skill creates a config — it does not make it servable.** A freshly-created AI Config has its **fallthrough pointing at an auto-generated disabled variation**, not at the variation you just created. The SDK will return `ai_config.enabled=False` on every evaluation until you flip targeting on and point the fallthrough at your new variation. This is not a bug — it's the default state. **You must run `/aiconfig-targeting` (or the equivalent REST / CLI call shown in Step 5) before verifying against the SDK**, or verification will look like the LD-served path is broken when it isn't. The single most common failure mode users hit with this skill is skipping the targeting step and spending time debugging `enabled=False` in their application code.
+
 ## Prerequisites
 
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
@@ -135,9 +137,54 @@ If you used `setup-ai-config`, verification is automatic: the response includes 
 
 ### Step 5: Make the variation servable
 
-`setup-ai-config` and `create-ai-config-variation` create the variation but **do not promote it to fallthrough**. The new config will return `enabled=False` to every consumer until targeting is updated. This is the single most common "I created a config but my SDK still gets the fallback" failure.
+`setup-ai-config` and `create-ai-config-variation` create the variation but **do not promote it to fallthrough**. The new config will return `enabled=False` to every consumer until targeting is updated. This is the single most common "I created a config but my SDK still gets the fallback" failure. **The workflow is not complete until this step is done.**
 
-**Always end this skill by telling the user to run `aiconfig-targeting`** to set the new variation as the fallthrough (or as a targeted rule) in the environment they intend to ship to. Do not consider the workflow complete until that step is acknowledged.
+#### What to tell the user
+
+Print this checklist verbatim to the user after Step 4, then wait for confirmation. Do not claim the skill succeeded until the user confirms the fallthrough was flipped.
+
+> ✅ Config and variation are created.
+>
+> 🔴 **The SDK will return `enabled=False` until you flip targeting on.** The fallthrough is currently pointing at an auto-generated disabled variation, not at the `{variationKey}` you just created.
+>
+> **Next step — run `/aiconfig-targeting`** with these inputs:
+> - Project key: `{projectKey}`
+> - Config key: `{configKey}`
+> - Environment key: the env whose SDK key is in your `.env` (usually `test` or `production`)
+> - Fallthrough variation: `{variationKey}` (the one this skill just created)
+>
+> Verify after targeting is flipped by:
+> 1. Opening the AI Config in the LD UI, switching to the correct environment, and confirming "Default rule serves: `{variationName}`" is shown with targeting **On**.
+> 2. Running a quick test: `ai_config = ai_client.{completion|agent}_config(...)` and asserting `ai_config.enabled is True`.
+
+#### Direct shortcut if the user wants to flip targeting without invoking the sibling skill
+
+`aiconfig-targeting` is the canonical path — it handles percentage rollouts, targeted rules, and variation-ID lookups. But for the simplest case ("promote the new variation to fallthrough in one environment"), you can run the underlying semantic PATCH yourself once you know the new variation's `_id`.
+
+Get the variation ID (use `get-ai-config` MCP, or):
+```bash
+curl -s "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
+  -H "Authorization: $LD_API_KEY" -H "LD-API-Version: beta" \
+  | jq '.variations[] | {key, _id}'
+```
+
+Flip the fallthrough to point at it:
+```bash
+curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
+  -H "Authorization: $LD_API_KEY" \
+  -H "Content-Type: application/json; domain-model=launchdarkly.semanticpatch" \
+  -H "LD-API-Version: beta" \
+  -d '{"instructions":[{"kind":"updateFallthroughVariationOrRollout","variationId":"<id-from-step-above>"}]}'
+```
+
+Or the same thing via the LD CLI if it's installed locally:
+```bash
+ldcli resources ai-configs update-ai-config-targeting \
+  --projectKey $PROJECT --configKey $CONFIG_KEY --envKey $ENV \
+  --data '{"instructions":[{"kind":"updateFallthroughVariationOrRollout","variationId":"<id>"}]}'
+```
+
+Do not use `turnTargetingOn` — that semantic-patch instruction does **not** work for AI Configs. `updateFallthroughVariationOrRollout` is the only instruction that actually flips the fallthrough.
 
 ## modelConfigKey Format
 
