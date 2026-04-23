@@ -87,13 +87,10 @@ Walk the decision tree once per call site, using the call shape as the primary s
 
 | Call shape | Mode |
 |------------|------|
-| `openai.chat.completions.create(messages=[...])` | **completion** |
-| `anthropic.messages.create(system=..., messages=[...])` | **completion** |
-| `bedrock.converse(messages=[...])` | **completion** |
+| Direct provider call with `messages=[...]` (OpenAI, Anthropic, Bedrock Converse) | **completion** |
 | `create_react_agent(llm, tools, prompt=...)` | **agent** |
-| `Agent(role=..., goal=..., backstory=...)` (CrewAI) | **agent** |
+| CrewAI `Agent(role=..., goal=..., backstory=...)` | **agent** |
 | Custom react loop: LLM-call → tool-call → LLM-call | **agent** |
-| One-shot `llm.invoke("some question")` | **completion** |
 
 **Default to completion mode** when unclear — it is more flexible and is the only mode that supports judges attached via the LaunchDarkly UI (Stage 5).
 

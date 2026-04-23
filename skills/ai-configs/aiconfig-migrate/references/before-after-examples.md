@@ -232,11 +232,8 @@ def run_support(user_id: str, user_question: str) -> str:
     if not config.enabled:
         return ""
 
-    # create_langchain_model forwards every variation parameter (temperature,
-    # max_tokens, top_p, stop sequences, ...) and maps LD provider names to
-    # the right LangChain chat class. Do NOT hand-roll ChatOpenAI(model=...,
-    # temperature=...) — it silently drops every parameter you don't explicitly
-    # read, which makes variation changes in the LD UI invisible to the app.
+    # create_langchain_model forwards every variation parameter. Do NOT hand-roll
+    # ChatOpenAI(model=...) — it drops unnamed parameters silently.
     llm = create_langchain_model(config)
 
     agent = create_react_agent(
@@ -264,7 +261,7 @@ def run_support(user_id: str, user_question: str) -> str:
 ## Rules of thumb across all three examples
 
 1. **Nothing is added to the business logic.** The provider call, the framework call, the return shape — all unchanged. Only the *source* of model/prompt/params moves.
-2. **Fallback is built from the values you removed.** If the hardcoded model is `gpt-4o`, the fallback model is `gpt-4o`. If the hardcoded temperature is `0.7`, the fallback temperature is `0.7`. Behavior on LaunchDarkly unreachable must be indistinguishable from pre-migration behavior.
+2. **Fallback is built from the values you removed.** Full rules at [fallback-defaults-pattern.md § Critical rules](fallback-defaults-pattern.md).
 3. **Build a `Context` per request.** The context carries targeting inputs — user ID, plan tier, region, whatever the rollout is keyed on. Reuse the same context the app already uses for feature flag evaluation if one exists.
 4. **Always check `config.enabled`.** Even a successful `completion_config` call can return a disabled config (if the variation is turned off in LaunchDarkly). The disabled path should not call the provider.
 5. **Do not cache the config object across requests.** Call `completion_config` / `agent_config` inside the request handler so LaunchDarkly can re-evaluate targeting per call. One `LDAIClient` instance, many `completion_config` calls.

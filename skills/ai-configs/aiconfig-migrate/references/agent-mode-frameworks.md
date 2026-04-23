@@ -394,38 +394,10 @@ class State(TypedDict, total=False):
     token_accumulator: TokenUsage       # Sum of usage_metadata across loop iterations
     disabled_message: str               # Set iff ai_config.enabled is False
 
-# -----------------------------------------------------------------------------
-# TypedDict vs @dataclass — two valid shapes for State, pick the one that
-# matches the repo you're migrating.
-#
-# This example uses TypedDict with subscript access (state["tools"]). Many
-# LangGraph templates, including langchain-ai/react-agent, use a
-# @dataclass(slots=True) shape with attribute access (state.tools) instead.
-# Either works — LangGraph supports both — and you should NOT convert the
-# repo's existing shape during migration unless the audit found another
-# reason. The substantive change is the field set and reducers, not the
-# declaration style.
-#
-# @dataclass equivalent:
-#
-#     from dataclasses import dataclass, field
-#     from langgraph.graph.message import add_messages
-#     from typing import Annotated
-#
-#     @dataclass
-#     class State:
-#         messages: Annotated[List[Any], add_messages] = field(default_factory=list)
-#         tracker: Optional[Any] = None
-#         model: Optional[Any] = None
-#         tools: List[Any] = field(default_factory=list)
-#         start_perf_ns: int = 0
-#         token_accumulator: Optional[TokenUsage] = None
-#         disabled_message: Optional[str] = None
-#
-# With the @dataclass shape, the nodes below become `state.tools`, `state.tracker`,
-# etc. — same references, attribute access. `tools_node` becomes
-# `ToolNode(list(state.tools)).ainvoke({"messages": list(state.messages)})`.
-# -----------------------------------------------------------------------------
+# If the repo's State is a @dataclass (e.g., langchain-ai/react-agent),
+# attribute access works the same — `state.tools` instead of `state["tools"]`.
+# Same field set, same reducers (wrap the messages field with
+# `Annotated[List[Any], add_messages]`). Don't convert during migration.
 
 
 async def setup_run(state: State, config: RunnableConfig) -> Dict[str, Any]:
@@ -575,13 +547,13 @@ graph = builder.compile()
 
 **Why this shape:**
 
-- **One `create_tracker()` per turn.** The `runId` tags every tracking event emitted by that tracker so events from a single execution can be correlated downstream (exported events, analytics pipelines). Calling the factory in a node that runs more than once per turn produces N runIds, which breaks the correlation story *and* breaks the SDK's at-most-once guards on `track_duration` / `track_tokens` / `track_success` (each fresh tracker resets the guard, so per-iteration calls all "succeed" individually — but the downstream view is N fragmented runs instead of one). `setup_run` is the only place that calls it.
-- **One `agent_config(...)` per turn.** Each call is a flag evaluation plus an emitted event. Re-fetching inside a loop step or inside a tool inflates agent-config counts on the Monitoring tab and, worse, lets a mid-run targeting change swap the variation between LLM calls in a single turn. `setup_run` resolves it once.
-- **`track_duration` / `track_tokens` / `track_success` fire in `finalize`, not `call_model`.** The at-most-once guards added in 0.18.0 will warn if these are called more than once on the same tracker. Calling them per loop step on a three-step ReAct turn means the second and third calls are silently dropped and log a warning. Put them in `finalize`, where each fires exactly once.
-- **`track_tool_calls` in `call_model` is fine.** That event is not at-most-once — it's per-step metadata.
-- **Tools close over per-run config.** `make_search(ai_config)` captures `max_search_results` at `setup_run` time, so the search tool can read it without calling `get_agent_config` mid-turn. If the variation changes while the turn is running, this turn finishes with the original value — which is what you want for turn-level atomicity. The next turn picks up the new value naturally.
-- **`tools` node reads from state via a wrapper, not a bare `ToolNode`.** `ToolNode` in stock LangGraph builds its `{tool.name: tool}` dispatch dict at construction time — an empty constructor list produces an empty dict and every tool call fails to dispatch. Because the factory pattern gives each turn its own concrete callables (search_v10 on one turn, search_v15 on the next if a variation changed), you cannot pre-build `ToolNode(...)` at graph-compile time. Wrap it: `def tools_node(state): return ToolNode(state["tools"]).invoke(state)` and register that node instead. This rebuilds the dispatch dict per invocation and keeps the executor consistent with what `bind_tools(tools)` showed the LLM. Do NOT write `builder.add_node("tools", ToolNode([]))` — that's not a run-time-sourced dispatch, it's a broken one.
-- **Fallback instructions use Mustache placeholders.** `FALLBACK.instructions` is a literal string like `"You are... {{ system_time }}"`. The SDK's Mustache renderer interpolates it on both the LD-served path and the fallback path when you pass `variables={"system_time": ...}` to `agent_config`. Do not `.format()` the fallback instructions — that ships a stale value frozen at import time.
+- **One `create_tracker()` per turn** — `setup_run` is the only caller. Each factory call mints a fresh `runId`; per-iteration calls fragment the run downstream and reset the at-most-once guards.
+- **One `agent_config(...)` per turn** — `setup_run` resolves once. Re-fetching in a loop step inflates agent-config event counts and lets a mid-turn targeting change swap variations between LLM calls.
+- **`track_duration` / `track_tokens` / `track_success` fire in `finalize`, not `call_model`** — these are at-most-once; per-iteration calls are silently dropped.
+- **`track_tool_calls` in `call_model` is fine** — it's per-event metadata, not at-most-once.
+- **Tools close over per-run config** — `make_search(ai_config)` captures `max_search_results` at setup time. A mid-turn variation change doesn't affect the in-flight turn; the next turn picks up the new value.
+- **`tools` node uses the `tools_node` wrapper, not `ToolNode([])`** — `ToolNode` builds its dispatch dict at construction, so an empty list produces empty dispatch and every tool call fails with `is not a valid tool`. The wrapper rebuilds per invocation from state.
+- **Fallback instructions use Mustache** (`"...{{ system_time }}"`), not `.format()` — the SDK's Mustache renderer runs on both the LD-served path and the fallback path; single-brace placeholders ship a stale literal.
 
 **Gotchas:**
 
