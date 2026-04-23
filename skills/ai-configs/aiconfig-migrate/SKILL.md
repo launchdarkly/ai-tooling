@@ -88,13 +88,13 @@ This is the first stage that writes code. It has six sub-steps.
 
 1. **Install the AI SDK.** Detect the package manager from Step 1, then install:
    - Python: `launchdarkly-server-sdk` + `launchdarkly-server-sdk-ai>=0.18.0`
-   - Node.js/TypeScript: `@launchdarkly/node-server-sdk` + `@launchdarkly/server-sdk-ai>=0.17.0`
+   - Node.js/TypeScript: `@launchdarkly/node-server-sdk` + `@launchdarkly/server-sdk-ai@^0.17.0`
    - Go: `github.com/launchdarkly/go-server-sdk/v7` + `github.com/launchdarkly/go-server-sdk/ldai`
 
    Tier-2 provider packages (install in Stage 4, only if you're using the matching provider):
-   - OpenAI: `launchdarkly-server-sdk-ai-openai>=0.4.0` (Python) / `@launchdarkly/server-sdk-ai-openai>=0.5.5` (Node)
-   - LangChain / LangGraph: `launchdarkly-server-sdk-ai-langchain>=0.5.0` (Python) / `@launchdarkly/server-sdk-ai-langchain>=0.5.5` (Node)
-   - Vercel AI SDK (Node only): `@launchdarkly/server-sdk-ai-vercel>=0.5.5`
+   - OpenAI: `launchdarkly-server-sdk-ai-openai>=0.4.0` (Python) / `@launchdarkly/server-sdk-ai-openai@^0.5.5` (Node)
+   - LangChain / LangGraph: `launchdarkly-server-sdk-ai-langchain>=0.5.0` (Python) / `@launchdarkly/server-sdk-ai-langchain@^0.5.5` (Node)
+   - Vercel AI SDK (Node only): `@launchdarkly/server-sdk-ai-vercel@^0.5.5`
    - Anthropic, Gemini, Bedrock — no provider package published; use Tier-3 custom extractor (see `aiconfig-ai-metrics`)
 
 2. **Initialize `LDAIClient` once at startup.** Reuse any existing `LDClient` — do not create a second base client. Place the initialization in the same module that owns existing app config.
