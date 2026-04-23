@@ -351,29 +351,43 @@ TOOL_FACTORIES: Dict[str, Callable[[Any], Callable[..., Any]]] = {
 
 # graph.py
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TypedDict
+from uuid import uuid4
 from ldai_langchain import create_langchain_model, get_ai_metrics_from_response
 from ldai_langchain.langchain_helper import build_structured_tools
 from ldai.tracker import TokenUsage
 from ldclient import Context as LDContext
+from langchain_core.runnables import RunnableConfig
 from .tools import TOOL_FACTORIES
 
 
+# Run-scoped State. Fields below messages[] are non-serializable and only
+# meaningful inside one turn — if you add a LangGraph checkpointer, exclude
+# them from the checkpoint.
 class State(TypedDict, total=False):
-    messages: List[Any]
-    # Run-scoped fields populated by setup_run, read by call_model and finalize
-    tracker: Any
-    model: Any
-    tools: List[Any]
-    start_perf_ns: int
-    token_accumulator: TokenUsage
-    disabled_message: str  # set when ai_config.enabled is False
+    messages: List[Any]                 # standard LangGraph messages reducer applies
+    tracker: Any                        # LDAIConfigTracker, minted in setup_run
+    model: Any                          # Bound chat model with per-run tools
+    tools: List[Any]                    # StructuredTool list for this turn
+    start_perf_ns: int                  # time.perf_counter_ns() at setup_run
+    token_accumulator: TokenUsage       # Sum of usage_metadata across loop iterations
+    disabled_message: str               # Set iff ai_config.enabled is False
 
 
-async def setup_run(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
+async def setup_run(state: State, config: RunnableConfig) -> Dict[str, Any]:
     """Runs once per user turn. Resolves the AI Config, mints the tracker,
-    builds the model and tools, and stashes everything on state."""
-    ld_context = LDContext.builder(runtime.context.thread_id or "anonymous").kind("user").build()
+    builds the model and tools, and stashes everything on state.
+
+    Node signature takes `config: RunnableConfig` rather than
+    `runtime: Runtime[Context]` so the example works with an empty Context
+    dataclass and reads `thread_id` from LangGraph's standard
+    `config["configurable"]["thread_id"]` plumbing. If your app has a typed
+    Context schema with fields beyond thread_id, use the Runtime[Context]
+    signature instead and keep those fields on Context.
+    """
+    configurable = config.get("configurable") or {}
+    ld_key = configurable.get("thread_id") or f"anon-{uuid4()}"
+    ld_context = LDContext.builder(ld_key).kind("user").build()
     ai_config = get_ai_client().agent_config(
         "react-agent",
         ld_context,
@@ -383,9 +397,13 @@ async def setup_run(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
     if not ai_config.enabled:
         return {"disabled_message": "Feature is currently unavailable."}
 
-    # Build per-run tools by passing the resolved ai_config through each
-    # factory. build_structured_tools wraps the callable with the LD tool
-    # key as the StructuredTool.name, so ToolNode lookup works.
+    # Three-tier tool-registry contract. Don't conflate these:
+    #   1. TOOL_FACTORIES          — {name: factory}   at module scope (static, never changes)
+    #   2. built_callables         — {name: callable}  per-run (factories applied to ai_config)
+    #   3. tools (StructuredTool)  — per-run list, ready for bind_tools + ToolNode dispatch
+    # build_structured_tools reads ai_config.model.parameters.tools to decide
+    # which entries from built_callables to wrap — the LLM only sees the subset
+    # the variation attached, even if the registry has more callables.
     built_callables = {name: fn(ai_config) for name, fn in TOOL_FACTORIES.items()}
     tools = build_structured_tools(ai_config, built_callables)
 
@@ -452,10 +470,26 @@ def route_model_output(state: State) -> Literal["tools", "finalize"]:
     return "tools" if getattr(last, "tool_calls", None) else "finalize"
 
 
-builder = StateGraph(State, context_schema=Context)
+def tools_node(state: State) -> Dict[str, Any]:
+    """Dynamic ToolNode wrapper.
+
+    `ToolNode` builds its `{name: callable}` dispatch dict at construction
+    time, so `ToolNode([])` cannot execute anything. Because our tool
+    callables close over per-run `ai_config` (see TOOL_FACTORIES), we cannot
+    pre-build the ToolNode at compile time — the concrete callables differ
+    each turn. Construct a fresh ToolNode from state["tools"] per invocation.
+    """
+    return ToolNode(state["tools"]).invoke(state)
+
+
+# No context_schema=Context here — Context can be empty or dropped entirely.
+# thread_id and any other per-invocation plumbing flows through RunnableConfig
+# via config["configurable"] (see setup_run). Add context_schema=Context only
+# if your app truly has typed per-request context fields beyond thread_id.
+builder = StateGraph(State)
 builder.add_node(setup_run)
 builder.add_node(call_model)
-builder.add_node("tools", ToolNode([]))  # ToolNode picks tools from state at run time
+builder.add_node("tools", tools_node)  # NOT ToolNode([]) — see tools_node docstring
 builder.add_node(finalize)
 builder.add_edge("__start__", "setup_run")
 builder.add_conditional_edges("setup_run", route_after_setup)
@@ -472,7 +506,7 @@ graph = builder.compile()
 - **`track_duration` / `track_tokens` / `track_success` fire in `finalize`, not `call_model`.** The at-most-once guards added in 0.18.0 will warn if these are called more than once on the same tracker. Calling them per loop step on a three-step ReAct turn means the second and third calls are silently dropped and log a warning. Put them in `finalize`, where each fires exactly once.
 - **`track_tool_calls` in `call_model` is fine.** That event is not at-most-once — it's per-step metadata.
 - **Tools close over per-run config.** `make_search(ai_config)` captures `max_search_results` at `setup_run` time, so the search tool can read it without calling `get_agent_config` mid-turn. If the variation changes while the turn is running, this turn finishes with the original value — which is what you want for turn-level atomicity. The next turn picks up the new value naturally.
-- **`tools` node reads from state.** Seeding `ToolNode([])` at compile time and letting the runtime pull the tool list from state (via a thin wrapper, or LangGraph's `ToolNode.from_state` style) keeps the dispatch consistent with what `bind_tools(tools)` showed the LLM. You can also pass the tools positionally via `ToolNode(tools)` inside a small factory closure if your LangGraph version doesn't support state-sourced tools.
+- **`tools` node reads from state via a wrapper, not a bare `ToolNode`.** `ToolNode` in stock LangGraph builds its `{tool.name: tool}` dispatch dict at construction time — an empty constructor list produces an empty dict and every tool call fails to dispatch. Because the factory pattern gives each turn its own concrete callables (search_v10 on one turn, search_v15 on the next if a variation changed), you cannot pre-build `ToolNode(...)` at graph-compile time. Wrap it: `def tools_node(state): return ToolNode(state["tools"]).invoke(state)` and register that node instead. This rebuilds the dispatch dict per invocation and keeps the executor consistent with what `bind_tools(tools)` showed the LLM. Do NOT write `builder.add_node("tools", ToolNode([]))` — that's not a run-time-sourced dispatch, it's a broken one.
 - **Fallback instructions use Mustache placeholders.** `FALLBACK.instructions` is a literal string like `"You are... {{ system_time }}"`. The SDK's Mustache renderer interpolates it on both the LD-served path and the fallback path when you pass `variables={"system_time": ...}` to `agent_config`. Do not `.format()` the fallback instructions — that ships a stale value frozen at import time.
 
 **Gotchas:**

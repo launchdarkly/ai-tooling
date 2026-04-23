@@ -40,6 +40,12 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 ## Workflow
 
+### Minimum viable migration
+
+Stages 1–4 (audit, extract, wrap, optional tools, tracker) are independently shippable. **A migration that stops after Stage 4 is complete, production-ready, and delivers the core value** — externalized prompts and model config, targeting, variation A/B testing, and Monitoring-tab metrics. Stage 5 (evaluations) is a quality-of-life addition, not a gate. Do not block a Stage-4 rollout on evals; ship the run-scoped tracker path, verify metrics flow, then come back for Stage 5 when the team has time to curate a dataset.
+
+That said, do not *skip* Stage 4. A migration without the tracker gives you externalized prompts but no visibility, which is most of the payoff left on the floor.
+
 ### Step 1: Audit the codebase (read-only)
 
 Run the phase-1 checklist and produce a structured summary. **This step writes no code and creates no LaunchDarkly resources.**
@@ -106,6 +112,8 @@ This is the first stage that writes code. It has eight sub-steps.
    from ldclient.config import Config
    from ldai.client import LDAIClient
 
+   # Order matters: ldclient.get() raises if called before ldclient.set_config().
+   # The set_config call is what initializes the singleton; .get() just returns it.
    ldclient.set_config(Config(os.environ["LD_SDK_KEY"]))
    ai_client = LDAIClient(ldclient.get())
    ```
@@ -432,7 +440,7 @@ Delegate: **`aiconfig-online-evals`** (sub-step 3, optional — only for UI-atta
 | Single-agent (ReAct, tool loop) + agent mode | Default to offline eval via the LD Playground + Datasets for Stage 5. UI-attached judges are completion-only today, and programmatic direct-judge adds per-call cost that is usually not worth it until after the migration is live and stable. Point at the [Offline Evals guide](https://docs.launchdarkly.com/guides/ai-configs/offline-evaluations) |
 | Tool with a Pydantic `args_schema` (LangChain `@tool`) | Extract the schema via `tool.args_schema.model_json_schema()`; do not hand-write the JSON schema for the delegate |
 | Custom `StateGraph` with module-level `TOOLS` list bound via `.bind_tools(TOOLS)` and run through `ToolNode(TOOLS)` (e.g. the `langchain-ai/react-agent` template) | Find the `TOOLS` list (usually in a separate `tools.py` module). Extract schemas the same way. Swap **both** call sites — `.bind_tools(...)` and `ToolNode(...)` — to read from the same `config.tools`-derived list |
-| App has already externalized config into a `Context` dataclass with env-var fallback (e.g. `react-agent` template's `context.py`) | Good news — migration is a single-layer change. Replace the `Context` dataclass consumer (`runtime.context.model`, `runtime.context.system_prompt`) with a per-request `ai_client.agent_config(...)` call. Keep the dataclass as the fallback shape (it already mirrors the hardcoded values) |
+| App has already externalized config into a `Context` dataclass with env-var fallback (e.g. `react-agent` template's `context.py`) | Replace the consumers of `runtime.context.model` / `runtime.context.system_prompt` with `ai_client.agent_config(...)` and read from the returned `AIAgentConfig`. **Empty the dataclass** rather than keeping it as the fallback shape — the canonical fallback is `FALLBACK = AIAgentConfigDefault(...)` in Python (a top-level constant near the `agent_config` call), not a parallel Python dataclass. Two sources of truth for fallback values drift. An empty `Context` is a placeholder satisfying LangGraph's `context_schema` requirement only; `thread_id` and any other per-request plumbing comes through `config: RunnableConfig` instead (see [agent-mode-frameworks.md § Custom `StateGraph`](references/agent-mode-frameworks.md)) |
 
 ## What NOT to Do
 
@@ -441,7 +449,7 @@ These are ordered by how likely they are to show up as a first-run failure. The 
 ### Tracker and config lifetime (most common failure mode)
 
 - **Don't call `create_tracker()` / `createTracker()` more than once per user turn.** "One execution" means one user turn — the full request/response cycle including every ReAct loop iteration, tool call, and retry. Each call mints a new tracker with a new `runId`; events emitted on different `runId`s can't be correlated downstream (exported events lose the 1:1 run grouping) and each fresh tracker resets the at-most-once guard, so per-iteration `track_duration` / `track_tokens` / `track_success` calls each fire independently instead of being deduplicated to one per turn. For agent loops, mint the tracker in a `setup_run` entry node that runs once, stash it on graph state, and read it from state in every subsequent node. Putting `create_tracker()` inside a LangGraph `call_model` node is the first-run failure mode — it fires once per loop iteration and fragments a three-step turn into three separate runs.
-- **Don't call `track_duration` / `track_tokens` / `track_success` inside a loop body.** These methods are at-most-once per tracker as of v0.18.0 (Python) / v0.17.0 (Node); the second and subsequent calls log a warning and are silently dropped. Accumulate inside the loop (sum `usage_metadata` across steps, stash a `perf_counter_ns` timer at the top) and emit all three exactly once in a terminal / finalize node after the loop exits. `track_tool_calls` is safe to call per step — it's metadata, not a once-per-run event.
+- **Don't call `track_duration` / `track_tokens` / `track_success` / `track_error` / `track_time_to_first_token` inside a loop body.** These five methods are at-most-once per tracker as of v0.18.0 (Python) / v0.17.0 (Node); the second and subsequent calls log a warning and are silently dropped. Accumulate inside the loop (sum `usage_metadata` across steps, stash a `perf_counter_ns` timer at the top) and emit once in a terminal / finalize node after the loop exits. Per-event methods — `track_tool_call`, `track_tool_calls`, `track_feedback`, `track_judge_result` — are safe to call as many times as the agent genuinely does that thing. The full safe/unsafe matrix is at [sdk-ai-tracker-patterns.md § At-most-once guards](references/sdk-ai-tracker-patterns.md).
 - **Don't call `agent_config()` / `completion_config()` more than once per user turn.** Each call is a flag evaluation and emits a `$ld:ai:agent:config` event. Re-fetching inside a loop step or a tool body inflates agent-config counts on the Monitoring tab and lets a mid-turn targeting change swap the variation between LLM calls in a single turn. Resolve once at the top, stash on state, and have every subsequent consumer read from state. Tools that need variation-scoped knobs should use the tool-factory pattern (`make_search(ai_config)` that closes over the knob at setup time) — see [agent-mode-frameworks.md § Getting knobs into tools](references/agent-mode-frameworks.md).
 - Don't cache the config object *across* requests — resolve once per turn, yes, but still resolve once per turn. Caching at module scope defeats the targeting-change mechanism entirely.
 - Don't delete the fallback once LaunchDarkly is wired up. It is required for the `enabled=False` and SDK-unreachable paths.

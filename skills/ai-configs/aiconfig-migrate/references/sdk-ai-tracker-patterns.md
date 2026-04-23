@@ -22,7 +22,22 @@ The common mistake: calling `create_tracker()` inside a function that runs more 
 
 ### At-most-once guards on `track_duration` / `track_tokens` / `track_success`
 
-`track_duration`, `track_tokens`, `track_success`, `track_error`, and `track_time_to_first_token` are **at-most-once per tracker** as of Python v0.18.0 / Node v0.17.0. The second call logs a warning and is dropped. This matters for agent loops: if `track_duration` lives inside the loop body it silently stops recording after iteration 1. Accumulate inside the loop (sum `usage_metadata` into a `TokenUsage` running total, stash `start_perf_counter_ns` up top) and emit each of the three once, after the loop exits. `track_tool_calls` is not at-most-once — call it per step with the names from that step.
+As of Python v0.18.0 / Node v0.17.0, the tracker's methods split into two groups by whether repeated calls are safe. Knowing which is which is the difference between a correctly-instrumented agent loop and one that silently drops data:
+
+| Method | Category | Safe to call per loop step? | What happens if you exceed |
+|---|---|---|---|
+| `track_duration` / `trackDuration` | **at-most-once** | ❌ | Second and later calls log a warning and are dropped |
+| `track_tokens` / `trackTokens` | **at-most-once** | ❌ | Same |
+| `track_success` / `trackSuccess` | **at-most-once** | ❌ | Same |
+| `track_error` / `trackError` | **at-most-once** (mutually exclusive with `track_success`) | ❌ | Same |
+| `track_time_to_first_token` / `trackTimeToFirstToken` | **at-most-once** | ❌ | Same |
+| `track_tool_call` / `trackToolCall` | **per-event** | ✅ | Metadata records each invocation; no dedup |
+| `track_tool_calls` / `trackToolCalls` | **per-event** | ✅ | Same; iterable variant for batching |
+| `track_feedback` / `trackFeedback` | **per-event** | ✅ | Each feedback signal is a new event |
+| `track_judge_result` / `trackJudgeResult` | **per-event** | ✅ | Each judge evaluation is a new event |
+| `track_metrics_of` / `trackMetricsOf` | **wrapper over at-most-once methods** | ❌ | Internally emits `track_duration` + `track_success`/`track_error` + `track_tokens` once per wrapped call — so calling `trackMetricsOf` twice on the same tracker re-trips the guards |
+
+The pattern for an agent loop follows from the split: accumulate `usage_metadata` across iterations (sum into a `TokenUsage` running total) and stash `time.perf_counter_ns()` up top; emit the four **at-most-once** methods exactly once in a terminal / finalize node. Per-step metadata like `track_tool_calls` goes inside the loop body where it belongs.
 
 ```python
 # Python v0.18.0+
