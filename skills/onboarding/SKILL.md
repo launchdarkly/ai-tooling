@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires an MCP-capable coding agent, `npx` on PATH for optional skill installs, and a LaunchDarkly account. SDK keys, client-side IDs, mobile keys, and API tokens are only needed when the step that uses them runs (see Prerequisites).
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # LaunchDarkly SDK Onboarding
@@ -111,7 +111,6 @@ Do NOT treat the user's initial request (e.g. "onboard me," "set up LaunchDarkly
 | D5-NOAPP | Step 5 -- detect | No runnable app found: user points to app or requests demo |
 | D5-UNCLEAR | Step 5 -- detect | Weak evidence: user confirms the correct app folder |
 | D5 | Step 5 -- detect | SDK confirmation / one-vs-both-SDKs scope choice |
-| D6 | Step 5 -- plan | Integration plan preview (non-blocking: present plan and continue unless user objects) |
 | D7 | Step 5 -- apply | User chooses how secrets are set up: user-specified location, user handles it, or `.env` fallback. If user cannot provide keys, offer signup link. |
 | D8 | Step 5 -- apply | Approval before changing non-LaunchDarkly dependencies |
 | D9 | Step 6 | Auth errors (401/403): stop, do not retry automatically |
@@ -151,7 +150,7 @@ Perform these in **order** in the **same assistant turn**, then proceed directly
 2. **Roadmap:** Give the user a brief, friendly preview of what you are about to do. Keep it conversational -- a short paragraph or a compact list is fine. Do not render a large table by default (the table below is your internal reference). The user should understand the arc (explore the project, set up tooling, install the SDK, create a first flag) without seeing step numbers or internal labels.
 3. **Begin Steps 0-3 immediately.** These steps do not require a LaunchDarkly account or any user action. Run them in the background and surface only the results: what you found (language, framework, agent) and what you installed (companion skills). Do not narrate each step as a separate heading -- summarize them together when presenting findings to the user. Account status is inferred later (see [Prerequisites](#prerequisites)).
 
-- **Resuming:** If `LAUNCHDARKLY_ONBOARDING.md` already exists, read it first per [Step 0](#step-0-create-or-refresh-the-onboarding-log). Show a shorter "where we are" summary. Refresh the task list to match the log; continue from the log's **Next step**.
+- **Resuming:** If `LAUNCHDARKLY_ONBOARDING.md` already exists, read it first per [Steps 0-3](#steps-0-3-setup-run-silently----do-not-narrate-each-step). Show a shorter "where we are" summary. Refresh the task list to match the log; continue from the log's **Next step**.
 
 | Step | What happens | You get |
 |------|--------------|---------|
@@ -236,7 +235,7 @@ If the project **already has LaunchDarkly installed and initialized** (see [dete
 
 Otherwise hand off to [LaunchDarkly SDK Install (onboarding)](sdk-install/SKILL.md), which runs nested skills in order: [Detect repository stack](sdk-install/detect/SKILL.md) -> [Generate integration plan](sdk-install/plan/SKILL.md) -> [Apply code changes](sdk-install/apply/SKILL.md), using [SDK recipes](references/sdk/recipes.md) and [SDK snippets](references/sdk/snippets/). If the user asked for **both** server and client (e.g. API + SPA, Next.js server + browser), follow [Dual SDK integrations](sdk-install/plan/SKILL.md#dual-sdk-integrations) through plan and apply so **both** SDKs are really installed and initialized.
 
-**Blocking decision points inside Step 5** (see nested skills): D5 (SDK scope), D6 (plan approval), D7 (secret consent), D8 (dependency changes). Do NOT batch tool calls across these boundaries.
+**Blocking decision points inside Step 5** (see nested skills): D5 (SDK scope), D7 (secret consent), D8 (dependency changes). Do NOT batch tool calls across these boundaries. D6 (plan preview) is non-blocking -- present the plan and continue unless the user objects.
 
 ### Step 6: Create Your First Feature Flag
 
@@ -304,7 +303,7 @@ This is **not** the same file as `LAUNCHDARKLY_ONBOARDING.md`. The onboarding lo
 
 **Continuity**
 
-- Step 0 -- `LAUNCHDARKLY_ONBOARDING.md` (working log; see [Step 0](#step-0-create-or-refresh-the-onboarding-log))
+- Step 0 -- `LAUNCHDARKLY_ONBOARDING.md` (working log; see [Steps 0-3](#steps-0-3-setup-run-silently----do-not-narrate-each-step))
 
 **Step 4 -- MCP (nested skill is primary)**
 
