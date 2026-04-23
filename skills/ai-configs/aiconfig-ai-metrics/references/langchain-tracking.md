@@ -5,12 +5,39 @@ LangChain is covered by a first-class LaunchDarkly provider package in both Pyth
 - Python: `launchdarkly-server-sdk-ai-langchain` (imported as `ldai_langchain`)
 - Node: `@launchdarkly/server-sdk-ai-langchain` (exports `LangChainProvider`)
 
-Two helpers do the heavy lifting. Use both — skipping either silently drops value that the provider package would otherwise give you.
+Three helpers do the heavy lifting. Use them — skipping any silently drops value that the provider package would otherwise give you.
 
 | Helper | Purpose |
 |---|---|
 | `create_langchain_model(config)` (Python) / `LangChainProvider.createLangChainModel(config)` (Node) | Build a LangChain chat model from the AI Config. Forwards **all** variation parameters (temperature, max_tokens, top_p, and so on), picks the correct LangChain chat class based on `config.provider.name`, and handles provider-name mapping internally (for example, LaunchDarkly's `"gemini"` → LangChain's `"google_genai"`). |
+| `build_structured_tools(config, registry)` (Python, `ldai_langchain.langchain_helper`) | Read `config.model.parameters.tools` and wrap the matching entries in your `{name: callable}` registry as LangChain `StructuredTool` instances ready for `bind_tools`. This is the first-class replacement for hand-rolled `resolve_tools` / `TOOL_REGISTRY` / `ALL_TOOLS` patterns — it handles async callables via `coroutine=` and uses the LD tool key as the `StructuredTool.name`, so `ToolNode` lookup works without extra mapping. |
 | `get_ai_metrics_from_response` (top-level import) / `LangChainProvider.getAIMetricsFromResponse` (Node class method) | Extract token usage from a LangChain response. Pass as the extractor argument to `track_metrics_of` / `trackMetricsOf`. Both import forms are supported in Node; the top-level import is how Python exposes it. |
+
+## `model.parameters` vs `model.custom` — the biggest gotcha
+
+`create_langchain_model` forwards **every key** on `config.model.parameters` to the underlying provider SDK via `init_chat_model`. That means any app-scoped knob you want to drive from LaunchDarkly — search result limits, retry budgets, feature toggles, prompt-variable defaults — **must not** live in `parameters`, because the provider will reject unknown kwargs at runtime (e.g., `AsyncMessages.create() got an unexpected keyword argument 'max_search_results'`).
+
+Put provider-bound fields in `model.parameters` and app-scoped fields in `model.custom`:
+
+```python
+# Read a provider-bound parameter (forwarded to the LLM SDK)
+temperature = ai_config.model.get_parameter("temperature")
+
+# Read an app-scoped knob (NOT forwarded, safe for anything)
+max_search_results = ai_config.model.get_custom("max_search_results") or 10
+```
+
+**MCP caveat.** The LaunchDarkly MCP `update-ai-config-variation` tool does not currently expose the `custom` field on a variation. To set `model.custom`, PATCH the variation directly against the REST API:
+
+```bash
+curl -X PATCH \
+  "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/variations/$VARIATION_ID" \
+  -H "Authorization: $LD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"patch":[{"op":"add","path":"/model/custom","value":{"max_search_results":10}}]}'
+```
+
+Nothing in the tracker or provider packages reads `custom` — it's a pass-through bucket for your application to pull from via `config.model.get_custom(key)`.
 
 ## Tier 2 — LangChain (single model, not a graph)
 
@@ -188,6 +215,36 @@ const result = await agentTracker.trackMetricsOf(
 
 `get_ai_metrics_from_response` / `getAIMetricsFromResponse` is defined on a single LangChain `AIMessage`. A LangGraph run produces N messages (model turn, tool result, model turn, tool result, final). If you pass the whole `result` to the extractor, you miss most of the token usage. Iterating and summing is deliberate — it's the same pattern the LaunchDarkly LangGraph guide uses.
 
+## Binding AI-Config-attached tools with `build_structured_tools`
+
+If the variation has tools attached (via `/aiconfig-tools`), use `build_structured_tools` rather than hand-rolling a `TOOL_REGISTRY` / `resolve_tools` / `ALL_TOOLS` shape. The helper reads `ai_config.model.parameters.tools`, picks the matching entries from your `{name: callable}` registry, wraps them as LangChain `StructuredTool` instances, and preserves the LD tool key as the `StructuredTool.name` (so `ToolNode(...)` lookup works without a second mapping).
+
+```python
+# tools.py — implementations only; no manual schema, no resolve_tools()
+from langchain_tavily import TavilySearch
+
+async def search(query: str) -> dict:
+    """Search the web via Tavily."""
+    ai_config = get_agent_config(...)
+    max_results = ai_config.model.get_custom("max_search_results") or 10
+    return await TavilySearch(max_results=max_results).ainvoke({"query": query})
+
+TOOL_REGISTRY = {"search": search}
+
+# graph.py — bind whatever the active variation exposes
+from ldai_langchain import create_langchain_model, get_ai_metrics_from_response
+from ldai_langchain.langchain_helper import build_structured_tools
+
+model = create_langchain_model(ai_config)
+tools = build_structured_tools(ai_config, TOOL_REGISTRY)
+response = await tracker.track_metrics_of_async(
+    lambda: model.bind_tools(tools).ainvoke(messages),
+    get_ai_metrics_from_response,
+)
+```
+
+**What you delete when you adopt this:** any module-level `ALL_TOOLS` list, any `resolve_tools(tool_keys)` helper, any hand-written JSON Schema blocks in code. The variation owns the schema; your repo owns the behavior. `ToolNode` can be seeded with every callable in the registry because the LLM only sees the filtered subset `build_structured_tools` produces.
+
 ## Tier 3 — fall through to a custom extractor
 
 You will not usually need Tier 3 for LangChain or LangGraph — `get_ai_metrics_from_response` normalizes the response shape across providers. If the variation points at a model whose LangChain integration does not populate `usage_metadata` (rare, usually a custom integration), write a small extractor that reads whatever field the integration exposes and returns `LDAIMetrics`. This is the same fallback documented in [openai-tracking.md](openai-tracking.md) and [anthropic-tracking.md](anthropic-tracking.md).
@@ -199,6 +256,10 @@ LangChain streaming with TTFT tracking uses the same manual pattern as direct-SD
 ## What NOT to do
 
 - **Do not build the model with `init_chat_model` + a hand-rolled provider-name mapping.** The helper forwards all variation parameters; the hand-rolled version silently drops them.
+- **If an existing `load_chat_model` / `init_chat_model` wrapper is already in the repo — delete it.** Do not keep it around as a convenience. Leaving it in place means every future agent in the codebase will reach for the familiar function and silently drop variation parameters. Replace imports with `create_langchain_model(ai_config)` at every call site, then remove the wrapper file.
+- **Do not keep hand-rolled `TOOL_REGISTRY` / `resolve_tools` / `ALL_TOOLS` patterns once `build_structured_tools` is available.** The SDK helper replaces them. Same deletion principle as above — if a hand-rolled version sits in the repo, future code will use it instead of the SDK helper.
+- **Do not put app-scoped knobs in `model.parameters`.** They will be forwarded to the provider SDK and crash at runtime with an unexpected-keyword-argument error. Use `model.custom` for anything that is not a provider-bound parameter.
 - **Do not pass the full LangGraph `result` object to `get_ai_metrics_from_response`.** The extractor is defined on a single message; aggregating across `result.messages` is the correct pattern.
 - **Do not assume there is a separate LangGraph provider package.** There is not. `@launchdarkly/server-sdk-ai-langchain` and `ldai_langchain` cover both.
 - **Do not import `LaunchDarklyCallbackHandler` from `ldai.langchain`.** Neither the class nor the dotted module path exists in the Python package. Use the helpers above.
+- **Do not re-encode tool schemas inside the fallback.** If LaunchDarkly is unreachable, the fallback should run *without* tools (or with the minimum provider-bound parameters the app needs). Putting a full `tools` array back into the fallback re-introduces the hardcoded config the migration was supposed to eliminate.

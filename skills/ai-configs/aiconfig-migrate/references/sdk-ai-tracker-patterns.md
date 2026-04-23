@@ -426,6 +426,7 @@ Run the checklist in order. Each step rules out one cause.
 
 ## Common gotchas
 
+- **`model.parameters` vs `model.custom`.** `create_langchain_model` / `LangChainProvider.createLangChainModel` forwards every key in `model.parameters` to the provider SDK. App-scoped knobs (search result limits, retry budgets, feature toggles) **must** live in `model.custom` or the provider will crash at runtime with an unexpected-keyword-argument error. Read them with `ai_config.model.get_custom("key")`. Full walk-through with the MCP/REST-API caveat in [langchain-tracking.md § `model.parameters` vs `model.custom`](../../aiconfig-ai-metrics/references/langchain-tracking.md).
 - **`track_tokens` token shape.** The Python `TokenUsage` dataclass requires `total` to be set — it is not derived. Compute `total = input + output` if the provider doesn't return one.
 - **`track_feedback` lifecycle.** The feedback call must be made on a tracker bound to the same `runId` that produced the response. If the thumbs-up comes in a later process, use the cross-process resumption pattern above — do **not** call `create_tracker()` again in the consumer, because that mints a *new* `runId`.
 - **OpenAI streaming tokens.** OpenAI only emits `usage` in the final chunk when `stream_options={"include_usage": True}` is passed. Without that flag, you have to tokenize manually — `tiktoken` for OpenAI models.
