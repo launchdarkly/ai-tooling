@@ -83,9 +83,10 @@ If the user **declines** broader changes: keep only the LD package addition if p
 **If the user chooses option 4 ("I don't have an account yet"):**
 1. Point them to https://app.launchdarkly.com/signup?source=agent
 2. Explain that SDK key setup requires an account -- they can complete setup after signing up
-3. Write placeholder variable names to `.env` (no real values) so the code compiles
-4. Continue with Step 3 (init code) using the placeholder env var references. The app will fail to connect to LaunchDarkly until real keys are set, which is expected.
-5. Note in the onboarding log that key setup is pending account creation
+3. Ensure `.env` is in `.gitignore` before writing (same check as option 3 / [Write to `.env`](#write-to-env-when-the-user-consents))
+4. Write placeholder variable names to `.env` (no real values) so the code compiles
+5. Continue with Step 3 (init code) using the placeholder env var references. The app will fail to connect to LaunchDarkly until real keys are set, which is expected.
+6. Note in the onboarding log that key setup is pending account creation
 
 ### Fetching keys via MCP
 
