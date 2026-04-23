@@ -208,7 +208,7 @@ import ldclient
 from ldclient import Context
 from ldclient.config import Config
 from ldai.client import LDAIClient, AIAgentConfigDefault, ModelConfig, ProviderConfig
-from langchain_openai import ChatOpenAI
+from ldai_langchain import create_langchain_model
 from langgraph.prebuilt import create_react_agent
 from my_tools import search_kb, calculator
 
@@ -232,11 +232,12 @@ def run_support(user_id: str, user_question: str) -> str:
     if not config.enabled:
         return ""
 
-    params = config.model.parameters or {}
-    llm = ChatOpenAI(
-        model=config.model.name,
-        temperature=params.get("temperature", 0.3),
-    )
+    # create_langchain_model forwards every variation parameter (temperature,
+    # max_tokens, top_p, stop sequences, ...) and maps LD provider names to
+    # the right LangChain chat class. Do NOT hand-roll ChatOpenAI(model=...,
+    # temperature=...) — it silently drops every parameter you don't explicitly
+    # read, which makes variation changes in the LD UI invisible to the app.
+    llm = create_langchain_model(config)
 
     agent = create_react_agent(
         model=llm,
@@ -252,9 +253,10 @@ def run_support(user_id: str, user_question: str) -> str:
 
 - `agent_config()` is called instead of `completion_config()` because the framework expects an `instructions` string
 - `FALLBACK` is an `AIAgentConfigDefault` (note the different type — same fields as completion except `instructions` instead of `messages`)
-- `ChatOpenAI(model=..., temperature=...)` reads both from `config.model`
+- Model construction goes through `create_langchain_model(config)` from the `ldai_langchain` helper package — forwards every variation parameter. The alternative of hand-rolling `ChatOpenAI(model=config.model.name, temperature=...)` would silently drop every parameter not explicitly named.
 - `create_react_agent(prompt=...)` reads from `config.instructions`
-- Tool list is still hardcoded — Stage 3 handles that move (see [agent-mode-frameworks.md](agent-mode-frameworks.md) for the dynamic-tool-factory pattern)
+- Tool list is still hardcoded — Stage 3 handles that move (see [agent-mode-frameworks.md](agent-mode-frameworks.md) for the tool-factory pattern that closes over per-run config)
+- **Stage 4 will add a run-scoped tracker** (mint in a `setup_run` entry node, consume in `call_model` and `finalize`) — see [agent-mode-frameworks.md § Custom `StateGraph`](agent-mode-frameworks.md) for the full architecture
 - Provider-side logic (LangGraph, ReAct loop) is unchanged
 
 ---

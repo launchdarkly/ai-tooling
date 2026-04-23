@@ -467,7 +467,7 @@ graph = builder.compile()
 
 **Why this shape:**
 
-- **One `create_tracker()` per turn.** `runId` groups every tracking event from a single execution. Calling the factory in a node that runs more than once per turn produces N runIds and fragments the Monitoring tab. `setup_run` is the only place that calls it.
+- **One `create_tracker()` per turn.** The `runId` tags every tracking event emitted by that tracker so events from a single execution can be correlated downstream (exported events, analytics pipelines). Calling the factory in a node that runs more than once per turn produces N runIds, which breaks the correlation story *and* breaks the SDK's at-most-once guards on `track_duration` / `track_tokens` / `track_success` (each fresh tracker resets the guard, so per-iteration calls all "succeed" individually — but the downstream view is N fragmented runs instead of one). `setup_run` is the only place that calls it.
 - **One `agent_config(...)` per turn.** Each call is a flag evaluation plus an emitted event. Re-fetching inside a loop step or inside a tool inflates agent-config counts on the Monitoring tab and, worse, lets a mid-run targeting change swap the variation between LLM calls in a single turn. `setup_run` resolves it once.
 - **`track_duration` / `track_tokens` / `track_success` fire in `finalize`, not `call_model`.** The at-most-once guards added in 0.18.0 will warn if these are called more than once on the same tracker. Calling them per loop step on a three-step ReAct turn means the second and third calls are silently dropped and log a warning. Put them in `finalize`, where each fires exactly once.
 - **`track_tool_calls` in `call_model` is fine.** That event is not at-most-once — it's per-step metadata.
