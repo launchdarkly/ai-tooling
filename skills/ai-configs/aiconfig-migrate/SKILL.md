@@ -12,6 +12,12 @@ metadata:
 
 You're using a skill that will guide you through migrating an application from hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation. Your job is to audit the existing code, extract the hardcoded model and prompt, wrap the call site in the AI SDK with a safe fallback, move tools into the config, instrument the tracker, and attach evaluations — in that order, stopping at each stage for the user to confirm.
 
+> **⚠️ Three first-run failure modes to know before you touch code.** Each has cost agents hours of "my migration looks done but the SDK is broken" debugging:
+>
+> 1. **Tracker in the wrong scope.** For any agent with a loop (LangGraph `call_model` → tool → `call_model` → …), mint `create_tracker()` **once per user turn** in a `setup_run` entry node, not inside `call_model`. Putting the factory call inside a node that runs more than once per turn produces N `runId`s and trips the at-most-once guards on `track_duration` / `track_tokens` / `track_success`. See [agent-mode-frameworks.md § Custom `StateGraph` (run-scoped architecture)](references/agent-mode-frameworks.md).
+> 2. **`load_chat_model` wrapper reuse.** If the repo already contains a `load_chat_model(f"{provider}/{name}")` helper (ships with `langchain-ai/react-agent` and clones), **delete it** — don't just avoid using it. It wraps `init_chat_model(...)` with only name + provider, silently dropping every variation parameter (temperature, max_tokens, top_p). Replace with `create_langchain_model(ai_config)` at every call site and remove the wrapper in the same commit so the next reader can't reach for it.
+> 3. **Fallthrough not flipped after `/aiconfig-create`.** A freshly-created AI Config has its fallthrough pointing at an auto-generated disabled variation, so the SDK returns `ai_config.enabled=False` until targeting is updated. Run `/aiconfig-targeting` (or the inline shortcut in `/aiconfig-create` Step 5) to point the fallthrough at your new variation before Stage 2 verification.
+
 ## Prerequisites
 
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment, and an application that already calls an LLM provider with hardcoded model, prompt, and parameter values.

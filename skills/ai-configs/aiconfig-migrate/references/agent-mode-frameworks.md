@@ -470,16 +470,27 @@ def route_model_output(state: State) -> Literal["tools", "finalize"]:
     return "tools" if getattr(last, "tool_calls", None) else "finalize"
 
 
-def tools_node(state: State) -> Dict[str, Any]:
-    """Dynamic ToolNode wrapper.
+async def tools_node(state: State) -> Dict[str, Any]:
+    """Dynamic ToolNode wrapper — rebuilds dispatch per invocation.
 
     `ToolNode` builds its `{name: callable}` dispatch dict at construction
-    time, so `ToolNode([])` cannot execute anything. Because our tool
-    callables close over per-run `ai_config` (see TOOL_FACTORIES), we cannot
-    pre-build the ToolNode at compile time — the concrete callables differ
-    each turn. Construct a fresh ToolNode from state["tools"] per invocation.
+    time, so `ToolNode([])` cannot execute anything (dispatch returns
+    "Error: <tool> is not a valid tool, try one of []." verbatim). Because
+    our tool callables close over per-run `ai_config` (see TOOL_FACTORIES),
+    we cannot pre-build the ToolNode at compile time — the concrete
+    callables differ each turn. Construct a fresh ToolNode from
+    state["tools"] per invocation.
+
+    Two things to get right in the body:
+    - Use `ainvoke`, not `invoke` — the enclosing nodes in this example
+      are async and LangGraph will raise if a sync node is awaited.
+    - Pass an explicit `{"messages": [...]}` payload rather than the full
+      State dict — ToolNode's contract is that input shape, and passing
+      extra fields has surprised users on some LangGraph versions.
     """
-    return ToolNode(state["tools"]).invoke(state)
+    return await ToolNode(list(state["tools"])).ainvoke(
+        {"messages": list(state["messages"])}
+    )
 
 
 # No context_schema=Context here — Context can be empty or dropped entirely.
