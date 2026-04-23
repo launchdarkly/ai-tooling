@@ -62,15 +62,37 @@ curl -X PATCH \
   -d '{"patch":[{"op":"add","path":"/model/custom","value":{"max_search_results":10}}]}'
 ```
 
-### Getting knobs into tools: two patterns, different tradeoffs
+### Getting knobs into tools: tool factories that close over per-run config (default)
 
-Tools need read access to `model.custom` at call time. There are two idiomatic shapes; each has a different cost profile:
+Tools need read access to `model.custom` at call time. The correct pattern is a **tool factory** that takes the per-run `ai_config` resolved in `setup_run` (or at the top of a custom ReAct loop) and returns a tool callable that closes over whatever knobs it needs:
 
-1. **Re-call `agent_config()` inside the tool.** Simplest to reason about: the tool fetches a fresh `AIAgentConfig` with the current targeting, reads `ai_config.model.get_custom("max_search_results")`, and proceeds. Works with any framework. The cost is that each tool invocation emits another `$ld:ai:agent:config` evaluation event, which inflates agent-config usage counts on the Monitoring tab in proportion to how often tools run. For low-frequency tool calls this is fine; for a chatty agent that calls search on every turn it's noisy.
+```python
+# tools.py
+def make_search(ai_config) -> Callable[..., Any]:
+    max_results = ai_config.model.get_custom("max_search_results") or 10
 
-2. **Populate `runtime.context` at `call_model` time (LangGraph).** LangGraph-idiomatic: in the `call_model` node, read `ai_config.model.get_custom(...)` once, stash the values on a request-scoped context object, and have the tool read from `runtime.context` instead of re-fetching. One config fetch per turn instead of one per tool call. The cost is that you have to rebuild the compiled graph with a refreshed `Context` on each turn (or use LangGraph's `context_schema` + per-invocation `config={"configurable": {...}}` plumbing) — non-trivial if the graph is compiled once at module load today.
+    async def search(query: str) -> dict:
+        """Search the web for current information on a given topic."""
+        return await TavilySearch(max_results=max_results).ainvoke({"query": query})
 
-Pick pattern 1 for simplicity and pattern 2 only when usage-count amplification actually matters. Document the choice in the repo README so the next migrator knows which shape they're looking at.
+    return search
+
+TOOL_FACTORIES = {"search": make_search}
+
+# graph.py setup_run
+built = {name: fn(ai_config) for name, fn in TOOL_FACTORIES.items()}
+tools = build_structured_tools(ai_config, built)
+```
+
+This is the default because it has three properties nothing else preserves all at once:
+
+1. **Turn-level atomicity.** A mid-turn flag change doesn't swap `max_search_results` between the first tool call and the second — the factory captured it once, at `setup_run`.
+2. **No extra LD evaluations.** `agent_config()` is a flag evaluation *and* an emitted event. Calling it from a tool once per user turn is fine; calling it per tool invocation on a chatty agent inflates `$ld:ai:agent:config` counts by a factor of however many tool calls run per turn.
+3. **Tools don't take a dependency on LD.** The tool function is a plain callable. Testing is substitution, not monkeypatching `get_agent_config`.
+
+**Do not call `get_agent_config()` (or `ai_client.agent_config(...)`) from inside a tool body.** The alternatives — re-resolving from inside the tool, or reaching into `runtime.context` from inside the tool — either break turn atomicity or require plumbing LangGraph's context through every tool signature. Tool factories sidestep both problems and are also how `ldai_langchain.langchain_helper.build_structured_tools` expects its registry to be shaped (a dict of `{name: Callable}` ready to bind).
+
+The only legitimate reason to re-fetch inside a tool is if the tool's behavior needs to follow a flag change *within* a single turn. That's vanishingly rare; default to factories and treat re-fetch as an exception that requires a concrete reason.
 
 ## Wiring `agent_config` into each framework
 
@@ -294,141 +316,241 @@ builder.add_edge("tools", "call_model")
 graph = builder.compile()
 ```
 
-After — `call_model` reads from an AI Config fetched per invocation. `TOOLS` becomes a function that takes the config:
+After — **run-scoped** architecture. The critical shape for the v0.18.0+ tracker factory is that **one user turn = one `runId` = one tracker**, not one LLM call = one tracker. A ReAct loop that calls `call_model` three times in a single turn must not mint three trackers, or billing and the Monitoring tab will treat the turn as three separate executions. The fix is to resolve the AI Config and mint the tracker once, in a dedicated entry node, and thread both through graph state for every subsequent node.
+
+Three nodes, in order:
+
+1. **`setup_run`** (entry) — resolves `agent_config`, mints the tracker with `create_tracker()`, builds `model` with `create_langchain_model(ai_config)`, builds tools via the factory pattern below, starts a `perf_counter_ns()` timer, and stashes all of it on `State`. Runs exactly once per turn.
+2. **`call_model`** — reads model / tools / tracker / accumulator from `State`, runs `model.ainvoke(...)`, accumulates token usage, calls `tracker.track_tool_calls([...])` per step. **Does not** call `track_metrics_of_async` here — that wrapper records duration + success on every invocation and would fire once per iteration. On exception: call `tracker.track_duration` + `tracker.track_error` and re-raise (the finalize node will not run).
+3. **`finalize`** (terminal) — runs exactly once at the end of the turn on the success path. Calls `tracker.track_duration(elapsed_ms)` + `tracker.track_tokens(accumulated)` + `tracker.track_success()`. Each of these now fires exactly once per run, which is what the at-most-once guards in 0.18.0 enforce.
 
 ```python
-# tools.py — unchanged module-level implementations, plus a factory
-TOOL_IMPLEMENTATIONS: Dict[str, Callable[..., Any]] = {"search": search}
+# tools.py — tool factories close over per-run config, so tools never re-fetch
+from typing import Any, Callable, Dict
+from langchain_core.tools import StructuredTool
+from langchain_tavily import TavilySearch
 
-def build_tools_from_config(ai_config) -> List[Callable[..., Any]]:
-    """Instantiate tool callables for every tool name on the AI Config."""
-    names = [t.name if hasattr(t, "name") else t.get("name") for t in (ai_config.tools or [])]
-    return [TOOL_IMPLEMENTATIONS[name] for name in names if name in TOOL_IMPLEMENTATIONS]
+def make_search(ai_config) -> Callable[..., Any]:
+    """Closure: capture `max_search_results` once at setup_run time."""
+    max_results = ai_config.model.get_custom("max_search_results") or 10
 
+    async def search(query: str) -> dict:
+        """Search the web for current information on a given topic."""
+        return await TavilySearch(max_results=max_results).ainvoke({"query": query})
 
-# context.py — kept as the fallback shape, not the primary source
-@dataclass(kw_only=True)
-class Context:
-    system_prompt: str = field(default=prompts.SYSTEM_PROMPT)
-    model: str = field(default="anthropic/claude-sonnet-4-5-20250929")
-    user_key: str = field(default="anonymous")  # for LD targeting context
+    return search
+
+# Registry of factories keyed by LD tool name. Each factory takes the
+# per-run ai_config and returns a ready-to-bind callable. This decouples
+# the AI Config (tool metadata) from the app (implementations) and
+# means tools never call get_agent_config() themselves.
+TOOL_FACTORIES: Dict[str, Callable[[Any], Callable[..., Any]]] = {
+    "search": make_search,
+}
 
 
 # graph.py
-from ldai.client import LDAIClient, AIAgentConfigDefault, ModelConfig, ProviderConfig
+import time
+from typing import Any, Dict, List
+from ldai_langchain import create_langchain_model, get_ai_metrics_from_response
+from ldai_langchain.langchain_helper import build_structured_tools
+from ldai.tracker import TokenUsage
 from ldclient import Context as LDContext
-from .tools import build_tools_from_config, TOOL_IMPLEMENTATIONS
-
-def _build_fallback(ctx: Context) -> AIAgentConfigDefault:
-    """Reuse the existing Context defaults as the fallback."""
-    provider, _, model_name = ctx.model.partition("/")
-    return AIAgentConfigDefault(
-        enabled=True,
-        model=ModelConfig(name=model_name or ctx.model, parameters={}),
-        provider=ProviderConfig(name=provider or "anthropic"),
-        instructions=ctx.system_prompt.format(system_time=now_iso()),
-    )
+from .tools import TOOL_FACTORIES
 
 
-async def call_model(state: State, runtime: Runtime[Context]):
-    ld_context = LDContext.builder(runtime.context.user_key).kind("user").build()
-    ai_config = ai_client.agent_config(
+class State(TypedDict, total=False):
+    messages: List[Any]
+    # Run-scoped fields populated by setup_run, read by call_model and finalize
+    tracker: Any
+    model: Any
+    tools: List[Any]
+    start_perf_ns: int
+    token_accumulator: TokenUsage
+    disabled_message: str  # set when ai_config.enabled is False
+
+
+async def setup_run(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
+    """Runs once per user turn. Resolves the AI Config, mints the tracker,
+    builds the model and tools, and stashes everything on state."""
+    ld_context = LDContext.builder(runtime.context.thread_id or "anonymous").kind("user").build()
+    ai_config = get_ai_client().agent_config(
         "react-agent",
         ld_context,
-        _build_fallback(runtime.context),
+        FALLBACK,
     )
 
     if not ai_config.enabled:
-        return {"messages": [AIMessage(content="")]}
+        return {"disabled_message": "Feature is currently unavailable."}
 
-    tools = build_tools_from_config(ai_config)
-    model = load_chat_model(ai_config.model.name).bind_tools(tools)
-    instructions = ai_config.instructions
-    tracker = ai_config.create_tracker()
+    # Build per-run tools by passing the resolved ai_config through each
+    # factory. build_structured_tools wraps the callable with the LD tool
+    # key as the StructuredTool.name, so ToolNode lookup works.
+    built_callables = {name: fn(ai_config) for name, fn in TOOL_FACTORIES.items()}
+    tools = build_structured_tools(ai_config, built_callables)
 
-    import time
-    start = time.time()
+    return {
+        "tracker": ai_config.create_tracker(),
+        "model": create_langchain_model(ai_config).bind_tools(tools),
+        "tools": tools,
+        "start_perf_ns": time.perf_counter_ns(),
+        "token_accumulator": TokenUsage(input=0, output=0, total=0),
+        # Cache instructions so call_model doesn't touch ai_config again.
+        "instructions": ai_config.instructions or "",
+    }
+
+
+async def call_model(state: State) -> Dict[str, Any]:
+    """Reads model / tracker / tools from state. No LD access, no config fetch."""
+    tracker = state["tracker"]
+    model = state["model"]
+    messages = [{"role": "system", "content": state["instructions"]}, *state["messages"]]
+
     try:
-        response = cast(
-            AIMessage,
-            await model.ainvoke(
-                [{"role": "system", "content": instructions}, *state.messages]
-            ),
-        )
-        tracker.track_duration(int((time.time() - start) * 1000))
-        tracker.track_success()
-        if hasattr(response, "usage_metadata") and response.usage_metadata:
-            from ldai.tracker import TokenUsage
-            tracker.track_tokens(TokenUsage(
-                input=response.usage_metadata.get("input_tokens", 0),
-                output=response.usage_metadata.get("output_tokens", 0),
-                total=response.usage_metadata.get("total_tokens", 0),
-            ))
+        response = cast(AIMessage, await model.ainvoke(messages))
     except Exception:
+        elapsed_ms = (time.perf_counter_ns() - state["start_perf_ns"]) // 1_000_000
+        tracker.track_duration(elapsed_ms)
         tracker.track_error()
         raise
 
-    # Stash tools on state so the "tools" node picks up the same list
-    return {"messages": [response], "_active_tools": tools}
+    # Accumulate token usage across loop iterations; finalize emits the sum.
+    acc = state["token_accumulator"]
+    if getattr(response, "usage_metadata", None):
+        um = response.usage_metadata
+        state["token_accumulator"] = TokenUsage(
+            input=acc.input + um.get("input_tokens", 0),
+            output=acc.output + um.get("output_tokens", 0),
+            total=acc.total + um.get("total_tokens", 0),
+        )
+
+    if response.tool_calls:
+        tracker.track_tool_calls([call["name"] for call in response.tool_calls])
+
+    return {"messages": [response]}
 
 
-def build_tools_node_factory():
-    """Return a ToolNode factory that reads tools from state."""
-    def dynamic_tools_node(state: State):
-        tools = getattr(state, "_active_tools", None) or list(TOOL_IMPLEMENTATIONS.values())
-        return ToolNode(tools).invoke(state)
-    return dynamic_tools_node
+async def finalize(state: State) -> Dict[str, Any]:
+    """Runs exactly once at the end of a successful turn. Emits the three
+    once-per-run tracker events: duration, tokens, success."""
+    tracker = state["tracker"]
+    elapsed_ms = (time.perf_counter_ns() - state["start_perf_ns"]) // 1_000_000
+    tracker.track_duration(elapsed_ms)
+    acc = state["token_accumulator"]
+    if acc.total > 0:
+        tracker.track_tokens(acc)
+    tracker.track_success()
+    return {}
+
+
+def route_after_setup(state: State) -> Literal["call_model", "__end__"]:
+    return "__end__" if "disabled_message" in state else "call_model"
+
+
+def route_model_output(state: State) -> Literal["tools", "finalize"]:
+    last = state["messages"][-1]
+    return "tools" if getattr(last, "tool_calls", None) else "finalize"
 
 
 builder = StateGraph(State, context_schema=Context)
+builder.add_node(setup_run)
 builder.add_node(call_model)
-builder.add_node("tools", build_tools_node_factory())
-builder.add_edge("__start__", "call_model")
+builder.add_node("tools", ToolNode([]))  # ToolNode picks tools from state at run time
+builder.add_node(finalize)
+builder.add_edge("__start__", "setup_run")
+builder.add_conditional_edges("setup_run", route_after_setup)
 builder.add_conditional_edges("call_model", route_model_output)
 builder.add_edge("tools", "call_model")
+builder.add_edge("finalize", "__end__")
 graph = builder.compile()
 ```
 
-**What changed:**
+**Why this shape:**
 
-- `TOOLS` (a static list) → `TOOL_IMPLEMENTATIONS` (a name-to-callable dict) + `build_tools_from_config(ai_config)` (a per-request builder). This is the dynamic tool factory pattern from the devrel-agents-tutorial, adapted to plain callables.
-- `call_model` fetches an `AIAgentConfig` per invocation, builds tools from `ai_config.tools`, binds them, and injects `ai_config.instructions` as the system message (replacing `runtime.context.system_prompt`).
-- The `"tools"` node is replaced with a factory that reads the active tool list from state — so both `bind_tools` and `ToolNode` always run against the same list. If you skip this step and leave `ToolNode(TOOLS)` hardcoded, the LLM and the executor will disagree on what's available and the graph will misbehave.
-- Tracker calls wrap the provider call inside `call_model`. The snippet above uses explicit `track_duration` + `track_tokens` + `track_success` because the sample model is hand-constructed via `load_chat_model(name).bind_tools(...)` without passing variation parameters. If you switch to `create_langchain_model(ai_config).bind_tools(tools)`, variation parameters flow through and you can collapse the block to `track_metrics_of_async(lambda: model.ainvoke(...), get_ai_metrics_from_response)`. Same story on Node: `LangChainProvider.createLangChainModel(aiConfig)` + `tracker.trackMetricsOf(LangChainProvider.getAIMetricsFromResponse, ...)`.
-- The existing `Context` dataclass is kept as the fallback shape — its defaults become the `AIAgentConfigDefault` values, so the app still runs exactly as before when LaunchDarkly is unreachable.
+- **One `create_tracker()` per turn.** `runId` groups every tracking event from a single execution. Calling the factory in a node that runs more than once per turn produces N runIds and fragments the Monitoring tab. `setup_run` is the only place that calls it.
+- **One `agent_config(...)` per turn.** Each call is a flag evaluation plus an emitted event. Re-fetching inside a loop step or inside a tool inflates agent-config counts on the Monitoring tab and, worse, lets a mid-run targeting change swap the variation between LLM calls in a single turn. `setup_run` resolves it once.
+- **`track_duration` / `track_tokens` / `track_success` fire in `finalize`, not `call_model`.** The at-most-once guards added in 0.18.0 will warn if these are called more than once on the same tracker. Calling them per loop step on a three-step ReAct turn means the second and third calls are silently dropped and log a warning. Put them in `finalize`, where each fires exactly once.
+- **`track_tool_calls` in `call_model` is fine.** That event is not at-most-once — it's per-step metadata.
+- **Tools close over per-run config.** `make_search(ai_config)` captures `max_search_results` at `setup_run` time, so the search tool can read it without calling `get_agent_config` mid-turn. If the variation changes while the turn is running, this turn finishes with the original value — which is what you want for turn-level atomicity. The next turn picks up the new value naturally.
+- **`tools` node reads from state.** Seeding `ToolNode([])` at compile time and letting the runtime pull the tool list from state (via a thin wrapper, or LangGraph's `ToolNode.from_state` style) keeps the dispatch consistent with what `bind_tools(tools)` showed the LLM. You can also pass the tools positionally via `ToolNode(tools)` inside a small factory closure if your LangGraph version doesn't support state-sourced tools.
+- **Fallback instructions use Mustache placeholders.** `FALLBACK.instructions` is a literal string like `"You are... {{ system_time }}"`. The SDK's Mustache renderer interpolates it on both the LD-served path and the fallback path when you pass `variables={"system_time": ...}` to `agent_config`. Do not `.format()` the fallback instructions — that ships a stale value frozen at import time.
 
-**Gotcha:** the `"tools"` node above reads `_active_tools` from state. That means your `State` TypedDict has to include it. If it doesn't, either add the field, or take the simpler route of fetching the AI Config **once at graph-compile time** (at module load) and accepting that tool changes require a restart. The per-invocation pattern above is strictly better but adds one state field.
+**Gotchas:**
+
+- **Never call `track_metrics_of_async` in a loop node.** `trackMetricsOf` is designed for single-call shapes (one provider call, one `success` event). In a ReAct loop it would re-fire `track_success` per iteration and trip the at-most-once guard. Use manual `track_tool_calls` per step and explicit `track_duration` + `track_tokens` + `track_success` in `finalize`.
+- **Lazy-init the `ai_client`.** Avoid `ai_client = LDAIClient(...)` at module import time — it couples test collection to LD initialization and makes the per-turn runId story harder to mock. Wrap with `def get_ai_client(): ...` and cache on first use.
+- **Per-run `LDContext` keys — and their MAU cost.** A shared literal like `"anonymous"` collapses every request into one targeting/billing segment, which breaks experimentation and per-run segmentation. The obvious fix is to use the LangGraph `thread_id` if present and fall back to `uuid4()` per `setup_run`. **Before doing this in production, check the MAU impact:** LaunchDarkly bills by distinct context keys per month, so a production agent serving 100k anonymous runs/day will register 3M+ MAU even though there's no real user. Three shapes, pick the one that fits:
+  1. **Known user identity (preferred).** If the caller knows who the user is (session cookie, auth token, SSO ID), use that as the context key. No anonymous keys at all. Targeting, segmentation, and MAU all work correctly.
+  2. **Session-scoped key.** Use the LangGraph `thread_id`, or the chat-session ID, or whatever the longest-lived identifier is below "real user." MAU scales with session count, not turn count.
+  3. **Per-turn `uuid4()`.** Only in demos, or if you genuinely need per-run isolation for experiment targeting and are willing to pay the MAU. Document the decision in the repo README so the next migrator doesn't swap it out without reading the tradeoff.
+- **State field serialization.** If you add a LangGraph `checkpointer`, exclude the run-scoped fields (`tracker`, `model`, `tools`, `start_perf_ns`) from the checkpoint — they're non-serializable and only meaningful inside one turn anyway.
 
 ### Custom ReAct loop
 
+The same run-scoped shape applies: one config fetch + one `create_tracker()` at the top of the turn, accumulate tokens across the loop, emit `track_duration` / `track_tokens` / `track_success` exactly once after the loop exits.
+
 ```python
-def build_react_loop(ai_client, user_id: str):
+import time
+from ldai.tracker import TokenUsage
+
+def run_turn(ai_client, user_id: str, user_input: str):
     context = Context.builder(user_id).kind("user").build()
     config = ai_client.agent_config("custom-react", context, FALLBACK)
 
     if not config.enabled:
-        return
+        return disabled_response()
 
+    # Resolve everything needed for the turn once, up top.
     system_prompt = config.instructions
     model_name = config.model.name
     tracker = config.create_tracker()
+    tool_callables = build_tools_from_config(config)  # closes over config
+    start_ns = time.perf_counter_ns()
+    acc = TokenUsage(input=0, output=0, total=0)
 
-    for turn in range(MAX_TURNS):
-        start = time.time()
-        response = my_provider.complete(
-            model=model_name,
-            system=system_prompt,
-            messages=history,
-            tools=config.tools,  # see dynamic-tool loading below
-        )
-        tracker.track_duration(int((time.time() - start) * 1000))
-        tracker.track_tokens(extract_tokens(response))
-        # ... handle tool calls, append to history, check done ...
+    try:
+        history = [{"role": "user", "content": user_input}]
+        for step in range(MAX_TURNS):
+            response = my_provider.complete(
+                model=model_name,
+                system=system_prompt,
+                messages=history,
+                tools=config.model.get_parameter("tools") or [],
+            )
 
-    tracker.track_success()
+            # Accumulate token usage across the loop; finalize emits the sum.
+            usage = extract_tokens(response)  # returns TokenUsage
+            acc = TokenUsage(
+                input=acc.input + usage.input,
+                output=acc.output + usage.output,
+                total=acc.total + usage.total,
+            )
+
+            tool_calls = extract_tool_calls(response)
+            if tool_calls:
+                tracker.track_tool_calls([c["name"] for c in tool_calls])
+                history.extend(run_tools(tool_calls, tool_callables))
+                continue
+
+            # Done — fall through to the success emit block.
+            break
+
+        elapsed_ms = (time.perf_counter_ns() - start_ns) // 1_000_000
+        tracker.track_duration(elapsed_ms)
+        if acc.total > 0:
+            tracker.track_tokens(acc)
+        tracker.track_success()
+        return response
+    except Exception:
+        elapsed_ms = (time.perf_counter_ns() - start_ns) // 1_000_000
+        tracker.track_duration(elapsed_ms)
+        tracker.track_error()
+        raise
 ```
 
-The call site stays in your control; the AI Config just delivers `instructions`, `model.name`, `model.parameters`, and `tools`. Everything else (the loop, the history, the tool dispatch) is unchanged.
+The call site stays in your control; the AI Config just delivers `instructions`, `model.name`, `model.parameters`, and `tools`. Everything that's stable across the turn (model name, instructions, tool bindings, tracker) is hoisted out of the loop body — the loop itself only does message passing and tool dispatch.
+
+**Do not** call `track_duration` / `track_tokens` / `track_success` inside the `for` body. The at-most-once guards added in 0.18.0 will warn and drop the second-and-later calls on the same tracker, so per-step tracker calls will silently lose data. Accumulate inside the loop, emit once after.
 
 ## Dynamic tool loading — the "tools factory" pattern
 

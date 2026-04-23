@@ -8,6 +8,22 @@ All method names and signatures below are verified against `launchdarkly-server-
 
 Both SDKs replaced the `config.tracker` property with a **`create_tracker` / `createTracker` factory**. Each call to the factory mints a fresh tracker with a unique `runId` for that execution, so every tracking event from a single run can be grouped together and viewed as one unit in the Monitoring tab. **Call the factory once at the start of each execution and reuse the returned tracker for all calls within that execution.**
 
+**What counts as one "execution":**
+
+| Shape | One execution = | Where to call `create_tracker()` |
+|-------|-----------------|----------------------------------|
+| Single provider call (one-shot completion) | the function that handles one request | Right after `completion_config(...)` returns |
+| Chat loop via `ManagedModel` / `TrackedChat` | one `invoke()` call | Never — the managed runner handles it |
+| Multi-step ReAct / LangGraph loop (model → tool → model → tool → model) | one full user turn, including every loop iteration | A `setup_run` entry node that executes once before the loop; stash the tracker on state |
+| Custom ReAct loop in application code | one call to your turn handler | Top of the handler, before the `for` loop |
+| Streaming response | the streaming call + its consumer | Before the stream is opened; reuse across chunks |
+
+The common mistake: calling `create_tracker()` inside a function that runs more than once per turn (a LangGraph `call_model` node, a recursive tool-dispatch helper, a per-chunk callback). Each call mints a fresh `runId`, so a three-step ReAct turn becomes three runs in the Monitoring tab and three billed executions. Tracker lifetime must match user-turn lifetime.
+
+### At-most-once guards on `track_duration` / `track_tokens` / `track_success`
+
+`track_duration`, `track_tokens`, `track_success`, `track_error`, and `track_time_to_first_token` are **at-most-once per tracker** as of Python v0.18.0 / Node v0.17.0. The second call logs a warning and is dropped. This matters for agent loops: if `track_duration` lives inside the loop body it silently stops recording after iteration 1. Accumulate inside the loop (sum `usage_metadata` into a `TokenUsage` running total, stash `start_perf_counter_ns` up top) and emit each of the three once, after the loop exits. `track_tool_calls` is not at-most-once — call it per step with the names from that step.
+
 ```python
 # Python v0.18.0+
 tracker = ai_config.create_tracker()   # one call, one runId
@@ -433,4 +449,6 @@ Run the checklist in order. Each step rules out one cause.
 - **Anthropic token field names.** Anthropic uses `response.usage.input_tokens` and `output_tokens`, not `prompt_tokens`/`completion_tokens`. Do not copy the OpenAI shape.
 - **Bedrock Converse response shape.** `response["usage"]["inputTokens"]` (camelCase, not snake). The auto-helper handles this — prefer it over manual extraction.
 - **Retry loops and `track_duration`.** If you wrap the whole retry in `track_duration`, the value includes backoff sleeps. Either measure only the final-attempt provider call, or document that duration includes retries — don't leave it ambiguous.
-- **Do not call `create_tracker()` more than once per execution.** Each call mints a new tracker with a new `runId`. Subsequent tracker calls landing on a different `runId` will not be grouped with the first one in the Monitoring tab.
+- **Do not call `create_tracker()` more than once per execution.** Each call mints a new tracker with a new `runId`. Subsequent tracker calls landing on a different `runId` will not be grouped with the first one in the Monitoring tab. For agent loops, "execution" is the full user turn, not one LLM call — see the table above for where to place the call in each shape.
+- **Do not emit `track_duration` / `track_tokens` / `track_success` inside a loop body.** These fire at-most-once per tracker; per-iteration calls log warnings and are dropped. Accumulate, emit once after the loop.
+- **Do not call `track_metrics_of` / `track_metrics_of_async` inside an agent loop node.** The wrapper records duration + success per invocation, which collides with the at-most-once guard when the node runs multiple times in a turn. Use `track_metrics_of` for one-shot provider calls; use explicit `track_duration` + `track_tokens` + `track_success` in a terminal node for agent loops.
