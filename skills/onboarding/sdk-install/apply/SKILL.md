@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires integration plan and LaunchDarkly credentials (see parent onboarding)
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Apply code changes (SDK install)
@@ -16,7 +16,7 @@ This skill is nested under [LaunchDarkly SDK Install (onboarding)](../SKILL.md);
 
 **Dual SDK:** If the approved plan is **dual SDK** ([plan: Dual SDK integrations](../plan/SKILL.md#dual-sdk-integrations)), you must complete Steps 1-3 **for both tracks** -- **two** packages in the manifest, **two** install commands run (or equivalent), **two** credential lines where needed, **two** inits in **different** entrypoints per recipe. **Do not** claim the second SDK is set up without performing its real install and init. If the plan only listed one track but the user asked for both, **stop** and return to [plan](../plan/SKILL.md) -- do not invent the second half from memory.
 
-**Credential timing:** This is the first nested step where you ask the user for **SDK key / client-side ID / mobile key** (or consent to fetch/write them). Earlier onboarding should have confirmed only **account** access, not key material ([parent Prerequisites](../../SKILL.md#prerequisites)).
+**Credential timing:** This is the first nested step where you ask the user for **SDK key / client-side ID / mobile key** (or consent to fetch/write them). Account status is not asked upfront -- it is inferred earlier via MCP OAuth (parent Step 4) or surfaced here at D7 (option 4) if the user has no account yet ([parent Prerequisites](../../SKILL.md#prerequisites)).
 
 ## Step 1: Install the SDK dependency
 
@@ -54,13 +54,14 @@ If the user **declines** broader changes: keep only the LD package addition if p
 
 ### Permission before secrets
 
-**D7 -- BLOCKING:** Call your structured question tool now.
+**D7 -- BLOCKING (MANDATORY -- DO NOT SKIP):** Call your structured question tool now. This decision point exists for security compliance -- the user must explicitly choose how secrets are handled. Skipping this and proceeding to write keys without consent is a critical failure.
 - question: "The SDK needs an SDK key (or client-side ID / mobile key) for your environment. How would you like to set up the secret?"
 - options:
   - "I'll tell you where to put it"
   - "I'll set up the secret myself -- just tell me what variable name to use"
   - "Write it to a `.env` file for me"
-- STOP. Do not write the question as text. Do not fetch keys from LaunchDarkly or write real values into the repo without the user selecting an option first.
+  - "I don't have an account yet -- help me sign up" -> point to https://app.launchdarkly.com/signup?source=agent, write placeholders and continue (real keys deferred until account is ready)
+- STOP. Do not write the question as text. Do not fetch keys from LaunchDarkly or write real values into the repo without the user selecting an option first. Do not infer the answer from context or prior conversation -- always present this choice.
 
 **If the user chooses option 1 ("Tell me where to put it"):**
 1. Ask where they want the secret written (file path, secrets manager, etc.)
@@ -78,6 +79,14 @@ If the user **declines** broader changes: keep only the LD package addition if p
 1. Ask how they want to provide the key: paste it, or have the agent fetch it via MCP/API
 2. Follow the [Write to `.env`](#write-to-env-when-the-user-consents) section below
 3. Ensure `.env` is in `.gitignore` before writing any real values
+
+**If the user chooses option 4 ("I don't have an account yet"):**
+1. Point them to https://app.launchdarkly.com/signup?source=agent
+2. Explain that SDK key setup requires an account -- they can complete setup after signing up
+3. Ensure `.env` is in `.gitignore` before writing (same check as option 3 / [Write to `.env`](#write-to-env-when-the-user-consents))
+4. Write placeholder variable names to `.env` (no real values) so the code compiles
+5. Continue with Step 3 (init code) using the placeholder env var references. The app will fail to connect to LaunchDarkly until real keys are set, which is expected.
+6. Note in the onboarding log that key setup is pending account creation
 
 ### Fetching keys via MCP
 
