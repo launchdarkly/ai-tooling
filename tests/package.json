@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:llm-evals":  "npm run eval",
     "eval:create":     "SKILL_ROOT=$(cd ../skills && pwd) PROVIDER_ROOT=$(pwd)/providers promptfoo eval --config evals/metrics/metric-create.eval.yaml --no-cache --output /tmp/promptfoo-results.json; node print-results.mjs",
     "eval:choose":     "SKILL_ROOT=$(cd ../skills && pwd) PROVIDER_ROOT=$(pwd)/providers promptfoo eval --config evals/metrics/metric-choose.eval.yaml --no-cache --output /tmp/promptfoo-results.json; node print-results.mjs",
     "eval:instrument": "SKILL_ROOT=$(cd ../skills && pwd) PROVIDER_ROOT=$(pwd)/providers promptfoo eval --config evals/metrics/metric-instrument.eval.yaml --no-cache --output /tmp/promptfoo-results.json; node print-results.mjs",
