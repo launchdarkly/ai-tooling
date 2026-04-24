@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires a supported language/framework in the project. SDK credentials are required by [Apply](apply/SKILL.md), not for [Detect](detect/SKILL.md) / [Plan](plan/SKILL.md) alone (see parent onboarding **Prerequisites**).
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # LaunchDarkly SDK Install (onboarding)
@@ -15,7 +15,7 @@ Installs and initializes the right LaunchDarkly SDK for the user’s project by 
 ## Prerequisites
 
 - Project context from parent **Step 1: Explore the Project** (reuse it; only re-run deep detection if something is unclear)
-- **SDK key / client-side ID / mobile key:** Needed when you reach [Apply code changes](apply/SKILL.md) (env wiring). **Do not** ask the user for these during detect or plan solely because you opened this skill—follow parent onboarding: account is confirmed early; key material is collected at apply (see parent [Prerequisites](../SKILL.md#prerequisites)).
+- **SDK key / client-side ID / mobile key:** Needed when you reach [Apply code changes](apply/SKILL.md) (env wiring). **Do not** ask the user for these during detect or plan solely because you opened this skill—follow parent onboarding: account status is inferred via MCP OAuth (Step 4) or surfaced at D7 in apply; key material is collected at apply (see parent [Prerequisites](../SKILL.md#prerequisites)).
 
 ## Key types (summary)
 
@@ -29,12 +29,12 @@ Installs and initializes the right LaunchDarkly SDK for the user’s project by 
 
 ## Workflow — run these nested skills in order
 
-Execute **all three** unless the [detect decision tree](detect/SKILL.md#decision-tree) short-circuits (e.g. skip to apply only). Each nested skill contains **blocking decision points** (marked `D<N> -- BLOCKING`) where you must call your structured question tool and wait for the user's response before continuing. Do NOT batch tool calls across these boundaries.
+Execute **all three** unless the [detect decision tree](detect/SKILL.md#decision-tree) short-circuits (e.g. skip to apply only). Each nested skill may contain decision points — some **blocking** (marked `D<N> -- BLOCKING`, where you must call your structured question tool and wait for the user's response before continuing) and some **non-blocking** (where you present information and continue unless the user objects). Do NOT batch tool calls across blocking boundaries.
 
 | Order | Nested skill | Role |
 |-------|----------------|------|
 | 1 | [Detect repository stack](detect/SKILL.md) | Language, package manager, monorepo target, entrypoint, existing LD usage |
-| 2 | [Generate integration plan](plan/SKILL.md) | SDK choice, files to change, env plan -- confirm with user before edits |
+| 2 | [Generate integration plan](plan/SKILL.md) | SDK choice, files to change, env plan -- presented to user (non-blocking; see plan SKILL.md D6) |
 | 3 | [Apply code changes](apply/SKILL.md) | Install package(s), `.env` / secrets with consent, init code, compile check (**both** tracks when [dual-SDK plan](plan/SKILL.md#dual-sdk-integrations)) |
 
 Shared references for all steps: [SDK recipes](../references/sdk/recipes.md), [SDK snippets](../references/sdk/snippets/).

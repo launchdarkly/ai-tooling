@@ -16,7 +16,7 @@ This skill is nested under [LaunchDarkly SDK Install (onboarding)](../SKILL.md);
 
 **Dual SDK:** If the approved plan is **dual SDK** ([plan: Dual SDK integrations](../plan/SKILL.md#dual-sdk-integrations)), you must complete Steps 1-3 **for both tracks** -- **two** packages in the manifest, **two** install commands run (or equivalent), **two** credential lines where needed, **two** inits in **different** entrypoints per recipe. **Do not** claim the second SDK is set up without performing its real install and init. If the plan only listed one track but the user asked for both, **stop** and return to [plan](../plan/SKILL.md) -- do not invent the second half from memory.
 
-**Credential timing:** This is the first nested step where you ask the user for **SDK key / client-side ID / mobile key** (or consent to fetch/write them). Earlier onboarding should have confirmed only **account** access, not key material ([parent Prerequisites](../../SKILL.md#prerequisites)).
+**Credential timing:** This is the first nested step where you ask the user for **SDK key / client-side ID / mobile key** (or consent to fetch/write them). Account status is not asked upfront -- it is inferred earlier via MCP OAuth (parent Step 4) or surfaced here at D7 (option 4) if the user has no account yet ([parent Prerequisites](../../SKILL.md#prerequisites)).
 
 ## Step 1: Install the SDK dependency
 
