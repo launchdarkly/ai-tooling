@@ -60,7 +60,7 @@ If the user **declines** broader changes: keep only the LD package addition if p
   - "I'll tell you where to put it"
   - "I'll set up the secret myself -- just tell me what variable name to use"
   - "Write it to a `.env` file for me"
-  - "I don't have an account yet -- help me sign up" -> point to https://app.launchdarkly.com/signup?source=agent, pause SDK key setup until account is ready
+  - "I don't have an account yet -- help me sign up" -> point to https://app.launchdarkly.com/signup?source=agent, write placeholders and continue (real keys deferred until account is ready)
 - STOP. Do not write the question as text. Do not fetch keys from LaunchDarkly or write real values into the repo without the user selecting an option first. Do not infer the answer from context or prior conversation -- always present this choice.
 
 **If the user chooses option 1 ("Tell me where to put it"):**
