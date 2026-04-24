@@ -146,7 +146,7 @@ When the user invokes this onboarding flow (for example by asking you to follow 
 
 Perform these in **order** in the **same assistant turn**, then proceed directly into Steps 0-3:
 
-1. **Task list:** Call your native task tool ([Progress Tracking](#progress-tracking)) and create **one task per step for Steps 0 through 6** (seven tasks minimum — one for each numbered row in the table below). Do this **before** rendering the roadmap so progress tracking is in place.
+1. **Task list:** Call your native task tool ([Progress Tracking](#progress-tracking)) and create **one task per step for Steps 0 through 6** (seven tasks minimum — one each for Steps 0, 1, 2, 3, 4, 5, and 6, even though Steps 0-3 are grouped as a single row below). Do this **before** rendering the roadmap so progress tracking is in place.
 2. **Roadmap:** Give the user a brief, friendly preview of what you are about to do. Keep it conversational -- a short paragraph or a compact list is fine. Do not render a large table by default (the table below is your internal reference). The user should understand the arc (explore the project, set up tooling, install the SDK, create a first flag) without seeing step numbers or internal labels.
 3. **Begin Steps 0-3 immediately.** These steps do not require a LaunchDarkly account or any user action. Run them in the background and surface only the results: what you found (language, framework, agent) and what you installed (companion skills). Do not narrate each step as a separate heading -- summarize them together when presenting findings to the user. Account status is inferred later (see [Prerequisites](#prerequisites)).
 
