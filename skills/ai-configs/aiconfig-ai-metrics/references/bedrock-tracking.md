@@ -47,12 +47,11 @@ def call_with_tracking(ai_config, user_prompt: str) -> str | None:
             kwargs["system"] = [{"text": system_content}]
         return bedrock.converse(**kwargs)
 
-    try:
-        response = ai_config.tracker.track_metrics_of(call_bedrock, bedrock_converse_extractor)
-        return response["output"]["message"]["content"][0]["text"]
-    except Exception:
-        ai_config.tracker.track_error()
-        raise
+    tracker = ai_config.create_tracker()
+    # Exceptions are tracked automatically — track_metrics_of catches
+    # exceptions, records tracker.track_error(), and re-raises.
+    response = tracker.track_metrics_of(call_bedrock, bedrock_converse_extractor)
+    return response["output"]["message"]["content"][0]["text"]
 ```
 
 **Node:**
@@ -80,20 +79,18 @@ async function callWithTracking(
 
   const systemContent = aiConfig.messages?.[0]?.content;
 
-  try {
-    const response = await aiConfig.tracker.trackMetricsOf(
-      bedrockConverseExtractor,
-      () => bedrock.send(new ConverseCommand({
-        modelId: aiConfig.model!.name,
-        messages: [{ role: 'user', content: [{ text: userPrompt }] }],
-        ...(systemContent ? { system: [{ text: systemContent }] } : {}),
-      })),
-    );
-    return response.output?.message?.content?.[0]?.text ?? null;
-  } catch (err) {
-    aiConfig.tracker.trackError();
-    throw err;
-  }
+  const tracker = aiConfig.createTracker!();
+  // Exceptions are tracked automatically — trackMetricsOf catches
+  // exceptions, records tracker.trackError(), and re-throws.
+  const response = await tracker.trackMetricsOf(
+    bedrockConverseExtractor,
+    () => bedrock.send(new ConverseCommand({
+      modelId: aiConfig.model!.name,
+      messages: [{ role: 'user', content: [{ text: userPrompt }] }],
+      ...(systemContent ? { system: [{ text: systemContent }] } : {}),
+    })),
+  );
+  return response.output?.message?.content?.[0]?.text ?? null;
 }
 ```
 
@@ -131,7 +128,8 @@ from ldai_langchain import LangChainProvider
 ai_config = ai_client.completion_config("my-config-key", context, default_config)
 llm = await LangChainProvider.create_langchain_model(ai_config)  # ChatBedrockConverse when provider=bedrock
 
-response = ai_config.tracker.track_metrics_of(
+tracker = ai_config.create_tracker()
+response = tracker.track_metrics_of(
     lambda: llm.invoke(messages),
     LangChainProvider.get_ai_metrics_from_response,
 )

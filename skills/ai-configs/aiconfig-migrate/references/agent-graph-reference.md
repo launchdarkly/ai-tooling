@@ -2,7 +2,7 @@
 
 > **Out of scope for the main migration workflow.** Read this only after a single-agent migration works end-to-end. The main `SKILL.md` workflow stops at single-agent because multi-agent orchestration is a meaningful jump in complexity and is still evolving in the SDK.
 
-> **Python-only today.** The `@launchdarkly/server-sdk-ai` (Node.js) SDK does **not** expose any graph API. Agent graphs are available only via `launchdarkly-server-sdk-ai` (Python). If your app is Node, migrate single-agent and stop — revisit graphs when the Node SDK catches up.
+> **Python is still the richer surface; Node v0.17.0 added foundational Agent Graph Definitions.** `launchdarkly-server-sdk-ai` (Python) has the fully-documented graph API used in the traversal pattern below. `@launchdarkly/server-sdk-ai` v0.17.0 (Node) introduced Agent Graph Definitions and graph metric tracking — consult the js-core source for the current Node API shape before wiring Node graph code; the Python pattern in this doc is canonical.
 
 ## What an agent graph is
 
@@ -76,10 +76,9 @@ class Edge:
 ```python
 tracker.track_invocation_success() -> None
 tracker.track_invocation_failure() -> None
-tracker.track_latency(duration: int) -> None           # milliseconds, graph-level total
+tracker.track_duration(duration: int) -> None          # milliseconds, graph-level total (renamed from track_latency in v0.18.0)
 tracker.track_total_tokens(tokens: TokenUsage) -> None
 tracker.track_path(path: List[str]) -> None            # e.g. ["supervisor", "security", "support"]
-tracker.track_judge_response(response) -> None
 tracker.track_redirect(source_key: str, redirected_target: str) -> None
 tracker.track_handoff_success(source_key: str, target_key: str) -> None
 tracker.track_handoff_failure(source_key: str, target_key: str) -> None
@@ -88,8 +87,9 @@ tracker.track_handoff_failure(source_key: str, target_key: str) -> None
 **Things that are NOT on the graph tracker:**
 
 - `track_node_invocation` — not a public method. Use `track_path(execution_path)` at the end of traversal instead.
-- `track_tool_call(node_key, tool_name)` — graph-level tool-call tracking does not exist. Track per-node tool calls via `config.tracker.track_tool_call(tool_name, graph_key=graph_key)` on each node's `AIAgentConfig.tracker` (see `sdk-ai-tracker-patterns.md`).
-- No `track_request()`, no `track_duration()` per call — use `track_latency(total_ms)` once per traversal.
+- `track_tool_call(node_key, tool_name)` — graph-level tool-call tracking does not exist. Track per-node tool calls via `node_tracker.track_tool_call(tool_name)` on each node's tracker (obtained via `node.get_config().create_tracker()`). The `graph_key` keyword argument was removed in v0.18.0 — trackers returned via a graph traversal are automatically bound to the right graph key.
+- `track_judge_response` — removed in v0.18.0 on `AIGraphTracker`. Record judge results at the config level via `LDAIConfigTracker.track_judge_result(result)` instead.
+- No `track_request()`, no `track_duration()` per call — use `track_duration(total_ms)` once per traversal (renamed from `track_latency` in v0.18.0).
 
 If you see older devrel-agents-tutorial code that calls `track_node_invocation`, `track_tool_call`, or pokes `graph_tracker._ld_client.track(...)` directly, that code targets an earlier API shape and needs updating. A PR is in flight against `launchdarkly-labs/devrel-agents-tutorial` to align the tutorial with the current SDK.
 
@@ -152,10 +152,13 @@ async def execute_graph(ai_client: LDAIClient, graph_key: str, context, user_inp
             # Execute this node — uses your existing agent-mode wiring
             result = await run_node(config, shared_ctx, valid_routes=valid_routes)
 
-            # Per-node tool-call tracking lives on the node's config tracker
+            # Per-node tool-call tracking lives on the node's config tracker.
+            # Create one tracker per node execution (fresh runId) and reuse it
+            # for every tracking call inside that node.
             if result.get("tool_calls"):
+                node_tracker = config.create_tracker()
                 for tool_name in result["tool_calls"]:
-                    config.tracker.track_tool_call(tool_name, graph_key=graph_key)
+                    node_tracker.track_tool_call(tool_name)
 
             # Merge node result into shared context
             update_shared_ctx(shared_ctx, result)
@@ -172,7 +175,7 @@ async def execute_graph(ai_client: LDAIClient, graph_key: str, context, user_inp
         # Graph-level metrics
         if graph_tracker:
             graph_tracker.track_path(execution_path)
-            graph_tracker.track_latency(int((time.time() - start) * 1000))
+            graph_tracker.track_duration(int((time.time() - start) * 1000))
             if shared_ctx["total_input_tokens"] or shared_ctx["total_output_tokens"]:
                 graph_tracker.track_total_tokens(TokenUsage(
                     input=shared_ctx["total_input_tokens"],
@@ -218,16 +221,16 @@ Do this in phases, not one big bang:
 3. **Migrate the supervisor** the same way — single-agent workflow — but keep its routing logic hardcoded initially (a big if/elif over the other workers).
 4. **Create the AI Graph in LaunchDarkly** via the UI. Define nodes (one per worker + supervisor) and edges (with `handoff.route` metadata).
 5. **Replace the hardcoded router** with the traversal pattern above. Call `ai_client.agent_graph(...)` instead of assembling the pipeline by hand.
-6. **Verify the Monitoring tab** shows the graph-level metrics (`track_path`, `track_latency`, `track_total_tokens`, handoff success/failure counts) in addition to the per-node metrics.
+6. **Verify the Monitoring tab** shows the graph-level metrics (`track_path`, `track_duration`, `track_total_tokens`, handoff success/failure counts) in addition to the per-node metrics.
 7. **Only then** start moving routing decisions into LaunchDarkly edges and using targeting to change the graph topology per user segment.
 
 Each phase is reversible. If something breaks at phase 5, the supervisor can fall back to the hardcoded router while the graph issue is fixed.
 
 ## Limitations to know about
 
-- **Python-only.** Repeating because it matters: Node cannot consume agent graphs today.
+- **Python has the canonical surface; Node added foundational Agent Graph Definitions in v0.17.0** but the Python traversal pattern above is what this doc covers in full. For Node graphs, consult the `@launchdarkly/server-sdk-ai` source for the current API.
 - **`create_agent_graph` is experimental.** Do not build production features on `ManagedAgentGraph.run`. Use the traversal pattern above.
-- **Graph tracker is less granular than the config tracker.** If you want per-node duration or per-node token breakdowns, use the node's `config.tracker` — the graph tracker handles totals only.
+- **Graph tracker is less granular than the config tracker.** If you want per-node duration or per-node token breakdowns, obtain a per-node tracker via `node.get_config().create_tracker()` — the graph tracker handles totals only.
 - **Cycles must be caught in your code.** The SDK does not stop cycle traversal automatically; track `visited` and `hop_count` yourself.
 - **Fallback shape.** There is no `AIAgentGraphDefault`. Each node's `AIAgentConfig` still takes an `AIAgentConfigDefault`, but the graph itself has no aggregate fallback. If `agent_graph` fails, handle it at the app level — typically by falling back to the hardcoded pre-migration pipeline.
 
@@ -237,5 +240,5 @@ Each phase is reversible. If something breaks at phase 5, the supervisor can fal
   - `packages/sdk/server-ai/src/ldai/agent_graph/__init__.py` — `AgentGraphDefinition` and `AgentGraphNode`
   - `packages/sdk/server-ai/src/ldai/tracker.py` — `AIGraphTracker` (near the bottom of the file)
   - `packages/sdk/server-ai/src/ldai/client.py` — `LDAIClient.agent_graph` and `create_agent_graph`
-- Node SDK source (no graph support): https://github.com/launchdarkly/js-core/tree/main/packages/sdk/server-ai
+- Node SDK source (Agent Graph Definitions added in v0.17.0): https://github.com/launchdarkly/js-core/tree/main/packages/sdk/server-ai
 - Devrel reference implementation (Python, after PR alignment): https://github.com/launchdarkly-labs/devrel-agents-tutorial on the `tutorial/agent-graphs` branch

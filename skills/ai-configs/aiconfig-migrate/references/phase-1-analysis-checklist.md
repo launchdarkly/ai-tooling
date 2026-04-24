@@ -49,7 +49,31 @@ Look for the three things that need to move into the AI Config:
 
 For each hit, record the file path, line number, and current value.
 
-### 4. Existing LaunchDarkly SDK usage
+### 4. Template placeholders in prompts
+
+Anything the app currently interpolates into a prompt at runtime must be rewritten to Mustache `{{ variable }}` syntax in Stage 2 so the fallback path renders identically to the LD-served path. Grep for:
+
+| Shape | Example | Grep |
+|-------|---------|------|
+| Python `.format()` | `PROMPT.format(system_time=now)` | `\.format(` on lines near prompt constants |
+| Python f-string in a prompt constant | `f"You are... {system_time}."` | `f"` at the start of prompt literals |
+| Python printf-style | `"%(topic)s"` / `"%s"` with `%` substitution | `%(` in prompt strings |
+| JS/TS template literals in prompt strings | `` `You are... ${var}.` `` | backtick-wrapped prompt constants |
+| Hand-rolled `str.replace` | `PROMPT.replace("__VAR__", value)` | `\.replace(` on prompt strings |
+
+Record placeholder name + where the runtime value comes from (env var, function arg, `datetime.now()`, etc.). These get routed through `variables={...}` on `completion_config` / `agent_config` calls in Stage 2, and the literal prompt string gets rewritten to `{{ placeholder }}`. Leaving a non-Mustache placeholder in the fallback is a silent regression mode: LaunchDarkly-served prompts interpolate correctly, the fallback ships unrendered.
+
+### 5. Hardcoded app-scoped knobs
+
+Configuration that governs *tool* or *app* behavior rather than *model* behavior — easy to miss in an audit because it looks like ordinary application config. Common shapes:
+
+- `Context` / `Settings` dataclass fields referenced by tools (`max_search_results`, `chunk_size`, `retry_budget`, `timeout_ms`, `enable_reranking`)
+- Environment variables read inside tool implementations
+- Constants declared in `tools.py` or a config module that a tool reads at call time
+
+If a value changes agent behavior between variations — it belongs in the AI Config. Stage 2 sub-step 5 (fallback) puts these in `ModelConfig(custom={...})`, **not** `parameters` (which is forwarded to the provider SDK and will crash on unknown kwargs). Tools read them via `ai_config.model.get_custom("key")`.
+
+### 6. Existing LaunchDarkly SDK usage
 
 If `LDClient` / `ldclient` is already initialized in the codebase, **reuse it** — do not create a second base client in Stage 2. Grep for:
 
@@ -57,23 +81,20 @@ If `LDClient` / `ldclient` is already initialized in the codebase, **reuse it** 
 - TypeScript/JS: `@launchdarkly/node-server-sdk`, `init(LD_SDK_KEY)`, `@launchdarkly/react-client-sdk`
 - Environment variables: `LD_SDK_KEY`, `LAUNCHDARKLY_SDK_KEY`, `LAUNCHDARKLY_API_KEY`
 
-### 5. Mode decision: completion or agent
+### 7. Mode decision: completion or agent
 
 Walk the decision tree once per call site, using the call shape as the primary signal:
 
 | Call shape | Mode |
 |------------|------|
-| `openai.chat.completions.create(messages=[...])` | **completion** |
-| `anthropic.messages.create(system=..., messages=[...])` | **completion** |
-| `bedrock.converse(messages=[...])` | **completion** |
+| Direct provider call with `messages=[...]` (OpenAI, Anthropic, Bedrock Converse) | **completion** |
 | `create_react_agent(llm, tools, prompt=...)` | **agent** |
-| `Agent(role=..., goal=..., backstory=...)` (CrewAI) | **agent** |
+| CrewAI `Agent(role=..., goal=..., backstory=...)` | **agent** |
 | Custom react loop: LLM-call → tool-call → LLM-call | **agent** |
-| One-shot `llm.invoke("some question")` | **completion** |
 
 **Default to completion mode** when unclear — it is more flexible and is the only mode that supports judges attached via the LaunchDarkly UI (Stage 5).
 
-### 6. Monorepo / multi-service scope
+### 8. Monorepo / multi-service scope
 
 If the repo contains multiple services, **ask the user which service to instrument**. Do not migrate every service in one pass.
 
@@ -114,17 +135,19 @@ Target mode:         <completion / agent>
 Hardcoded migration targets:
   - <file>:<line>   model="gpt-4o"
   - <file>:<line>   temperature=0.7, max_tokens=2000
-  - <file>:<line>   system="You are..."  (27 lines)
+  - <file>:<line>   system="You are... {system_time}"  (27 lines, Python .format placeholder)
 
-Tools detected:      <none / ['search', 'calculator'] at file.py:LN>
-Retry wrapper:       <none / @retry(3) at file.py:LN>
-Scope:               <single service / monorepo: picked "service-x">
+Template placeholders:  [{system_time} (Python .format, source=datetime.now().isoformat())]
+App-scoped knobs:       [Context.max_search_results=10 (tools.py:24, reads from runtime.context)]
+Tools detected:         <none / ['search', 'calculator'] at file.py:LN>
+Retry wrapper:          <none / @retry(3) at file.py:LN>
+Scope:                  <single service / monorepo: picked "service-x">
 
 Proposed plan:
-  Stage 1 (Extract):  Build manifest from the 3 targets above
-  Stage 2 (Wrap):     Create AI Config 'chat-assistant' in completion mode; inline fallback mirrors current values
+  Stage 1 (Audit):    Read-only manifest of hardcoded targets; flag placeholders for Mustache rewrite and knobs for model.custom
+  Stage 2 (Wrap):     Install SDK, create AI Config 'chat-assistant', inline fallback mirrors current values (Mustache syntax), rewrite the call site
   Stage 3 (Tools):    Skipped (no function calling) / Attach 2 tools via aiconfig-tools
-  Stage 4 (Tracking): Inline tracker wiring (track_duration + track_tokens + track_success/error)
+  Stage 4 (Tracking): Inline tracker wiring (track_duration + track_tokens + track_success/error) — run-scoped tracker for agent loops
   Stage 5 (Evals):    Attach built-in 'accuracy' judge at 0.25 sampling via aiconfig-online-evals
 ```
 

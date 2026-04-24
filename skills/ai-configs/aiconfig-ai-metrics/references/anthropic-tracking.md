@@ -46,12 +46,14 @@ def call_with_tracking(ai_config, user_prompt: str) -> str | None:
             messages=[{"role": "user", "content": user_prompt}],
         )
 
-    try:
-        response = ai_config.tracker.track_metrics_of(call_anthropic, anthropic_extractor)
-        return response.content[0].text
-    except Exception:
-        ai_config.tracker.track_error()
-        raise
+    tracker = ai_config.create_tracker()
+    # Exceptions are tracked automatically here: track_metrics_of catches
+    # exceptions, records tracker.track_error(), and re-raises. Do NOT add
+    # except: tracker.track_error() on top — it's a noop that trips the
+    # at-most-once guard. Wrap in your own try/except only if you need
+    # local handling (logging, fallback, alert); the error is already tracked.
+    response = tracker.track_metrics_of(call_anthropic, anthropic_extractor)
+    return response.content[0].text
 ```
 
 **Node** — direct Anthropic SDK:
@@ -79,21 +81,22 @@ async function callWithTracking(
 
   const systemContent = aiConfig.messages?.[0]?.content ?? '';
 
-  try {
-    const response = await aiConfig.tracker.trackMetricsOf(
-      anthropicExtractor,
-      () => client.messages.create({
-        model: aiConfig.model!.name,
-        max_tokens: 1024,
-        system: systemContent,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
-    );
-    return response.content[0].type === 'text' ? response.content[0].text : null;
-  } catch (err) {
-    aiConfig.tracker.trackError();
-    throw err;
-  }
+  const tracker = aiConfig.createTracker!();
+  // Exceptions are tracked automatically: trackMetricsOf catches exceptions,
+  // records tracker.trackError(), and re-throws. Do NOT add
+  // catch (err) { tracker.trackError(); throw err } on top — it's a noop
+  // that trips the at-most-once guard. Wrap in your own try/catch only if
+  // you need local handling (logging, fallback); the error is already tracked.
+  const response = await tracker.trackMetricsOf(
+    anthropicExtractor,
+    () => client.messages.create({
+      model: aiConfig.model!.name,
+      max_tokens: 1024,
+      system: systemContent,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
+  );
+  return response.content[0].type === 'text' ? response.content[0].text : null;
 }
 ```
 
@@ -101,7 +104,7 @@ Notes on the extractor shape:
 
 - Anthropic returns `input_tokens` / `output_tokens` on `response.usage`. Compute `total` yourself; Anthropic does not provide it.
 - `LDAIMetrics` is a typed surface — Python has it at `ldai.providers.types`, Node exports it from `@launchdarkly/server-sdk-ai`. Keep the extractor pure: no side effects, no network calls.
-- `success: true` in the extractor is not a lie — `trackMetricsOf` only calls the extractor on the success path. Errors go through the catch block and `trackError()`.
+- `success: true` in the extractor is not a lie — `trackMetricsOf` only calls the extractor on the success path. On the error path, `trackMetricsOf` records `trackError()` internally and re-throws; no caller-side catch block is required.
 
 ## Tier 2 option — route via LangChain
 
@@ -113,7 +116,8 @@ from ldai_langchain import LangChainProvider
 ai_config = ai_client.completion_config("my-config-key", context, default_config)
 llm = await LangChainProvider.create_langchain_model(ai_config)  # ChatAnthropic under the hood
 
-response = ai_config.tracker.track_metrics_of(
+tracker = ai_config.create_tracker()
+response = tracker.track_metrics_of(
     lambda: llm.invoke(messages),
     LangChainProvider.get_ai_metrics_from_response,
 )

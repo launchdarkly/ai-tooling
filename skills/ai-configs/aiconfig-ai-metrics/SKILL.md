@@ -2,7 +2,7 @@
 name: aiconfig-ai-metrics
 description: "Instrument an existing codebase with LaunchDarkly AI Config tracking. Walks the four-tier ladder (managed runner → provider package → custom extractor + trackMetricsOf → raw manual) and picks the lowest-ceremony option that still captures duration, tokens, and success/error."
 license: Apache-2.0
-compatibility: Requires the LaunchDarkly server-side AI SDK (`launchdarkly-server-sdk-ai` for Python or `@launchdarkly/server-sdk-ai` for Node) and an existing AI Config.
+compatibility: Requires the LaunchDarkly server-side AI SDK (`launchdarkly-server-sdk-ai>=0.18.0` for Python or `@launchdarkly/server-sdk-ai>=0.17.0` for Node) and an existing AI Config.
 metadata:
   author: launchdarkly
   version: "1.0.0-experimental"
@@ -38,7 +38,7 @@ Before picking a tier, find the provider call and answer these questions:
 - [ ] **Provider?** OpenAI, Anthropic, Bedrock, Gemini, Azure, custom HTTP? → cross-reference with the package availability matrix below.
 - [ ] **Streaming?** If yes, you'll need TTFT tracking, which means Tier 4 for the TTFT part even if the rest is Tier 2.
 - [ ] **Language?** Python or Node? Provider-package coverage differs between them.
-- [ ] **Already using an AI Config?** If not, route to `aiconfig-create` first — tracking requires a tracker, which comes from `completion_config()` / `completionConfig()` / `initChat()`.
+- [ ] **Already using an AI Config?** If not, route to `aiconfig-create` first — tracking requires a tracker, which is obtained by calling `create_tracker()` / `createTracker()` on the config object returned by `completion_config()` / `completionConfig()` / `initChat()`.
 
 ### 2. Look up your Tier-2 option
 
@@ -64,7 +64,7 @@ Guardrails that apply to every tier:
 
 1. **Always check `config.enabled`** before making the tracked call. A disabled config means the user has flagged the feature off — you should short-circuit to whatever fallback the app uses (cached response, error, degraded path) rather than making the provider call at all.
 2. **Wrap the existing call, don't rewrite it.** Tier 2 and Tier 3 are designed to slot around an unmodified provider call. If you find yourself rewriting the call to fit the tracker, you're at the wrong tier — drop down one.
-3. **Errors go through the tracker too.** `trackMetricsOf` handles the success path; errors still need an explicit `tracker.trackError()` in the catch block (or a try/except around the whole thing). Tier 1 handles both paths automatically.
+3. **Errors are handled inside `trackMetricsOf`.** The wrapper catches exceptions, records `trackError()` internally, and re-raises — do **not** add `except: tracker.trackError()` on top, it's a noop that also trips the at-most-once guard. Tier 1 handles both paths automatically. At Tier 4 (manual, streaming, `track_duration_of`) the caller does own the error-tracking call.
 4. **Always flush before close.** Call `ldClient.flush()` (Python: `ldclient.get().flush()`; Node: `await ldClient.flush()`) before closing the client. Trailing events are at risk of being lost otherwise — in short-lived scripts and long-running services alike. In Node, `ldClient.close()` returns a Promise; await it.
 
 ### 4. Verify
@@ -78,7 +78,7 @@ Confirm the Monitoring tab fills in:
 
 ## Quick reference: tracker methods
 
-The tracker object (`config.tracker` / `aiConfig.tracker`) provides these methods. This is the raw API surface — most of the time you should not call the individual methods, you should use `trackMetricsOf` or a Tier-1 managed runner. The list is here so you can recognize the methods in existing code and reach for the right one when you genuinely need Tier 4.
+Obtain a tracker via the factory on the config object: `tracker = config.create_tracker()` (Python v0.18.0+) or `const tracker = aiConfig.createTracker!()` (Node v0.17.0+). Call the factory once per execution and reuse the returned `tracker` for every call — each factory invocation mints a new `runId` that tags every tracking event emitted by that tracker so events from a single execution can be correlated together (via exported events / downstream systems). The Monitoring tab aggregates events rather than grouping them by run today — the `runId` is useful when events are exported or queried outside the UI, and is the identifier the SDK's at-most-once guards are keyed on. The methods below are the raw API surface — most of the time you should not call them individually; use `trackMetricsOf` or a Tier-1 managed runner. The list is here so you can recognize the methods in existing code and reach for the right one when you genuinely need Tier 4.
 
 | Method (Python ↔ Node) | Tier | What it does |
 |---|---|---|
@@ -92,6 +92,9 @@ The tracker object (`config.tracker` / `aiConfig.tracker`) provides these method
 | `track_success()` / `trackSuccess()` | 4 | Mark the generation as successful. Required for the Monitoring tab to count it. |
 | `track_error()` / `trackError()` | 4 | Mark the generation as failed. Do not also call `trackSuccess()` in the same request. |
 | `track_feedback({kind})` / `trackFeedback({kind})` | any | Record thumbs-up / thumbs-down from a feedback UI. Independent of the success/error path. |
+| `track_tool_call(name)` / `trackToolCall(name)` | any | Record a single tool invocation by name. Available on both SDKs as of Python v0.18.0 / Node v0.17.0. |
+| `track_tool_calls([names])` / `trackToolCalls([names])` | any | Batch variant — record a list of tool invocations in one call. |
+| `track_judge_result(result)` / `trackJudgeResult(result)` | any | Record a programmatic judge evaluation (consolidates the earlier `track_eval_scores` + `track_judge_response` pair). `result.sampled` indicates whether evaluation ran. |
 | `track_openai_metrics(fn)` / `trackOpenAIMetrics(fn)` | **legacy** | Predates provider packages. Still works; do not use in new code. Replace with `trackMetricsOf(OpenAIProvider.getAIMetricsFromResponse, fn)`. |
 | `track_bedrock_converse_metrics(res)` / `trackBedrockConverseMetrics(res)` | **legacy** | Same story. Do not use in new code. |
 | `trackVercelAISDKGenerateTextMetrics(fn)` (Node) | **legacy** | Same story. Use `trackMetricsOf` with the Vercel provider package's extractor. |

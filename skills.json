@@ -6,7 +6,7 @@
       "path": "skills/ai-configs/aiconfig-ai-metrics",
       "version": "1.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the LaunchDarkly server-side AI SDK (`launchdarkly-server-sdk-ai` for Python or `@launchdarkly/server-sdk-ai` for Node) and an existing AI Config."
+      "compatibility": "Requires the LaunchDarkly server-side AI SDK (`launchdarkly-server-sdk-ai>=0.18.0` for Python or `@launchdarkly/server-sdk-ai>=0.17.0` for Node) and an existing AI Config."
     },
     {
       "name": "aiconfig-create",
@@ -26,7 +26,7 @@
     },
     {
       "name": "aiconfig-migrate",
-      "description": "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation in five stages: extract prompts, wrap in the AI SDK, add tools, add tracking, add evals/judges. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini, Strands) to a managed AI Config, or stage a full hardcoded-to-LaunchDarkly migration.",
+      "description": "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AI Configs implementation in five stages: audit the code, wrap the call, move the tools, add tracking, attach evaluators. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini, Strands) to a managed AI Config, or stage a full hardcoded-to-LaunchDarkly migration.",
       "path": "skills/ai-configs/aiconfig-migrate",
       "version": "0.1.0",
       "license": "Apache-2.0",
@@ -37,7 +37,7 @@
       "description": "Attach judges to AI Config variations for automatic LLM-as-a-judge evaluation. Create custom judges, configure sampling rates, and monitor quality scores.",
       "path": "skills/ai-configs/aiconfig-online-evals",
       "version": "0.1.0",
-      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.14.0+ or Node.js v0.16.1+ for automatic metric recording."
+      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.18.0+ or Node.js v0.17.0+ for automatic metric recording and the consolidated `track_judge_result` / `trackJudgeResult` API."
     },
     {
       "name": "aiconfig-projects",

@@ -208,7 +208,7 @@ import ldclient
 from ldclient import Context
 from ldclient.config import Config
 from ldai.client import LDAIClient, AIAgentConfigDefault, ModelConfig, ProviderConfig
-from langchain_openai import ChatOpenAI
+from ldai_langchain import create_langchain_model
 from langgraph.prebuilt import create_react_agent
 from my_tools import search_kb, calculator
 
@@ -232,11 +232,9 @@ def run_support(user_id: str, user_question: str) -> str:
     if not config.enabled:
         return ""
 
-    params = config.model.parameters or {}
-    llm = ChatOpenAI(
-        model=config.model.name,
-        temperature=params.get("temperature", 0.3),
-    )
+    # create_langchain_model forwards every variation parameter. Do NOT hand-roll
+    # ChatOpenAI(model=...) — it drops unnamed parameters silently.
+    llm = create_langchain_model(config)
 
     agent = create_react_agent(
         model=llm,
@@ -252,9 +250,10 @@ def run_support(user_id: str, user_question: str) -> str:
 
 - `agent_config()` is called instead of `completion_config()` because the framework expects an `instructions` string
 - `FALLBACK` is an `AIAgentConfigDefault` (note the different type — same fields as completion except `instructions` instead of `messages`)
-- `ChatOpenAI(model=..., temperature=...)` reads both from `config.model`
+- Model construction goes through `create_langchain_model(config)` from the `ldai_langchain` helper package — forwards every variation parameter. The alternative of hand-rolling `ChatOpenAI(model=config.model.name, temperature=...)` would silently drop every parameter not explicitly named.
 - `create_react_agent(prompt=...)` reads from `config.instructions`
-- Tool list is still hardcoded — Stage 3 handles that move (see [agent-mode-frameworks.md](agent-mode-frameworks.md) for the dynamic-tool-factory pattern)
+- Tool list is still hardcoded — Stage 3 handles that move (see [agent-mode-frameworks.md](agent-mode-frameworks.md) for the tool-factory pattern that closes over per-run config)
+- **Stage 4 will add a run-scoped tracker** (mint in a `setup_run` entry node, consume in `call_model` and `finalize`) — see [agent-mode-frameworks.md § Custom `StateGraph`](agent-mode-frameworks.md) for the full architecture
 - Provider-side logic (LangGraph, ReAct loop) is unchanged
 
 ---
@@ -262,7 +261,7 @@ def run_support(user_id: str, user_question: str) -> str:
 ## Rules of thumb across all three examples
 
 1. **Nothing is added to the business logic.** The provider call, the framework call, the return shape — all unchanged. Only the *source* of model/prompt/params moves.
-2. **Fallback is built from the values you removed.** If the hardcoded model is `gpt-4o`, the fallback model is `gpt-4o`. If the hardcoded temperature is `0.7`, the fallback temperature is `0.7`. Behavior on LaunchDarkly unreachable must be indistinguishable from pre-migration behavior.
+2. **Fallback is built from the values you removed.** Full rules at [fallback-defaults-pattern.md § Critical rules](fallback-defaults-pattern.md).
 3. **Build a `Context` per request.** The context carries targeting inputs — user ID, plan tier, region, whatever the rollout is keyed on. Reuse the same context the app already uses for feature flag evaluation if one exists.
 4. **Always check `config.enabled`.** Even a successful `completion_config` call can return a disabled config (if the variation is turned off in LaunchDarkly). The disabled path should not call the provider.
 5. **Do not cache the config object across requests.** Call `completion_config` / `agent_config` inside the request handler so LaunchDarkly can re-evaluate targeting per call. One `LDAIClient` instance, many `completion_config` calls.
