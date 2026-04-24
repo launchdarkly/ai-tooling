@@ -361,8 +361,9 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
                      {"role": "user", "content": user_prompt}],
        )
 
-   # track_metrics_of catches exceptions, records the error on the tracker,
-   # and re-raises — no need to wrap this in try/except just for tracking.
+   # Exceptions are tracked automatically — track_metrics_of catches
+   # exceptions, records tracker.track_error(), and re-raises. Wrap your
+   # own try/except only for local handling (logging, fallback).
    response = tracker.track_metrics_of(
        call_openai,
        OpenAIProvider.get_ai_metrics_from_response,
@@ -374,7 +375,8 @@ Hand off: print the AI Config key, variation key, provider, and whether the call
    import { OpenAIProvider } from '@launchdarkly/server-sdk-ai-openai';
 
    const tracker = aiConfig.createTracker!();
-   // trackMetricsOf handles the error path (records + re-throws).
+   // Exceptions are tracked automatically — trackMetricsOf catches
+   // exceptions, records tracker.trackError(), and re-throws.
    const response = await tracker.trackMetricsOf(
      OpenAIProvider.getAIMetricsFromResponse,
      () => openaiClient.chat.completions.create({

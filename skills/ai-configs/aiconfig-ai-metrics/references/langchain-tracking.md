@@ -88,7 +88,8 @@ messages = convert_messages_to_langchain(config.messages or [])
 messages.append(HumanMessage(content=user_prompt))
 
 tracker = config.create_tracker()
-# track_metrics_of_async handles the error path internally (records + re-raises).
+# Exceptions are tracked automatically — track_metrics_of_async catches
+# exceptions, records tracker.track_error(), and re-raises.
 completion = await tracker.track_metrics_of_async(
     lambda: llm.ainvoke(messages),
     get_ai_metrics_from_response,
@@ -113,7 +114,8 @@ const messages = LangChainProvider.convertMessagesToLangChain(aiConfig.messages 
 messages.push(new HumanMessage(userPrompt));
 
 const tracker = aiConfig.createTracker!();
-// trackMetricsOf handles the error path (records + re-throws).
+// Exceptions are tracked automatically — trackMetricsOf catches
+// exceptions, records tracker.trackError(), and re-throws.
 const completion = await tracker.trackMetricsOf(
   LangChainProvider.getAIMetricsFromResponse,
   () => llm.invoke(messages),

@@ -79,7 +79,8 @@ def call_with_tracking(ai_config, user_prompt: str) -> str | None:
         )
 
     tracker = ai_config.create_tracker()
-    # track_metrics_of handles the error path internally (records + re-raises).
+    # Exceptions are tracked automatically — track_metrics_of catches
+    # exceptions, records tracker.track_error(), and re-raises.
     response = tracker.track_metrics_of(call_gemini, gemini_metrics)
     return response.text
 ```
@@ -147,7 +148,8 @@ async function callWithTracking(
   const params = (aiConfig.model?.parameters ?? {}) as Record<string, unknown>;
 
   const tracker = aiConfig.createTracker!();
-  // trackMetricsOf handles the error path (records + re-throws).
+  // Exceptions are tracked automatically — trackMetricsOf catches
+  // exceptions, records tracker.trackError(), and re-throws.
   const response = await tracker.trackMetricsOf(
     geminiMetrics,
     () => genAI.models.generateContent({

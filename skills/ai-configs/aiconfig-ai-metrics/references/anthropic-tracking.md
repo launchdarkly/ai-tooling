@@ -47,8 +47,11 @@ def call_with_tracking(ai_config, user_prompt: str) -> str | None:
         )
 
     tracker = ai_config.create_tracker()
-    # track_metrics_of catches, tracks the error, and re-raises automatically.
-    # No need for an except block unless the caller wants to handle the exception.
+    # Exceptions are tracked automatically here: track_metrics_of catches
+    # exceptions, records tracker.track_error(), and re-raises. Do NOT add
+    # except: tracker.track_error() on top — it's a noop that trips the
+    # at-most-once guard. Wrap in your own try/except only if you need
+    # local handling (logging, fallback, alert); the error is already tracked.
     response = tracker.track_metrics_of(call_anthropic, anthropic_extractor)
     return response.content[0].text
 ```
@@ -79,8 +82,11 @@ async function callWithTracking(
   const systemContent = aiConfig.messages?.[0]?.content ?? '';
 
   const tracker = aiConfig.createTracker!();
-  // trackMetricsOf catches, records the error, and re-throws automatically.
-  // No try/catch needed unless the caller wants to handle the thrown exception.
+  // Exceptions are tracked automatically: trackMetricsOf catches exceptions,
+  // records tracker.trackError(), and re-throws. Do NOT add
+  // catch (err) { tracker.trackError(); throw err } on top — it's a noop
+  // that trips the at-most-once guard. Wrap in your own try/catch only if
+  // you need local handling (logging, fallback); the error is already tracked.
   const response = await tracker.trackMetricsOf(
     anthropicExtractor,
     () => client.messages.create({

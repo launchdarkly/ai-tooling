@@ -618,7 +618,8 @@ async function runTurn(userInput: string, threadId: string): Promise<string | nu
   // One tracker per user turn. Fresh runId. At-most-once guards reset.
   const tracker = agentConfig.createTracker!();
 
-  // trackMetricsOf handles the error path (records + re-throws).
+  // Exceptions are tracked automatically — trackMetricsOf catches
+  // exceptions, records tracker.trackError(), and re-throws.
   const result = await tracker.trackMetricsOf(
     langgraphMetrics,
     () => agent.invoke(

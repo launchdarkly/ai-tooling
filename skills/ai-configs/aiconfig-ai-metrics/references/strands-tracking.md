@@ -66,7 +66,8 @@ def strands_extractor(result) -> LDAIMetrics:
 
 
 async def run_turn(agent, tracker, user_input):
-    # track_metrics_of_async handles the error path internally (records + re-raises).
+    # Exceptions are tracked automatically — track_metrics_of_async catches
+    # exceptions, records tracker.track_error(), and re-raises.
     result = await tracker.track_metrics_of_async(
         lambda: agent.invoke_async(user_input),
         strands_extractor,
