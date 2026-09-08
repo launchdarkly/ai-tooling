@@ -1,6 +1,6 @@
 ---
 name: sdk-install
-description: "Install and initialize the correct LaunchDarkly SDK during onboarding by running nested skills in order: detect, plan, apply. Parent onboarding Step 6 is first flag."
+description: "Install and initialize the correct LaunchDarkly SDK during onboarding by running nested skills in order: detect, plan, apply. Parent onboarding Step 4 is first flag."
 license: Apache-2.0
 compatibility: Requires a supported language/framework in the project. SDK credentials are required by [Apply](apply/SKILL.md), not for [Detect](detect/SKILL.md) / [Plan](plan/SKILL.md) alone (see parent onboarding **Prerequisites**).
 metadata:
@@ -10,12 +10,12 @@ metadata:
 
 # LaunchDarkly SDK Install (onboarding)
 
-Installs and initializes the right LaunchDarkly SDK for the user’s project by following **three nested skills in order**. **Do not** skip ahead to feature flags here—the parent [LaunchDarkly onboarding](../SKILL.md) continues with **Step 6: First feature flag** using [Create first feature flag](../first-flag/SKILL.md).
+Installs and initializes the right LaunchDarkly SDK for the user’s project by following **three nested skills in order**. **Do not** skip ahead to feature flags here—the parent [LaunchDarkly onboarding](../SKILL.md) continues with **Step 4: First flag**.
 
 ## Prerequisites
 
 - Project context from parent **Step 1: Explore the Project** (reuse it; only re-run deep detection if something is unclear)
-- **SDK key / client-side ID / mobile key:** Needed when you reach [Apply code changes](apply/SKILL.md) (env wiring). **Do not** ask the user for these during detect or plan solely because you opened this skill—follow parent onboarding: account status is inferred via MCP OAuth (Step 4) or surfaced at D7 in apply; key material is collected at apply (see parent [Prerequisites](../SKILL.md#prerequisites)).
+- **SDK key / client-side ID / mobile key:** Needed when you reach [Apply code changes](apply/SKILL.md) (env wiring). **Do not** ask the user for these during detect or plan solely because you opened this skill—follow parent onboarding: account status is inferred via MCP OAuth when MCP is already configured, or surfaced at D7 in apply; key material is collected at apply (see parent [Prerequisites](../SKILL.md#prerequisites)).
 
 ## Key types (summary)
 
@@ -43,7 +43,7 @@ Shared references for all steps: [SDK recipes](../references/sdk/recipes.md), [S
 
 Continue with the parent skill:
 
-- **Step 6:** [Create first feature flag](../first-flag/SKILL.md)
+- **Step 4:** [First flag](../SKILL.md#step-4-first-flag)
 
 Do not add standalone “sample flag” evaluation in this skill unless the user explicitly needs a throwaway check; the parent flow creates the first flag in order.
 

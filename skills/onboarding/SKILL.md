@@ -1,349 +1,324 @@
 ---
 name: onboarding
-description: "Onboard a project to LaunchDarkly: kickoff roadmap, resumable log, explore repo, MCP, companion flag skills, nested SDK install (detect/plan/apply), first flag. Use when adding LaunchDarkly, setting up or integrating feature flags in a project, SDK integration, or 'onboard me'."
+description: "Scripted onboarding for LaunchDarkly: quiet execution, fixed sequence, SDK install, first flag with a live reveal, MCP offered afterwards. Enforces step completion before advancing and redirects drift. Use when adding LaunchDarkly, setting up or integrating feature flags in a project, SDK integration, or 'onboard me'."
 license: Apache-2.0
-compatibility: Requires an MCP-capable coding agent, `npx` on PATH for optional skill installs, and a LaunchDarkly account. SDK keys, client-side IDs, mobile keys, and API tokens are only needed when the step that uses them runs (see Prerequisites).
+compatibility: Requires an MCP-capable coding agent and `npx` on PATH for optional skill installs. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.
 metadata:
   author: launchdarkly
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
-# LaunchDarkly SDK Onboarding
+# LaunchDarkly Onboarding
 
-Orchestrates LaunchDarkly setup in an existing codebase: on kickoff, show a **roadmap** in chat (see [Kickoff: onboarding roadmap](#kickoff-onboarding-roadmap)); **Step 0** writes a living onboarding log so a new session or the user can resume; then explore the project, detect the agent, install flag-management skills, **configure the LaunchDarkly MCP server early**, install and initialize the SDK (**sdk-install** and nested detect/plan/apply), and create a **first feature flag**. Nested skills: [mcp-configure](mcp-configure/SKILL.md), [sdk-install](sdk-install/SKILL.md), [first-flag](first-flag/SKILL.md).
+## Voice and Tone
 
-## Prerequisites
+Write plainly. Say only what you did or are about to do. No flourishes, slogans, or metaphors.
 
-- **`npx`:** Available on PATH when using `npx skills add` to install companion skills (see Step 3).
-- **LaunchDarkly account (deferred -- inferred, not asked upfront):** Do NOT ask whether the user has a LaunchDarkly account at the start. Instead, let the workflow reveal account status naturally:
-  - **Steps 0-3** (log, explore, detect, install skills) do not require an account. Run them first.
-  - **Step 4 (MCP):** Present the MCP install link. If the user completes OAuth successfully, they have an account -- confirmed, no question needed.
-  - **Step 5 (SDK keys):** If MCP is not configured (or the user declined it), account status becomes relevant at D7 when the user needs to provide keys. If they cannot provide keys, offer the resolved signup link (see [Source Attribution](#source-attribution)).
-  - This eliminates the upfront "Do you have an account?" question and lets the workflow itself surface whether the user needs to sign up.
-- **Keys and tokens (defer until needed):** Collect these only when the path requires them.
-  - **Step 4 -- MCP:** **Hosted MCP** uses OAuth; no API token or SDK key needed to configure it.
-  - **Step 5 -- SDK:** **SDK keys / client-side ID / mobile key** when wiring env in [Apply code changes](sdk-install/apply/SKILL.md), after the integration plan is confirmed. **`ldcli` / REST** for discovery: use **`ldcli login`** or an access token when you first run those commands, not at hello.
-  - **Key type must match the integration:** server-side SDK -> **SDK key**; browser/client-side SDK -> **Client-side ID**; mobile -> **Mobile key**. Env variable names and bundler rules: [Apply code changes](sdk-install/apply/SKILL.md).
+- Status lines, not narration. "Scanning your project now." "Scan complete. Installing SDK."
+- No em dashes. Use periods or commas.
+- Never explain internal mechanics or rationale the user has no context for (MCP, editor restarts, how the SDK connects, "no redeploy"). It means nothing to a first-time user.
+- Before writing any line, ask whether the user needs it. If not, cut it.
+- Do not offer a choice the user cannot meaningfully make. If the right move is obvious, just do it.
+- Reassure plainly about safety. "No code will be changed without your approval."
 
-**MCP (preferred):** Complete **Step 4** via [mcp-configure/SKILL.md](mcp-configure/SKILL.md) before SDK work when possible. If MCP is unavailable or the user opts out, use **ldcli** / **REST** fallbacks described in that skill -- onboarding must still be completable.
+## Source Attribution
 
-**Optional MCP tools (when configured):**
+The signup URL includes a `source` query parameter for attribution. Resolve it once at kickoff by scanning the user's original message. Store the resolved URL for the session. This marker is for the agent only. Never show it to the user.
 
-- `get-environments` -- list environments for a project; the response includes SDK keys, client-side IDs, and mobile keys per environment. **Use this as the single source for all key types** -- do not make separate requests for individual keys.
-- `create-feature-flag` -- create the boolean flag for [Step 6: Create Your First Feature Flag](#step-6-create-your-first-feature-flag).
-- `update-feature-flag` -- toggle or patch flag configuration during Step 6; see [Create first feature flag](first-flag/SKILL.md) for ldcli/API fallbacks.
+| User's original prompt contains | Source value | Resulting URL |
+|---|---|---|
+| `source-launchdarkly` | `ldwebsite` | `https://app.launchdarkly.com/signup?source=ldwebsite` |
+| No marker | `agent` | `https://app.launchdarkly.com/signup?source=agent` |
 
-**Other MCP tools you may use if present** (not required): `list-feature-flags`, `get-feature-flag`, `get-flag-status-across-environments`.
+- Scan the user's initial message for `source-launchdarkly`. If found, use `ldwebsite`. Otherwise use `agent`.
+- Parse once, before Step 0. Do not re-parse later.
+- On resume, use `agent`.
 
-## Agent Behavior Directives
+Wherever these instructions say "offer the signup link," use the resolved URL. Never hardcode `?source=agent`.
 
-### Source Attribution
+## Rules
 
-The signup URL used throughout onboarding includes a `source` query parameter for attribution. The default value is `agent`, producing `https://app.launchdarkly.com/signup?source=agent`. However, the source is **dynamic** based on the user's original prompt:
+- The step labels below are your internal roadmap. Never show step names or numbers to the user.
+- Enforce sequence. Do not advance until the current stage is done.
+- Work silently between decision points. Do the work without narrating each step. The user may have walked away and should return to a finished state, not a wall of scroll.
+- Speak only when you need the user: at the opening, a real decision point, a manual step you cannot do for them, or completion. Keep it short and lead with the outcome.
+- Make changes on a branch and leave them uncommitted. The user reviews and commits, not you.
+- Install companion skills at the point of need, never upfront.
+- Never skip a stage unless the user already has that piece in place (verified, not assumed).
+- If a stage fails, stop and resolve it before continuing.
 
-- If the user's initial message (the prompt that triggered onboarding) contains the marker **`source-launchdarkly`**, set the source to **`ldwebsite`** → `https://app.launchdarkly.com/signup?source=ldwebsite`.
-- Otherwise, keep the default source **`agent`** → `https://app.launchdarkly.com/signup?source=agent`.
+### Speaking to the user
 
-Detect this **once** at kickoff (before Step 0) by scanning the user's original message for the substring `source-launchdarkly`. Store the resolved signup URL for the session and use it wherever this skill or any nested skill directs the user to sign up. The marker is metadata for the agent — do not echo it back to the user or include it in any user-facing output.
+Keep user-facing messages rare and short. You are letting the user delegate and walk away.
 
-### Progress Tracking
+- At the opening: a one-line welcome, what onboarding will do, and that nothing is committed without their okay. Then the first choice. Then go quiet and work.
+- At a decision point or completion: one short summary. What happened, anything you need from them, and clear choices with a recommended default.
+- Do not narrate routine work or write prose between execution steps. When the terminal stops scrolling, the user reads one concise message and never has to scroll back.
 
-The roadmap (Steps 0-6 + follow-through) MUST be tracked using your agent's native task-tracking tool in addition to the onboarding log file.
+### Forbidden in user-facing output
 
-- **Cursor:** Use `TodoWrite` to create a todo for each step before beginning work. Update status as each step completes.
-- **Claude Code:** Use `TaskCreate` to create a task for each step (or `TodoWrite` if native tasks are unavailable).
-- **Other agents:** If your agent provides a native task list or progress tracking tool, use it. If not, present a numbered checklist in chat and update it after each step.
+- Step names, internal labels, or skill file names
+- Workflow language ("hand off," "proceed to next step")
+- Internal rationale (MCP, editor restarts, SDK internals)
+- Raw markdown from these instructions
+- The app's rendered output or the flag-gated content. Point the user to the running app instead of pasting what it shows.
 
-Do NOT work through steps mentally or rely solely on the `LAUNCHDARKLY_ONBOARDING.md` log for in-session tracking.
+---
 
-### Decision Points
+## Experience Detection
 
-When a step requires user input to determine branching, you MUST collect the answer by calling a tool — do NOT write the question as prose text in your response.
+Greet and present the first choice immediately. Do not make the user wait on a scan. Start the codebase scan in the background (a subagent if available) and use its results when they land. Never ask the user about the scan.
 
-**Call the tool directly.** Use the first tool from this list that
-your environment provides:
+| Signal | Inference |
+|---|---|
+| LD SDK in dependencies | Knows LaunchDarkly |
+| `variation()`, `useFlags()`, or equivalent calls present | Has used flags before |
+| MCP already configured | Familiar with the tooling |
+| Well-structured codebase (CI, tests, linting) | Experienced developer |
+| Empty workspace, no LD presence | Treat as first-time |
 
-1. `AskQuestion` — call it with a `prompt` and `options` array
-2. `TaskAsk` or equivalent structured-input tool
-3. (fallback) If the tool call fails or no such tool exists, THEN
-   render the question as numbered options in text and wait.
+If experienced signals show, move faster: skip the orientation line, do each action and report it in one line, and jump to whichever step is incomplete. Either way the outcomes are the same: SDK installed, first flag evaluating, and MCP only if they ask for it.
 
-Do NOT decide in advance whether you have the tool. Attempt the call. The tool call IS the question — do not also write the question as text.
+---
 
-Throughout this skill and its nested skills you will see decision-point markers formatted like this:
+## Resume After Restart
 
+If the user says "continue onboarding," they are returning to the flow. Do not ask what was happening. Detect live state in order: check for a LaunchDarkly SDK package and init code, then for `variation()` calls, then for the `launchdarkly-onboarding` branch. Resume at the first incomplete step and say where things stand in one sentence ("SDK is installed. Creating your first flag now."). Then continue without preamble.
+
+---
+
+## Kickoff
+
+When the user asks to set up LaunchDarkly:
+
+1. Open directly. No "I'll help you" or "Let me start" filler. Two short sentences: a welcome, what onboarding does, and that nothing is committed without their approval. Example (adapt, do not copy verbatim):
+   > "Let's get you set up with LaunchDarkly. Once integrated, we'll create a test flag in your app so you can see how it works. No code will be changed without your approval."
+2. Then start working. No roadmap table. One status line is fine ("Scanning your project now."), then go quiet.
+3. Do not ask whether the user has an account. Infer it later: completing the SDK key step means they have one; if they cannot get a key, share the signup link at that point.
+
+---
+
+## Step 0: Safe Workspace
+
+If this is a git repository, create and switch to a new branch named `launchdarkly-onboarding` before changing any files, so everything is isolated and reversible. If that branch already exists, append a short suffix. If this is not a git repo, skip silently.
+
+Do not write an onboarding log or any summary file. Track state in memory for this session.
+
+---
+
+## Step 1: Explore
+
+The scan runs in the background (see Experience Detection). Do not announce it beyond the one status line. Use its results when they land.
+
+Classify the workspace before proceeding:
+
+| State | Criteria | Action |
+|---|---|---|
+| **Clear app** | One language, a real entrypoint, one dependency manifest at the obvious location | Continue |
+| **Unclear** | Minimal or conflicting signals, or a multi-package workspace (yarn/pnpm/npm workspaces, lerna, nx, turborepo, gradle, cargo, go) where more than one package could host LaunchDarkly | Ask (unclear form below) |
+| **No app found** | No manifests, no entrypoints, empty workspace | Ask (no-app form below) |
+
+A workspace with two or more candidate packages is always Unclear. Never guess which one to integrate.
+
+**Ask form, unclear workspace** (one option per candidate package, with its path as the label):
+```json
+{
+  "questions": [
+    {
+      "id": "app_location",
+      "prompt": "I found multiple packages. Which one do you want to set up first?",
+      "options": [
+        { "id": "candidate_1", "label": "<detected path, e.g. packages/api>" },
+        { "id": "candidate_2", "label": "<detected path, e.g. packages/web>" },
+        { "id": "demo", "label": "None of these. Scaffold a demo." },
+        { "id": "other", "label": "Somewhere else. I'll tell you where." }
+      ]
+    }
+  ]
+}
 ```
-**D1 -- BLOCKING:** <instruction to call your question tool>
-- question: "<the question>"
-- options:
-  - "<option A>" -> <what happens>
-  - "<option B>" -> <what happens>
-- STOP. Do not continue until the user selects an option.
+
+**Ask form, no app found:**
+```json
+{
+  "questions": [
+    {
+      "id": "app_choice",
+      "prompt": "I didn't find a runnable app. How do you want to proceed?",
+      "options": [
+        { "id": "demo_node", "label": "Scaffold a minimal Node.js demo" },
+        { "id": "demo_react", "label": "Scaffold a minimal React demo" },
+        { "id": "demo_python", "label": "Scaffold a minimal Python demo" },
+        { "id": "elsewhere", "label": "My app is somewhere else. I'll point you to it." }
+      ]
+    }
+  ]
+}
 ```
 
-These are **instructions for you to follow**, not content to display. When you reach one: make the tool call (or render numbered options if no tool exists), then STOP and wait. Do NOT copy the marker text into your response.
+On a demo choice, scaffold a minimal app in a new subfolder (e.g. `launchdarkly-demo/`).
 
-### User-Facing Communication
+Identify language, framework, and environment type from dependency files (`package.json`, `go.mod`, `requirements.txt`/`pyproject.toml`, `pom.xml`/`build.gradle`, `Gemfile`, `*.csproj`, `Cargo.toml`). Search for existing LaunchDarkly usage (`launchdarkly`, `ldclient`, `LDClient`, `@launchdarkly`). Determine server-side, client-side, or mobile, which drives SDK selection. If LD is already integrated, note the SDK version so install can be skipped.
 
-Every reply during onboarding must sound like a friendly, knowledgeable colleague walking someone through setup — not a workflow engine quoting internal instructions. Follow these rules in all user-facing output:
+Detect the coding agent for `--agent` flags: Cursor (`.cursor/`, `.cursorrules`), Claude Code (`~/.claude/`, `CLAUDE.md`), Windsurf (`.windsurfrules`), GitHub Copilot (`.github/copilot/`), Codex (`~/.codex/`, `AGENTS.md`). If ambiguous, ask.
 
-**Required response structure.** Every substantive onboarding reply must include:
+---
 
-1. **What we just did** — one or two sentences summarizing the completed action and its result.
-2. **What we're doing next** — a plain-English preview of the next step.
-3. **What you need to do** (only when the user has a manual action) — a concrete instruction, not a vague label like "Your turn." Include **where** to perform the action (e.g. "in Cursor's integrated terminal," "in the project folder," "in your browser," "in macOS Terminal").
+## Step 2: MCP (optional, after the flag)
 
-**Forbidden in user-facing output:**
+Do not set up MCP on the way to the first flag, and do not ask about it during setup. Reach the first flag without it (Step 4 uses a dashboard link). Offer it only after the flag works, as one short choice:
 
-- Internal decision-point IDs (D1, D5, D7, etc.), step numbers as labels (e.g. "Step 5 -- detect"), or skill file names (e.g. "sdk-install/apply/SKILL.md").
-- Quoting or paraphrasing raw skill instructions, directive headings, or markdown from these files.
-- Workflow-engine language ("BLOCKING," "STOP," "call your structured question tool," "proceed to the next nested skill").
+> "Want to manage flags from your editor next time? I can set that up. **[Set it up] [Skip]**"
 
-**When telling the user to run a command**, always say **where** to run it. Good examples:
-- "Run this in the integrated terminal in your editor"
-- "Run this from the project root in your terminal"
-- "Open a terminal in the `packages/api` folder and run …"
-
-Bad: "Run `npm install`" (without location context).
-
-**Tone:** Friendly, conversational, and confident — like a knowledgeable colleague, not a manual. Use first person naturally (e.g. "I just detected that the flag was created, now I'm going to …"). Assume the reader is an engineer so don't over-explain basic concepts (what a package manager is, what an environment variable does), but do explain LaunchDarkly-specific concepts briefly on first mention (what a context is, what an SDK key is for, why there are different key types).
-
-### Step Execution Rules
-
-Do NOT treat the user's initial request (e.g. "onboard me," "set up LaunchDarkly") as blanket permission for file writes, installs, or configuration changes. Each action that modifies the repo, installs packages, or writes secrets requires its own consent at the step where it occurs.
-
-**Blocking decision points** (you MUST halt and wait for the user's response before continuing):
-
-| ID | Location | Question |
-|----|----------|----------|
-| D5-NOAPP | Step 5 -- detect | No runnable app found: user points to app or requests demo |
-| D5-UNCLEAR | Step 5 -- detect | Weak evidence: user confirms the correct app folder |
-| D5 | Step 5 -- detect | SDK confirmation / one-vs-both-SDKs scope choice |
-| D7 | Step 5 -- apply | User chooses how secrets are set up: user-specified location, user handles it, or `.env` fallback. If user cannot provide keys, offer signup link. |
-| D8 | Step 5 -- apply | Approval before changing non-LaunchDarkly dependencies |
-| D9 | Step 6 | Auth errors (401/403): stop, do not retry automatically |
-
-**Non-blocking** (you may proceed automatically): Steps 0-3 (log, explore, detect agent, install skills -- no user input needed), D6 plan preview (present and continue unless user objects), Step 5 detect (file reads only), compile check (Step 5 apply Step 4), follow-through file writes (`LAUNCHDARKLY.md`, editor rules).
-
-## Core Principles
-
-1. **Detect, don't guess:** Inspect the repo for language, framework, and package manager.
-2. **Minimal changes:** Add SDK code alongside existing code; don't restructure the project.
-3. **Match existing patterns:** Follow env vars, config files, and initialization patterns already in use.
-4. **Validate end-to-end:** Confirm the SDK is connected before treating the first flag as proof of success.
-5. **Paper trail:** Keep the Step 0 onboarding log current so another agent or session can continue without re-deriving context.
-6. **Orient the user first:** On a fresh onboarding request, show the [Kickoff roadmap](#kickoff-onboarding-roadmap) before substantive work so the user knows the full arc.
-7. **Defer credential questions:** Do not ask about account status or keys upfront. Account status is inferred through MCP OAuth (Step 4) or surfaced at D7 (Step 5) when keys are needed. Ask for **SDK keys / tokens** only in Step 4-5 when that step's skill says they are required ([Prerequisites](#prerequisites)).
-8. **Deep-link to the dashboard:** When generating LaunchDarkly dashboard URLs and the **project key** and/or **environment key** are known (from MCP tools, user input, or the onboarding log), construct the most specific URL possible instead of linking to a generic page. Use these patterns:
-
-   | What you need to show | URL pattern |
-   |-----------------------|-------------|
-   | Project flags list | `https://app.launchdarkly.com/projects/{projectKey}/flags` |
-   | Specific flag | `https://app.launchdarkly.com/projects/{projectKey}/flags/{flagKey}` |
-   | Environment keys / SDK keys | `https://app.launchdarkly.com/projects/{projectKey}/settings/environments/{envKey}/keys` |
-   | Project environments list | `https://app.launchdarkly.com/projects/{projectKey}/settings/environments` |
-   | All projects | `https://app.launchdarkly.com/projects` |
-
-   Only generate deep links when the required keys are known from tool responses or confirmed user input. If they are unknown, use the most specific generic path available and tell the user how to navigate from there (e.g. "Open your project in the LaunchDarkly dashboard, then go to **Settings > Environments** to find your SDK key").
-
-## Kickoff: onboarding roadmap
-
-When the user invokes this onboarding flow (for example by asking you to follow this skill, run LaunchDarkly onboarding, or set up feature flags in the project), treat it as a **fresh kickoff** unless you are clearly resuming (see **Resuming** below).
-
-### Kickoff sequence (new run — before any numbered step)
-
-Perform these in **order** in the **same assistant turn**, then proceed directly into Steps 0-3:
-
-1. **Task list:** Call your native task tool ([Progress Tracking](#progress-tracking)) and create **one task per step for Steps 0 through 6** (seven tasks minimum — one each for Steps 0, 1, 2, 3, 4, 5, and 6, even though Steps 0-3 are grouped as a single row below). Do this **before** rendering the roadmap so progress tracking is in place.
-2. **Roadmap:** Give the user a brief, friendly preview of what you are about to do. Keep it conversational -- a short paragraph or a compact list is fine. Do not render a large table by default (the table below is your internal reference). The user should understand the arc (explore the project, set up tooling, install the SDK, create a first flag) without seeing step numbers or internal labels.
-3. **Begin Steps 0-3 immediately.** These steps do not require a LaunchDarkly account or any user action. Run them in the background and surface only the results: what you found (language, framework, agent) and what you installed (companion skills). Do not narrate each step as a separate heading -- summarize them together when presenting findings to the user. Account status is inferred later (see [Prerequisites](#prerequisites)).
-
-- **Resuming:** When the user says "continue LaunchDarkly onboarding" (or similar), **always check for `LAUNCHDARKLY_ONBOARDING.md` first**. If it exists:
-  1. Read the log to understand current state (completed steps, blockers, next step)
-  2. Show a brief "where we are" summary (e.g. "I see we finished MCP setup — next is SDK installation")
-  3. Refresh your task list to match the log's checklist
-  4. Continue from the log's **Next step** — do not restart from Step 0
-
-| Step | What happens | You get |
-|------|--------------|---------|
-| **0-3** -- Setup | Create onboarding log, explore project, detect agent, install companion skills (`npx skills add` from `launchdarkly/ai-tooling`) | Stack summary, agent ID, `launchdarkly-flag-*` skills available |
-| **4** -- MCP | Configure LaunchDarkly MCP; user enables server; agent probes for tools | MCP tools (or ldcli/API fallback); account confirmed via OAuth |
-| **5** -- SDK install | detect -> plan -> apply ([sdk-install](sdk-install/SKILL.md)) | Packages + init wired to env vars |
-| **6** -- First flag | Create boolean flag, evaluate, toggle, add interactive demo ([first-flag](first-flag/SKILL.md)) | End-to-end proof + visible "wow" moment |
-| **Follow-through** | `LAUNCHDARKLY.md`, editor rules ([1.8-summary](references/1.8-summary.md), [1.9-editor-rules](references/1.9-editor-rules.md)) | Durable docs for the repo |
-
-After presenting the roadmap preview, proceed directly into Steps 0-3 (they require no user input or account). Then continue with [Step 4](#step-4-configure-the-mcp-server).
-
-## Workflow
-
-Follow **Steps 0-6** in order unless an **Edge case** says otherwise. When **Step 6** (first flag) completes successfully, continue with [Default follow-through](#default-follow-through-not-numbered-steps).
-
-### Steps 0-3: Setup (run silently -- do not narrate each step)
-
-These four steps run automatically without user input. Perform them all, then present a single summary of what you found and what you set up. Do NOT show individual step headings, log-creation messages, or install output to the user.
-
-**Step 0: Onboarding log.** Create or refresh `LAUNCHDARKLY_ONBOARDING.md` silently.
-
-1. Look for an existing log at the repo root: `LAUNCHDARKLY_ONBOARDING.md`. If the project keeps docs under `docs/`, prefer `docs/LAUNCHDARKLY_ONBOARDING.md` when that folder already exists and the root file is absent.
-2. Create or update the log file directly without asking for permission.
-3. If resuming: read the log first, align with the stated **next step**, and only redo work the log marks incomplete or invalid.
-4. What to write (update after each numbered step finishes or when something important changes):
-   - **Checklist:** Steps 0-6 with status (`not started` / `in progress` / `done` / `skipped` + brief reason).
-   - **Context:** coding agent id (once known), language/framework summary, monorepo target path if any, LaunchDarkly **project key** and **environment key** when known (never paste secrets or full SDK keys -- say "stored in env" or "user provided offline").
-   - **MCP:** configured yes/no, hosted vs fallback, link to config path if relevant.
-   - **Commands run:** e.g. `npx skills add ...` (no secrets).
-   - **Blockers / errors:** what failed and what was tried.
-   - **Next step:** single explicit step number and name (e.g. "Step 5: Install and Initialize the SDK").
-5. After errors: append or edit the log with what broke and where you are resuming.
-
-This file is a **working** log during onboarding. After success, it is deleted and replaced with `LAUNCHDARKLY.md` ([Onboarding Summary](references/1.8-summary.md)).
-
-**Step 1: Explore the project.** Understand what you are integrating.
-
-1. Identify language and framework. Check dependency files: `package.json`, `go.mod`, `requirements.txt` / `pyproject.toml` / `Pipfile`, `pom.xml` / `build.gradle`, `Gemfile`, `*.csproj` / `*.sln`, `Cargo.toml`, etc.
-2. Check for existing LaunchDarkly usage. Search for `launchdarkly`, `ldclient`, `ld-client`, `LDClient`, `@launchdarkly`.
-   - If already present: note SDK version and patterns; you may shorten or skip [Step 5](#step-5-install-and-initialize-the-sdk) per edge cases.
-   - If not present: plan full SDK setup.
-3. Identify environment type: server-side app, client SPA, mobile, edge, etc. -- this drives SDK choice.
-
-Deep detection details: [Detect repository stack](sdk-install/detect/SKILL.md) (nested under [sdk-install](sdk-install/SKILL.md)).
-
-**Step 2: Detect the agent environment.** Infer silently -- do not ask the user.
-
-1. Check for indicators (in priority order — stop at the first strong match):
-   - **Cursor:** `.cursor/`, `.cursorrules`, or `CURSOR_` env vars
-   - **Claude Code:** `~/.claude/`, `CLAUDE.md`, or `CLAUDE_` env vars
-   - **Windsurf:** `.windsurfrules`
-   - **GitHub Copilot:** `.github/copilot/`
-   - **Codex:** `~/.codex/`, `AGENTS.md`
-2. If multiple indicators are present, pick the one whose runtime you are **currently executing inside**. If none match, default to the agent whose tool surface you observe at runtime.
-3. Remember the agent id for Step 3 (e.g. `cursor`, `claude-code`).
-
-**Step 3: Install companion skills.** Install flag-management skills from the public repo so later steps can delegate when appropriate.
+If they choose **Set it up**: follow [mcp-configure](mcp-configure/SKILL.md). When that nested skill is not available in the session, install it:
 
 ```bash
-npx skills add launchdarkly/ai-tooling --skill launchdarkly-flag-create launchdarkly-flag-discovery launchdarkly-flag-targeting launchdarkly-flag-cleanup -y --agent <detected-agent>
+npx skills add launchdarkly/ai-tooling --skill mcp-configure -y --agent <detected-agent>
 ```
 
-Replace `<detected-agent>` with the value from Step 2. Confirm success; skip skills already installed.
+If that fails, check `~/.agents/skills/` and `~/.cursor/skills/` for a cached copy, or configure the server inline using [MCP Config Templates](mcp-configure/references/mcp-config-templates.md). After it succeeds, call `get-project` once (`projectKey: "default"`) and store `projectKey` and `envKey` (`test`).
 
-**Bundled vs public:** Orchestration and setup for this flow live **in this folder** -- parent [SKILL.md](SKILL.md), nested [mcp-configure](mcp-configure/SKILL.md), [sdk-install](sdk-install/SKILL.md) (detect / plan / apply), [first-flag](first-flag/SKILL.md), and `references/` ([SDK recipes](references/sdk/recipes.md), [snippets](references/sdk/snippets/), summary, editor rules, etc.). The command above installs **flag-management** skills from the public [launchdarkly/ai-tooling](https://github.com/launchdarkly/ai-tooling) repo only.
+---
 
-**After Steps 0-3 complete:** Present a single summary to the user covering what you found (language, framework, environment type, whether LD is already integrated, detected agent). Then proceed to [Step 4](#step-4-configure-the-mcp-server).
+## Step 3: Install the SDK
 
-### Step 4: Configure the MCP Server
+Install the SDK and wire up initialization automatically. Do not ask how, and do not explain what the SDK is. Tell the user one line: "Scan complete. Installing SDK." Then proceed.
 
-Hand off to [mcp-configure/SKILL.md](mcp-configure/SKILL.md) for setup (hosted MCP, quick install, manual JSON, agent authorization).
+Hand off to [sdk-install](sdk-install/SKILL.md) with the stack context from Step 1. It runs detect, plan, and apply: selects the package, installs it, and wires initialization to match the codebase. When that nested skill is not available in the session, install it:
 
-MCP setup requires the user to act outside the agent (clicking a quick-install link, completing OAuth, enabling the server in editor settings). After presenting the instructions, **tell the user to enable the server and complete OAuth**. Then probe for MCP tools immediately — a restart may not be required in Cursor or Claude Code.
+```bash
+npx skills add launchdarkly/ai-tooling --skill sdk-install -y --agent <detected-agent>
+```
 
-**Auto-verify:** After the user confirms they've enabled the server, probe for MCP by calling a lightweight MCP tool such as `list-feature-flags` with the known project key. If the tool responds normally, MCP is live — note it in the onboarding log and use MCP tools for later steps. If the call fails or no MCP tools are visible, **update the onboarding log first** (so a new session can resume), then suggest a restart with clear instructions: tell the user to say **"continue LaunchDarkly onboarding"** when they come back. If restart doesn't help, fall back to ldcli/API for Steps 5-6 and note the fallback in the onboarding log. **Do not ask** the user whether MCP is working — find out by trying it.
+When the app was scaffolded by the agent in Step 1, skip the nested skill and use the fast path directly (the stack is known; skip `npm run build`):
 
-Do not duplicate MCP procedures in this file. Do not block Step 5 indefinitely on MCP.
+| Scaffold | Package | Install | Env var | Entrypoint | Init |
+|---|---|---|---|---|---|
+| React (Vite) | `launchdarkly-react-client-sdk` | `npm install launchdarkly-react-client-sdk` | `VITE_LAUNCHDARKLY_CLIENT_SIDE_ID` | `src/main.jsx`/`.tsx` | `asyncWithLDProvider` around the root render |
+| Node.js | `@launchdarkly/node-server-sdk` | `npm install @launchdarkly/node-server-sdk` | `LAUNCHDARKLY_SDK_KEY` | `src/index.js`/`server.js` | `init(sdkKey)` then `waitForInitialization()` |
+| Python | `launchdarkly-server-sdk` | `pip install launchdarkly-server-sdk` | `LAUNCHDARKLY_SDK_KEY` | `app.py`/`main.py` | `ldclient.set_config(Config(sdk_key))` then `ldclient.get()` |
 
-### Step 5: Install and Initialize the SDK
+Rules: the SDK key lives in an environment variable, never hardcoded. One client instance, shared. Wait for initialization before evaluating flags.
 
-If the project **already has LaunchDarkly installed and initialized** (see [detect decision tree](sdk-install/detect/SKILL.md#decision-tree)), skip to [Step 6: Create Your First Feature Flag](#step-6-create-your-first-feature-flag).
+### SDK key
 
-Otherwise hand off to [LaunchDarkly SDK Install (onboarding)](sdk-install/SKILL.md), which runs nested skills in order: [Detect repository stack](sdk-install/detect/SKILL.md) -> [Generate integration plan](sdk-install/plan/SKILL.md) -> [Apply code changes](sdk-install/apply/SKILL.md), using [SDK recipes](references/sdk/recipes.md) and [SDK snippets](references/sdk/snippets/). If the user asked for **both** server and client (e.g. API + SPA, Next.js server + browser), follow [Dual SDK integrations](sdk-install/plan/SKILL.md#dual-sdk-integrations) through plan and apply so **both** SDKs are really installed and initialized.
+The SDK needs a key. Default to fetching it for the user when MCP is connected; otherwise give them the direct link and let them paste it. Ask only if you cannot determine the path:
 
-**Blocking decision points inside Step 5** (see nested skills): D5 (SDK scope), D7 (secret consent), D8 (dependency changes). Do NOT batch tool calls across these boundaries. D6 (plan preview) is non-blocking -- present the plan and continue unless the user objects.
+```json
+{
+  "questions": [
+    {
+      "id": "sdk_key_setup",
+      "prompt": "Do you have a LaunchDarkly account?",
+      "options": [
+        { "id": "yes", "label": "Yes" },
+        { "id": "no_account", "label": "Not yet" }
+      ]
+    }
+  ]
+}
+```
 
-### Step 6: Create Your First Feature Flag
+- Account, MCP connected: fetch the key via `get-environments`, write it to `.env`, and ensure `.env` is gitignored. Never print key values.
+- Account, no MCP: give the direct link and have them paste it. `https://app.launchdarkly.com/projects/{projectKey}/settings/environments/{envKey}/keys`
+- No account: share the resolved signup link. Write placeholder env vars so the code compiles, and continue.
 
-Create and evaluate a boolean flag; toggle and observe end-to-end.
+Key type must match the integration: server-side SDK takes an **SDK key**, browser/client-side takes a **client-side ID**, mobile takes a **mobile key**. Env variable names and bundler rules live in [Apply code changes](sdk-install/apply/SKILL.md).
 
-1. Follow [Create first feature flag](first-flag/SKILL.md).
-2. If the **`launchdarkly-flag-create`** skill (installed in Step 3) is available, you may use it for create/evaluation wiring **only** while still completing the verify/toggle checklist in [Create first feature flag](first-flag/SKILL.md). Onboarding must remain completable without it.
+Do not proceed until initialization is verified.
 
-Install or refresh flag skills via:
+---
 
-`npx skills add launchdarkly/ai-tooling --skill launchdarkly-flag-create -y --agent <detected-agent>`
+## Step 4: First Flag
 
-See D9 in [first-flag](first-flag/SKILL.md) for the blocking stop on auth errors.
+Create the flag, wire it into the app, and let the user watch it turn on.
 
-## Default follow-through (not numbered steps)
+- **Create the flag.** If MCP is connected, call `create-flag` (on a duplicate-key conflict, call `get-flag` and adopt the existing flag; do not `list-flags` first). If MCP is not connected, give them a dashboard link that opens the create form with the key prefilled and have them create it: `https://app.launchdarkly.com/projects/{projectKey}/flags/new?key={flagKey}`
+- **Add a flag-gated banner.** Insert a small, clean banner at the top of the app's main page, gated on the flag. Off state: a neutral banner reading "LaunchDarkly test banner (flag is off)" with a link to view the flag in LaunchDarkly. On state: the banner switches to a clearly different look (for example a green background) reading "LaunchDarkly test banner (flag is on)". Style it so it looks intentional, not like debug output. Add to the existing app, do not rewrite it. For an app with no rendered page, add one equivalent visible output (an endpoint or a startup line) that changes with the flag.
+- **Start the dev server on a free port** (check `lsof -ti :3000,4000,5173` first). **Keep it running until the user has seen the flag turn on. Do not stop the server before then.**
+- **Hand off the reveal to the user.** Give them the local URL and one choice for turning it on:
 
-Do these when finishing onboarding -- same session when possible. They are **documentation and handoff** tasks, not repeats of Steps 0-6. **Do not skip this section** -- it is the primary deliverable the user keeps after onboarding.
+```json
+{
+  "questions": [
+    {
+      "id": "flip_method",
+      "prompt": "Your app is running at <url> and the flagged element is off. Turn the flag on to watch it change. How do you want to flip it?",
+      "options": [
+        { "id": "ld_ui", "label": "I'll flip it in LaunchDarkly" },
+        { "id": "agent", "label": "Flip it for me" }
+      ]
+    }
+  ]
+}
+```
 
-**Setup summary (`LAUNCHDARKLY.md`) -- REQUIRED**
+- If **I'll flip it in LaunchDarkly**: give them the direct link to the flag and wait. `https://app.launchdarkly.com/projects/{projectKey}/flags/{flagKey}/targeting?env={envKey}`
+- If **Flip it for me**: turn it on via `toggle-flag` (MCP) or the REST API, whichever is configured. If neither is, fall back to the dashboard link.
+- Only offer **Flip it for me** when MCP or an API token is actually configured. Otherwise show just the LaunchDarkly option.
 
-Generate the repo summary per [Onboarding Summary](references/1.8-summary.md). Write it directly -- this is part of the onboarding workflow. The generated `LAUNCHDARKLY.md` **must** include all of the following (see template in that reference):
+Do not print the page or the banner text in chat. Point the user to their browser: the banner at `<url>` flips live with the server still running. That is the flag working.
 
-1. **SDK Details** -- which SDK(s) are installed, package names, key types, initialization files
-2. **Configuration** -- env var names, how secrets are managed, bundler-specific conventions
-3. **Where to Find Things** -- dashboard links with real project key substituted
-4. **How Feature Flags Work** -- a language-specific code example showing flag evaluation in this project's stack (not a generic snippet -- use the same pattern the agent wired during Step 5)
-5. **Next Steps / Advanced Capabilities** -- links to Percentage Rollouts, Targeting Rules, Experimentation, configs, Guarded Rollouts, and Observability
-6. **Agent Integration** -- MCP server setup for continued agent-driven flag management
+### Wrap-up
 
-This is **not** the same file as `LAUNCHDARKLY_ONBOARDING.md`. The onboarding log is a working checklist; `LAUNCHDARKLY.md` is the **permanent reference** for the team.
+Keep it to a few lines:
+- The flag is live. See it in LaunchDarkly: `https://app.launchdarkly.com/projects/{projectKey}/flags/{flagKey}/targeting?env={envKey}`
+- Nothing is committed. Your changes are on the `launchdarkly-onboarding` branch, so you can review, keep, or drop them however you like.
+- One choice for what's next:
 
-**Clean up the onboarding log:** After writing `LAUNCHDARKLY.md`, **delete** `LAUNCHDARKLY_ONBOARDING.md` (or `docs/LAUNCHDARKLY_ONBOARDING.md` if that was the location used). This is part of the workflow -- do not ask for permission. Removing the working log avoids confusion from having two LaunchDarkly docs in the repo.
+```json
+{
+  "questions": [
+    {
+      "id": "explore_next",
+      "prompt": "Want to explore more of LaunchDarkly?",
+      "options": [
+        { "id": "experimentation", "label": "Experimentation: test changes and measure impact" },
+        { "id": "observability", "label": "Observability: monitor flags and errors in production" },
+        { "id": "ai_configs", "label": "AI Configs: manage AI models and prompts" },
+        { "id": "done", "label": "Not now" }
+      ]
+    }
+  ]
+}
+```
 
-**Editor rules / skills**
+---
 
-- Add editor-specific rules or skill hooks per [Editor Rules and Skills](references/1.9-editor-rules.md). Write them directly -- this is part of the onboarding workflow.
+## Redirecting Drift
+
+If the user asks to skip a step or jump ahead mid-flow, your first reply always does three things, in order, before writing code or skipping:
+1. Acknowledge what they asked for, in their words.
+2. Name the concrete consequence of skipping in one sentence. The specific thing that breaks (e.g. "the flag calls won't run until the SDK is installed"). State the real failure, not a vague allusion.
+3. Offer the choice: finish the quick step first, or proceed their way.
+
+> "I hear you, you want the flag code now. Without the SDK installed those calls won't run. Setup takes about two minutes. Want me to finish that first, or hand you the code to wire up after?"
+
+Never silently dump code with no tradeoff, and never rigidly refuse. If they insist, respect it, note what was skipped, restate the risk in one sentence, and keep moving.
+
+---
+
+## Skill Repositories
+
+| Repo | Skills | Purpose |
+|------|--------|---------|
+| `launchdarkly/ai-tooling` | `onboarding`, `sdk-install`, `mcp-configure` | Setup |
+| `launchdarkly/ai-tooling` | `launchdarkly-flag-create` and related | Flag management |
+
+---
 
 ## Edge Cases
 
-| Situation | Action |
-|-----------|--------|
-| SDK already installed **and** initialized (see [detect decision tree](sdk-install/detect/SKILL.md#decision-tree)) | Skip **Step 5**; go to **Step 6** (First flag) |
-| SDK in dependencies **but** not initialized | Continue **Step 5** from [apply](sdk-install/apply/SKILL.md) / init (see [sdk-install](sdk-install/SKILL.md)); do not skip validation |
-| SDK state unclear | Re-run [Detect repository stack](sdk-install/detect/SKILL.md), then follow its decision tree |
-| No runnable app found or app target unclear | Follow the workspace classification in [Detect: classify workspace confidence](sdk-install/detect/SKILL.md#5a-classify-workspace-confidence) — ask the user to point to the real app or offer to create a demo. Do not proceed to plan or apply without a confirmed app target. |
-| Multiple languages in repo | **Blocking (D5):** use question tool to ask which target to integrate first -- do not guess |
-| User wants **both** frontend and backend (or server + browser) in the same target | [Dual SDK plan](sdk-install/plan/SKILL.md#dual-sdk-integrations): two packages, two entrypoints, two inits; [apply](sdk-install/apply/SKILL.md) must complete **both** tracks |
-| Monorepo | **Blocking (D5):** use question tool to ask which package/service to integrate -- do not assume the root |
-| No package manager detected | **Blocking (D5):** use question tool to ask which SDK to install; provide manual install instructions from [SDK recipes](references/sdk/recipes.md) |
-| Companion flag skills already installed (Step 3) | Skip re-running `npx skills add` for those skill names |
-| Resuming after a break or new agent session | Read `LAUNCHDARKLY_ONBOARDING.md` (Step 0); continue from **Next step**; refresh the log as you go |
-| MCP configuration fails or user declines MCP | Continue with **Step 5** using ldcli/API/dashboard per [mcp-configure](mcp-configure/SKILL.md); note limitation for flag tooling |
-| User / repo already fully onboarded | Summarize state from Step 0 log and repo; offer next steps without redoing completed steps |
-
-## What NOT to Do
-
-- Don't install an SDK without exploring the project and detecting the stack (Steps 1 and 5); keep the Step 0 log updated as you go.
-- Don't upgrade, pin, or add **non-LaunchDarkly** dependencies (peer-deps, lockfile churn, "latest" bumps) to install or compile the SDK without **explicit user approval** -- see [Apply -- Permission before changing other dependencies](sdk-install/apply/SKILL.md#permission-before-changing-other-dependencies).
-- Don't hardcode SDK keys in source code -- always use environment variables (see [Apply code changes](sdk-install/apply/SKILL.md)).
-- Don't restructure the user's project or refactor unrelated code.
-- Don't create flags before **Step 5** (SDK install) completes.
-- Don't write decision-point questions as chat text -- use your structured question tool (see [Decision Points](#decision-points)).
+- **SDK already installed:** Skip Step 3. Say so in one line that names what you found and where, then go to Step 4. Do not re-explain the SDK or run install commands.
+- **MCP already configured:** Use it. Skip the Step 2 offer. Call `get-project` to store keys and continue.
+- **Deprecated mcp/aiconfigs or mcp/fm found:** Both are deprecated. Ask before migrating to the unified `mcp/launchdarkly` server. Do not auto-migrate.
+- **No supported agent detected:** Ask directly. Provide manual config if needed.
+- **npx not available:** Provide manual skill installation (clone repo, copy skill directories).
+- **User only wants partial setup:** Respect it. State what is missing and what that limits.
+- **Non-LaunchDarkly dependencies would have to change** (peer-dep bumps, lockfile churn) to install or compile the SDK: get explicit approval first, per [Apply code changes](sdk-install/apply/SKILL.md).
 
 ## References
 
-**Continuity**
-
-- Step 0 -- `LAUNCHDARKLY_ONBOARDING.md` (working log; see [Steps 0-3](#steps-0-3-setup-run-silently----do-not-narrate-each-step))
-
-**Step 4 -- MCP (nested skill is primary)**
-
-- [mcp-configure/SKILL.md](mcp-configure/SKILL.md) -- hosted MCP, verify, edge cases (**follow this first**)
-- [MCP UI links](mcp-configure/references/mcp-ui-links.md) -- HTTPS + `command:` links to open MCP settings per editor
-- [MCP Config Templates](mcp-configure/references/mcp-config-templates.md) -- per-agent JSON for hosted MCP
-
-**Step 5 -- SDK install (nested skills)**
-
-- [sdk-install/SKILL.md](sdk-install/SKILL.md) -- orchestrates **detect -> plan -> apply** (**follow this first**)
-- [Detect repository stack](sdk-install/detect/SKILL.md)
-- [Generate integration plan](sdk-install/plan/SKILL.md)
-- [Apply code changes](sdk-install/apply/SKILL.md)
-
-**First flag (Step 6)**
-
-- [Create first feature flag](first-flag/SKILL.md)
-
-**Default follow-through**
-
-- [Onboarding Summary](references/1.8-summary.md) -- template for `LAUNCHDARKLY.md`
-- [Editor Rules and Skills](references/1.9-editor-rules.md)
-
-**SDK index**
-
-- [SDK recipes](references/sdk/recipes.md)
-- [SDK snippets](references/sdk/snippets/)
-
-**Public flag skills (install via Step 3)**
-
-- [github.com/launchdarkly/ai-tooling](https://github.com/launchdarkly/ai-tooling) -- `launchdarkly-flag-create`, `launchdarkly-flag-discovery`, `launchdarkly-flag-targeting`, `launchdarkly-flag-cleanup`
+- [mcp-configure](mcp-configure/SKILL.md) and [MCP Config Templates](mcp-configure/references/mcp-config-templates.md) — Step 2
+- [sdk-install](sdk-install/SKILL.md) — Step 3 (detect, plan, apply)
+- [SDK recipes](references/sdk/recipes.md) and [SDK snippets](references/sdk/snippets/) — per-SDK install and init detail

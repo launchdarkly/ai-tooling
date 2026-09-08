@@ -47,7 +47,7 @@ The skill ends by calling the `recommend-flag` tool:
 }
 ```
 
-`recommend` is the boolean a CI check keys on. `verdict` is the finer signal: `suggested` (a new flag is warranted), `already-flagged` (protected by an existing / ancestor flag — covered, not a new flag), or `not-suited` (genuinely nothing to flag). Keeping `already-flagged` distinct from `not-suited` is what lets a dashboard track real flag coverage.
+`recommend` is the boolean a CI check keys on. `verdict` is the finer signal: `suggested` (a new flag is warranted), `reuse-existing` (gate the change behind an existing flag that already covers this feature — set `reuse_flag_key`, don't create a new one), `already-flagged` (protected by an existing / ancestor flag — covered, no action), or `not-suited` (genuinely nothing to flag). Keeping these outcomes distinct is what lets a dashboard track real flag coverage.
 
 ## Structure
 

@@ -206,7 +206,7 @@ If they choose **both**, the plan must include **two** concrete integrations (se
 After detection and confirmation:
 
 - **No app found or unclear** --> Already handled by D5-NOAPP / D5-UNCLEAR in [section 5a](#5a-classify-workspace-confidence). Do not proceed to plan until the user confirms a real app target.
-- **SDK already installed and initialized** --> Skip to [Create first feature flag](../../first-flag/SKILL.md) (parent Step 6)
+- **SDK already installed and initialized** --> Skip to the parent skill's [Step 4: First Flag](../../SKILL.md#step-4-first-flag)
 - **SDK installed but not initialized** --> Skip to [Apply code changes](../apply/SKILL.md) (just add init code)
 - **SDK not present** --> Continue to [Generate integration plan](../plan/SKILL.md)
 - **Multiple targets detected (e.g., frontend + backend)** --> If the user wants **both** SDKs (confirmed via D5 above), continue to [Generate integration plan](../plan/SKILL.md) with **dual-SDK** scope (two packages, two entrypoints). If they want **one** surface only, plan for that single SDK.

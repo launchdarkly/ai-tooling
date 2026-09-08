@@ -1,6 +1,6 @@
 ---
 name: mcp-configure
-description: "Configure the LaunchDarkly hosted MCP server during onboarding. Use when the parent LaunchDarkly onboarding skill reaches Step 4 (MCP). Supports Cursor, Claude Code, Windsurf, GitHub Copilot, and other MCP-compatible agents. OAuth authentication; no API keys for the hosted server."
+description: "Configure the LaunchDarkly hosted MCP server during onboarding. Use when the parent LaunchDarkly onboarding skill reaches the MCP offer, after the first flag works. Supports Cursor, Claude Code, Windsurf, GitHub Copilot, and other MCP-compatible agents. OAuth authentication; no API keys for the hosted server."
 license: Apache-2.0
 compatibility: Requires an MCP-compatible coding agent and a LaunchDarkly account
 metadata:
@@ -12,20 +12,24 @@ metadata:
 
 Configures the LaunchDarkly hosted MCP server so flag management skills and onboarding can use MCP tools. Uses OAuth for authentication — no API keys needed for the hosted server.
 
-This skill is nested under [LaunchDarkly onboarding](../SKILL.md); the parent skill's **Step 4** hands off here. **Hosted MCP** is the default and the only supported option for this onboarding flow.
+This skill is nested under [LaunchDarkly onboarding](../SKILL.md); the parent skill hands off here once the first flag works.
 
 ## Prerequisites
 
-- A LaunchDarkly account (sign up at the resolved signup URL — see [Source Attribution](../SKILL.md#source-attribution) in the parent skill; default: `https://app.launchdarkly.com/signup?source=agent`)
+- A LaunchDarkly account (when directing users to sign up, use the resolved signup URL from the parent skill's [Source Attribution](../SKILL.md#source-attribution); default: `https://app.launchdarkly.com/signup?source=agent`)
 - An MCP-compatible coding agent
 
-## Hosted MCP Server
+## Hosted MCP Servers
 
-LaunchDarkly provides a unified hosted MCP server that handles feature management, AgentControl, and other LaunchDarkly capabilities.
+LaunchDarkly provides a unified hosted MCP server for all functionality:
 
-| Server      | URL                                              | Purpose                                      |
-| ----------- | ------------------------------------------------ | -------------------------------------------- |
-| LaunchDarkly | `https://mcp.launchdarkly.com/mcp/launchdarkly` | Feature flags, AgentControl, and more |
+| Server      | URL                                             | Purpose                       |
+| ----------- | ----------------------------------------------- | ----------------------------- |
+| LaunchDarkly (unified) | `https://mcp.launchdarkly.com/mcp/launchdarkly` | Feature flags and AgentControl |
+
+The legacy `mcp/fm` and `mcp/aiconfigs` URLs are **deprecated** — migrate any existing usage to the unified server (see [Edge Cases](#edge-cases)).
+
+For onboarding, the unified server is all that's needed.
 
 ## Workflow
 
@@ -58,7 +62,7 @@ Locate the MCP config file for the detected agent and add the hosted server entr
 | GitHub Copilot | Repo **Settings** on GitHub.com → Copilot → Cloud agent → MCP (see [MCP UI links](references/mcp-ui-links.md)) |
 | Windsurf       | Agent-specific MCP config                                  |
 
-The unified server handles both feature management and AgentControl, so only one server entry is needed.
+**Add the unified LaunchDarkly server for onboarding.** This single server handles feature flags and AgentControl.
 
 ### Step 4: Agent-Specific Authorization
 
@@ -82,44 +86,72 @@ After writing the config, some agents need extra steps. **Do not** send users th
 
 - Click **Save** after adding the MCP configuration in repo settings. Use the [GitHub Copilot MCP doc](https://docs.github.com/en/copilot/customizing-copilot/extending-copilot-coding-agent-with-mcp) for the exact **Settings** path on github.com.
 
-### Step 5: Enable and Verify
+### Step 5: Verify MCP Tools (No Mandatory Restart)
 
-After adding the config, the user needs to enable and authorize the server. MCP tools may become available immediately in some agents (Cursor, Claude Code) without a restart.
+Restart is no longer required for Cursor or Claude Code after enabling an MCP server. Probe for tools immediately after the user confirms they've enabled and authorized the server.
 
-1. **Tell the user to enable the server.** They need to toggle on the LaunchDarkly server and complete OAuth in their editor's MCP settings (e.g. in Cursor: toggle on the server and click **Connect**).
-2. **Probe immediately.** After the user confirms they've enabled the server, call a lightweight MCP tool (e.g. `list-feature-flags` with the known project key). Do not ask the user whether MCP is working — just try it.
-   - **Success** (normal response, even an empty flag list): MCP is live. Note it in the onboarding log and continue.
-   - **Failure** (tool not found, auth error, timeout): **update the onboarding log first** (set Step 4 to "in progress - pending restart", Next step to "Step 4: Verify MCP after restart"), then suggest a restart with clear resume instructions:
-     > "MCP tools aren't available yet. Try restarting your editor. When you come back, just say **'continue LaunchDarkly onboarding'** — I'll pick up where we left off using the onboarding log."
-3. **If restart doesn't help**, fall back to ldcli/API for Steps 5-6. Note the fallback in the onboarding log. Do **not** block the rest of onboarding.
-4. If the failure looks like a config issue (wrong file path, missing OAuth, server not enabled), mention the likely cause so the user can fix it on their own time — but do not block progress.
+1. **Tell the user to enable and authorize the server.** In Cursor: toggle on the LaunchDarkly server in MCP settings and click **Connect**. In Claude Code: the OAuth prompt appears on first tool call. Do **not** tell them to restart yet.
+
+2. **Probe immediately.** After the user confirms the server is enabled, call a lightweight MCP tool (e.g. `list-feature-flags` with the user's project key). Do not ask the user whether MCP is working — just try it.
+   - **Success** (normal response, even an empty flag list): MCP is live. Continue.
+   - **Auth error** (401, 403, "unauthorized", "forbidden", or OAuth-related message): the server was found but authorization failed. Go to step 3a.
+   - **Tool not found or timeout** (tool not recognized, connection refused, no response): the editor hasn't picked up the server yet. Go to step 3b.
+
+3a. **Auth failure path.** The MCP server is reachable but OAuth is incomplete or expired — restarting the editor won't help.
+   - Tell the user: "The MCP server responded but authorization failed. In Cursor: open MCP settings, find the LaunchDarkly server, and click **Connect** to re-authorize. In Claude Code: the next MCP tool call should re-trigger the OAuth prompt."
+   - Use [MCP UI links](references/mcp-ui-links.md) to give the user a direct shortcut to their agent's MCP settings.
+   - Re-probe after the user confirms they re-authorized.
+   - If the re-probe succeeds: continue with onboarding.
+   - If it fails again: offer the retry one-liner (see step 4 below). Do **not** suggest a restart for a persistent auth problem.
+
+3b. **Server-not-found path.** The editor likely hasn't loaded the new MCP config yet.
+   - Tell the user: "The MCP tools aren't visible yet. Some editors need a restart to pick up new MCP servers. Restart your editor and say **'continue LaunchDarkly onboarding'** when you're back — I'll resume from here."
+   - Be specific about how to restart: "Restart Cursor" / "reload Claude Code" / "refresh the Copilot agent" depending on what you detected in Step 1.
+
+4. **On resume after restart:** The parent onboarding skill detects live state, so no log file is needed. When the next turn starts:
+   - Re-probe for MCP tools silently.
+   - If tools are now available: "MCP is connected." Continue with onboarding.
+   - If tools still missing: do **not** block the rest of onboarding — remaining steps must still be completable without MCP. Offer a one-liner to retry later: "You can set up MCP anytime by clicking [quick install link] and restarting."
+
+5. If the failure looks like a config issue (wrong file path, server not enabled), mention the likely cause so the user can fix it on their own time — but do not block progress.
 
 ## Edge Cases
 
-- **User already has MCP configured:** Verify by checking for existing LD MCP entries in the config.
-  - `mcp/launchdarkly` → working, skip configuration
-  - `mcp/fm` or `mcp/aiconfigs` → deprecated, ask before migrating:
+- **User already has MCP configured:** Verify by checking for existing LD MCP entries in the config. If the unified server (`mcp/launchdarkly`) is present and working, skip configuration. If the deprecated `mcp/fm` or `mcp/aiconfigs` is present, see below.
+- **User has the deprecated `mcp/aiconfigs` or `mcp/fm` server:** These URLs are deprecated. Do **not** auto-migrate. Use a blocking question:
 
-    **D-MIGRATE -- BLOCKING:** Call your structured question tool now.
-    - question: "I see you have a deprecated MCP server configured (`mcp/fm` and/or `mcp/aiconfigs`). Those endpoints are deprecated — the unified server at `mcp/launchdarkly` now handles both feature management and AgentControl. Want me to update your config?"
-    - options:
-      - "Yes, update my config to use the unified server"
-      - "No, leave it as is for now"
-    - STOP. Do not modify the MCP config before the user selects an option.
+```json
+{
+  "questions": [
+    {
+      "id": "legacy_migration",
+      "prompt": "I found a deprecated LaunchDarkly MCP URL in your config (mcp/fm or mcp/aiconfigs). It should be replaced with the unified LaunchDarkly server (mcp/launchdarkly), which handles both feature flags and AgentControl. Do you want me to migrate?",
+      "options": [
+        { "id": "yes", "label": "Yes, remove the old server and add the unified one" },
+        { "id": "no", "label": "No, leave it as is for now" }
+      ]
+    }
+  ]
+}
+```
 
-    If they agree, remove the deprecated entries and ensure the unified `mcp/launchdarkly` config is present. See [MCP Config Templates](references/mcp-config-templates.md). If they decline, note the deprecation and continue.
-- **User has the old npx-based local server:** Migrate them. Remove the old `npx @launchdarkly/mcp-server` entry and any `LD_ACCESS_TOKEN` env vars. Replace with the hosted server config. See [MCP Config Templates — Migration](references/mcp-config-templates.md#migrating-from-old-configurations).
+  - If **yes**: remove the deprecated entry, ensure the unified `mcp/launchdarkly` server is present (do not duplicate if it's already there), and continue.
+  - If **no**: leave the config untouched and continue with onboarding — the deprecated server may still work for now.
+
+- **User has the old npx-based local server:** Migrate them to the hosted server. Remove the old `npx @launchdarkly/mcp-server` entry and any `LD_ACCESS_TOKEN` env vars. Replace with the hosted server config.
 - **Agent not in known list:** Provide the generic pattern: the user needs to add an MCP server entry pointing to `https://mcp.launchdarkly.com/mcp/launchdarkly` using whatever format their agent expects.
-- **User opts out of MCP during onboarding:** Document that choice and continue with the parent skill's ldcli/API fallbacks for environments and flags; do not block SDK work.
+- **User opts out of MCP during onboarding:** Document that choice and continue; do not block SDK work.
 
 ## What NOT to Do
 
-- Don't configure the old npx-based local server. Use the hosted server.
-- Don't ask for or store API keys for the hosted server. The hosted server uses OAuth.
-- Don't configure the old separate FM/AgentControl servers. Use the unified `mcp/launchdarkly` server.
+- Don't configure a local npx-based server. Always use the hosted server.
+- Don't ask for or store API keys. The hosted server uses OAuth.
+- Don't auto-migrate from the deprecated `mcp/aiconfigs` — always ask via the blocking question.
+- Don't suggest restart as the first step — probe for tools immediately after the user enables the server.
+- Don't suggest restart for auth errors (401/403) — the server was found, so a restart won't help. Guide the user to re-authorize instead.
 
 ## References
 
 - [MCP UI links](references/mcp-ui-links.md) — HTTPS + `command:` links to open MCP settings (Cursor, VS Code, Claude Code, Windsurf, GitHub)
-- [MCP Config Templates](references/mcp-config-templates.md) — hosted OAuth JSON per agent; migration from old configurations
+- [MCP Config Templates](references/mcp-config-templates.md) — hosted OAuth JSON per agent; migration from deprecated configs
 - [Official MCP docs](https://launchdarkly.com/docs/home/getting-started/mcp-hosted) — full hosted setup guide

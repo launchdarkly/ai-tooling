@@ -180,14 +180,6 @@
       "compatibility": "Requires access to the project repository"
     },
     {
-      "name": "first-flag",
-      "description": "Create a boolean first flag, add evaluation, toggle on/off for end-to-end proof. Parent onboarding Step 6; uses MCP, API, or ldcli; optional flag-create skill.",
-      "path": "skills/onboarding/first-flag",
-      "version": "0.1.0",
-      "license": "Apache-2.0",
-      "compatibility": "Requires SDK installed (parent Step 5) and LaunchDarkly project access"
-    },
-    {
       "name": "flag-and-release-change",
       "description": "Drive a pull request's change end to end: decide it's flag-worthy, create the guarding flag, wire the new code path behind it on the PR branch, and record an automated release so the change ships safely when the PR merges. A portable orchestrator that composes should-flag-change, launchdarkly-flag-create, and flag-release. Keywords: flag a PR, wrap change in a flag, dark launch, kill switch, auto-release, automated rollout, end-to-end flag workflow.",
       "path": "skills/feature-flags/flag-and-release-change",
@@ -339,6 +331,26 @@
       ]
     },
     {
+      "name": "launchdarkly-flag-qualitative-feedback-setup",
+      "description": "Integrate LaunchDarkly qualitative user feedback into a JavaScript/TypeScript codebase. Guides framework and design system detection, builds the sendFeedback utility and feedback widget matching existing project patterns. Use when the user wants to add a Give Feedback widget, collect user sentiment tied to feature flags, set up feedback collection, or wire up the $ld:feedback tracking event.",
+      "path": "skills/feature-flags/launchdarkly-flag-qualitative-feedback-setup",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "feature-flags",
+        "feedback",
+        "qualitative-feedback",
+        "user-feedback",
+        "sentiment",
+        "sdk",
+        "javascript",
+        "react",
+        "mcp"
+      ]
+    },
+    {
       "name": "launchdarkly-flag-targeting",
       "description": "Control LaunchDarkly feature flag targeting including toggling flags on/off, percentage rollouts, targeting rules, individual targets, and copying flag configurations between environments. Use when the user wants to change who sees a flag, roll out to a percentage, add targeting rules, or promote config between environments.",
       "path": "skills/feature-flags/launchdarkly-flag-targeting",
@@ -390,7 +402,7 @@
     },
     {
       "name": "mcp-configure",
-      "description": "Configure the LaunchDarkly hosted MCP server during onboarding. Use when the parent LaunchDarkly onboarding skill reaches Step 4 (MCP). Supports Cursor, Claude Code, Windsurf, GitHub Copilot, and other MCP-compatible agents. OAuth authentication; no API keys for the hosted server.",
+      "description": "Configure the LaunchDarkly hosted MCP server during onboarding. Use when the parent LaunchDarkly onboarding skill reaches the MCP offer, after the first flag works. Supports Cursor, Claude Code, Windsurf, GitHub Copilot, and other MCP-compatible agents. OAuth authentication; no API keys for the hosted server.",
       "path": "skills/onboarding/mcp-configure",
       "version": "0.1.0",
       "license": "Apache-2.0",
@@ -406,11 +418,11 @@
     },
     {
       "name": "onboarding",
-      "description": "Onboard a project to LaunchDarkly: kickoff roadmap, resumable log, explore repo, MCP, companion flag skills, nested SDK install (detect/plan/apply), first flag. Use when adding LaunchDarkly, setting up or integrating feature flags in a project, SDK integration, or 'onboard me'.",
+      "description": "Scripted onboarding for LaunchDarkly: quiet execution, fixed sequence, SDK install, first flag with a live reveal, MCP offered afterwards. Enforces step completion before advancing and redirects drift. Use when adding LaunchDarkly, setting up or integrating feature flags in a project, SDK integration, or 'onboard me'.",
       "path": "skills/onboarding",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "Apache-2.0",
-      "compatibility": "Requires an MCP-capable coding agent, `npx` on PATH for optional skill installs, and a LaunchDarkly account. SDK keys, client-side IDs, mobile keys, and API tokens are only needed when the step that uses them runs (see Prerequisites).",
+      "compatibility": "Requires an MCP-capable coding agent and `npx` on PATH for optional skill installs. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.",
       "tags": [
         "launchdarkly",
         "feature-flags",
@@ -446,7 +458,7 @@
     },
     {
       "name": "sdk-install",
-      "description": "Install and initialize the correct LaunchDarkly SDK during onboarding by running nested skills in order: detect, plan, apply. Parent onboarding Step 6 is first flag.",
+      "description": "Install and initialize the correct LaunchDarkly SDK during onboarding by running nested skills in order: detect, plan, apply. Parent onboarding Step 4 is first flag.",
       "path": "skills/onboarding/sdk-install",
       "version": "0.2.0",
       "license": "Apache-2.0",
@@ -456,7 +468,7 @@
       "name": "should-flag-change",
       "description": "Decide whether a given code change should be placed behind a LaunchDarkly feature flag. Use when a developer asks whether a change should be behind a flag, when reviewing a diff or pull request, or when running in CI on a PR. Reads the diff and surrounding code, then emits a structured advisory recommendation. Read-only: it never creates or modifies flags.",
       "path": "skills/feature-flags/should-flag-change",
-      "version": "0.2.0-experimental",
+      "version": "0.4.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Advisory and read-only. Works on all platforms. Does NOT require the LaunchDarkly MCP server. Reads code with standard file tools (Read/Grep/Glob) and returns a structured verdict via the `recommend-flag` tool.",
       "tags": [

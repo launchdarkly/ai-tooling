@@ -22,6 +22,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `feature-flags/launchdarkly-guarded-rollout` | Configure guarded rollouts with progressive traffic, metric monitoring, and rollback |
 | `feature-flags/flag-release` | Record a flag's automated release for a PR, honoring release intent and per-environment release policies |
 | `feature-flags/flag-and-release-change` | End-to-end PR orchestrator: decide → create + wire the flag → record its release (composes the skills above) |
+| `feature-flags/launchdarkly-flag-qualitative-feedback-setup` | Add a qualitative user feedback widget tied to a flag, adapting to the project's framework and design system |
 
 ### AgentControl
 
@@ -72,10 +73,9 @@ Once installed, skills are available as `/launchdarkly:<skill-name>` across all 
 
 | Skill | Description |
 |-------|-------------|
-| `onboarding` | End-to-end LaunchDarkly setup: kickoff roadmap, MCP, SDK install, first flag |
+| `onboarding` | End-to-end LaunchDarkly setup: quiet scripted flow, SDK install, first flag with a live reveal, MCP offered afterwards |
 | `onboarding/mcp-configure` | Configure the LaunchDarkly hosted MCP server (OAuth, no API keys needed) |
 | `onboarding/sdk-install` | Install and initialize the correct SDK via detect, plan, and apply sub-steps |
-| `onboarding/first-flag` | Create a boolean flag, evaluate it, toggle on/off for end-to-end proof |
 
 ## Install as a Cursor Plugin
 

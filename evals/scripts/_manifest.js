@@ -73,6 +73,12 @@ const SUITES = [
     skillDir: "skills/feature-flags/flag-and-release-change",
     readme: "skills/feature-flags/flag-and-release-change/README.md",
   },
+  {
+    suite: "onboarding",
+    skillKey: "onboarding",
+    skillDir: "skills/onboarding",
+    readme: "skills/onboarding/README.md",
+  },
 ];
 
 /**

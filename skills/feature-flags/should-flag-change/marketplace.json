@@ -1,7 +1,7 @@
 {
   "name": "should-flag-change",
   "description": "Decide whether a given code change should be placed behind a LaunchDarkly feature flag. Advisory and read-only.",
-  "version": "0.2.0-experimental",
+  "version": "0.4.0-experimental",
   "author": "LaunchDarkly",
   "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],

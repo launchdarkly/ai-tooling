@@ -23,6 +23,8 @@
     "eval:flag-release:single": "promptfoo eval -c shared/defaults.yaml -c flag-release/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:flag-and-release-change": "promptfoo eval -c shared/defaults.yaml -c flag-and-release-change/promptfooconfig.yaml --env-file .env --no-cache -o flag-and-release-change/results.json",
     "eval:flag-and-release-change:single": "promptfoo eval -c shared/defaults.yaml -c flag-and-release-change/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
+    "eval:onboarding": "promptfoo eval -c shared/defaults.yaml -c onboarding/promptfooconfig.yaml --env-file .env --no-cache -o onboarding/results.json",
+    "eval:onboarding:single": "promptfoo eval -c shared/defaults.yaml -c onboarding/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "fixture:from-pr": "node scripts/build-pr-fixture.js",
     "eval:all": "node scripts/aggregate.js --run",
     "eval:aggregate": "node scripts/aggregate.js",
@@ -36,11 +38,24 @@
     "eval:matrix": "node scripts/run-models.js --models=haiku,sonnet,opus"
   },
   "devDependencies": {
-    "js-yaml": "^4.1.1",
-    "promptfoo": "^0.121.0",
+    "js-yaml": "^4.3.1",
+    "promptfoo": "^0.122.0",
     "zod": "^3.22.4"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.144"
+  },
+  "overrides": {
+    "@hono/node-server@1": "^1.19.15",
+    "adm-zip": "^0.6.0",
+    "brace-expansion": "^5.0.9",
+    "fast-uri": "^3.1.5",
+    "ip-address": "^10.3.1",
+    "mongoose": "^9.7.2",
+    "protobufjs@7": "^7.6.5",
+    "protobufjs@8": "^8.7.2",
+    "sharp": "^0.35.3",
+    "socket.io-parser": "^4.2.7",
+    "ws": "^8.21.3"
   }
 }

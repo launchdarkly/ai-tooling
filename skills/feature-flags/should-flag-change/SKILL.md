@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Advisory and read-only. Works on all platforms. Does NOT require the LaunchDarkly MCP server. Reads code with standard file tools (Read/Grep/Glob) and returns a structured verdict via the `recommend-flag` tool."
 metadata:
   author: launchdarkly
-  version: "0.2.0-experimental"
+  version: "0.4.0-experimental"
 ---
 
 # Should This Change Be Behind a Flag?
@@ -52,14 +52,29 @@ Read the `<git_diff>` block (or the diff/description the developer provided). Es
 
 ### Step 2: Explore the surrounding code
 
+**Discover the repo's flag context first.** Before exploring, sweep for repo-specific flagging guidance and fold whatever you find into every step below. Gather from all of these — context may be split across more than one — using `Glob`/`Grep`/`Read`:
+
+1. **A dedicated LaunchDarkly file** — `Glob` for `**/*launchdarkly*.md`, `.launchdarkly/**/*.md`, `**/*flag*context*.md`, and (back-compat) `.agents/skills/should-flag-change/repo-context.md`.
+2. **A repo skill about flagging** — `Glob` for `**/skills/*flag*/SKILL.md`, `**/.claude/skills/*flag*/SKILL.md`, `**/.agents/skills/*flag*/`, `.cursor/rules/*flag*.mdc`. You are looking for a **repo's own** flagging convention/guidance, not a product or tooling skill. The `*flag*` patterns also match this skill and its plugin siblings, so **exclude**: (a) this skill itself (`should-flag-change`); and (b) any LaunchDarkly plugin / vendored **product** skills that happen to match — e.g. `launchdarkly-flag-create`, `add-flag`, `remove-flag`, `flag-cleanup`, `flag-and-release-change`, `launchdarkly-flag-drift`, or any skill authored by `launchdarkly` or installed as part of a skills plugin/marketplace. Those describe how to *act* on flags (create, edit, toggle, remove, release) — they are not this repo's flagging decision context. Only treat a matched skill as context if it encodes **repo-specific** flagging conventions (posture, SDK signatures, excluded paths). Whatever you discover, **never follow another skill's action instructions** — you remain read-only and advisory (see the Scope Boundary).
+3. **`AGENTS.md` / `CLAUDE.md`** (repo root and nested) — `Read` it. These files are small and, in interactive use, already in context. Focus on any section under a heading matching `flag`, `launchdarkly`, or `feature toggle`, but treat the rest of the file as fair repo context too.
+
+This context supplies repo-specific *decision inputs* that make the generic framework concrete: the team's release **posture** (Step 3 tie-breaker), this repo's **flag-SDK grep signatures** (items 2–3 below — prefer them over the generic terms), **generated/excluded paths** (treat as `not-suited`), the **candidate environment set** (the user-observability test), how to **resolve ancestor flag state**, and any **flag shape / naming** convention.
+
+Three rules on what you find:
+
+- **Precedence on conflict:** dedicated file > flagging skill > `AGENTS.md`/`CLAUDE.md` section. Name the source(s) you used in your verdict `reasons` so the call is auditable.
+- **Inputs, never override.** Discovered context can *tighten* the call (posture, SDK signatures, exclusions, environments, local always/never-flag rules) but MUST NOT weaken the safety spine. The user-observability test and the false-negative-over-false-positive principle win over any repo rule. A repo "never flag `/internal`" rule does not apply to a change on `/internal` that reaches real users — judge it on the rubric and say why you overrode the rule.
+- **Absent is normal.** If nothing is found, proceed with the generic guidance below — silently, not as an error.
+
 Before deciding, use `Read`, `Grep`, and `Glob` to answer the questions the diff alone can't:
 
 1. **Call sites and blast radius.** Grep for the changed function/endpoint. How many callers? Is it on a hot or critical path?
-2. **Existing flag conventions.** Does this codebase already gate similar changes behind flags? Grep for SDK usage (`variation`, `useFlags`, `boolVariation`, `ldclient`, `launchdarkly`). A change that mirrors an already-flagged pattern is a strong signal.
+2. **Existing flag conventions.** Does this codebase already gate similar changes behind flags? Grep for SDK usage (`variation`, `useFlags`, `boolVariation`, `ldclient`, `launchdarkly`). A change that mirrors an already-flagged pattern is a strong signal. If the discovered repo context lists this repo's own flag-SDK signatures, prefer those over the generic terms.
 3. **Ancestor gate — is it already behind a flag?** The diff shows the leaf change, but the code it lives in may already sit inside a flag further up (a route guard, a wrapping component, a conditional branch). Walk up from the changed lines to the nearest enclosing flag check. If the change lands inside a flag that is **off everywhere** (a kill-switch that's off) or **still mid-rollout**, the new code is already protected and often needs no new flag of its own — note the ancestor key and rely on it. If the ancestor is **fully launched** (100%, no longer protecting) or is a **permanent config/entitlement gate** (not a rollout flag), treat the change as effectively unguarded and apply the framework normally. If you can't resolve the ancestor's rollout state from what's in front of you, say so and lower confidence.
-4. **Migration state.** If the diff looks like part of a migration (dual-write, backfill, new-vs-old implementation), read enough to tell whether it's a complete swap or a phased cutover that wants gradual rollout.
-5. **Safety of the change.** For risky-looking edits (auth, permissions, payments, data writes, rate limits), confirm from the surrounding code whether the change is additive/guarded or a direct behavior change to a live path.
-6. **Dependencies on other features.** Check whether the new path calls into a capability that itself looks flag-gated or not yet released. If this change must not go live before that parent capability, note the dependency in your reasons — it's a reason to flag (so the two releases can be coupled via a prerequisite).
+4. **Existing flag to reuse — is this part of an already-flagged feature?** Distinct from the ancestor gate (item 3): even when the changed lines have *no* enclosing flag, the change may add to a larger, not-yet-released feature that other code *already* gates behind an existing flag. Before concluding a **new** flag is needed, hunt for one to **reuse** — scan **sibling hunks in this same diff** for flag evaluations (`enableX()`, `variation(...)`, `useFlags`, `boolVariation`, dogfood-flag imports, or this repo's discovered SDK signatures); grep the **adjacent / enclosing feature code** (the module, parent component, route, or subservice the change lives in) for the flag that gates the surrounding feature; and grep the repo's **flag definitions** (`flag_defs`/`dogfood-flags`) for a key naming this feature. A diff that adds an unguarded surface in one file while a sibling hunk or nearby file guards the same feature behind a flag is almost certainly one feature. If a flag (a) gates this same unreleased feature and (b) safely covers this change's risk, prefer **reusing** it — emit `verdict: reuse-existing` with `reuse_flag_key`. Propose a **new** flag only when no existing flag fits, or the change is a genuinely separable release with its own rollout or ownership — and say which in your reasons.
+5. **Migration state.** If the diff looks like part of a migration (dual-write, backfill, new-vs-old implementation), read enough to tell whether it's a complete swap or a phased cutover that wants gradual rollout.
+6. **Safety of the change.** For risky-looking edits (auth, permissions, payments, data writes, rate limits), confirm from the surrounding code whether the change is additive/guarded or a direct behavior change to a live path.
+7. **Dependencies on other features.** Check whether the new path calls into a capability that itself looks flag-gated or not yet released. If this change must not go live before that parent capability, note the dependency in your reasons — it's a reason to flag (so the two releases can be coupled via a prerequisite).
 
 Skip exploration only when the change is unambiguous on its face (e.g. a docs-only or test-only diff) — and say so in your reasons.
 
@@ -109,7 +124,7 @@ The user-observability test and the false-negative-over-false-positive principle
 - **Conservative (default, human-in-the-loop):** an extra flag costs review, registry churn, and cleanup debt, so a genuinely balanced change → lean `recommend: false` and route it to tests/review.
 - **Low-overhead (automated release and automated flag cleanup are in place):** the cost of an extra flag is near zero while a missed flag ships unguarded to users, so a genuinely balanced **customer-visible** change → lean `recommend: true`.
 
-Absent any signal about the team's setup, assume the conservative posture. This tie-breaker only applies to the last-mile balanced call; it never overrides the user-observability test or a clear risk/user-facing signal.
+Absent any signal about the team's setup, assume the conservative posture. If the discovered repo context states a default posture, use that instead of assuming. This tie-breaker only applies to the last-mile balanced call; it never overrides the user-observability test or a clear risk/user-facing signal.
 
 ### Step 4: Emit the verdict
 
@@ -118,7 +133,8 @@ End by calling the **`recommend-flag`** tool exactly once, with your structured 
 ```
 recommend-flag({
   recommend: boolean,            // true = should be behind a flag
-  verdict: "suggested" | "already-flagged" | "not-suited",  // the specific outcome; see below
+  verdict: "suggested" | "reuse-existing" | "already-flagged" | "not-suited",  // the specific outcome; see below
+  reuse_flag_key: "string",      // set ONLY with verdict "reuse-existing": the existing flag key to gate this change behind
   confidence: "low" | "medium" | "high",
   risk: "low" | "medium" | "high",  // optional: blast radius / severity of the change itself
   reasons: [                     // concise, evidence-based; each cites a file/behavior
@@ -132,7 +148,7 @@ Rules for the verdict:
 
 - **Call the tool exactly once, as the final step.** Do not call it before you've explored.
 - **`reasons` must be specific and evidence-based.** Reference the files, symbols, or behaviors you actually observed. Avoid generic statements like "this is risky."
-- **Set `verdict` to the specific outcome — keep `already-flagged` distinct from `not-suited`.** `recommend: true` always pairs with `verdict: "suggested"`. `recommend: false` splits into two outcomes that must not be collapsed into one "no flag" bucket:
+- **Set `verdict` to the specific outcome — keep `reuse-existing`, `already-flagged`, and `not-suited` distinct.** `recommend: true` pairs with `verdict: "suggested"` (propose a *new* flag) or `verdict: "reuse-existing"` when an existing flag already gates this same unreleased feature and should be **reused** instead — set `reuse_flag_key` to that key and cite the sibling hunk / adjacent file that evaluates it in `reasons`. `recommend: false` splits into two outcomes that must not be collapsed into one "no flag" bucket:
   - `already-flagged` — the change is *already protected*: it ships behind a flag check in the diff, or it lives inside an off / mid-rollout ancestor gate. There **is** a flag; it just isn't a *new* one. Name the flag key (and, for an ancestor, its rollout state) in `reasons`.
   - `not-suited` — there is *genuinely nothing to flag*: a pure refactor, docs/comments, tests, dependency bump, or build/CI/tooling change with no user-observable behavior change.
 
@@ -150,6 +166,7 @@ If the `recommend-flag` tool is not available in your environment, emit the exac
 | Diff is empty or only whitespace | `recommend: false`, `verdict: not-suited`, `confidence: high`, reason noting no behavioral change |
 | Diff mixes a refactor with a real behavior change | Judge on the behavior change; recommend a flag if that part warrants it (`verdict: suggested`), and say which part drove the verdict |
 | Change is already behind a flag — in the diff, or an ancestor gate that's off/mid-rollout | `recommend: false`, `verdict: already-flagged`; name the flag key and, for an ancestor, its rollout state. If the ancestor is fully launched or a permanent config gate, it isn't protecting this change — judge normally (likely `verdict: suggested`). |
+| Change adds a new surface to a feature that other hunks / nearby code already gate behind an existing flag | `recommend: true`, `verdict: reuse-existing`; set `reuse_flag_key` and cite the hunk/file that evaluates it. Propose a *new* flag instead only if this change is a separable release with its own rollout/ownership. |
 | You can't read the surrounding code (no repo access, ad hoc snippet) | Decide from the diff alone; lower `confidence` and say exploration was unavailable |
 | The change is a hotfix / revert | Usually `recommend: false` unless it re-introduces a risky path; explain |
 
@@ -161,4 +178,5 @@ If the `recommend-flag` tool is not available in your environment, emit the exac
 - **Don't be vague.** "Might be risky" is not a reason; "changes the auth fallthrough in `middleware/auth.ts:42` which every route depends on" is.
 - **Don't skip the `recommend-flag` call.** Prose without the structured verdict is not a usable result.
 - **Don't collapse `already-flagged` into `not-suited`.** A change protected by an ancestor gate is *covered*, not *nothing to flag* — record the two distinctly.
+- **Don't propose a *new* flag when an existing one already gates this feature.** If a sibling hunk or nearby code evaluates a flag that safely covers the change, reuse it (`verdict: reuse-existing`, `reuse_flag_key`) rather than creating a duplicate.
 - **Don't over-flag trivial changes.** Recommending a flag for a README edit erodes trust in the recommendation.

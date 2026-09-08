@@ -9,7 +9,7 @@ description: Onboarding sample and links for the LaunchDarkly Node.js server-sid
 - API reference: [SDK API docs](https://launchdarkly.github.io/js-core/packages/sdk/server-node/docs/)
 - Recipe (detect / install): [SDK Recipes](../recipes.md) (Node.js Server)
 
-**Includes:** Patterns below follow the **Get started**, **Initialize the client**, **Evaluate a context**, and **Promises and async** sections of the [Node.js server-side SDK reference](https://launchdarkly.com/docs/sdk/server-side/node-js). Use **one** initialization strategy (`waitForInitialization` **or** the `ready` event—not both at once unless you know why). Aligns with [Create First Feature Flag](../../../first-flag/SKILL.md) (evaluation uses **context** + default).
+**Includes:** Patterns below follow the **Get started**, **Initialize the client**, **Evaluate a context**, and **Promises and async** sections of the [Node.js server-side SDK reference](https://launchdarkly.com/docs/sdk/server-side/node-js). Use **one** initialization strategy (`waitForInitialization` **or** the `ready` event—not both at once unless you know why).
 
 ### Singleton client
 

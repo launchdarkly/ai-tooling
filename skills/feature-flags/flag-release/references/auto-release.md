@@ -15,7 +15,7 @@ the way the team has decided similar changes should roll out — no human toggli
 `create-automated-rollout-config` takes an `environments` array; each entry is
 `{ environmentKey, releaseType }`.
 
-- **`simple`** (default): serve `true` in that environment as soon as the config is created. Because a freshly created flag isn't evaluated anywhere yet, this is effectively a no-op until the merged code ships — then that environment is simply "on." Use it for dev/staging environments you want fully enabled without ceremony.
+- **`simple`** (default): serve `true` in that environment once the flag begins evaluating — the same trigger `policy` waits for, just with no policy resolution or stages. Use it for dev/staging environments you want fully enabled without ceremony.
 
 - **`policy`**: wait until the PR merges and the flag begins evaluating, then resolve that environment's configured release policy and perform the matching release — immediate, progressive, or guarded — automatically. Use it for production and any environment where you want a governed, monitored rollout with the safety net the team already defined.
 

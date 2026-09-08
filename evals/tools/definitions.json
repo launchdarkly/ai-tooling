@@ -517,6 +517,8 @@
       "type": "object",
       "properties": {
         "recommend": { "type": "boolean", "description": "true if the change should be released behind a feature flag, false if it should not" },
+        "verdict": { "type": "string", "enum": ["suggested", "reuse-existing", "already-flagged", "not-suited"], "description": "The finer-grained outcome. suggested = a new flag is warranted (pairs with recommend: true). reuse-existing = the change should be gated behind an EXISTING flag that already covers this same unreleased feature rather than a new one — set reuse_flag_key (pairs with recommend: true). already-flagged = the change is already protected by a flag in the diff or an off/mid-rollout ancestor gate (recommend: false). not-suited = there is genuinely nothing to flag: pure refactor, docs, tests, dependency bump, or build/CI/tooling change (recommend: false)." },
+        "reuse_flag_key": { "type": "string", "description": "Set ONLY when verdict is reuse-existing: the key of the existing flag to gate this change behind (the flag that already covers this feature). Omit for every other verdict." },
         "confidence": { "type": "string", "enum": ["low", "medium", "high"], "description": "Confidence in the recommendation, calibrated to how clear the signal is and how much surrounding code you verified" },
         "risk": { "type": "string", "enum": ["low", "medium", "high"], "description": "Optional. Blast radius / severity of the change itself, independent of confidence. low = small additive isolated change; medium = modified business logic / moderate blast radius; high = cross-cutting, API-contract, data-migration, or auth/payments/data-integrity change." },
         "reasons": {
