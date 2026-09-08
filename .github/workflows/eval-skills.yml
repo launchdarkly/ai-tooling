@@ -80,8 +80,10 @@ jobs:
 
       - name: Compute changed suites
         id: compute
+        env:
+          RUN_ALL: ${{ inputs.run_all }}
         run: |
-          if [[ "${{ inputs.run_all }}" == "true" ]]; then
+          if [[ "$RUN_ALL" == "true" ]]; then
             # run_all overrides: list every suite
             slugs="$(node -e 'const m=require("./evals/scripts/_manifest");process.stdout.write(JSON.stringify(m.SUITES.map(s=>s.suite)))')"
           else
@@ -267,6 +269,8 @@ jobs:
 
       - name: Commit refreshed scores and badges
         if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
         run: |
           if git diff --quiet eval-scores.json skills/; then
             echo "No score or badge changes to commit"
@@ -277,7 +281,7 @@ jobs:
           git add eval-scores.json
           git add skills/**/README.md
           git commit -m "chore(evals): refresh eval-scores.json and README badges"
-          git push origin HEAD:${{ github.ref_name }}
+          git push origin "HEAD:$BRANCH_NAME"
 
   eval-gate:
     name: "Evaluate gate"
