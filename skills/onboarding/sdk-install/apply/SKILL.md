@@ -71,7 +71,7 @@ If the user **declines** broader changes: keep only the LD package addition if p
 
 **If the user chooses option 2 ("I'll set it up myself"):**
 1. Tell them the variable name(s) they need to set (see the table below)
-2. Link them to the right dashboard page. When the project key and environment key are known: **`https://app.launchdarkly.com/projects/{projectKey}/settings/environments/{envKey}/keys`**. When only the project key is known: **`https://app.launchdarkly.com/projects/{projectKey}/settings/environments`** and tell them to select the environment. When neither is known: **`https://app.launchdarkly.com/projects`** and tell them to navigate to **Settings > Environments** to find the key.
+2. Link them to the right dashboard page. When the project key and environment key are known: **`https://app.launchdarkly.com/settings/sdk-keys?projKey={projectKey}&envKey={envKey}`**. When only the project key is known: **`https://app.launchdarkly.com/settings/sdk-keys?projKey={projectKey}`** and tell them to select the environment from the picker on that page. When neither is known: **`https://app.launchdarkly.com/settings/sdk-keys`** and tell them to select both from the pickers.
 3. Wait for the user to confirm the secret is in place before proceeding to Step 3
 4. Do not fetch, write, or handle the key value at all
 
@@ -98,7 +98,7 @@ get-environments({ request: { projectKey: "PROJECT_KEY" } })
 
 **Security: Treat MCP responses containing keys as sensitive.** Write keys only to the location the user chose without echoing full key values in chat responses. Keys in agent conversation history or logs may persist beyond the session.
 
-Pick the correct key type from the matching environment in the response (see table below). If MCP is not configured, direct the user to the LaunchDarkly dashboard to retrieve their keys: `https://app.launchdarkly.com/projects/{PROJECT_KEY}/settings/environments/{ENV_KEY}/keys`.
+Pick the correct key type from the matching environment in the response (see table below). If MCP is not configured, direct the user to the LaunchDarkly dashboard to retrieve their keys: `https://app.launchdarkly.com/settings/sdk-keys?projKey={PROJECT_KEY}&envKey={ENV_KEY}`.
 
 ### Variable names and where values come from
 

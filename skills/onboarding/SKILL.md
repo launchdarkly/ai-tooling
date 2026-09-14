@@ -220,7 +220,7 @@ The SDK needs a key. Default to fetching it for the user when MCP is connected; 
 ```
 
 - Account, MCP connected: fetch the key via `get-environments`, write it to `.env`, and ensure `.env` is gitignored. Never print key values.
-- Account, no MCP: give the direct link and have them paste it. `https://app.launchdarkly.com/projects/{projectKey}/settings/environments/{envKey}/keys`
+- Account, no MCP: give the direct link and have them paste it. `https://app.launchdarkly.com/settings/sdk-keys?projKey={projectKey}&envKey={envKey}`
 - No account: share the resolved signup link. Write placeholder env vars so the code compiles, and continue.
 
 Key type must match the integration: server-side SDK takes an **SDK key**, browser/client-side takes a **client-side ID**, mobile takes a **mobile key**. Env variable names and bundler rules live in [Apply code changes](sdk-install/apply/SKILL.md).
@@ -253,7 +253,7 @@ Create the flag, wire it into the app, and let the user watch it turn on.
 }
 ```
 
-- If **I'll flip it in LaunchDarkly**: give them the direct link to the flag and wait. `https://app.launchdarkly.com/projects/{projectKey}/flags/{flagKey}/targeting?env={envKey}`
+- If **I'll flip it in LaunchDarkly**: give them the direct link to the flag and wait. `https://app.launchdarkly.com/{projectKey}/{envKey}/features/{flagKey}`
 - If **Flip it for me**: turn it on via `toggle-flag` (MCP) or the REST API, whichever is configured. If neither is, fall back to the dashboard link.
 - Only offer **Flip it for me** when MCP or an API token is actually configured. Otherwise show just the LaunchDarkly option.
 
@@ -262,7 +262,7 @@ Do not print the page or the banner text in chat. Point the user to their browse
 ### Wrap-up
 
 Keep it to a few lines:
-- The flag is live. See it in LaunchDarkly: `https://app.launchdarkly.com/projects/{projectKey}/flags/{flagKey}/targeting?env={envKey}`
+- The flag is live. See it in LaunchDarkly: `https://app.launchdarkly.com/{projectKey}/{envKey}/features/{flagKey}`
 - Nothing is committed. Your changes are on the `launchdarkly-onboarding` branch, so you can review, keep, or drop them however you like.
 - One choice for what's next:
 
