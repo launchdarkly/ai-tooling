@@ -24,6 +24,8 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 
 If these tools are missing, the Gram/hosted MCP has not attached them yet. Do not invent REST calls or numeric `repoId`s.
 
+Factory settings are in alpha: the underlying endpoints are gated by the `enable-factory-settings` flag and are not on LaunchDarkly's public API spec. If every Factory tool returns 404, the account is not in the alpha — tell the user rather than retrying or falling back to REST.
+
 ## Core Principles
 
 1. **Account settings are the master gate.** A mapped repo cannot enable auto-flagging or auto-releasing if the account has that capability off. Turn the account on first, then map repos.

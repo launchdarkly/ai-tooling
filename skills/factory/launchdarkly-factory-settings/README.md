@@ -20,6 +20,8 @@ This skill teaches agents how to:
 
 The remotely hosted LaunchDarkly MCP server must expose the Factory settings tools (`get-factory-settings`, `list-factory-github-repos`, `update-factory-repo-settings`, and siblings). The GitHub App must already be installed; this skill does not install it.
 
+Factory settings are in alpha. The endpoints behind these tools are gated by the `enable-factory-settings` flag and are not part of LaunchDarkly's public API, so accounts outside the alpha get 404s.
+
 ## Usage
 
 ```
