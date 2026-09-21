@@ -1,0 +1,20 @@
+{
+  "name": "launchdarkly-factory-settings",
+  "description": "Configure LaunchDarkly Factory settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP",
+  "version": "1.0.0-experimental",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "factory",
+    "github",
+    "auto-flagging",
+    "auto-releasing",
+    "code-automation",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}
