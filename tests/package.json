@@ -21,9 +21,10 @@
     "adm-zip": "^0.6.0",
     "brace-expansion": "^5.0.9",
     "fast-uri": "^3.1.6",
-    "js-yaml@4": "^4.3.1",
+    "hono": "^4.13.5",
+    "js-yaml@4": "^4.3.2",
     "mongoose": "^9.7.2",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "simple-git": "^3.36.0",
     "socket.io-parser": "^4.2.7",
     "uuid@13": "^13.0.1"
