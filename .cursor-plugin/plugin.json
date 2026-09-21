@@ -24,7 +24,8 @@
     "skills/agentcontrol",
     "skills/feature-flags",
     "skills/metrics",
-    "skills/onboarding"
+    "skills/onboarding",
+    "skills/factory"
   ],
   "mcpServers": ".mcp.json"
 }

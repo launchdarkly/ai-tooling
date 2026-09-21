@@ -237,6 +237,23 @@
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
+      "name": "launchdarkly-factory-settings",
+      "description": "Configure LaunchDarkly Factory settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, set Factory account defaults, or set up code automation without the UI.",
+      "path": "skills/factory/launchdarkly-factory-settings",
+      "version": "1.0.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "factory",
+        "github",
+        "auto-flagging",
+        "auto-releasing",
+        "code-automation",
+        "mcp"
+      ]
+    },
+    {
       "name": "launchdarkly-flag-cleanup",
       "description": "Safely remove a feature flag from code while preserving production behavior. Use when the user wants to remove a flag from code, delete flag references, or create a PR that hardcodes the winning variation after a rollout is complete.",
       "path": "skills/feature-flags/launchdarkly-flag-cleanup",
