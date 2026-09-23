@@ -1,11 +1,11 @@
 ---
 name: flag-release
-description: "Record an automated rollout for an existing LaunchDarkly flag that guards a pull request's change, so the change releases safely when the PR merges. Honors a stated release intent (release now / hold / notBefore / segment / prerequisite) and defers per-environment to the project's release policies. Use as the release step once the guarding flag exists and its code is wired. Keywords: record release, automated rollout, release policy, guarded rollout, staged rollout, simple vs policy, release intent, hold release, dark launch."
+description: "Record an automated rollout for an existing LaunchDarkly flag that guards a pull request's change, so the change releases safely when the PR merges. Honors a stated release intent (release now / hold / notBefore / segment / prerequisite) and grounds each environment's rollout in the project's configured release policies via match-release-policies — never inventing methods, stages, or metrics, and stopping when a policy is missing or incomplete. Use as the release step once the guarding flag exists and its code is wired. Keywords: record release, automated rollout, release policy, match release policies, guarded rollout, staged rollout, simple vs policy, release intent, hold release, dark launch."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server. Operates on a flag that already exists; does not create flags or edit code.
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Record a Flag's Automated Release
@@ -34,7 +34,7 @@ By the time this skill runs, the flag exists (OFF) and the guarding code is wire
 
 **MCP tools this skill uses:**
 - `create-automated-rollout-config` — record the rollout for the flag against the PR *(the deliverable)*
-- `match-release-policies` — resolve which release policy governs each environment (call before proposing the plan)
+- `match-release-policies` — resolve which release policy governs each environment (call before proposing the plan; by `flagKey` once the flag exists, or by proposed `flagTags` before it does). Read its `warnings` — a `missing_policy` / `incomplete_policy` warning means **stop, don't fabricate a rollout**.
 - `list-release-policies` — see the project's release policies and the metrics they auto-attach
 - `get-flag` — confirm the flag exists and is OFF before recording
 
@@ -46,9 +46,15 @@ Full release model — `simple` vs `policy`, precedence, previewing, prerequisit
 
 1. **Confirm the flag.** `get-flag` to verify the guarding flag exists and is OFF. If it doesn't exist yet, stop — creation is [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md)'s job, and recording a rollout for a missing flag fails confusingly.
 2. **Pick the target environments.** Use the environments named by the user or harness. Don't hardcode a set — a given change can't always release to every environment. If none are named, enumerate the project's real keys and confirm the set rather than assuming.
-3. **Preview each environment's policy.** Call `match-release-policies` (by `flagKey` + `environmentKey`) to resolve, deterministically, what a `policy` release will do per environment — `winningReleaseMethod` (immediate / progressive / guarded / none). Don't reason about policy scope by hand. For a **guarded** winner, check the auto-attached metrics can actually compare this change (see the metric-adequacy note in [references/auto-release.md](references/auto-release.md)).
+3. **Preview each environment's policy — call `match-release-policies` for every environment you plan to release.** It resolves, deterministically, what a `policy` release will do per environment — `winningReleaseMethod` (immediate / progressive / guarded / none). Don't reason about policy scope, methods, stages, percentages, or metrics by hand — take them only from this tool.
+   - **Existing flag** (the usual case for this skill): pass `flagKey` + `environmentKey` for the authoritative, server-resolved policy.
+   - **Flag not created yet** (you're previewing inside the [`flag-and-release-change`](../flag-and-release-change/SKILL.md) plan phase, before the flag exists): pass the proposed `flagTags` + `environmentKey` instead — there's no flag key to resolve yet. Re-confirm with `flagKey` once the flag has been created.
+   - **Read the `warnings`.** A non-empty `warnings` list means `missing_policy` (nothing matched this environment) or `incomplete_policy` (e.g. a guarded/progressive policy with no stages, or a guarded policy with no metrics). When a warning is present, **do not present that environment as a clean `policy` rollout** — surface the warning and **stop for clarification** (step 5). Never fabricate a rollout or silently fall back to a default.
+   - For a **guarded** winner with no warnings, still confirm the auto-attached metrics can actually compare this change (see the metric-adequacy note in [references/auto-release.md](references/auto-release.md)).
 4. **Capture the human's release intent.** Ask (briefly, only if not already stated): release **on merge**, **hold** (recorded but not released yet), or wait until a **`notBefore`** date? A **cohort/segment** to target first? A **prerequisite** parent flag this must not precede? Intent sits above the policy in precedence and is **honored or explicitly held — never silently dropped**.
-5. **Present the per-environment plan and stop.** For each environment, state either the `releaseType` it will be recorded with (`simple` / `policy`, and what that does on merge) **or** that it will be **held** — omitted from the recorded config so the flag stays OFF there — with the reason. Wait for confirmation; revise on feedback.
+5. **Present the per-environment plan and stop.** For each environment, state either the `releaseType` it will be recorded with (`simple` / `policy`, and what that does on merge, quoting the previewed `winningReleaseMethod` and any guarded metrics) **or** that it will be **held** — omitted from the recorded config so the flag stays OFF there — with the reason. If any environment came back with a `warnings` entry, present the warning and ask how to proceed rather than proposing a rollout for it. This plan is a **preview**: because you record `policy`, LaunchDarkly re-resolves the then-current policy at merge. Wait for confirmation; revise on feedback.
+
+**Re-run after any refinement.** If feedback changes the flag key, the flag's tags, or the environment set, call `match-release-policies` again for the affected environments before re-presenting — a stale preview can propose a rollout the current policy no longer produces.
 
 ## Implement Phase
 
@@ -90,16 +96,19 @@ Only after confirmation:
 | Flag doesn't exist yet | Stop — creation is `launchdarkly-flag-create`. Recording a rollout for a missing flag fails confusingly. |
 | A rollout config already exists for this flag + PR | Don't record a second one — a duplicate confuses the scheduler. Point the user at the existing config to change the plan. |
 | Registering before the PR exists | `simple` envs work without a PR, but `policy` envs need `repoFullName`/`prNumber` to trigger on merge. Prefer recording *after* the PR is open; if you record early, say `policy` won't fire until the PR is wired. |
-| No release policy matches an env | `policy` falls back to defaults (often immediate). Tell the user; offer `simple`, or point at release-policy setup. |
+| No release policy matches an env (`missing_policy` warning) | Surface the warning and **stop for clarification** — do NOT record the env as `policy` and do NOT assume a default. Offer `simple`, or point at release-policy setup, and proceed only if the user explicitly accepts the manual follow-up. |
+| A policy matches but is incomplete (`incomplete_policy` warning — e.g. guarded/progressive with no stages, or guarded with no metrics) | Surface the warning and stop; don't claim a clean rollout. Fix the policy, or use `simple` / an explicit override, before recording. |
 | User wants to hold, or set a `notBefore` date | Skip the releasing plan for those environments; report them as held with the reason. Never silently release against stated intent. |
 | Change depends on a parent flag not yet live | Couple them with a prerequisite (set it if the MCP surface supports it); otherwise report the coupling as a required manual step. Don't let this flag release before its parent. |
-| A `policy` env resolves to guarded but has no relevant metric | Say so — a guarded rollout with no meaningful metric guards nothing. Recommend `simple`, or point at metric setup. |
+| A `policy` env resolves to guarded but has no relevant metric | The tool flags this as an `incomplete_policy` warning; say so — a guarded rollout with no meaningful metric guards nothing. Recommend `simple`, or point at metric setup. |
 
 ## What NOT to Do
 
 - **Don't create the flag or edit code** — that's `launchdarkly-flag-create`. This skill only records the release.
 - **Don't turn the flag on yourself, or toggle it after recording the config.** The rollout owns that; double-toggling causes audit noise and confuses the scheduler.
 - **Don't skip `match-release-policies`.** Proposing `policy` without knowing what it resolves to is guessing.
+- **Don't invent rollout details.** Methods, stages, durations, percentages, and metrics come from `match-release-policies` — never fill them in yourself.
+- **Don't present a `policy` rollout when `match-release-policies` returned a warning.** A `missing_policy` / `incomplete_policy` warning means stop and clarify — surface it; never bury it or fabricate a rollout around it.
 - **Don't silently release against a stated hold/`notBefore`.** Honor intent or hold — never drop it.
 - **Don't handle or print credentials.** Access is injected by the environment.
 

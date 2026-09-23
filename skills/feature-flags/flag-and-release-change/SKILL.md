@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server and a git CLI with access to the PR's repository
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Flag & Release a PR Change
@@ -55,7 +55,7 @@ The three-dot diff (`base...head`) shows exactly what the PR introduces. Read th
 1. **Confirm it should be flagged.** If [`should-flag-change`](../should-flag-change/SKILL.md) already ran, act on its verdict. Otherwise apply the same judgment: favor a flag for user-facing or risky changes; skip config-only, dependency-bump, infra, test-only, or docs changes. If a flag clearly isn't warranted, say so and stop.
 2. **Understand the change and conventions.** Read the three-dot diff and changed files — what does it do, what's the blast radius? Then follow **flag-create's Step 1** to learn how this codebase already uses flags (SDK, wrapper, key constants, naming). Don't reinvent that exploration here.
 3. **Design the flag.** Usually a single boolean kill-switch around the new path (flag-create's [flag-types](../launchdarkly-flag-create/references/flag-types.md) covers the choice). Don't propose more flags than the change needs. If Step 1 (or `should-flag-change`) surfaced a **dependency on a parent flag/feature that isn't live yet**, note it — the release step can couple them with a prerequisite.
-4. **Plan the release.** Follow [`flag-release`](../flag-release/SKILL.md)'s plan phase: pick target environments, preview each with `match-release-policies`, and capture the human's **release intent** (release on merge / hold / `notBefore` / segment / prerequisite). Don't re-derive the rollout model here — that's flag-release's job.
+4. **Plan the release.** Follow [`flag-release`](../flag-release/SKILL.md)'s plan phase: pick target environments and preview each with `match-release-policies`. The flag doesn't exist yet in this phase, so preview by the **proposed `flagTags`** (not `flagKey`). If a preview comes back with a `missing_policy` / `incomplete_policy` warning, surface it and ask how to proceed — don't invent a rollout. Capture the human's **release intent** (release on merge / hold / `notBefore` / segment / prerequisite). Don't re-derive the rollout model here — that's flag-release's job.
 5. **Present the combined plan and stop.** Summarize: the flag (`key`, `name`, boolean, tags) and why it gates *this* change; where in the code the guard goes; the per-environment release plan + captured intent (and anything to be *held*). Then wait. Revise on feedback; proceed only on clear approval. Ask a focused question if you're genuinely missing something (project key, environments, a missing policy) rather than guessing.
 
 ## Implement Phase

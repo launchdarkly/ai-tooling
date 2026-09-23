@@ -512,7 +512,8 @@
     "winningPolicy": { "key": "guarded-default", "name": "Guarded rollout" },
     "winningReleaseMethod": "guarded",
     "autoAttachedMetricKeys": ["error-rate", "latency-p95"],
-    "autoAttachedMetricGroupKeys": []
+    "autoAttachedMetricGroupKeys": [],
+    "warnings": []
   },
   "list-release-policies": {
     "policies": [
