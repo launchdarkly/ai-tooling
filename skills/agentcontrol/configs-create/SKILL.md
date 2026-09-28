@@ -164,14 +164,14 @@ Print this checklist verbatim to the user after Step 4, then wait for confirmati
 Get the variation ID (use `get-ai-config` MCP, or):
 ```bash
 curl -s "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
-  -H "Authorization: $LD_API_KEY" -H "LD-API-Version: beta" \
+  -H "Authorization: {api_token}" -H "LD-API-Version: beta" \
   | jq '.variations[] | {key, _id}'
 ```
 
 Flip the fallthrough to point at it:
 ```bash
 curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
-  -H "Authorization: $LD_API_KEY" \
+  -H "Authorization: {api_token}" \
   -H "Content-Type: application/json; domain-model=launchdarkly.semanticpatch" \
   -H "LD-API-Version: beta" \
   -d '{"instructions":[{"kind":"updateFallthroughVariationOrRollout","variationId":"<id-from-step-above>"}]}'

@@ -78,7 +78,7 @@ Mirror the same shape on the LaunchDarkly variation. **MCP caveat.** The `update
 ```bash
 curl -X PATCH \
   "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/variations/$VARIATION_ID" \
-  -H "Authorization: $LD_API_KEY" \
+  -H "Authorization: {api_token}" \
   -H "Content-Type: application/json" \
   -d '{"patch":[{"op":"add","path":"/model/custom","value":{"max_search_results":10}}]}'
 ```

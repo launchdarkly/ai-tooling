@@ -18,39 +18,9 @@ Full lifecycle management of custom business metrics: create metric definitions 
 - LaunchDarkly API token with `writer` role for metric management
 - Understanding of built-in agent metrics (see `built-in-metrics`)
 
-## API Key Detection
+## API Access
 
-Before prompting the user for an API key, try to detect it automatically:
-
-1. **Check Claude MCP config** - Read `~/.claude/config.json` and look for `mcpServers.launchdarkly.env.LAUNCHDARKLY_API_KEY`
-2. **Check environment variables** - Look for `LAUNCHDARKLY_API_KEY`, `LAUNCHDARKLY_API_TOKEN`, or `LD_API_KEY`
-3. **Prompt user** - Only if detection fails, ask the user for their API key
-
-```python
-import os
-import json
-from pathlib import Path
-
-def get_launchdarkly_api_key():
-    """Auto-detect LaunchDarkly API key from Claude config or environment."""
-    # 1. Check Claude MCP config
-    claude_config = Path.home() / ".claude" / "config.json"
-    if claude_config.exists():
-        try:
-            config = json.load(open(claude_config))
-            api_key = config.get("mcpServers", {}).get("launchdarkly", {}).get("env", {}).get("LAUNCHDARKLY_API_KEY")
-            if api_key:
-                return api_key
-        except (json.JSONDecodeError, IOError):
-            pass
-
-    # 2. Check environment variables
-    for var in ["LAUNCHDARKLY_API_KEY", "LAUNCHDARKLY_API_TOKEN", "LD_API_KEY"]:
-        if os.environ.get(var):
-            return os.environ[var]
-
-    return None
-```
+Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 ## Metrics Lifecycle Overview
 
@@ -86,7 +56,7 @@ def create_metric(
     description: str = None
 ):
     """Create a new metric definition in LaunchDarkly."""
-    API_TOKEN = os.environ.get("LAUNCHDARKLY_API_TOKEN")
+    API_TOKEN = "{api_token}"  # token the user provided for this session
 
     url = f"https://app.launchdarkly.com/api/v2/metrics/{project_key}"
 
@@ -229,7 +199,7 @@ def track_revenue(ld_client, user_id: str, revenue: float, source: str):
 ```python
 def get_metric(project_key: str, metric_key: str):
     """Get a single metric definition."""
-    API_TOKEN = os.environ.get("LAUNCHDARKLY_API_TOKEN")
+    API_TOKEN = "{api_token}"  # token the user provided for this session
 
     url = f"https://app.launchdarkly.com/api/v2/metrics/{project_key}/{metric_key}"
 
@@ -258,7 +228,7 @@ def get_metric(project_key: str, metric_key: str):
 ```python
 def list_metrics(project_key: str, limit: int = 20):
     """List all metrics in a project."""
-    API_TOKEN = os.environ.get("LAUNCHDARKLY_API_TOKEN")
+    API_TOKEN = "{api_token}"  # token the user provided for this session
 
     url = f"https://app.launchdarkly.com/api/v2/metrics/{project_key}"
 
@@ -291,7 +261,7 @@ def update_metric(project_key: str, metric_key: str, updates: list):
         updates: List of patch operations, e.g.:
             [{"op": "replace", "path": "/name", "value": "New Name"}]
     """
-    API_TOKEN = os.environ.get("LAUNCHDARKLY_API_TOKEN")
+    API_TOKEN = "{api_token}"  # token the user provided for this session
 
     url = f"https://app.launchdarkly.com/api/v2/metrics/{project_key}/{metric_key}"
 
@@ -330,7 +300,7 @@ def rename_metric(project_key: str, metric_key: str, new_name: str, new_descript
 ```python
 def delete_metric(project_key: str, metric_key: str):
     """Delete a metric from the project."""
-    API_TOKEN = os.environ.get("LAUNCHDARKLY_API_TOKEN")
+    API_TOKEN = "{api_token}"  # token the user provided for this session
 
     url = f"https://app.launchdarkly.com/api/v2/metrics/{project_key}/{metric_key}"
 
@@ -359,7 +329,7 @@ from ldclient.config import Config
 import ldclient
 
 # Setup
-API_TOKEN = os.environ.get("LAUNCHDARKLY_API_TOKEN")
+API_TOKEN = "{api_token}"  # token the user provided for this session
 SDK_KEY = os.environ.get("LAUNCHDARKLY_SDK_KEY")
 PROJECT_KEY = "support-ai"
 

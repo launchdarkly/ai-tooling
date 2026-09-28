@@ -27,7 +27,7 @@ import os
 
 def get_ai_config_metrics(project_key: str, config_key: str, env: str = "production", hours: int = 24):
     """Get config metrics for the last N hours."""
-    API_TOKEN = os.environ.get("LAUNCHDARKLY_API_TOKEN")
+    API_TOKEN = "{api_token}"  # token the user provided for this session
 
     now = int(time.time())
     start = now - (hours * 3600)

@@ -24,13 +24,9 @@ You're using a skill that will guide you through setting up LaunchDarkly project
 3. **Follow Conventions**: Respect existing code style and structure.
 4. **Verify Integration**: Confirm the setup works: the agent performs checks and reports results.
 
-## API Key Detection
+## API Access
 
-Before prompting the user for an API key, try to detect it automatically:
-
-1. **Check environment variables**: Look for `LAUNCHDARKLY_API_KEY`, `LAUNCHDARKLY_API_TOKEN`, or `LD_API_KEY`
-2. **Check MCP config**: If using Claude, read `~/.claude/config.json` for `mcpServers.launchdarkly.env.LAUNCHDARKLY_API_KEY`
-3. **Prompt user**: Only if detection fails, ask the user for their API key
+Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 See [Quick Start](references/quick-start.md) for API usage patterns.
 

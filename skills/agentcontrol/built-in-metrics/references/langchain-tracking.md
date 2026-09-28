@@ -30,12 +30,12 @@ max_search_results = ai_config.model.get_custom("max_search_results") or 10
 
 **MCP caveat — two paths, pick one.** The LaunchDarkly MCP `update-ai-config-variation` tool does not currently expose the top-level `custom` field on a variation. You have two options:
 
-*Option A — PATCH via REST API.* Cleanest shape (value lands at `model.custom` where the Python/Node SDKs expose it via `get_custom(...)` / `custom` accessors) but requires a separate `LD_API_KEY` with write scope:
+*Option A — PATCH via REST API.* Cleanest shape (value lands at `model.custom` where the Python/Node SDKs expose it via `get_custom(...)` / `custom` accessors) but requires an API access token with write scope (ask the user for it; do not read it from env vars or config files):
 
 ```bash
 curl -X PATCH \
   "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/variations/$VARIATION_ID" \
-  -H "Authorization: $LD_API_KEY" \
+  -H "Authorization: {api_token}" \
   -H "Content-Type: application/json" \
   -d '{"patch":[{"op":"add","path":"/model/custom","value":{"max_search_results":10}}]}'
 ```

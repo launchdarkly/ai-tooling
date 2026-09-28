@@ -9,7 +9,8 @@
   "homepage": "https://launchdarkly.com",
   "repository": "https://github.com/launchdarkly/ai-tooling",
   "license": "Apache-2.0",
-  "logo": "logo.svg",
+  "privacyPolicyUrl": "https://launchdarkly.com/policies/privacy/",
+  "icon": "logo.svg",
   "keywords": [
     "launchdarkly",
     "feature-flags",
@@ -19,5 +20,21 @@
     "rollout",
     "cleanup",
     "mcp"
+  ],
+  "skills": [
+    "./skills/agentcontrol/configs-create",
+    "./skills/agentcontrol/configs-targeting",
+    "./skills/agentcontrol/configs-update",
+    "./skills/agentcontrol/configs-variations",
+    "./skills/feature-flags/launchdarkly-flag-cleanup",
+    "./skills/feature-flags/launchdarkly-flag-create",
+    "./skills/feature-flags/launchdarkly-flag-discovery",
+    "./skills/feature-flags/launchdarkly-flag-targeting",
+    "./skills/metrics/launchdarkly-metric-choose",
+    "./skills/metrics/launchdarkly-metric-create",
+    "./skills/metrics/launchdarkly-metric-instrument",
+    "./skills/agentcontrol/online-evals",
+    "./skills/agentcontrol/projects",
+    "./skills/agentcontrol/tools"
   ]
 }

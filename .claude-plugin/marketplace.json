@@ -1,5 +1,6 @@
 {
   "name": "launchdarkly-ai-tooling",
+  "description": "Official LaunchDarkly plugins for Claude Code",
   "owner": {
     "name": "LaunchDarkly",
     "email": "support@launchdarkly.com",

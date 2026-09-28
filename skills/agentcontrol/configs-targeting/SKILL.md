@@ -18,11 +18,9 @@ Configure targeting rules for configs to control which variations serve to diffe
 - Project key and environment key
 - Existing config with variations (use `configs-create` skill)
 
-## API Key Detection
+## API Access
 
-1. **Check environment variables** - `LAUNCHDARKLY_API_KEY`, `LAUNCHDARKLY_API_TOKEN`, `LD_API_KEY`
-2. **Check MCP config** - Claude: `~/.claude/config.json` -> `mcpServers.launchdarkly.env.LAUNCHDARKLY_API_KEY`
-3. **Prompt user** - Only if detection fails
+Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 ## Core Concepts
 
