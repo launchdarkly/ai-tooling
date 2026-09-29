@@ -24,7 +24,7 @@ ldClient.allFlagsState(context);
 
 ```typescript
 // React SDK hooks
-const { flags } = useFlags();
+const flags = useFlags();
 const flagValue = flags['flag-key'];
 const flagValue = flags.flagKey; // camelCase access
 
@@ -45,15 +45,9 @@ LDClient.variation('flag-key', defaultValue);
 ```python
 # Standard evaluation
 ld_client.variation('flag-key', context, default_value)
-ld_client.bool_variation('flag-key', context, False)
-ld_client.string_variation('flag-key', context, 'default')
-ld_client.int_variation('flag-key', context, 0)
-ld_client.float_variation('flag-key', context, 0.0)
-ld_client.json_variation('flag-key', context, {})
 
 # With details
 ld_client.variation_detail('flag-key', context, default_value)
-ld_client.bool_variation_detail('flag-key', context, False)
 
 # All flags
 ld_client.all_flags_state(context)
@@ -100,10 +94,6 @@ ldClient.allFlagsState(context);
 ```ruby
 # Standard evaluation
 ld_client.variation('flag-key', context, default_value)
-ld_client.bool_variation('flag-key', context, false)
-ld_client.string_variation('flag-key', context, 'default')
-ld_client.number_variation('flag-key', context, 0)
-ld_client.json_variation('flag-key', context, {})
 
 # With details
 ld_client.variation_detail('flag-key', context, default_value)

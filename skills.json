@@ -203,7 +203,7 @@
       "name": "flag-release",
       "description": "Record an automated rollout for an existing LaunchDarkly flag that guards a pull request's change, so the change releases safely when the PR merges. Honors a stated release intent (release now / hold / notBefore / segment / prerequisite) and defers per-environment to the project's release policies. Use as the release step once the guarding flag exists and its code is wired. Keywords: record release, automated rollout, release policy, guarded rollout, staged rollout, simple vs policy, release intent, hold release, dark launch.",
       "path": "skills/feature-flags/flag-release",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Operates on a flag that already exists; does not create flags or edit code.",
       "tags": [
@@ -240,7 +240,7 @@
       "name": "launchdarkly-flag-cleanup",
       "description": "Safely remove a feature flag from code while preserving production behavior. Use when the user wants to remove a flag from code, delete flag references, or create a PR that hardcodes the winning variation after a rollout is complete.",
       "path": "skills/feature-flags/launchdarkly-flag-cleanup",
-      "version": "1.0.0-experimental",
+      "version": "1.0.1-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -277,7 +277,7 @@
       "name": "launchdarkly-flag-create",
       "description": "Create and configure LaunchDarkly feature flags in a way that fits the existing codebase. Use when the user wants to create a new flag, wrap code in a flag, add a feature toggle, or set up an experiment. Guides exploration of existing patterns before creating.",
       "path": "skills/feature-flags/launchdarkly-flag-create",
-      "version": "1.1.0-experimental",
+      "version": "1.1.1-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -295,7 +295,7 @@
       "name": "launchdarkly-flag-discovery",
       "description": "Audit your LaunchDarkly feature flags to understand the landscape, find stale or launched flags, and assess removal readiness. Use when the user asks about flag debt, stale flags, cleanup candidates, flag health, or wants to understand their flag inventory.",
       "path": "skills/feature-flags/launchdarkly-flag-discovery",
-      "version": "1.0.0-experimental",
+      "version": "1.0.1-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -315,7 +315,7 @@
       "name": "launchdarkly-flag-drift",
       "description": "Detect and reconcile drift between a feature flag's in-code SDK fallback default and its LaunchDarkly default rule (fallthrough). Use when a flag's default rule changed, when the user asks to detect flag drift, check whether a hardcoded default still matches LaunchDarkly, sync an in-code default, or open a PR reconciling a fallback value, without removing the flag or its evaluation.",
       "path": "skills/feature-flags/launchdarkly-flag-drift",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -354,7 +354,7 @@
       "name": "launchdarkly-flag-targeting",
       "description": "Control LaunchDarkly feature flag targeting including toggling flags on/off, percentage rollouts, targeting rules, individual targets, and copying flag configurations between environments. Use when the user wants to change who sees a flag, roll out to a percentage, add targeting rules, or promote config between environments.",
       "path": "skills/feature-flags/launchdarkly-flag-targeting",
-      "version": "1.1.0-experimental",
+      "version": "1.1.1-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -372,7 +372,7 @@
       "name": "launchdarkly-guarded-rollout",
       "description": "Configure guarded rollouts with progressive traffic increases, metric monitoring, and automatic rollback. Use when releasing features gradually with safety thresholds.",
       "path": "skills/feature-flags/launchdarkly-guarded-rollout",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },

@@ -31,15 +31,6 @@ The default rule (fallthrough) is what applies when no individual targets or cus
 }
 ```
 
-Or by index:
-
-```json
-{
-  "kind": "updateFallthroughVariationOrRollout",
-  "variationId": "<variation-id-of-index-0>"
-}
-```
-
 ### Percentage rollout
 
 ```json
@@ -297,7 +288,7 @@ includedActions: ["updateOn", "updateRules", "updateFallthrough", "updateOffVari
 
 ## Batching Instructions
 
-Multiple instructions can be batched. For example, turning on and setting a rollout in one call to `toggle-flag` and `update-rollout`, or sending multiple rule changes to `update-targeting-rules`:
+Raw semantic-patch instructions can be batched in one approval request's `instructions` (see approval-workflows.md). In a direct change, `toggle-flag` and `update-rollout` are separate calls, and `update-rollout` takes human percentages (80 for 80%), not the thousandths shown here:
 
 ```json
 {
@@ -316,4 +307,4 @@ Multiple instructions can be batched. For example, turning on and setting a roll
 }
 ```
 
-This is preferred over multiple separate calls: it's atomic (all changes apply together or none do).
+Batched in one approval request, the changes apply atomically: all together or none.

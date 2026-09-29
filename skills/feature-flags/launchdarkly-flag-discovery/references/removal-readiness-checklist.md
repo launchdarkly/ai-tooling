@@ -83,7 +83,7 @@ After running the checklist, categorize the result:
 
 ### Safe
 All checks pass. No blockers or warnings.
-- Recommend proceeding with code removal using the [flag cleanup skill](../launchdarkly-flag-cleanup/SKILL.md)
+- Recommend proceeding with code removal using the [flag cleanup skill](../../launchdarkly-flag-cleanup/SKILL.md)
 - Suggest archival in LaunchDarkly after code changes are deployed
 
 ### Caution

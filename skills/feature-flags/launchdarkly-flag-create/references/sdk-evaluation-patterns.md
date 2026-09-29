@@ -59,15 +59,9 @@ export default withLDConsumer()(MyComponent);
 ## Python
 
 ```python
-# Standard evaluation
+# Evaluation. The Python SDK has no typed variation methods; the default value sets the type.
 enabled = ld_client.variation('flag-key', context, False)
-
-# Typed evaluations
-enabled = ld_client.bool_variation('flag-key', context, False)
-variant = ld_client.string_variation('flag-key', context, 'default')
-limit = ld_client.int_variation('flag-key', context, 10)
-ratio = ld_client.float_variation('flag-key', context, 0.0)
-config = ld_client.json_variation('flag-key', context, {})
+variant = ld_client.variation('flag-key', context, 'default')
 
 # With details
 detail = ld_client.variation_detail('flag-key', context, False)
@@ -116,14 +110,9 @@ FeatureFlagsState allFlags = ldClient.allFlagsState(context);
 ## Ruby
 
 ```ruby
-# Standard evaluation
+# Evaluation. The Ruby SDK has no typed variation methods; the default value sets the type.
 enabled = ld_client.variation('flag-key', context, false)
-
-# Typed evaluations
-enabled = ld_client.bool_variation('flag-key', context, false)
-variant = ld_client.string_variation('flag-key', context, 'default')
-limit = ld_client.number_variation('flag-key', context, 10)
-config = ld_client.json_variation('flag-key', context, {})
+variant = ld_client.variation('flag-key', context, 'default')
 
 # With details
 detail = ld_client.variation_detail('flag-key', context, false)

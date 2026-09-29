@@ -32,9 +32,6 @@ React SDK note: `useFlags()` reads already-evaluated values and does not expose 
 
 ```python
 ld_client.variation('flag-key', context, default_value)
-ld_client.bool_variation('flag-key', context, False)
-ld_client.string_variation('flag-key', context, 'control')
-ld_client.int_variation('flag-key', context, 0)
 ld_client.variation_detail('flag-key', context, default_value)
 ```
 
@@ -61,8 +58,6 @@ ldClient.jsonValueVariation("flag-key", context, LDValue.ofNull());
 
 ```ruby
 ld_client.variation('flag-key', context, default_value)
-ld_client.bool_variation('flag-key', context, false)
-ld_client.string_variation('flag-key', context, 'control')
 ```
 
 ### .NET (C#)

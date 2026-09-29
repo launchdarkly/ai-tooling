@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.1.0-experimental"
+  version: "1.1.1-experimental"
 ---
 
 # LaunchDarkly Flag Targeting & Rollout
@@ -69,10 +69,10 @@ Based on what the user wants and what you found, choose the right tool and strat
 | "Roll out to X%" | `update-rollout` with `rolloutType: "percentage"` | Weights must sum to 100 |
 | "Enable for beta users" | `update-targeting-rules`: add a rule with clause | Rules are ANDed within, ORed between |
 | "Add specific users" | `update-individual-targets` | Highest priority, overrides all rules |
-
-**Before writing a rule, individual target, or percentage rollout, confirm the context supports it.** A rule that names a context kind or attribute the flag's evaluation doesn't carry silently never matches; individual targets match the context **key**, not an attribute like email; and a rollout can only bucket by a kind present where the flag is read. See [Context Availability](references/context-availability.md) to pick a context that will actually fire.
 | "Full rollout" | `update-rollout` with `rolloutType: "variation"` | Serve one variation to everyone |
 | "Copy from staging" | `copy-flag-config` | Promote tested config to production |
+
+**Before writing a rule, individual target, or percentage rollout, confirm the context supports it.** A rule that names a context kind or attribute the flag's evaluation doesn't carry silently never matches; individual targets match the context **key**, not an attribute like email; and a rollout can only bucket by a kind present where the flag is read. See [Context Availability](references/context-availability.md) to pick a context that will actually fire.
 
 ### Step 3: Run the Safety Checklist
 

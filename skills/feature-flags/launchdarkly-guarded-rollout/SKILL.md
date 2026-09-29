@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # LaunchDarkly Guarded Rollouts
@@ -45,7 +45,7 @@ A guarded rollout progressively increases traffic to a new feature flag variatio
 
 ### Rollout Weight Units
 
-Rollout weights use thousandths (basis points):
+Rollout weights are in thousandths of a percent:
 - `1000` = 1%
 - `10000` = 10%
 - `50000` = 50%
