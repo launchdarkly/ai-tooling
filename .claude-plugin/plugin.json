@@ -35,6 +35,7 @@
     "./skills/metrics/launchdarkly-metric-instrument",
     "./skills/agentcontrol/online-evals",
     "./skills/agentcontrol/projects",
-    "./skills/agentcontrol/tools"
+    "./skills/agentcontrol/tools",
+    "./skills/factory/launchdarkly-factory-settings"
   ]
 }

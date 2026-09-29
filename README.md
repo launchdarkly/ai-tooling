@@ -28,7 +28,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 
 | Skill | Description |
 |-------|-------------|
-| `factory/launchdarkly-factory-settings` | Turn on GitHub App auto-flagging / auto-releasing and map `owner/name` repos to LaunchDarkly projects via MCP |
+| `factory/launchdarkly-factory-settings` | Turn on GitHub App auto-flagging / auto-releasing, map `owner/name` repos, or diagnose why a PR was not classified (confirm before account-wide writes) |
 
 ### AgentControl
 

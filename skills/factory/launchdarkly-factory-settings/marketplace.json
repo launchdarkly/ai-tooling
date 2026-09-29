@@ -1,7 +1,7 @@
 {
   "name": "launchdarkly-factory-settings",
-  "description": "Configure LaunchDarkly Factory settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP",
-  "version": "1.0.0-experimental",
+  "description": "Configure LaunchDarkly Factory settings via MCP, or diagnose why a PR was not classified",
+  "version": "1.1.0-experimental",
   "author": "LaunchDarkly",
   "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],

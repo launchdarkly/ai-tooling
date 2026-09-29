@@ -1,16 +1,17 @@
 # LaunchDarkly Factory Settings Skill
 
-An Agent Skill for configuring Factory (GitHub App auto-flagging and auto-releasing) through the LaunchDarkly MCP, the same way flag skills manage flags.
+An Agent Skill for configuring Factory (GitHub App auto-flagging and auto-releasing) through the LaunchDarkly MCP, and for diagnosing why a PR was not classified.
 
 ## Overview
 
 This skill teaches agents how to:
 
+- Diagnose "why didn't Factory classify my PR?" (account gate → mapped repo → repo override) before changing anything
 - Read account-wide Factory defaults
-- List GitHub App install repos as `owner/name` (not numeric ids)
-- Map a repository to a LaunchDarkly project
-- Override auto-flagging / auto-releasing per repo
-- Unmap a repository
+- Confirm account-wide changes and unmaps before writing (blast radius)
+- List GitHub App install repos as `owner/name`
+- Map a named repository to a LaunchDarkly project
+- Unmap a repository after confirmation
 
 ## Installation (Local)
 
@@ -21,6 +22,10 @@ This skill teaches agents how to:
 The remotely hosted LaunchDarkly MCP server must expose the Factory settings tools (`get-factory-settings`, `list-factory-github-repos`, `update-factory-repo-settings`, and siblings). The GitHub App must already be installed; this skill does not install it.
 
 ## Usage
+
+```
+Why didn't Factory classify my pull request?
+```
 
 ```
 Turn on auto-flagging and map launchdarkly/gonfalon to project default

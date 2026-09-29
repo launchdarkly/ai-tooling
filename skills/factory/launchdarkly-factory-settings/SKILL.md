@@ -1,16 +1,16 @@
 ---
 name: launchdarkly-factory-settings
-description: "Configure LaunchDarkly Factory settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, set Factory account defaults, or set up code automation without the UI."
+description: "Configure LaunchDarkly Factory settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Factory account defaults, unmap a repo, or asks why Factory did not classify their PR."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "1.1.0-experimental"
 ---
 
 # LaunchDarkly Factory Settings
 
-You're using a skill that configures Factory (GitHub App code automation) the same way flag skills use the LaunchDarkly MCP. Your job is to discover GitHub repos by `owner/name`, set account defaults, map repos to projects, and verify — without asking the user for a numeric GitHub id, and without sending `autoCleanup`.
+You're using a skill that configures Factory (GitHub App code automation) through the LaunchDarkly MCP, or explains why a PR was not classified. Factory can open and change pull requests (auto-flagging) and can drive auto-releasing. Treat every write as production automation with a blast radius.
 
 ## Prerequisites
 
@@ -22,52 +22,100 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 - `list-factory-repo-settings` (already mapped)
 - `update-factory-repo-settings` / `get-factory-repo-settings` / `delete-factory-repo-settings`
 
-If these tools are missing, the Gram/hosted MCP has not attached them yet. Do not invent REST calls or numeric `repoId`s.
+If these tools are missing, stop. Do not invent REST calls, numeric GitHub ids, or "fixes" by guessing settings.
 
 ## Core Principles
 
-1. **Account settings are the master gate.** A mapped repo cannot enable auto-flagging or auto-releasing if the account has that capability off. Turn the account on first, then map repos.
-2. **Discover, then map.** Call `list-factory-github-repos` (or pass `owner/name`). Never ask the user for GitHub's numeric repository id.
-3. **`projectKey` on first map.** The first `update-factory-repo-settings` for a repo must include `projectKey`. Later updates can omit it.
-4. **Omit `autoCleanup`.** It appears on some API schemas but is not part of Factory settings yet. Never send it; never copy it from a response into a PATCH.
-5. **Do not install the GitHub App via MCP.** If `list-factory-github-repos` says the app is not installed, stop and tell the user to install it in the LaunchDarkly UI.
+1. **Fail closed.** Diagnosis is read-only. Never change settings to "make classification work" unless the user confirmed that exact write after seeing current vs proposed state.
+2. **Account settings are the master gate.** A mapped repo cannot enable a capability the account has off. Turning a capability **off** at the account level turns it off for every mapped repo. Turning it **on** at the account level allows every mapped repo that inherits (no override off) to start automating PRs.
+3. **Confirm before every account PATCH and before every unmap.** See [Confirm before write](#confirm-before-write). Mapping a single named repo does not use this gate; still only touch the repo the user named.
+4. **Least privilege.** Never enable auto-releasing unless the user explicitly asked to auto-release (that can ship code). Never turn `approvalRequired` off unless they explicitly asked to drop the approval gate. Never map or unmap repos they did not name. Never iterate the install list and map everything.
+5. **Discover, then map.** Pass `owner/name`. Never ask for a numeric GitHub id. Prefer `git remote` of the current workspace when they say "this repo" / "this PR"; if remotes disagree (fork vs upstream), ask which one.
+6. **`projectKey` on first map.** Required when creating a mapping; later updates can omit it.
+7. **Omit `autoCleanup`.** Not part of Factory settings yet. Never send it; never copy it from a response into a PATCH.
+8. **Do not install the GitHub App via MCP.** If `list-factory-github-repos` says it is not installed, stop and tell them to install it in the LaunchDarkly UI.
 
-## Workflow
+## Confirm before write
+
+**STOP.** Do not call `update-factory-settings` or `delete-factory-repo-settings` until the user has answered yes to the proposal in this turn. A yes from an earlier turn, or a vague "fix it" / "go ahead" that does not name the setting, is not enough.
+
+1. Read current state first (`get-factory-settings`, and repo get/list if the change is repo-scoped).
+2. State **now** vs **proposed**, in one or two sentences. Include blast radius.
+3. Wait. Do not batch the write in the same tool round as the question.
+
+**Account change** (any field on `update-factory-settings`, including turning things on):
+
+> Auto-flagging is ON for this account. Turn it OFF for all mapped repos? Auto-flagging pull requests will stop until it is turned back on.
+
+> Auto-flagging is OFF for this account. Turn it ON for the account? Mapped repos that inherit this setting can start getting auto-flagging pull requests.
+
+> Auto-flagging approvalRequired is ON. Turn it OFF? Auto-flagging PRs would no longer require that approval gate.
+
+Same pattern for auto-releasing, and say that auto-releasing can ship.
+
+**Unmap** (`delete-factory-repo-settings`):
+
+> `launchdarkly/gonfalon` is mapped to project `default` with auto-flagging effective ON. Unmap it? Factory will stop automating that repo until it is mapped again.
+
+After they confirm, apply **only** the fields in the proposal. Then verify (do not use verify as the safety check).
+
+## Choose a workflow
+
+- **"Why didn't Factory classify / auto-flag my PR?"** (or similar) → [Why didn't my PR get classified?](#why-didnt-my-pr-get-classified) first. Do not write settings in that workflow.
+- Configure / map / turn on / unmap → [Configure settings](#configure-settings).
+
+## Why didn't my PR get classified?
+
+Use this when the user asks why a PR was not classified, not auto-flagged, or Factory ignored the PR. **Read-only.** Check in this order. Stop at the first failure and tell them how to fix it (then [Confirm before write](#confirm-before-write) if they ask you to apply the fix).
+
+Identify the GitHub repo (`owner/name`) from the PR URL, `git remote`, or the name they gave. If you cannot identify one repo, ask. Do not diagnose a different repo.
+
+1. **Is auto-flagging on for the account?** `get-factory-settings`. If `autoFlagging.enabled` is false, that is the answer: account gate is off, so no repo can auto-flag. Stop.
+2. **Is this repo mapped to a project?** `get-factory-repo-settings` with `repo: "owner/name"` (or `list-factory-repo-settings` and find it). If 404 / omitted, it is not mapped. Unmapped install repos do not run Factory. Stop.
+3. **Does this repo override auto-flagging off?** On the repo payload, if auto-flagging `enabled` is false, or `enabledOverride` is true while `enabled` is false, the repo is opted out even if the account is on. Stop.
+
+If all three look fine (account on, repo mapped, repo auto-flagging effective on):
+
+- Do **not** flip settings to "try something."
+- Point them at the **Factory runbook** (internal: search Glean/Confluence for "Factory runbook" and auto-flagging classification). There is no stable public docs URL for this runbook yet. Classification can still fail for reasons this MCP surface cannot see (GitHub App install on the wrong org, PR not in an installed repo, workflow/app permissions, classifier skip rules).
+- Optional reads: `list-factory-github-repos` to confirm the repo is on the install list; `autoFlagging.approvalRequired` if they expected a PR and one exists but is waiting on approval.
+
+## Configure settings
 
 ### Step 1: Read current settings
 
-1. `get-factory-settings` — account-wide auto-flagging / auto-releasing (and whether auto-flagging PRs need approval).
-2. `list-factory-repo-settings` — already mapped repos (effective settings).
-3. `list-factory-github-repos` — install list with `name` (`owner/name`) and `githubRepoId`. Optional `projectKey`; any project works (install is account-wide).
+1. `get-factory-settings`
+2. `list-factory-repo-settings`
+3. `list-factory-github-repos` (optional `projectKey`; install is account-wide)
 
-If the GitHub App is not installed, stop. Mapping requires an existing install.
+If the GitHub App is not installed, stop.
 
-### Step 2: Set account defaults (if needed)
+### Step 2: Account defaults (if needed)
 
-Use `update-factory-settings` with only the fields that should change:
+If an account PATCH is needed, follow [Confirm before write](#confirm-before-write), then `update-factory-settings` with **only** the confirmed fields:
 
 - `autoFlagging.enabled` / `autoFlagging.approvalRequired` (approval is only valid here)
 - `autoReleasing.enabled`
 
 Do not send `autoCleanup`. Requires `updateFactorySettings`.
 
-### Step 3: Map repositories
+### Step 3: Map a repository
 
-For each repo the user named (`launchdarkly/gonfalon`, current git remote, etc.):
+Only for repos the user named.
 
 1. Prefer `repo: "owner/name"` on `update-factory-repo-settings`.
-2. Include `projectKey` when creating the mapping.
-3. Optionally set repo-level `autoFlagging` / `autoReleasing` overrides. Omitted capabilities inherit the account setting.
+2. Include `projectKey` when creating a mapping.
+3. Optional repo-level `autoFlagging` / `autoReleasing` overrides. Omitted capabilities inherit the account setting. A repo cannot enable a capability the account has off.
 
 Requires `updateFactoryRepoSettings` on the mapped project.
 
-### Step 4: Verify
+### Step 4: Verify (after a confirmed write)
 
-- `get-factory-repo-settings` with the same `owner/name`.
-- Confirm effective `enabled` matches intent (account off ⇒ repo cannot be on).
-- `list-factory-repo-settings` should include the repo.
+- `get-factory-repo-settings` / `get-factory-settings` as appropriate.
+- Effective `enabled` must match the proposal (account off ⇒ repo cannot be on).
+- Mapped repos appear in `list-factory-repo-settings`.
 
-To unmap: `delete-factory-repo-settings` (idempotent).
+To unmap: [Confirm before write](#confirm-before-write), then `delete-factory-repo-settings`.
 
 ## Out of scope
 
@@ -75,3 +123,4 @@ To unmap: `delete-factory-repo-settings` (idempotent).
 - GitHub App install / OAuth
 - Vega BYOK
 - Observability MCP (`github_repositories`) — do not require a second MCP server just to map a Factory repo
+- Changing classification rules, GitHub App permissions, or org install scope via this skill
