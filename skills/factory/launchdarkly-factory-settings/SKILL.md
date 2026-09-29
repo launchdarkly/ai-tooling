@@ -24,6 +24,8 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 
 If these tools are missing, stop. Do not invent REST calls, numeric GitHub ids, or "fixes" by guessing settings.
 
+Factory settings are in alpha: the underlying endpoints are gated by the `enable-factory-settings` flag. If every Factory tool returns 404, the account is not in the alpha — tell the user rather than retrying or falling back to REST.
+
 ## Core Principles
 
 1. **Fail closed.** Diagnosis is read-only. Never change settings to "make classification work" unless the user confirmed that exact write after seeing current vs proposed state.
