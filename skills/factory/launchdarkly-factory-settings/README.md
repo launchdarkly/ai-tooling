@@ -8,10 +8,8 @@ This skill teaches agents how to:
 
 - Diagnose "why didn't Factory classify my PR?" (account gate → mapped repo → repo override) before changing anything
 - Read account-wide Factory defaults
-- Confirm account-wide changes and unmaps before writing (blast radius)
+- Confirm every write (account, map, repo override, unmap) before calling MCP
 - List GitHub App install repos as `owner/name`
-- Map a named repository to a LaunchDarkly project
-- Unmap a repository after confirmation
 
 ## Installation (Local)
 

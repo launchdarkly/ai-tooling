@@ -30,7 +30,7 @@ Factory settings are in alpha: the underlying endpoints are gated by the `enable
 
 1. **Fail closed.** Diagnosis is read-only. Never change settings to "make classification work" unless the user confirmed that exact write after seeing current vs proposed state.
 2. **Account settings are the master gate.** A mapped repo cannot enable a capability the account has off. Turning a capability **off** at the account level turns it off for every mapped repo. Turning it **on** at the account level allows every mapped repo that inherits (no override off) to start automating PRs.
-3. **Confirm before every account PATCH and before every unmap.** See [Confirm before write](#confirm-before-write). Mapping a single named repo does not use this gate; still only touch the repo the user named.
+3. **Confirm before every Factory write.** Account PATCH, mapping, repo overrides, and unmap all use [Confirm before write](#confirm-before-write). Only touch repos the user named.
 4. **Least privilege.** Never enable auto-releasing unless the user explicitly asked to auto-release (that can ship code). Never turn `approvalRequired` off unless they explicitly asked to drop the approval gate. Never map or unmap repos they did not name. Never iterate the install list and map everything.
 5. **Discover, then map.** Pass `owner/name`. Never ask for a numeric GitHub id. Prefer `git remote` of the current workspace when they say "this repo" / "this PR"; if remotes disagree (fork vs upstream), ask which one.
 6. **`projectKey` on first map.** Required when creating a mapping; later updates can omit it.
@@ -39,7 +39,7 @@ Factory settings are in alpha: the underlying endpoints are gated by the `enable
 
 ## Confirm before write
 
-**STOP.** Do not call `update-factory-settings` or `delete-factory-repo-settings` until the user has answered yes to the proposal in this turn. A yes from an earlier turn, or a vague "fix it" / "go ahead" that does not name the setting, is not enough.
+**STOP.** Do not call `update-factory-settings`, `update-factory-repo-settings`, or `delete-factory-repo-settings` until the user has answered yes to the proposal in this turn. A yes from an earlier turn, or a vague "fix it" / "go ahead" that does not name the setting, is not enough.
 
 1. Read current state first (`get-factory-settings`, and repo get/list if the change is repo-scoped).
 2. State **now** vs **proposed**, in one or two sentences. Include blast radius.
@@ -54,6 +54,12 @@ Factory settings are in alpha: the underlying endpoints are gated by the `enable
 > Auto-flagging approvalRequired is ON. Turn it OFF? Auto-flagging PRs would no longer require that approval gate.
 
 Same pattern for auto-releasing, and say that auto-releasing can ship.
+
+**Map or change one repo** (`update-factory-repo-settings`):
+
+> `launchdarkly/gonfalon` is not mapped. Map it to project `default`, inheriting account auto-flagging (ON)? Factory can start classifying and opening auto-flagging PRs in that repo.
+
+> `launchdarkly/gonfalon` is mapped to `default` with auto-flagging effective ON. Set a repo override turning auto-flagging OFF for this repo only?
 
 **Unmap** (`delete-factory-repo-settings`):
 
@@ -101,11 +107,11 @@ If an account PATCH is needed, follow [Confirm before write](#confirm-before-wri
 
 Do not send `autoCleanup`. Requires `updateFactorySettings`.
 
-### Step 3: Map a repository
+### Step 3: Map or override a repository
 
-Only for repos the user named.
+Only for repos the user named. Follow [Confirm before write](#confirm-before-write), then `update-factory-repo-settings`:
 
-1. Prefer `repo: "owner/name"` on `update-factory-repo-settings`.
+1. Prefer `repo: "owner/name"`.
 2. Include `projectKey` when creating a mapping.
 3. Optional repo-level `autoFlagging` / `autoReleasing` overrides. Omitted capabilities inherit the account setting. A repo cannot enable a capability the account has off.
 
