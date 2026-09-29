@@ -42,7 +42,7 @@ Factory settings are in alpha: the underlying endpoints are gated by the `enable
 **STOP.** Do not call `update-factory-settings`, `update-factory-repo-settings`, or `delete-factory-repo-settings` until the user has answered yes to the proposal in this turn. A yes from an earlier turn, or a vague "fix it" / "go ahead" that does not name the setting, is not enough.
 
 1. Read current state first (`get-factory-settings`, and repo get/list if the change is repo-scoped).
-2. State **now** vs **proposed**, in one or two sentences. Include blast radius.
+2. State **now** vs **proposed**, in one or two sentences. Include blast radius. For a map, state inherited auto-flagging **and** auto-releasing from the account (read `get-factory-settings` first).
 3. Wait. Do not batch the write in the same tool round as the question.
 
 **Account change** (any field on `update-factory-settings`, including turning things on):
@@ -57,13 +57,17 @@ Same pattern for auto-releasing, and say that auto-releasing can ship.
 
 **Map or change one repo** (`update-factory-repo-settings`):
 
-> `launchdarkly/gonfalon` is not mapped. Map it to project `default`, inheriting account auto-flagging (ON)? Factory can start classifying and opening auto-flagging PRs in that repo.
+Always name **both** inherited account capabilities in the proposal. Omitted overrides inherit auto-flagging **and** auto-releasing; do not confirm a map that only mentions auto-flagging.
 
-> `launchdarkly/gonfalon` is mapped to `default` with auto-flagging effective ON. Set a repo override turning auto-flagging OFF for this repo only?
+> `launchdarkly/gonfalon` is not mapped. Map it to project `default`, inheriting account auto-flagging (ON) and auto-releasing (OFF)? Factory can start classifying and opening auto-flagging PRs in that repo. Auto-releasing will stay off unless the account (or a repo override) turns it on.
+
+> `launchdarkly/gonfalon` is not mapped. Map it to project `default`, inheriting account auto-flagging (ON) and auto-releasing (ON)? Factory can start auto-flagging PRs in that repo **and** auto-releasing, which can ship.
+
+> `launchdarkly/gonfalon` is mapped to `default` with auto-flagging effective ON and auto-releasing effective OFF. Set a repo override turning auto-flagging OFF for this repo only? Auto-releasing stays inherited (OFF).
 
 **Unmap** (`delete-factory-repo-settings`):
 
-> `launchdarkly/gonfalon` is mapped to project `default` with auto-flagging effective ON. Unmap it? Factory will stop automating that repo until it is mapped again.
+> `launchdarkly/gonfalon` is mapped to project `default` with auto-flagging effective ON and auto-releasing effective OFF. Unmap it? Factory will stop auto-flagging and auto-releasing that repo until it is mapped again.
 
 After they confirm, apply **only** the fields in the proposal. Then verify (do not use verify as the safety check).
 
