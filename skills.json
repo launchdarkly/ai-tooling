@@ -230,9 +230,9 @@
     },
     {
       "name": "launchdarkly-experiment-setup",
-      "description": "Set up and run experiments in LaunchDarkly. Create experiments with metrics, treatments, and flag config, start iterations to collect data, swap design between iterations, and stop with a winner.",
+      "description": "Design, set up, and run experiments in LaunchDarkly. Review the experiment design (hypothesis, metrics, randomization unit, allocation, duration), create experiments with metrics, treatments, and flag config, start iterations to collect data, swap design between iterations, and stop with a winner.",
       "path": "skills/experiments/launchdarkly-experiment-setup",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },

@@ -1,16 +1,16 @@
 ---
 name: launchdarkly-experiment-setup
-description: "Set up and run experiments in LaunchDarkly. Create experiments with metrics, treatments, and flag config, start iterations to collect data, swap design between iterations, and stop with a winner."
+description: "Design, set up, and run experiments in LaunchDarkly. Review the experiment design (hypothesis, metrics, randomization unit, allocation, duration), create experiments with metrics, treatments, and flag config, start iterations to collect data, swap design between iterations, and stop with a winner."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # LaunchDarkly Experiment Setup
 
-You're using a skill that guides you through setting up and running experiments in LaunchDarkly. Your job is to design the experiment, create it with the right metrics, treatments, and flag config, start data collection, evolve the design between iterations when needed, and stop with a winner.
+You're using a skill that guides you through setting up and running experiments in LaunchDarkly. Your job is to review the experiment design with the user, create it with the right metrics, treatments, and flag config, start data collection, evolve the design between iterations when needed, and stop with a winner.
 
 ## Prerequisites
 
@@ -51,13 +51,29 @@ Experiments in LaunchDarkly measure the impact of feature flag variations on key
 
 ## Core Principles
 
-1. **Metrics first**: ensure the metrics you'll reference exist before creating the experiment.
-2. **Clear hypothesis**: every iteration requires a `hypothesis` string; state what you expect to improve and by how much.
-3. **Proper controls**: exactly one treatment must have `baseline: true`.
-4. **Sufficient sample size**: let iterations run long enough for statistical significance.
-5. **One change at a time**: test one variable per experiment for clear attribution.
+1. **Design before creation**: review the design (Step 0) before calling `create-experiment`. A fix costs a restart after data collection begins.
+2. **Metrics first**: ensure the metrics you'll reference exist before creating the experiment.
+3. **Clear hypothesis**: every iteration requires a `hypothesis` string; state what you expect to improve and by how much.
+4. **Proper controls**: exactly one treatment must have `baseline: true`.
+5. **Sufficient sample size**: let iterations run long enough for statistical significance.
+6. **One change at a time**: test one variable per experiment for clear attribution.
 
 ## Workflow
+
+### Step 0: Review the Design
+
+Before touching any tools that write data, gather the design and review it with the user:
+
+1. Ask for, or infer from the code and flag:
+   - what change is being tested
+   - which flag and rule drive it
+   - who is exposed
+   - what decision the result will drive
+2. If the project already has experiments, skim them with `list-experiments` and `get-experiment` to match the team's conventions, such as metric naming, randomization unit, and methodology.
+3. Walk through the [design review checklist](references/design-review.md): hypothesis, primary metric, guardrails, randomization unit, treatments and allocation, sample size and duration, variance reduction, exposure, and decision rule.
+4. Report each item as OK or a concern, with a one-line reason and a suggested fix. Let the user accept or adjust, then carry the agreed design into Steps 1–4 unchanged.
+
+Keep the review short when the user already has a clear design. The goal is to catch design mistakes that are costly after the iteration starts, not to add ceremony.
 
 ### Step 1: Prepare Metrics
 
@@ -158,6 +174,7 @@ Pass `changeJustification` if you're restarting after a prior iteration was stop
 1. Call `get-experiment` and confirm `currentIteration.status === "running"`.
 2. Check that treatments are present with the expected allocations.
 3. Check the metric list and the primary metric.
+4. Once traffic arrives, check for sample ratio mismatch, meaning the observed split doesn't match the configured allocation. If there's a large mismatch, stop and fix assignment or tracking before trusting any results.
 
 ### Step 6: Evolve the Design Mid-Experiment (when needed)
 
@@ -230,6 +247,7 @@ If the experiment was inconclusive or no variation beat the control, declare the
 
 ## What NOT to Do
 
+- Don't create the experiment before the user has agreed on the hypothesis, primary metric, and randomization unit.
 - Don't omit `iteration` on `create-experiment` — it's required.
 - Don't set `baseline: true` on more than one treatment.
 - Don't let `allocationPercent` values fail to sum to 100 across treatments.
