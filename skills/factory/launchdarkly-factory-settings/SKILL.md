@@ -32,7 +32,7 @@ Factory settings are in alpha: the underlying endpoints are gated by the `enable
 2. **Account settings are the master gate.** A mapped repo cannot enable a capability the account has off. Turning a capability **off** at the account level turns it off for every mapped repo. Turning it **on** at the account level allows every mapped repo that inherits (no override off) to start automating PRs.
 3. **Confirm before every Factory write.** Account PATCH, mapping, repo overrides, and unmap all use [Confirm before write](#confirm-before-write). Only touch repos the user named.
 4. **Least privilege.** Never enable auto-releasing unless the user explicitly asked to auto-release (that can ship code). Never turn `approvalRequired` off unless they explicitly asked to drop the approval gate. Never map or unmap repos they did not name. Never iterate the install list and map everything.
-5. **Discover, then map.** Pass `owner/name`. Never ask for a numeric GitHub id. Prefer `git remote` of the current workspace when they say "this repo" / "this PR"; if remotes disagree (fork vs upstream), ask which one.
+5. **Discover, then map.** Pass `owner/name`. Never ask for a numeric GitHub id. Prefer `git remote` of the current workspace when they say "this repo" / "this PR"; if remotes disagree (fork vs upstream), ask which one. `owner/name` resolves against the GitHub App install list only — a repo outside the install cannot be resolved or acted on, because Factory works through the App. A 404 saying the repo is not on the install, or that the App is not installed, is the answer; do not retry with other spellings or look the repo up elsewhere.
 6. **`projectKey` on first map.** Required when creating a mapping; later updates can omit it.
 7. **Omit `autoCleanup`.** Not part of Factory settings yet. Never send it; never copy it from a response into a PATCH.
 8. **Do not install the GitHub App via MCP.** If `list-factory-github-repos` says it is not installed, stop and tell them to install it in the LaunchDarkly UI.
@@ -83,7 +83,7 @@ Use this when the user asks why a PR was not classified, not auto-flagged, or Fa
 Identify the GitHub repo (`owner/name`) from the PR URL, `git remote`, or the name they gave. If you cannot identify one repo, ask. Do not diagnose a different repo.
 
 1. **Is auto-flagging on for the account?** `get-factory-settings`. If `autoFlagging.enabled` is false, that is the answer: account gate is off, so no repo can auto-flag. Stop.
-2. **Is this repo mapped to a project?** `get-factory-repo-settings` with `repo: "owner/name"` (or `list-factory-repo-settings` and find it). If 404 / omitted, it is not mapped. Unmapped install repos do not run Factory. Stop.
+2. **Is this repo mapped to a project?** `get-factory-repo-settings` with `repo: "owner/name"` (or `list-factory-repo-settings` and find it). Read the 404 text before concluding: the App not being installed, and the repo not being on the install, are different answers from the repo being installed but unmapped. Unmapped install repos do not run Factory. Stop.
 3. **Does this repo override auto-flagging off?** On the repo payload, if auto-flagging `enabled` is false, or `enabledOverride` is true while `enabled` is false, the repo is opted out even if the account is on. Stop.
 
 If all three look fine (account on, repo mapped, repo auto-flagging effective on):
