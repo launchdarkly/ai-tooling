@@ -9,6 +9,11 @@ results*.html
 # (eval-scores.json at repo root) is the public source of truth.
 */results.json
 
+# Golden-path diagrams generated per-suite by scripts/eval-mermaid.js and
+# posted as a PR comment in CI. Regenerated each run, never committed.
+*/golden-paths.md
+*/golden-paths.preview.html
+
 # Per-skill isolated cwds built by the provider so the SDK only discovers
 # the one skill being evaluated. Regenerated on each run, never committed.
 .tmp-skill-fixtures/

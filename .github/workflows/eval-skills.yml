@@ -208,6 +208,64 @@ jobs:
         if: always()
         run: node evals/scripts/render-badges.js
 
+      - name: Build golden-path diagrams
+        if: always() && github.event_name == 'pull_request'
+        env:
+          SUITES_JSON: ${{ needs.diff.outputs.slugs }}
+        run: |
+          node -e '
+            const fs = require("fs"), cp = require("child_process");
+            const { SUITES } = require("./evals/scripts/_manifest.js");
+            const slugs = JSON.parse(process.env.SUITES_JSON || "[]");
+            let out = "";
+            for (const s of slugs) {
+              const res = "evals/" + s + "/results.json";
+              if (!fs.existsSync(res)) continue;
+              const m = SUITES.find((x) => x.suite === s) || {};
+              const skillDir = m.skillDir || ("skills/" + s);
+              const base = "evals/" + s + "/golden-paths";
+              cp.execFileSync("node", ["evals/scripts/eval-mermaid.js", res, base, s, skillDir], { stdio: "inherit" });
+              out += fs.readFileSync(base + ".md", "utf8") + "\n\n";
+            }
+            fs.writeFileSync(process.env.GITHUB_WORKSPACE + "/golden-paths.md", out.trim());
+            console.log("golden-paths.md bytes:", out.length);
+          '
+
+      - name: PR comment with golden paths
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const p = process.env.GITHUB_WORKSPACE + '/golden-paths.md';
+            if (!fs.existsSync(p)) return;
+            const raw = fs.readFileSync(p, 'utf-8').trim();
+            if (!raw) return;
+            const MARK = '<!-- eval-golden-paths -->';
+            const body = MARK + '\n' + raw.split(MARK).join('').trim()
+              + '\n\n<sub>🤖 auto-generated golden-path diagrams — the eval flow each skill takes, red = a step it should not take.</sub>';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body && c.body.startsWith(MARK));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
       - name: PR comment with score diff
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
