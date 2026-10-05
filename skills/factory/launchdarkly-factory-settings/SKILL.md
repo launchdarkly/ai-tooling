@@ -83,7 +83,11 @@ Use this when the user asks why a PR was not classified, not auto-flagged, or Fa
 Identify the GitHub repo (`owner/name`) from the PR URL, `git remote`, or the name they gave. If you cannot identify one repo, ask. Do not diagnose a different repo.
 
 1. **Is auto-flagging on for the account?** `get-factory-settings`. If `autoFlagging.enabled` is false, that is the answer: account gate is off, so no repo can auto-flag. Stop.
-2. **Is this repo mapped to a project?** `get-factory-repo-settings` with `repo: "owner/name"` (or `list-factory-repo-settings` and find it). If the error or `list-factory-github-repos` includes `githubConnectUrl`, give the user that link and stop. That is a missing GitHub App install or member authorization, not a mapping problem. A repo that is on the install but unmapped is a different answer. Unmapped install repos do not run Factory. Stop.
+2. **Is this repo mapped to a project?** `get-factory-repo-settings` with `repo: "owner/name"` (or `list-factory-repo-settings` and find it). If the error or `list-factory-github-repos` includes `githubConnectUrl`, read `flow`:
+   - `flow=install`: the GitHub App is not installed, so Factory never sees the PR. That is the answer. Give the user the link and stop.
+   - `flow=authorize`: this member has not authorized GitHub, so `owner/name` cannot be looked up. That is not why Factory skipped the PR. Say so, give the user the link, and resume at this step after they finish. Do not report it as the fix.
+
+   A repo that is on the install but unmapped is a different answer. Unmapped install repos do not run Factory. Stop.
 3. **Does this repo override auto-flagging off?** On the repo payload, if auto-flagging `enabled` is false, or `enabledOverride` is true while `enabled` is false, the repo is opted out even if the account is on. Stop.
 
 If all three look fine (account on, repo mapped, repo auto-flagging effective on):
