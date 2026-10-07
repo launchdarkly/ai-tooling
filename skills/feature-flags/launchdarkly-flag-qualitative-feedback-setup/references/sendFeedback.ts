@@ -13,6 +13,25 @@ export type LDFeedbackData = {
 
 export type LDFeedbackSentiment = "positive" | "neutral" | "negative";
 
+export const MAX_FEEDBACK_LENGTH = 4096;
+export const MAX_CUSTOM_PROPERTIES_LENGTH = 4096;
+
+function boundedCustomProperties(
+  customProperties?: Record<string, any>,
+): Record<string, any> | undefined {
+  if (!customProperties) {
+    return undefined;
+  }
+  const serialized = JSON.stringify(customProperties);
+  if (serialized.length > MAX_CUSTOM_PROPERTIES_LENGTH) {
+    console.warn(
+      `sendFeedback: custom_properties exceeds ${MAX_CUSTOM_PROPERTIES_LENGTH} characters when serialized and was dropped`,
+    );
+    return undefined;
+  }
+  return customProperties;
+}
+
 export function sendFeedback(
   client: LDClient,
   flagKey: string,
@@ -22,10 +41,10 @@ export function sendFeedback(
   customProperties?: Record<string, any>,
 ) {
   const feedbackData: LDFeedbackData = {
-    feedback_answer: feedback,
+    feedback_answer: feedback.slice(0, MAX_FEEDBACK_LENGTH),
     flag_key: flagKey,
     sentiment: sentiment ?? "neutral",
-    custom_properties: customProperties,
+    custom_properties: boundedCustomProperties(customProperties),
   };
 
   // Session replay — remove this block if @launchdarkly/session-replay is not installed
@@ -35,7 +54,7 @@ export function sendFeedback(
   }
 
   if (prompt) {
-    feedbackData.feedback_prompt = prompt;
+    feedbackData.feedback_prompt = prompt.slice(0, MAX_FEEDBACK_LENGTH);
   }
 
   client.track("$ld:feedback", feedbackData);
