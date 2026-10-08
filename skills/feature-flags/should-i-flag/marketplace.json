@@ -1,0 +1,20 @@
+{
+  "name": "should-i-flag",
+  "description": "Decide whether a committed code change should ship behind a LaunchDarkly feature flag, by a fixed decision tree with checked evidence. Advisory and read-only.",
+  "version": "0.1.0",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": [
+    "./"
+  ],
+  "tags": [
+    "launchdarkly",
+    "feature-flags",
+    "feature-management",
+    "code-review",
+    "pull-request",
+    "ci",
+    "advisory",
+    "risk-assessment"
+  ]
+}

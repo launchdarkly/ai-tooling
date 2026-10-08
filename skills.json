@@ -500,6 +500,24 @@
       ]
     },
     {
+      "name": "should-i-flag",
+      "description": "Decide whether a given code change should be placed behind a LaunchDarkly feature flag. Use when a developer asks whether a change should be behind a flag, when reviewing a diff or pull request, or when running in CI on a PR. Runs a fixed decision tree over the committed change and the code around it, then emits a structured advisory recommendation. Read-only: it never creates or modifies flags.",
+      "path": "skills/feature-flags/should-i-flag",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Advisory and read-only. Needs a git checkout with the change committed, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run, it hands off to the should-flag-change skill. Returns a structured verdict as a `recommend-flag` block.",
+      "tags": [
+        "launchdarkly",
+        "feature-flags",
+        "feature-management",
+        "code-review",
+        "pull-request",
+        "ci",
+        "advisory",
+        "risk-assessment"
+      ]
+    },
+    {
       "name": "snippets",
       "description": "Create and manage prompt snippets \u2014 reusable text blocks referenced inside config variation prompts. Keeps common instructions, personas, and guardrails consistent across multiple configs.",
       "path": "skills/agentcontrol/snippets",
