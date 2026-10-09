@@ -59,7 +59,8 @@ Then write `{RUN}/profile_fix.json`:
 - `not_a_problem`: listed lines that need no change, and why.
 
 Then run `ld-factory.pyz profile {RUN}`. It checks each example against the commit and
-re-reads the changed files with your additions. It saves the repaired profile
-for this repo only if every gap example now has a flag check and every
-suspect example none; otherwise it says which line failed, once. Then run the
-same `start` command again.
+re-reads the changed files with your additions. It saves the additions for
+this repo only if every gap example now has a flag check and every suspect
+example none; otherwise it says which line failed, once. Saved additions are
+applied on top of the derived profile on every later run, so keep them to
+what this repo's code needs. Then run the same `start` command again.
