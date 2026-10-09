@@ -17,6 +17,27 @@ mechanically from each flag's current state in LaunchDarkly.
   `--no-launchdarkly`. Questions about flag state then come back unclear,
   which sends the result to a person only when it depends on them.
 
+## The project's environments
+
+When the repo's profile doesn't say which environments serve real users
+(a profile derived from the repo never does), the check uses the ones
+LaunchDarkly marks **critical**: of those, the ones with `prod` in their key
+when there are any (a critical environment that isn't, such as a dogfood
+instance, is still read but doesn't count as real users), else all of them. With an API key it lists them itself.
+Otherwise the first `launchdarkly-needed.txt` asks for them too: list the
+project's environments with your LaunchDarkly tools and write
+`RUN/launchdarkly/environments.json`, every environment with its key and
+whether it's critical:
+
+```json
+[{"key": "production", "critical": true},
+ {"key": "eu-production", "critical": true},
+ {"key": "staging", "critical": false}]
+```
+
+Then fetch each flag in every environment marked critical. Without either,
+flag state is read in `production` only, and the report says so.
+
 ## The file
 
 One file per flag: `RUN/launchdarkly/<project>__<key>.json` (two
