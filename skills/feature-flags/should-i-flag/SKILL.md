@@ -1,6 +1,6 @@
 ---
 name: should-i-flag
-description: "Decision-tree version of should-flag-change: decides whether a committed code change should ship behind a LaunchDarkly feature flag, with checked evidence and a structured advisory recommendation. Use only when your instructions or the user name should-i-flag; otherwise use should-flag-change. Read-only: it never creates or modifies flags."
+description: "should-flag-change v2 (preview): a decision-tree version that decides whether a committed code change should ship behind a LaunchDarkly feature flag, with checked evidence and a structured advisory recommendation. Use only when your instructions or the user name should-i-flag; the default for this task is should-flag-change (v1). Read-only: it never creates or modifies flags."
 license: Apache-2.0
 compatibility: "Advisory and read-only. Needs a git checkout with the change committed, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run, it hands off to the should-flag-change skill. Returns a structured verdict as a `recommend-flag` block."
 metadata:
