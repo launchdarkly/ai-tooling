@@ -75,21 +75,26 @@ It prints `RUN: <folder>` and status lines (`CHECKING`, `CHANGE`,
 
 | Exit | Meaning | What you do |
 |---|---|---|
-| 0 | Ready | Go to step 2: the two searches. |
+| 0 | Ready | Go to step 3 and ask for the first question. `next` sends you to step 2's searches once they're needed. |
 | 7 | LaunchDarkly flags are needed | Fetch the flags listed in `RUN/launchdarkly-needed.txt` as [LAUNCHDARKLY.md](references/LAUNCHDARKLY.md) says, then run the same `start` command again. If you have no way to read LaunchDarkly, run it again with `--no-launchdarkly`. |
 | 9 | The profile it derived for this repo misreads the change | Follow `RUN/profile_repair.txt` ([PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)), write `RUN/profile_fix.json`, run `ld-factory.pyz profile RUN`, then run the same `start` command again. |
 | 4 | Nothing committed to check | Stop; tell the developer to commit (a WIP commit is fine) and ask again. |
 | 6 | Can't tell which changes are this branch's | Stop and report it: a person needs to decide. |
 | 2 | Setup problem | If you passed something wrong (a ref, a file), fix it and run `start` again; otherwise hand off to `should-flag-change` (above) and say why. |
 
-### 2. Two searches the evidence can't do
+### 2. Two searches the evidence can't do (when `next` asks)
 
 The evidence finds a flag when it is evaluated near the changed code or in a
 caller a few levels up. A flag can gate a change from further away: a route
 or layout that only renders the changed code when the flag is on, a helper or
 hook that wraps the flag, a server handler that returns early, a style that
-applies only under a flag's class. Look for those now, before answering
-anything: P6 and P12 ask about gates, and they see what you find here.
+applies only under a flag's class. P6 and P12 ask about gates, and they see
+what you find here.
+
+`next` asks for these searches (`SEARCHES NEEDED`, exit 8) once the questions
+get past whether the change ships and changes what the product does. A change
+settled before that (nothing ships, no behavior changes, only a flag cleanup
+or a data-prep step) never needs them.
 
 Follow `RUN/gate_search.txt` (written by `start`; the method is
 [GATES.md](references/GATES.md)). Write its JSON to `RUN/gates.json`, then:
@@ -128,7 +133,7 @@ text, role) in the same JSON file, and run the same command again -- once.
 Don't add a claim in the repair or change what one says; if it doesn't hold
 up when you re-read it, remove it.
 
-`next` and `decide` refuse to run (exit 8) until both searches are recorded.
+Once both are recorded, go back to `next` (step 3).
 
 ### 3. Answer the questions the result needs, one at a time
 
@@ -140,7 +145,9 @@ need one: P2's list of changed lines that alter behavior, the reuse keys,
 citing a deleted line, a follow-up question whose earlier question was no,
 and a question about a list that isn't there.
 
-Then ask for questions one at a time. Each answer can settle the result, and
+Then ask for questions one at a time. If `next` prints `SEARCHES NEEDED`
+(exit 8), do step 2's two searches, then run `next` again. Each answer can
+settle the result, and
 questions after that point are never asked:
 
 ```bash
