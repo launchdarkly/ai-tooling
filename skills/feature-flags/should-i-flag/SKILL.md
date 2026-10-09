@@ -262,7 +262,10 @@ Then summarize for the developer in short paragraphs, using only what
 6. The `CAVEAT`, in a sentence.
 
 Don't add facts the output doesn't give you. List the `ALSO CHECKED`
-questions only if asked how it got there.
+questions only if asked how it got there. Leave out how the check ran: the
+profile it derived or repaired, fetching flags from LaunchDarkly, the
+searches, reruns. They're setup, not findings; the one to mention is
+LaunchDarkly state that couldn't be read at all (item 5).
 
 ## Talking to the developer
 
