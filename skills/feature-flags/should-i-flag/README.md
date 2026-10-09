@@ -22,9 +22,10 @@ result.
 `ld-factory.pyz` is the whole program in one file (a Python zip application: the
 engine, the decision tree and its data). It runs every step (`start`, `gates`,
 `risks`, `readers`, `next`, `answer`, `decide`, `check-profile`);
-`ld-factory.pyz --help` lists them. Put it on `PATH` (for example
-`ln -s "$PWD/ld-factory.pyz" /usr/local/bin/ld-factory.pyz`) or call it by path.
-SKILL.md describes the order.
+`ld-factory.pyz --help` lists them. In the Factory runtime it's already on `PATH` (baked
+into the image), so an agent never installs it. Locally, call it by path, or link
+it yourself (for example `ln -s "$PWD/ld-factory.pyz" ~/bin/ld-factory.pyz`). SKILL.md describes the
+order.
 
 ## Settings
 
