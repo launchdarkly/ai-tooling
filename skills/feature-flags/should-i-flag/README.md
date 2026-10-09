@@ -36,5 +36,7 @@ SKILL.md describes the order.
 
 A repo without a profile gets one derived from its code on each run, checked
 against the change, and repaired by the agent only when that check fails
-([references/PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)). A repaired
-profile is saved under `~/.cache/should-i-flag/profiles/` and reused.
+([references/PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)). The repair's
+additions are saved under `~/.cache/should-i-flag/profiles/` and applied on
+top of the derived profile on later runs; any that no longer match the code
+are left out.
