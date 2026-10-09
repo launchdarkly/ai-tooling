@@ -1,5 +1,5 @@
 {
-  "name": "@launchdarkly/ai-tooling-evals",
+  "name": "@launchdarkly/agent-skills-evals",
   "version": "1.0.0",
   "description": "LLM eval suite for LaunchDarkly agent skills and gram function tools",
   "private": true,
