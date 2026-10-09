@@ -3,9 +3,11 @@
 The check finds flag evaluations mechanically, so it needs to know what a
 flag check looks like in this repo: which calls evaluate a flag, where keys
 come from, which files ship, and which LaunchDarkly project and environments
-the flags live in. That's the repo's **profile**. LaunchDarkly's own repos
-have one built in; for any other repo `ld-factory.pyz start` exits 3 and you write
-one.
+the flags live in. That's the repo's **profile**. You don't normally write
+one: for a repo without one, `ld-factory.pyz start` derives it from the code and
+checks it against the change, and asks for a repair only when the check
+fails ([PROFILE_REPAIR.md](PROFILE_REPAIR.md)). This page is the format, for
+that repair and for a developer who wants to write a profile by hand.
 
 The profile is data, not judgment. Write only what you find in the repo, and
 check it before relying on it: a pattern that matches nothing makes every
@@ -14,7 +16,7 @@ unflagged without any error.
 
 ## Where it goes
 
-`ld-factory.pyz start` prints the path when it exits 3:
+A profile written by hand goes at
 `~/.cache/should-i-flag/profiles/<org>__<repo>.json`, keyed by the
 repo's `origin`. It's picked up from there on every later run. Never write
 it into the repo being checked.

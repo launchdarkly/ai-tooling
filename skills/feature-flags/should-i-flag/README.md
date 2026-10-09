@@ -34,5 +34,7 @@ SKILL.md describes the order.
 | `SHOULD_I_FLAG_PROFILES` | unset | Folders (separated like `PATH`) of repo profiles, `<name>.json`, each naming its `repo` and optionally a `launchdarkly` section (instance, project, environments). |
 | `SHOULD_I_FLAG_RUNS` | `~/.cache/should-i-flag/` | Where run folders go. |
 
-A repo without a profile gets one written by the agent the first time, as
-[references/PROFILE.md](references/PROFILE.md) describes.
+A repo without a profile gets one derived from its code on each run, checked
+against the change, and repaired by the agent only when that check fails
+([references/PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)). A repaired
+profile is saved under `~/.cache/should-i-flag/profiles/` and reused.

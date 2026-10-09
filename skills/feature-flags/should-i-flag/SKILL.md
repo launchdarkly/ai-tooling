@@ -77,7 +77,7 @@ It prints `RUN: <folder>` and status lines (`CHECKING`, `CHANGE`,
 |---|---|---|
 | 0 | Ready | Go to step 2: the two searches. |
 | 7 | LaunchDarkly flags are needed | Fetch the flags listed in `RUN/launchdarkly-needed.txt` as [LAUNCHDARKLY.md](references/LAUNCHDARKLY.md) says, then run the same `start` command again. If you have no way to read LaunchDarkly, run it again with `--no-launchdarkly`. |
-| 3 | No profile for this repo | Write one as [PROFILE.md](references/PROFILE.md) says, check it, and run `start` again. |
+| 9 | The profile it derived for this repo misreads the change | Follow `RUN/profile_repair.txt` ([PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)), write `RUN/profile_fix.json`, run `ld-factory.pyz profile RUN`, then run the same `start` command again. |
 | 4 | Nothing committed to check | Stop; tell the developer to commit (a WIP commit is fine) and ask again. |
 | 6 | Can't tell which changes are this branch's | Stop and report it: a person needs to decide. |
 | 2 | Setup problem | If you passed something wrong (a ref, a file), fix it and run `start` again; otherwise hand off to `should-flag-change` (above) and say why. |
