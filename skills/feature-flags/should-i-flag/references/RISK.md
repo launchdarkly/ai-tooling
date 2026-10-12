@@ -15,7 +15,7 @@ THE CHANGE
 - The evidence, including the PR text: {RUN}/evidence.txt (its CHANGED FILES
   section gives each file's role: shipping code, test, build, docs).
 
-WHAT COUNTS (the team's flag policy: flag changes to paths already in use, new
+WHAT COUNTS (flag changes to paths already in use, new
 calls and writes, backend performance changes, fixes that touch stored data or
 an external integration, a new control that adds a new action)
 Report a finding only if it is one of these kinds, in SHIPPING code:
@@ -34,11 +34,32 @@ Report a finding only if it is one of these kinds, in SHIPPING code:
 - stored-data: a change to how existing customer data is written, migrated or
   backfilled.
 
+
+A NEW FAILURE, NOT JUST A PATH
+Say for each finding whether the change is meant to keep behavior the same (a
+refactor, a swapped data source, a reworked query, a moved component):
+"preserves_behavior": true or false. When it is true, the finding must also name
+the new failure: the case -- an input, a state, a dependency that errors or
+comes back empty, a page or a project shape -- in which customers end up worse
+off at {HEAD} than they did at {BASE}: what the version on main did in that
+case, and what the change does instead. Such a change is a finding only when the
+code shows such a case. A change that means to alter behavior (a new call or
+write, a stored-data change, a new action, a removal) is judged by the kinds
+above as before. A failure the old
+code already had in the same case (the same error, empty state or fallback when
+a read fails) is not new. A bug that merely could exist is not concrete: name
+the case and the line that produces the worse outcome, or don't report it.
+
 DO NOT REPORT
 - tests, stories, fixtures, docs, build or CI configuration;
 - internal tools, admin consoles and developer utilities that only employees
   use (an internal launcher, a support console, a private developer CLI);
-- logging, metrics, traces or analytics events only;
+- logging, metrics, traces or usage-analytics events only. NOT this
+  exclusion: data that decides how a signup or account is treated
+  downstream -- a classification verdict (for example junk), lead
+  routing, or targeting data sent to sales or marketing systems (Segment
+  traits, Marketo leads) or stored on the account. Report that as
+  stored-data or new-call;
 - a migration or schema change no shipping code reads or writes yet, or code
   that nothing shipping calls yet (a later pull request will);
 - a change that only affects inputs that already failed on main (a repair of
@@ -68,6 +89,8 @@ Write ONLY this JSON to {RUN}/risks.json, then run
 
 {"findings": [{"kind": "new-call | retarget | cache | fail-closed | new-action | removed | stored-data",
                "chain": [{"path": "path/at/head", "line": 123, "text": "the exact line", "role": "changed | entry | calls | renders | registers"}],
+               "preserves_behavior": true,
+               "new_failure": {"case": "the input, state or failure in which it differs", "main": "what customers got at the version on main", "head": "what they get with the change"},
                "customer_facing_because": "who reaches the entry, and how (a session-bound route, a customer page, a job per customer account)",
                "why": "one sentence, in plain words about the developer's code: what could go wrong for customers that a flag would let the team switch off"}],
  "searched": "one or two sentences: what you checked"}
