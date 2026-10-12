@@ -25,11 +25,12 @@ something you could reasonably infer, and never dump jargon on them.
 ## Prerequisites
 
 - A local codebase (this skill reads files and `git log`).
-- A way to talk to LaunchDarkly, in priority order:
-  - **Preferred:** the LaunchDarkly MCP server configured in the environment.
-  - **Fallback:** a LaunchDarkly API token (`LD_API_KEY` / `LAUNCHDARKLY_ACCESS_TOKEN`) for REST calls.
-- If neither is available, you can still do everything up to the draft — you
-  just present the draft and the exact calls/commands the user can run later.
+- A connection to LaunchDarkly — **either** the LaunchDarkly MCP server
+  configured, **or** a LaunchDarkly API token in the environment (`LD_API_KEY` /
+  `LAUNCHDARKLY_ACCESS_TOKEN`) for REST calls. **Step 0 checks this and fails
+  fast if neither is present**: without a connection the skill cannot read your
+  account or create anything, and will offer a draft-only plan instead of
+  grinding through the whole flow to a dead end.
 
 This skill orchestrates several focused skills rather than reimplementing them.
 When a step calls for one, use it:
@@ -58,6 +59,44 @@ When a step calls for one, use it:
 
 ## Workflow
 
+### Step 0: Check the LaunchDarkly connection (fail fast)
+
+Before any work, confirm you can actually reach LaunchDarkly. This decides what
+the skill can do and avoids a dead end after the user has invested time.
+
+Detect, in this precedence order:
+
+1. **LaunchDarkly MCP tools available** (e.g. `list-flags`, `create-experiment`)
+   → use **MCP**. This is the preferred path.
+2. **Else a LaunchDarkly API token** in the environment (`LD_API_KEY` or
+   `LAUNCHDARKLY_ACCESS_TOKEN`) → use the **REST API**.
+3. **Both present** → use **MCP**, and keep REST as a fallback for any operation
+   MCP doesn't expose.
+4. **Neither** → **stop here. Do not scan, draft, or proceed silently.**
+
+If neither is available, say so plainly and give the user the choice:
+
+> "I can read your code, but I can't reach your LaunchDarkly account — so I can't
+> see your existing flags and metrics or create the experiment. Two ways to
+> connect: set up the LaunchDarkly MCP server (the `mcp-configure` onboarding
+> skill walks through it), or set a `LD_API_KEY` token. Re-run once either is in
+> place. Or, if you just want a plan to run yourself, say **'draft only'** and
+> I'll produce the hypothesis, the metric/flag plan, the code snippets, and the
+> exact API calls — without touching your account."
+
+Only continue when you have a connection, or the user has **explicitly opted into
+draft-only mode** — in which case skip the Step 2 account scan, never call a
+write tool, and end at Step 7 with the draft plus ready-to-run commands.
+
+**Capabilities by connection:**
+
+| Connection | Scan account (reuse flags/metrics) | Create metric + experiment | Notes |
+|------------|:---:|:---:|-------|
+| MCP server | ✅ | ✅ | Preferred — higher-level tools, pruned responses |
+| API token (REST) | ✅ | ✅ | Full CRUD via `/api/v2` (experiments have no delete) |
+| Both | ✅ | ✅ | MCP used; REST as fallback |
+| Neither | ❌ | ❌ | **Fail fast**; offer draft-only (no scan, no create) |
+
 ### Step 1: Understand the product (lightweight scan)
 
 Build a quick mental model of what this app *is* and who uses it. Keep it cheap
@@ -81,7 +120,9 @@ on their answer before continuing. See
 ### Step 2: See what's already in LaunchDarkly
 
 Scan the connected account so you reuse instead of duplicate and so your
-suggestions match their conventions.
+suggestions match their conventions. (Requires the Step 0 connection — in
+draft-only mode, skip this scan and tell the user you're proposing without
+visibility into their existing flags and metrics.)
 
 - **Flags** — list existing flags (MCP `list-flags` / REST
   `GET /api/v2/flags/{projectKey}`). Note naming conventions, tags, and whether
@@ -189,8 +230,10 @@ for the exact MCP calls and REST payloads.
 - **REST fallback:** `POST /api/v2/metrics/{projectKey}` for a new metric, then
   `POST /api/v2/projects/{projectKey}/environments/{envKey}/experiments` with the
   iteration body.
-- **Neither available:** hand the user the ready-to-run commands and the draft,
-  and point them at `launchdarkly-experiment-setup` to finish.
+- **Draft-only mode (no connection):** you already flagged this at Step 0 — do
+  not attempt any write. Present the draft plus the exact ready-to-run API calls
+  from the reference, and point them at `launchdarkly-experiment-setup` to finish
+  once they're connected.
 
 After creating, verify (MCP `get-experiment` / REST `GET …/experiments/{key}`)
 and report: what was created, that the iteration is running (or ready to start),
@@ -203,7 +246,7 @@ winner later, or start the iteration).
 |-----------|--------|
 | No git history / brand-new repo | Skip the recent-features scan; lean on the README and manifest, and ask what they're working on. |
 | Can't tell what the product is | State your best guess and ask — don't silently pick. |
-| No LaunchDarkly access (no MCP, no token) | Do everything through Step 7, present the draft + exact commands, stop before any write. |
+| No LaunchDarkly access (no MCP, no token) | Caught at Step 0 — fail fast: stop and offer to connect (MCP server or `LD_API_KEY`), or explicit draft-only mode (no account scan, no create). Don't grind through the flow to a dead end. |
 | A flag or metric already fits | Reuse it. Say so explicitly and skip creation for that piece. |
 | User has no idea what to measure | Start from the outcome (revenue, sign-ups, retention, speed) and map backward to a metric and feature. |
 | Feature isn't behind a flag yet | Delegate to `launchdarkly-flag-create` first; an experiment needs a flag to split traffic. |
@@ -216,6 +259,8 @@ winner later, or start the iteration).
   concrete, context-derived suggestion.
 - Don't create anything in LaunchDarkly before showing the draft and getting an
   explicit yes.
+- Don't run the discovery/hypothesis/draft flow without a LaunchDarkly connection
+  — check at Step 0 and fail fast, offering to connect or go draft-only.
 - Don't create a new flag or metric when a suitable one already exists.
 - Don't set up two primary metrics, or test multiple changes in one experiment.
 - Don't drown the user in terminology — define terms in plain language as you go.

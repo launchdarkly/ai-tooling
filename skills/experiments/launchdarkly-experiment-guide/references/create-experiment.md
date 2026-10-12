@@ -3,11 +3,12 @@
 This is **one logical step with two implementations**. Detect what's available
 and use it. Only run this after the user has confirmed the draft (Step 7).
 
-Detection order:
-1. **LaunchDarkly MCP tools present** (e.g. `create-experiment`) → MCP path.
-2. **Else a LaunchDarkly API token present** (`LD_API_KEY` /
-   `LAUNCHDARKLY_ACCESS_TOKEN`) → REST path.
-3. **Else** → hand the user the ready-to-run REST calls and the draft; stop.
+Detection order (already confirmed up front by the skill's **Step 0** preflight):
+1. **LaunchDarkly MCP tools present** (e.g. `create-experiment`) → MCP path (preferred).
+2. **Else a LaunchDarkly API token** (`LD_API_KEY` / `LAUNCHDARKLY_ACCESS_TOKEN`) → REST path.
+3. **Both present** → use MCP; fall back to REST only for an operation MCP doesn't expose.
+4. **Neither** → you should never reach the create step: Step 0 fails fast. If the
+   user chose **draft-only** mode, present these calls for them to run later and stop.
 
 You need these values, gathered in earlier steps:
 - `projectKey`, `environmentKey` (from `get-environments`).
