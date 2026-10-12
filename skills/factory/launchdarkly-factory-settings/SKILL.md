@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.1.0-experimental"
+  version: "1.2.0-experimental"
 ---
 
 # LaunchDarkly Factory Settings
@@ -35,7 +35,7 @@ Factory settings are in alpha: the underlying endpoints are gated by the `enable
 5. **Discover, then map.** Pass `owner/name`. Never ask for a numeric GitHub id. Prefer `git remote` of the current workspace when they say "this repo" / "this PR"; if remotes disagree (fork vs upstream), ask which one. `owner/name` resolves against the GitHub App install list only — a repo outside the install cannot be resolved or acted on, because Factory works through the App. A 404 saying the repo is not on the install, or that the App is not installed, is the answer; do not retry with other spellings or look the repo up elsewhere.
 6. **`projectKey` on first map.** Required when creating a mapping; later updates can omit it.
 7. **Omit `autoCleanup`.** Not part of Factory settings yet. Never send it; never copy it from a response into a PATCH.
-8. **Do not install the GitHub App via MCP.** If `list-factory-github-repos` says it is not installed, stop and tell them to install it in the LaunchDarkly UI.
+8. **GitHub connect is a browser link.** If `list-factory-github-repos` returns `githubConnectUrl`, give the user that exact URL and wait until they say they finished. Then call `list-factory-github-repos` again. Do not install or authorize GitHub yourself. `flow=install` is Install GitHub App. `flow=authorize` is Authorize GitHub. Both are the same pages as the integration drawer. The user must already be logged into LaunchDarkly in that browser.
 
 ## Confirm before write
 
@@ -83,7 +83,11 @@ Use this when the user asks why a PR was not classified, not auto-flagged, or Fa
 Identify the GitHub repo (`owner/name`) from the PR URL, `git remote`, or the name they gave. If you cannot identify one repo, ask. Do not diagnose a different repo.
 
 1. **Is auto-flagging on for the account?** `get-factory-settings`. If `autoFlagging.enabled` is false, that is the answer: account gate is off, so no repo can auto-flag. Stop.
-2. **Is this repo mapped to a project?** `get-factory-repo-settings` with `repo: "owner/name"` (or `list-factory-repo-settings` and find it). Read the 404 text before concluding: the App not being installed, and the repo not being on the install, are different answers from the repo being installed but unmapped. Unmapped install repos do not run Factory. Stop.
+2. **Is this repo mapped to a project?** `get-factory-repo-settings` with `repo: "owner/name"` (or `list-factory-repo-settings` and find it). If the error or `list-factory-github-repos` includes `githubConnectUrl`, read `flow`:
+   - `flow=install`: the GitHub App is not installed, so Factory never sees the PR. That is the answer. Give the user the link and stop.
+   - `flow=authorize`: this member has not authorized GitHub, so `owner/name` cannot be looked up. That is not why Factory skipped the PR. Say so, give the user the link, and resume at this step after they finish. Do not report it as the fix.
+
+   A repo that is on the install but unmapped is a different answer. Unmapped install repos do not run Factory. Stop.
 3. **Does this repo override auto-flagging off?** On the repo payload, if auto-flagging `enabled` is false, or `enabledOverride` is true while `enabled` is false, the repo is opted out even if the account is on. Stop.
 
 If all three look fine (account on, repo mapped, repo auto-flagging effective on):
@@ -102,7 +106,7 @@ If all three look fine (account on, repo mapped, repo auto-flagging effective on
 2. `list-factory-repo-settings`
 3. `list-factory-github-repos` (optional `projectKey`; install is account-wide)
 
-If the GitHub App is not installed, stop.
+If `githubConnectUrl` is present, give the user that link and stop this turn. Do not map until a later call omits the URL.
 
 ### Step 2: Account defaults (if needed)
 
@@ -134,7 +138,7 @@ To unmap: [Confirm before write](#confirm-before-write), then `delete-factory-re
 ## Out of scope
 
 - Auto-cleanup
-- GitHub App install / OAuth
+- Completing GitHub OAuth inside the tool. Hand the user `githubConnectUrl` instead.
 - Vega BYOK
 - Observability MCP (`github_repositories`) — do not require a second MCP server just to map a Factory repo
 - Changing classification rules, GitHub App permissions, or org install scope via this skill

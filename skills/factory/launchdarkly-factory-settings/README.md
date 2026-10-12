@@ -17,7 +17,7 @@ This skill teaches agents how to:
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose the Factory settings tools (`get-factory-settings`, `list-factory-github-repos`, `update-factory-repo-settings`, and siblings). The GitHub App must already be installed; this skill does not install it.
+The remotely hosted LaunchDarkly MCP server must expose the Factory settings tools (`get-factory-settings`, `list-factory-github-repos`, `update-factory-repo-settings`, and siblings). If `list-factory-github-repos` returns `githubConnectUrl`, give the user that link. This skill does not complete GitHub OAuth itself.
 
 Factory settings are in alpha. The endpoints behind these tools are gated by the `enable-factory-settings` flag, so accounts outside the alpha get 404s.
 
