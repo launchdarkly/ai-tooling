@@ -3,7 +3,7 @@
   "description": "Detect and reconcile drift between an in-code SDK fallback default and a LaunchDarkly default rule",
   "version": "0.1.0",
   "author": "LaunchDarkly",
-  "repository": "https://github.com/launchdarkly/agent-skills",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],
   "tags": [
     "launchdarkly",
