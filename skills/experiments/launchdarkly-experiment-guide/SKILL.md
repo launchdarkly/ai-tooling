@@ -25,12 +25,13 @@ something you could reasonably infer, and never dump jargon on them.
 ## Prerequisites
 
 - A local codebase (this skill reads files and `git log`).
-- A connection to LaunchDarkly — **either** the LaunchDarkly MCP server
-  configured, **or** a LaunchDarkly API token in the environment (`LD_API_KEY` /
-  `LAUNCHDARKLY_ACCESS_TOKEN`) for REST calls. **Step 0 checks this and fails
-  fast if neither is present**: without a connection the skill cannot read your
-  account or create anything, and will offer a draft-only plan instead of
-  grinding through the whole flow to a dead end.
+- A connection to LaunchDarkly that can **create metrics and experiments** —
+  **either** an LD MCP server that exposes those tools, **or** a LaunchDarkly API
+  token in the environment (`LD_API_KEY` / `LAUNCHDARKLY_ACCESS_TOKEN`) for REST
+  calls. A flags-only MCP is not enough: it can scan and draft but not create.
+  **Step 0 checks the specific capabilities and fails fast** if the create path
+  is missing, offering a draft-only plan instead of grinding through the whole
+  flow to a dead end.
 
 This skill orchestrates several focused skills rather than reimplementing them.
 When a step calls for one, use it:
@@ -64,15 +65,33 @@ When a step calls for one, use it:
 Before any work, confirm you can actually reach LaunchDarkly. This decides what
 the skill can do and avoids a dead end after the user has invested time.
 
-Detect, in this precedence order:
+Check **capabilities, not just "is an MCP connected."** The flow needs three
+things — confirm each is actually available before you rely on it, so you don't
+discover a missing tool only at the create step:
 
-1. **LaunchDarkly MCP tools available** (e.g. `list-flags`, `create-experiment`)
-   → use **MCP**. This is the preferred path.
-2. **Else a LaunchDarkly API token** in the environment (`LD_API_KEY` or
-   `LAUNCHDARKLY_ACCESS_TOKEN`) → use the **REST API**.
-3. **Both present** → use **MCP**, and keep REST as a fallback for any operation
-   MCP doesn't expose.
-4. **Neither** → **stop here. Do not scan, draft, or proceed silently.**
+- **Account read** — list flags, metrics, environments (Step 2 reuse).
+- **Metric create** — create a metric and its event (Step 5, if none fits).
+- **Experiment create + start** — create the experiment and start its iteration (Step 8).
+
+Resolve a path, in precedence order:
+
+1. **An LD MCP that exposes the experiment + metric tools** (`create-experiment`,
+   `start-experiment-iteration`, `create-metric`, `list-metrics`, …) → full
+   **MCP path**. Preferred.
+2. **Else a LaunchDarkly API token** (`LD_API_KEY` / `LAUNCHDARKLY_ACCESS_TOKEN`)
+   → full path via the **REST API**.
+3. **Partial — an LD MCP is connected for flags/environments but has no
+   experiment/metric tools, and there's no API token.** You can read the account
+   and draft, but you **cannot create the metric or experiment**. Do not proceed
+   as if you can. Treat it like no-create: tell the user, and offer to (a)
+   connect an experiment-capable LD MCP (e.g. the hosted LaunchDarkly MCP server)
+   or set an API token, then re-run, or (b) go **draft-only**.
+4. **No LD access at all** → **stop here. Do not scan, draft, or proceed silently.**
+
+> Verify the *specific* create tools exist at Step 0 — "an LD MCP is connected"
+> does **not** mean you can create an experiment. A flags-only MCP will let you
+> scan and draft, then fail at Step 8; catching that now is the whole point of
+> the preflight.
 
 If neither is available, say so plainly and give the user the choice:
 
@@ -90,12 +109,13 @@ write tool, and end at Step 7 with the draft plus ready-to-run commands.
 
 **Capabilities by connection:**
 
-| Connection | Scan account (reuse flags/metrics) | Create metric + experiment | Notes |
+| Connection | Scan account | Create metric + experiment | Notes |
 |------------|:---:|:---:|-------|
-| MCP server | ✅ | ✅ | Preferred — higher-level tools, pruned responses |
-| API token (REST) | ✅ | ✅ | Full CRUD via `/api/v2` (experiments have no delete) |
+| LD MCP w/ experiment + metric tools | ✅ | ✅ | Preferred — higher-level tools, pruned responses |
+| LD API token (REST) | ✅ | ✅ | Full CRUD via `/api/v2` (experiments have no delete) |
 | Both | ✅ | ✅ | MCP used; REST as fallback |
-| Neither | ❌ | ❌ | **Fail fast**; offer draft-only (no scan, no create) |
+| LD MCP, flags/env only (no experiment/metric tools) | ✅ flags/env | ❌ | **Partial — fail fast.** Scan + draft only; connect an experiment-capable MCP / token, or draft-only |
+| No LD access | ❌ | ❌ | **Fail fast**; draft-only (no scan, no create) |
 
 ### Step 1: Understand the product (lightweight scan)
 
