@@ -229,6 +229,25 @@
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
+      "name": "launchdarkly-experiment-guide",
+      "description": "Guide a developer from 'I don't know what to test' to a ready-to-create LaunchDarkly experiment. Use when someone wants to run an experiment or A/B test but doesn't have a metric, a flag, or a hypothesis yet, or isn't sure what to measure. Scans the codebase and the connected LaunchDarkly account, proposes a hypothesis and metric from real context, wires up the flag and tracking code, then drafts the experiment and offers to create it. Built for engineers without a data-science or product-analytics background.",
+      "path": "skills/experiments/launchdarkly-experiment-guide",
+      "version": "0.1.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Uses the LaunchDarkly MCP server when it is configured; otherwise falls back to the LaunchDarkly REST API (needs a LaunchDarkly API token). Reads the local codebase and git history.",
+      "tags": [
+        "launchdarkly",
+        "experimentation",
+        "ab-testing",
+        "experiments",
+        "metrics",
+        "feature-flags",
+        "hypothesis",
+        "guided",
+        "mcp"
+      ]
+    },
+    {
       "name": "launchdarkly-experiment-setup",
       "description": "Set up and run experiments in LaunchDarkly. Create experiments with metrics, treatments, and flag config, start iterations to collect data, swap design between iterations, and stop with a winner.",
       "path": "skills/experiments/launchdarkly-experiment-setup",
