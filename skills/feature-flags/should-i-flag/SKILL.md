@@ -6,7 +6,7 @@ compatibility: "Advisory and read-only. Needs a git checkout with the change com
 metadata:
   author: launchdarkly
   version: "0.1.0"
-  graph: "e0a0549d0ce9"
+  graph: "f9bc205321ea"
 ---
 
 # Should This Change Be Behind a Flag?
@@ -68,7 +68,8 @@ ld-factory.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
 - `--client-repo` (repeatable) names a checkout of another repository whose
   code calls this one's interfaces, e.g. the frontend for a backend. Without
   it, checkouts beside `REPO_PATH` of the other repositories the skill knows
-  are used when present. Only the consumer search below reads them.
+  are used when present. Only the gate search's caller coverage and the
+  consumer search below read them.
 
 It prints `RUN: <folder>` and status lines (`CHECKING`, `CHANGE`,
 `UNCOMMITTED`, `PR TEXT`, `LAUNCHDARKLY`). By exit code:
@@ -105,8 +106,13 @@ ld-factory.pyz gates RUN
 
 It checks every line of every gate you report against the change's commit
 and keeps only the gates whose every link matches, then adds them to the
-evidence (`GATES: N verified, M dropped`). An empty list is a correct result
-when nothing gates the change: don't guess.
+evidence (`GATES: N verified, M dropped`). A caller coverage (every caller of
+a changed unit, each behind a flag or leaving the new behavior off) is kept
+only when its lines match and a search of the commit finds no caller you
+didn't list; callers in a client repository are checked the same way in
+that checkout at its pinned commit, and their flags read from that
+repository's LaunchDarkly project (`CALLER COVERAGE: N verified, M dropped`). An empty list is a
+correct result when nothing gates the change: don't guess.
 
 **Then the risk search.** Some changes rework a path customers already use in
 a way that can fail them -- a new call or write to another service, an
@@ -125,10 +131,10 @@ adds or modifies, the entry point outside tests) and answers one question
 from what holds (`RISKS: N verified ... P30 = yes|no`). You never answer that
 question yourself. Most changes have no finding: an empty list is correct.
 
-**A dropped claim gets one repair.** When `gates`, `risks` or `readers`
-prints a claim as dropped, read why: usually a quoted line doesn't match its
-number, or a link has a role the search doesn't use. Re-read the lines it
-cites at the commit, fix that claim's links (path, line, the line's exact
+**A dropped claim gets one repair.** When `gates`, `risks`, `readers`,
+`features` or `facts` prints a claim as dropped, read why: usually a quoted
+line doesn't match its number, or a link has a role the search doesn't use.
+Re-read the lines it cites at the commit, fix that claim's links (path, line, the line's exact
 text, role) in the same JSON file, and run the same command again -- once.
 Don't add a claim in the repair or change what one says; if it doesn't hold
 up when you re-read it, remove it.
@@ -187,6 +193,47 @@ It checks every reader line by line (`READERS: N contract change(s), M with
 a verified reader`), and the question is settled from it: yes when a reader
 holds, no when the search found none. Leave your own answer as it was; then
 run `next` again (or `decide`, if that is where it stopped).
+
+**The feature flag search, when asked for.** Reuse candidates are the flags
+evaluated close to the changed lines. When the questions reach them and none
+covers the change, `next` (or `decide`) prints `FEATURE SEARCH NEEDED` and
+exits 8: the flag that releases the feature the change belongs to may be
+checked further away, at the feature's route, page, registration or handler.
+Follow `RUN/feature_search.txt` ([FEATURES.md](references/FEATURES.md)), write its JSON
+to `RUN/features.json`, then:
+
+```bash
+ld-factory.pyz features RUN
+```
+
+It checks every line (`FEATURES: N verified, M dropped`): the key existed on
+main, the chain runs from the flag's evaluation through the line its value
+decides to the feature's own entry, and a second chain runs from that entry
+to a file the change modifies. A flag that holds becomes a reuse candidate;
+its LaunchDarkly state is read like any other's (it may exit 7: fetch the
+flag as in step 1 and run `features` again). The reuse questions already
+answered are then asked again, with its lines (`ASKED AGAIN`). Don't report a
+flag over a whole area of the product: only the feature's own. An empty list
+is a correct result. Then run `next` again.
+
+**The fact search, when asked for.** When every answer the result needs is
+in, and one you gave as unresolved decides it, `next` (or `decide`) prints
+`FACT SEARCH NEEDED` and exits 8. Follow `RUN/fact_search.txt`
+([FACTS.md](references/FACTS.md)): it names the question, when it is unresolved, and
+what your answer said was missing. Search the code at the commit for exactly
+that fact, write its JSON to `RUN/facts.json`, then:
+
+```bash
+ld-factory.pyz facts RUN
+```
+
+It checks each finding's quoted line (`FACTS: N verified, M dropped`). When
+one holds, `next` asks the same question once more, with the verified lines
+shown (`ASKED AGAIN`): answer it again by its procedure, citing them where
+they help; if it still can't be settled, answer unresolved again, and a
+person decides. With nothing verified, your first answer stands. At most one
+fact search per question.
+
 (`questions.txt` lists every question, for reference; don't answer from it.)
 
 The rules in `evidence.txt` decide everything here. In short:
@@ -222,7 +269,7 @@ don't check out counts as unresolved), walks the tree, and prints the result.
 |---|---|---|
 | 0 | Decided | Go to step 5. |
 | 7 | More LaunchDarkly flags are needed | Fetch them as in step 1 and run `decide` again. |
-| 8 | A search isn't recorded yet | Do what it says: step 2's two searches, or the consumer search (step 3), then run `decide` again. |
+| 8 | A search isn't recorded yet | Do what it says: step 2's two searches, or the consumer, feature flag or fact search (step 3), then run `decide` again. A fact search can ask a question once more: answer it (`next`), then run `decide` again. |
 | 2 | Setup problem, or a question is still needed | Pass a setup message on; for `NOT DECIDED YET`, go back to `ld-factory.pyz next`. |
 
 ### 5. Emit the verdict
