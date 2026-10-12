@@ -1,6 +1,6 @@
 {
   "name": "launchdarkly",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "LaunchDarkly agent skills and MCP servers for feature flag management, AgentControl, and metrics",
   "author": {
     "name": "LaunchDarkly",
@@ -36,6 +36,6 @@
     "./skills/agentcontrol/online-evals",
     "./skills/agentcontrol/projects",
     "./skills/agentcontrol/tools",
-    "./skills/factory/launchdarkly-factory-settings"
+    "./skills/release-autopilot/launchdarkly-release-autopilot-settings"
   ]
 }

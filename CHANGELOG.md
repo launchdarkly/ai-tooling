@@ -4,6 +4,8 @@ All notable changes to this repository will be documented in this file.
 
 ## Unreleased
 
+- Rename `factory/launchdarkly-factory-settings` to `release-autopilot/launchdarkly-release-autopilot-settings` and switch it to the `*-release-autopilot-*` MCP tools (Claude Code plugin 1.0.2, Cursor plugin 1.0.3). Requires a hosted MCP server that exposes the new tool names.
+
 - `factory/launchdarkly-factory-settings`: when GitHub is not installed or this member has not authorized, hand the user `githubConnectUrl` (the integration drawer's install or authorize page) and retry after they finish.
 - Claude Code plugin 1.0.1: resolve plugin directory scanner findings. Replace the flat `skills/` symlinks with an explicit `skills` list in `.claude-plugin/plugin.json`, add `icon` and `privacyPolicyUrl`, and stop skills from auto-detecting API tokens in environment variables or `~/.claude/config.json` (prefer the MCP server's OAuth; ask the user for a token when a REST call is unavoidable).
 - `factory/launchdarkly-factory-settings`: confirm before account-wide writes, maps, repo overrides, and unmaps; add a read-only "why didn't my PR get classified?" path (account gate, mapping, repo override).
