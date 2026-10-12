@@ -81,31 +81,36 @@ Resolve a path, in precedence order:
 2. **Else a LaunchDarkly API token** (`LD_API_KEY` / `LAUNCHDARKLY_ACCESS_TOKEN`)
    → full path via the **REST API**.
 3. **Partial — an LD MCP is connected for flags/environments but has no
-   experiment/metric tools, and there's no API token.** You can read the account
-   and draft, but you **cannot create the metric or experiment**. Do not proceed
-   as if you can. Treat it like no-create: tell the user, and offer to (a)
-   connect an experiment-capable LD MCP (e.g. the hosted LaunchDarkly MCP server)
-   or set an API token, then re-run, or (b) go **draft-only**.
-4. **No LD access at all** → **stop here. Do not scan, draft, or proceed silently.**
+   experiment/metric tools, and there's no API token.** You *can* read the
+   account (so the Step 2 scan still works), but you **cannot create the metric
+   or experiment**. Scan and draft as normal, then stop before any write — see
+   "Act on the outcome" below. This is **not** "no connection."
+4. **No LD access at all** → you can't even read the account. **Stop here — do
+   not scan or proceed silently.**
 
 > Verify the *specific* create tools exist at Step 0 — "an LD MCP is connected"
 > does **not** mean you can create an experiment. A flags-only MCP will let you
 > scan and draft, then fail at Step 8; catching that now is the whole point of
 > the preflight.
 
-If neither is available, say so plainly and give the user the choice:
+**Act on the outcome:**
 
-> "I can read your code, but I can't reach your LaunchDarkly account — so I can't
-> see your existing flags and metrics or create the experiment. Two ways to
-> connect: set up the LaunchDarkly MCP server (the `mcp-configure` onboarding
-> skill walks through it), or set a `LD_API_KEY` token. Re-run once either is in
-> place. Or, if you just want a plan to run yourself, say **'draft only'** and
-> I'll produce the hypothesis, the metric/flag plan, the code snippets, and the
-> exact API calls — without touching your account."
-
-Only continue when you have a connection, or the user has **explicitly opted into
-draft-only mode** — in which case skip the Step 2 account scan, never call a
-write tool, and end at Step 7 with the draft plus ready-to-run commands.
+- **Full (1 or 2):** proceed through the whole workflow.
+- **Partial (3):** you can reach the account, so **still run the Step 2 scan** and
+  reuse what fits, then produce the draft. At **Step 8, stop before any write**
+  and tell the user you can't create from here — offer to connect a create-capable
+  path (an experiment-capable LD MCP or an `LD_API_KEY` token) and re-run, or take
+  the draft + ready-to-run commands and finish in the UI or via
+  `launchdarkly-experiment-setup`. Don't tell them LaunchDarkly is unreachable —
+  it isn't; you just can't create from here.
+- **No access (4):** stop now, and offer to connect or to continue **draft-only**
+  (no account scan, no writes — working only from the codebase):
+  > "I can read your code, but I can't reach your LaunchDarkly account — so I
+  > can't see your existing flags/metrics or create the experiment. Set up an
+  > experiment-capable LD MCP (the `mcp-configure` onboarding skill walks through
+  > it) or set an `LD_API_KEY` token, then re-run. Or say **'draft only'** and
+  > I'll produce the hypothesis, metric/flag plan, code snippets, and exact API
+  > calls — without touching your account."
 
 **Capabilities by connection:**
 
@@ -114,7 +119,7 @@ write tool, and end at Step 7 with the draft plus ready-to-run commands.
 | LD MCP w/ experiment + metric tools | ✅ | ✅ | Preferred — higher-level tools, pruned responses |
 | LD API token (REST) | ✅ | ✅ | Full CRUD via `/api/v2` (experiments have no delete) |
 | Both | ✅ | ✅ | MCP used; REST as fallback |
-| LD MCP, flags/env only (no experiment/metric tools) | ✅ flags/env | ❌ | **Partial — fail fast.** Scan + draft only; connect an experiment-capable MCP / token, or draft-only |
+| LD MCP, flags/env only (no experiment/metric tools) | ✅ flags/env | ❌ | **Partial.** Scan + draft, then stop before create; connect a create-capable path to finish |
 | No LD access | ❌ | ❌ | **Fail fast**; draft-only (no scan, no create) |
 
 ### Step 1: Understand the product (lightweight scan)

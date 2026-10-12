@@ -114,12 +114,17 @@ POST /api/v2/projects/{projectKey}/environments/{environmentKey}/experiments
 }
 ```
 
-**Start the iteration:**
+**Start the iteration:** `create-experiment` already created a `not_started`
+iteration — do **not** `POST .../iterations` to start it (that creates a second,
+now-deprecated iteration). Start the existing draft with a semantic-patch `PATCH`
+on the experiment:
 ```
-POST /api/v2/projects/{projectKey}/environments/{environmentKey}/experiments/{experimentKey}/iterations
+PATCH /api/v2/projects/{projectKey}/environments/{environmentKey}/experiments/{experimentKey}
+Content-Type: application/json; domain-model=launchdarkly.semanticpatch
+{ "instructions": [{ "kind": "startIteration" }] }
 ```
-then `PATCH` the experiment to set the current iteration to running (see the
-OpenAPI spec for the exact instruction body).
+Same preconditions as the MCP path: the flag must be on, the iteration needs a
+`randomizationUnit`, and at least one treatment must have a non-zero allocation.
 
 **Verify:**
 ```
