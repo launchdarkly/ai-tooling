@@ -31,7 +31,7 @@ Then write `{RUN}/profile_fix.json`:
 ```json
 {
   "additions": {
-    "keyed_calls": [{"name": "useFeature", "arg": 0}],
+    "keyed_calls": [{"pattern": "\\buseFeature\\(", "key_arg": 0}],
     "extra_patterns": ["\\bisEnabled\\(\\s*['\"]([a-z0-9-]+)['\"]"],
     "resolved_patterns": [],
     "exclude_symbols": ["FlagTargetingTable"],
@@ -48,9 +48,10 @@ Then write `{RUN}/profile_fix.json`:
 ```
 
 - `additions` uses the same fields as a profile's `evaluation` section
-  ([PROFILE.md](PROFILE.md)): a `keyed_calls` entry is a function or method
-  whose argument `arg` is the flag key; an `extra_patterns` regex captures
-  the key (group 1) on a flag-check line; `exclude_symbols` / `exclude_files`
+  ([PROFILE.md](PROFILE.md)): a `keyed_calls` entry is a call that takes the
+  key as an argument, its `pattern` a regex ending at the call's opening `(`
+  and `key_arg` the key's 0-based argument position; an `extra_patterns`
+  regex captures the key (group 1) on a flag-check line; `exclude_symbols` / `exclude_files`
   stop matches that aren't flag checks. Add only what the listed lines need,
   and keep each addition as narrow as reading them shows it should be.
 - `examples`: every listed line you fixed, with its text copied exactly.
