@@ -65,7 +65,7 @@ Read-only: don't modify the repository, create or change flags, or use the
 network.
 
 Write ONLY this JSON to {RUN}/features.json, then run
-`python3 {SKILL_DIR}/scripts/ld-factory.pyz features {RUN}`:
+`python3 {SKILL_DIR}/ld-factory.pyz features {RUN}`:
 
 {"features": [{"key": "the-flag-key",
                "feature": "a short name for the feature, in the developer's words",

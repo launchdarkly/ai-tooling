@@ -121,7 +121,7 @@ Read-only: don't modify the repository or a client checkout, create or change
 flags, or use the network.
 
 Write ONLY this JSON to {RUN}/gates.json, then run
-`python3 {SKILL_DIR}/scripts/ld-factory.pyz gates {RUN}`:
+`python3 {SKILL_DIR}/ld-factory.pyz gates {RUN}`:
 
 {"gates": [{"key": "the-flag-key", "how": "route | layout | helper | hook | caller | handler | css | config | other",
             "covers": "all | part", "covers_note": "which changed hunks it gates, if part",

@@ -43,7 +43,7 @@ Read-only: don't modify the repository, create or change flags, or use the
 network.
 
 Write ONLY this JSON to {RUN}/facts.json, then run
-`python3 {SKILL_DIR}/scripts/ld-factory.pyz facts {RUN}`:
+`python3 {SKILL_DIR}/ld-factory.pyz facts {RUN}`:
 
 {"question": "{QUESTION_ID}",
  "findings": [{"path": "path/at/head", "line": 12, "text": "the exact line", "claim": "one line: what this line shows"}],

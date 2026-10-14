@@ -85,7 +85,7 @@ Read-only: don't modify the repository, create or change flags, or use the
 network.
 
 Write ONLY this JSON to {RUN}/risks.json, then run
-`python3 {SKILL_DIR}/scripts/ld-factory.pyz risks {RUN}`:
+`python3 {SKILL_DIR}/ld-factory.pyz risks {RUN}`:
 
 {"findings": [{"kind": "new-call | retarget | cache | fail-closed | new-action | removed | stored-data",
                "chain": [{"path": "path/at/head", "line": 123, "text": "the exact line", "role": "changed | entry | calls | renders | registers"}],
