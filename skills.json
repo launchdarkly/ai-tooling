@@ -9,6 +9,14 @@
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
+      "name": "agentcontrol-onboarding",
+      "description": "Onboard an application to LaunchDarkly AgentControl from an AI Config key. Connects authenticated LaunchDarkly tooling, detects the local AI call, fetches account-specific setup instructions, proposes a minimal integration, runs it once, and reports the result.",
+      "path": "skills/agentcontrol/agentcontrol-onboarding",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires an MCP-compatible coding agent, the LaunchDarkly unified hosted MCP server, and an authenticated LaunchDarkly capability that can resolve the supplied AI Config to its project and selected environment"
+    },
+    {
       "name": "aiconfig-agent-graphs",
       "description": "DEPRECATED redirect \u2014 this skill was renamed to agent-graphs. Do not use this skill; invoke agent-graphs instead. Kept only so old references to aiconfig-agent-graphs still point users to the new name.",
       "path": "skills/agentcontrol/aiconfig-agent-graphs",
