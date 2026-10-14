@@ -11,7 +11,6 @@
     "github",
     "auto-flagging",
     "auto-releasing",
-    "code-automation",
     "mcp"
   ],
   "requirements": {
