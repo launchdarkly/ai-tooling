@@ -369,6 +369,92 @@ function renderMockResponse(template, input, toolName, state) {
     return flag;
   }
 
+  // ---------- release-policy matching hooks ----------
+  // match-release-policies is a read-only preview of which policy governs a
+  // flag/tags in an environment. Its `warnings` list is what tells the skill to
+  // stop instead of presenting a clean `policy` rollout, so evals need to drive
+  // the missing/incomplete/method cases. Keyed on `projectKey` (mirrors the
+  // create-flag `restricted` hook): a magic project name selects the scenario,
+  // and the default project returns the complete guarded winner from the
+  // static template.
+  if (toolName === "match-release-policies") {
+    const env = input.environmentKey || "production";
+    const project = String(input.projectKey || "");
+    const criteria = {
+      projectKey: project || "default",
+      environmentKey: env,
+      flagKey: input.flagKey || null,
+      flagTags: input.flagTags || null,
+      tagsSource: input.flagKey ? "flagKey" : (input.flagTags ? "flagTags" : "none"),
+    };
+
+    // A project with no configured release policies → nothing matches.
+    if (/no-?release-?polic/i.test(project)) {
+      return {
+        matchingPolicies: [],
+        winningPolicy: null,
+        winningReleaseMethod: null,
+        autoAttachedMetricKeys: [],
+        autoAttachedMetricGroupKeys: [],
+        warnings: [
+          {
+            code: "missing_policy",
+            environmentKey: env,
+            message: `No release policy matches environment "${env}". Do not record this environment as releaseType "policy" unless the user explicitly accepts manual follow-up.`,
+          },
+        ],
+        criteria,
+      };
+    }
+
+    // A policy matches but can't govern a rollout as-is (guarded, no stages).
+    if (/incomplete-?polic/i.test(project)) {
+      const winner = { key: "guarded-incomplete", name: "Guarded (incomplete)", releaseMethod: "guarded" };
+      return {
+        matchingPolicies: [winner],
+        winningPolicy: winner,
+        winningReleaseMethod: "guarded",
+        autoAttachedMetricKeys: [],
+        autoAttachedMetricGroupKeys: [],
+        warnings: [
+          {
+            code: "incomplete_policy",
+            environmentKey: env,
+            policyKey: "guarded-incomplete",
+            policyName: "Guarded (incomplete)",
+            releaseMethod: "guarded",
+            missing: ["stages"],
+            message: `Release policy "Guarded (incomplete)" is guarded but missing stages. Fix the policy or use an explicit override before recording a policy-based automated rollout.`,
+          },
+        ],
+        criteria,
+      };
+    }
+
+    // A complete progressive winner, for asserting the plan describes a
+    // progressive rollout accurately (not the default guarded winner).
+    if (/progressive/i.test(project)) {
+      const winner = { key: "progressive-default", name: "Progressive rollout", releaseMethod: "progressive" };
+      return {
+        matchingPolicies: [winner],
+        winningPolicy: winner,
+        winningReleaseMethod: "progressive",
+        autoAttachedMetricKeys: [],
+        autoAttachedMetricGroupKeys: [],
+        warnings: [],
+        criteria,
+      };
+    }
+
+    // Default: the complete guarded winner from the static template.
+    const rendered = walk(template, replacements);
+    return {
+      ...rendered,
+      warnings: Array.isArray(rendered.warnings) ? rendered.warnings : [],
+      criteria,
+    };
+  }
+
   // Default: stateless template render
   return walk(template, replacements);
 }

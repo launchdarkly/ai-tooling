@@ -266,3 +266,137 @@ tests:
           Score 1.0 if both. Deduct 0.5 per criterion missed.
         metric: rationale_quality
         weight: 2
+
+  # ==================================================================
+  # POLICY PREVIEW BY flagTags — in the plan phase the flag doesn't exist
+  # yet, so the release preview must call match-release-policies by the
+  # proposed flagTags (NOT a flagKey), for every planned environment. It
+  # must still create/record nothing. (EMSR-1930)
+  # ==================================================================
+  - description: "Plan phase previews each environment's policy by flagTags before the flag exists"
+    providers: ["orchestrator"]
+    vars:
+      user_request: >
+        PLAN how to flag and release this change — do NOT create the flag or record
+        anything yet. Project `default`; target environments `staging` and
+        `production`. Include the per-environment release plan grounded in the
+        configured release policies.
+      codebase_context: >
+        Node.js Express API using the LaunchDarkly Node server SDK
+        (client.variation). Routes live in src/routes/. The PR is checked out
+        locally; the diff is below.
+      git_diff: |
+        diff --git a/src/routes/export.js b/src/routes/export.js
+        new file mode 100644
+        index 0000000..7de4a11
+        --- /dev/null
+        +++ b/src/routes/export.js
+        @@ -0,0 +1,10 @@
+        +const express = require('express');
+        +const router = express.Router();
+        +const { buildExport } = require('../services/exporter');
+        +
+        +router.post('/', async (req, res) => {
+        +  const file = await buildExport(req.user, req.body.format || 'csv');
+        +  res.type('text/csv').send(file);
+        +});
+        +
+        +module.exports = router;
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const calls = traj.filter(t => t.tool === 'match-release-policies');
+          if (calls.length === 0) return { pass: false, score: 0, reason: 'never called match-release-policies' };
+          // Pre-creation preview must use flagTags, not a (nonexistent) flagKey.
+          const byTags = calls.filter(c => Array.isArray(c.arguments && c.arguments.flagTags) && !c.arguments.flagKey);
+          const pass = byTags.length === calls.length;
+          return { pass, score: pass ? 1 : 0, reason: `match-release-policies calls=${calls.length}, by-flagTags(no flagKey)=${byTags.length}` };
+        metric: previewed_by_flagtags
+        weight: 3
+
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const envs = new Set(traj.filter(t => t.tool === 'match-release-policies')
+            .map(c => c.arguments && c.arguments.environmentKey).filter(Boolean));
+          const pass = envs.has('staging') && envs.has('production');
+          return { pass, score: pass ? 1 : 0, reason: `previewed envs=[${[...envs].join(', ')}] (want staging + production)` };
+        metric: previewed_each_env
+        weight: 3
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const forbidden = ['create-flag','create-feature-flag','create-automated-rollout-config','update-flag-settings','update-feature-flag','toggle-flag','delete-flag'];
+          const called = forbidden.filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'no mutations during planning' : 'mutated during plan: ' + called.join(', ') };
+        metric: no_mutation_in_plan
+        weight: 2
+
+  # ==================================================================
+  # RE-RUN ON REFINEMENT — when the requested environment set changes,
+  # policy matching must run for the newly added environment too, not just
+  # the originally named ones. Still side-effect-free. (EMSR-1930)
+  # ==================================================================
+  - description: "A changed environment set re-runs policy matching for the added environment"
+    providers: ["orchestrator"]
+    vars:
+      user_request: >
+        PLAN how to flag and release this change — create/record nothing yet. Project
+        `default`, environments `staging` and `production`. On reflection, also add
+        `eu-production` to the release plan and preview what each environment's policy
+        would do.
+      codebase_context: >
+        Node.js Express API using the LaunchDarkly Node server SDK
+        (client.variation). Routes live in src/routes/. The PR is checked out
+        locally; the diff is below.
+      git_diff: |
+        diff --git a/src/routes/export.js b/src/routes/export.js
+        new file mode 100644
+        index 0000000..7de4a11
+        --- /dev/null
+        +++ b/src/routes/export.js
+        @@ -0,0 +1,10 @@
+        +const express = require('express');
+        +const router = express.Router();
+        +const { buildExport } = require('../services/exporter');
+        +
+        +router.post('/', async (req, res) => {
+        +  const file = await buildExport(req.user, req.body.format || 'csv');
+        +  res.type('text/csv').send(file);
+        +});
+        +
+        +module.exports = router;
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const envs = new Set(traj.filter(t => t.tool === 'match-release-policies')
+            .map(c => c.arguments && c.arguments.environmentKey).filter(Boolean));
+          // The refined/added environment must be matched too.
+          const pass = envs.has('eu-production');
+          return { pass, score: pass ? 1 : 0, reason: `previewed envs=[${[...envs].join(', ')}] (must include the added eu-production)` };
+        metric: rematched_added_env
+        weight: 3
+
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const envs = new Set(traj.filter(t => t.tool === 'match-release-policies')
+            .map(c => c.arguments && c.arguments.environmentKey).filter(Boolean));
+          const pass = envs.has('staging') && envs.has('production') && envs.has('eu-production');
+          return { pass, score: pass ? 1 : 0, reason: `previewed envs=[${[...envs].join(', ')}] (want all three)` };
+        metric: previewed_full_set
+        weight: 3
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const forbidden = ['create-flag','create-feature-flag','create-automated-rollout-config','update-flag-settings','update-feature-flag','toggle-flag','delete-flag'];
+          const called = forbidden.filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'no mutations during planning' : 'mutated during plan: ' + called.join(', ') };
+        metric: no_mutation_in_plan
+        weight: 2

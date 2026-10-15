@@ -6,7 +6,8 @@ An Agent Skill that records an automated rollout for an **existing** LaunchDarkl
 
 This skill teaches agents how to:
 - Confirm the guarding flag exists and is OFF
-- Preview each environment's release policy with `match-release-policies` (immediate / progressive / guarded)
+- Preview each environment's release policy with `match-release-policies` (immediate / progressive / guarded) — by `flagKey` once the flag exists, or by proposed `flagTags` before it does — grounding the plan in the configured policy rather than inventing methods, stages, or metrics
+- Surface a `missing_policy` / `incomplete_policy` warning and **stop for clarification** instead of presenting a clean policy rollout when none is backed
 - Capture the human's **release intent** (release on merge / hold / `notBefore` / segment / prerequisite) and honor it — recording only the environments the intent clears, holding the rest
 - Record the rollout with `create-automated-rollout-config`
 
