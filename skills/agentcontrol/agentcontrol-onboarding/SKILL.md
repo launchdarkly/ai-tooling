@@ -110,7 +110,7 @@ Keep the retrieved SDK credential separate. `sdkKeySupplied` is always `false` b
 
 If `get-setup-instructions` is advertised, prefer it and pass only the bounded context from Step 3. It is optional, never required. If it is unavailable or its call fails, use the setup Config and variations returned for `LAUNCHDARKLY_SETUP_CONFIG_KEY`.
 
-Choose a setup Config variation in this exact order, stopping at the first one that exists:
+Choose a setup Config variation in this exact order, stopping at the first one that contains usable instructions. A variation that exists but has empty or unusable instructions does not match; continue to the next fallback:
 
 1. `<language>-<sdkGeneration>`;
 2. `legacy` when `sdkGeneration` is `legacy`;

@@ -109,6 +109,15 @@ class AgentControlOnboardingSkillTests(unittest.TestCase):
             "`LAUNCHDARKLY_SETUP_CONFIG_KEY`",
             self.content,
         )
+        self.assertIn(
+            "stopping at the first one that contains usable instructions",
+            self.content,
+        )
+        self.assertIn(
+            "exists but has empty or unusable instructions does not match; "
+            "continue to the next fallback",
+            self.content,
+        )
         ordered_variations = (
             "1. `<language>-<sdkGeneration>`;",
             "2. `legacy` when `sdkGeneration` is `legacy`;",
