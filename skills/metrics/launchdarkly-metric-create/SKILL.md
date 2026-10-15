@@ -212,8 +212,8 @@ Only skip asking if the intent is unambiguous from context (e.g. "API latency" �
 
 | User wants | Field | Rules |
 |------------|-------|-------|
-| Count only some events, e.g. one plan or one country | `filters` | Custom metrics only. Clauses match a context attribute or an event property; a group joins clauses with `and` / `or` |
-| p95 or p99 instead of the mean | `percentile` (integer, 1–99) | Value or count metrics, not occurrence. Requires `excludeUnitsWithoutEvents: true` |
+| Count only some events, e.g. one plan or one country | `filters` | Custom metrics only. Clauses match a context attribute or an event property; a group joins clauses with `and` / `or`. Warehouse metrics, including every ratio metric, accept only event property clauses, and only on warehouses where LaunchDarkly has filters turned on |
+| p95 or p99 instead of the mean | `percentile` (integer, 1–99) | Value or count metrics, not occurrence. Requires `excludeUnitsWithoutEvents: true`. LaunchDarkly may reject percentile on a warehouse metric |
 | Leave out users who sent no event, instead of counting them as 0 | `excludeUnitsWithoutEvents: true` | Value metrics, or count metrics with `percentile`. LaunchDarkly rejects it on other count and occurrence metrics |
 | Read events from a warehouse | `dataSourceKey`, `valueColumn` | Custom metrics only. Get the key from `list-metric-data-sources` |
 | A ratio of two events, e.g. orders per session | `denominator` | See below |
