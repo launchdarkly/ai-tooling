@@ -62,6 +62,12 @@ DO NOT REPORT
   stored-data or new-call;
 - a migration or schema change no shipping code reads or writes yet, or code
   that nothing shipping calls yet (a later pull request will);
+- a change that takes effect when it is deployed or applied, not when code
+  runs: a schema or DDL migration, a table swap or rename, a backfill, build
+  or infrastructure configuration. A runtime flag can't switch it off, so it
+  isn't a finding even when shipping code reads the result. NOT this
+  exclusion: application code in the same change that starts reading or
+  writing somewhere new -- report that part;
 - a change that only affects inputs that already failed on main (a repair of
   an error path);
 - copy, styling, layout or ordering changes on their own;
