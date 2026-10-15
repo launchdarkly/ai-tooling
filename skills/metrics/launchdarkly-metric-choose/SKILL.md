@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "1.0.1-experimental"
 ---
 
 # LaunchDarkly Metric Choose
@@ -57,7 +57,7 @@ Your project has 2 release policies:
 
 Policy: "Production guardrails" (applies to: environment=production)
   Auto-attaches to guarded rollouts:
-    ✓ api-error-rate  (count, LowerThanBaseline)
+    ✓ api-error-rate  (occurrence, LowerThanBaseline)
     ✓ p95-latency     (value, LowerThanBaseline)
     ✓ [Metric group] Core Platform Health (3 metrics)
 
@@ -156,7 +156,7 @@ Output a clear, named list. Be explicit about what each metric is for and what's
 Recommended metrics for: new checkout flow guarded rollout (environment: production)
 
 AUTO-ATTACHED (from "Production guardrails" policy):
-  ✓ api-error-rate    (count, LowerThanBaseline)
+  ✓ api-error-rate    (occurrence, LowerThanBaseline)
   ✓ p95-latency       (value, LowerThanBaseline)
 
 ADDITIONAL — recommended for this rollout:

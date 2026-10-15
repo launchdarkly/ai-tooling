@@ -86,6 +86,22 @@ tests:
         value: "The response recognizes that 'checkout_proj' appears to be a codebase directory, not a LaunchDarkly project key, and asks the user to provide their LaunchDarkly project key."
         metric: asks-for-ld-project
 
+  - description: "Error rate guardrail — must propose occurrence, lower is better"
+    vars:
+      user_message: "Create an error rate metric for our guarded rollouts. Project is my-app, event key is api-error and it is already flowing."
+    assert:
+      - type: llm-rubric
+        value: "The response proposes the measure type 'occurrence' (the share of users who hit an error at least once), not 'count', and success criteria LowerThanBaseline. It must not call create-metric before the user confirms."
+        metric: error-rate-occurrence
+
+  - description: "Account-level metric — must propose analysisUnits including account"
+    vars:
+      user_message: "Our experiments randomize by account. Create a conversion metric for event plan-upgraded in project my-app; the event is already flowing."
+    assert:
+      - type: llm-rubric
+        value: "The response's proposed configuration sets the analysis units (analysisUnits) to include 'account', or asks the user to confirm account as the analysis unit. A proposal that leaves the analysis unit out or assumes only 'user' fails."
+        metric: proposes-account-unit
+
   # ─── Mutation tests ──────────────────────────────────────────────────────────
   # These test the llm-rubric GRADER, not the skill.
   # Each feeds a hand-crafted defective output through the grader via the
