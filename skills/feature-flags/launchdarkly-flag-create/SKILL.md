@@ -22,7 +22,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Optional MCP tools (enhance workflow):**
 - `list-flags`: browse existing flags to understand naming conventions and tags
-- `update-flag-settings`: update flag metadata (name, description, tags, temporary/permanent status)
+- `update-flag`: update flag metadata (name, description, tags, temporary/permanent status)
 
 ## Workflow
 
@@ -102,7 +102,7 @@ Confirm the flag is properly set up:
 
 ## Updating Flag Settings
 
-If the user wants to change flag metadata (not targeting), use `update-flag-settings`. Supported changes:
+If the user wants to change flag metadata (not targeting), use `update-flag`. Supported changes:
 
 | Change | Instruction |
 |--------|-------------|
