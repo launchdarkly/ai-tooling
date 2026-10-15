@@ -288,6 +288,11 @@ STEPS`), then `ALSO CHECKED`, `CAVEAT`, and a fenced block:
 That block is the deliverable. **Copy it verbatim** as the last thing in your
 output: CI and other tools parse it. Never edit its fields.
 
+Just before it, `decide` prints a `should-i-flag-record` block: a compact record
+of the decision (the tree's version, every answer, the path it took) kept in the
+command's output so the decision can be reviewed and re-walked later. It's for
+that review only: don't copy it, summarize it, or pass it on to the developer.
+
 - `verdict` is `suggested`, `reuse-existing` (with `reuse_flag_key`),
   `already-flagged`, or `not-suited`.
 - When a person has to decide, the verdict is `suggested` with
