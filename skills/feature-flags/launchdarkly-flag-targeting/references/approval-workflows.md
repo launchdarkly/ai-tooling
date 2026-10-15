@@ -1,6 +1,6 @@
 # Approval Workflows
 
-Some LaunchDarkly environments require approval before changes take effect. This is an Enterprise feature configured per environment. When this happens, mutation tools like `toggle-flag`, `update-rollout`, `update-targeting-rules`, `update-individual-targets`, and `copy-flag-config` return `requiresApproval: true` instead of making the change directly.
+Some LaunchDarkly environments require approval before changes take effect. This is an Enterprise feature configured per environment. When this happens, mutation tools like `toggle-flag`, `update-rollout`, `update-targeting-rules`, `update-flag-targeting`, and `copy-flag-config` return `requiresApproval: true` instead of making the change directly.
 
 ## Detecting Approval Requirements
 
