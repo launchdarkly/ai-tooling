@@ -17,14 +17,23 @@ class AgentControlOnboardingSkillTests(unittest.TestCase):
     def setUpClass(cls):
         cls.content = SKILL.read_text(encoding="utf-8")
 
-    def test_requires_all_three_non_secret_handoff_keys(self):
+    def test_requires_all_four_non_secret_handoff_keys(self):
         for value in (
             "LAUNCHDARKLY_AI_CONFIG_KEY=<config-key>",
             "LAUNCHDARKLY_PROJECT_KEY=<project-key>",
             "LAUNCHDARKLY_ENVIRONMENT_KEY=<environment-key>",
+            "LAUNCHDARKLY_SETUP_CONFIG_KEY=<setup-config-key>",
         ):
             self.assertIn(value, self.content)
-        self.assertIn("Do not proceed until all three are present", self.content)
+        self.assertIn("Do not proceed until all four are present", self.content)
+        self.assertIn(
+            "Project and environment keys are required",
+            self.content,
+        )
+        self.assertIn(
+            "Never ask for or echo an SDK credential, API token, or provider key",
+            self.content,
+        )
         self.assertIn("sdkKeySupplied: false", self.content)
 
     def test_requires_oauth_and_existing_v1_tools(self):
@@ -34,6 +43,10 @@ class AgentControlOnboardingSkillTests(unittest.TestCase):
         )
         self.assertIn(
             "Call `get-ai-config` with `LAUNCHDARKLY_PROJECT_KEY`",
+            self.content,
+        )
+        self.assertIn(
+            "Call `get-ai-config` again with `LAUNCHDARKLY_PROJECT_KEY`",
             self.content,
         )
         self.assertIn(
@@ -49,6 +62,14 @@ class AgentControlOnboardingSkillTests(unittest.TestCase):
             self.content,
         )
         self.assertNotIn("token authentication", self.content)
+        self.assertIn(
+            "there is no project-resolution step or unresolvable-project hard stop",
+            self.content,
+        )
+        self.assertNotIn(
+            "cannot resolve this AI Config to a project",
+            self.content,
+        )
 
     def test_protects_credentials_and_uses_one_explicit_approval(self):
         self.assertIn(
@@ -82,20 +103,45 @@ class AgentControlOnboardingSkillTests(unittest.TestCase):
         )
         self.assertIn("Do not commit during onboarding", self.content)
 
-    def test_uses_ai_config_variations_as_the_complete_v1_instruction_path(self):
+    def test_uses_setup_config_with_required_fallback_order(self):
         self.assertIn(
-            "already returned by `get-ai-config`",
+            "use the setup Config and variations returned for "
+            "`LAUNCHDARKLY_SETUP_CONFIG_KEY`",
+            self.content,
+        )
+        ordered_variations = (
+            "1. `<language>-<sdkGeneration>`;",
+            "2. `legacy` when `sdkGeneration` is `legacy`;",
+            "3. `alpha` when `language` is `go`, `dotnet`, or `ruby`;",
+            "4. `default`.",
+        )
+        offsets = [self.content.index(value) for value in ordered_variations]
+        self.assertEqual(offsets, sorted(offsets))
+
+    def test_keeps_setup_instructions_out_of_the_application(self):
+        self.assertIn(
+            "wire the application call to `LAUNCHDARKLY_AI_CONFIG_KEY`, "
+            "never `LAUNCHDARKLY_SETUP_CONFIG_KEY`",
             self.content,
         )
         self.assertIn(
-            "Select the variation named `<language>-<sdkGeneration>`",
+            "never copy setup Config instructions, messages, or prompt text "
+            "into the application",
             self.content,
         )
-        self.assertNotIn("LAUNCHDARKLY_SETUP_CONFIG_KEY", self.content)
+        self.assertIn(
+            "Never wire `LAUNCHDARKLY_SETUP_CONFIG_KEY` into application code",
+            self.content,
+        )
 
     def test_future_setup_and_reporting_tools_are_optional(self):
         self.assertIn(
-            "Its absence or failure is not a blocker",
+            "If `get-setup-instructions` is advertised, prefer it",
+            self.content,
+        )
+        self.assertIn("It is optional, never required", self.content)
+        self.assertIn(
+            "If it is unavailable or its call fails",
             self.content,
         )
         self.assertIn(

@@ -34,7 +34,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 
 | Skill | Description |
 |-------|-------------|
-| `agentcontrol/agentcontrol-onboarding` | Connect an application to a selected project, environment, and AI Config using OAuth-authenticated LaunchDarkly tools |
+| `agentcontrol/agentcontrol-onboarding` | Connect an application using project, environment, AI Config, and setup Config keys; requires OAuth-authenticated `get-ai-config` and `get-environments` |
 | `agentcontrol/configs-create` | Create configs with variations for agent or completion mode |
 | `agentcontrol/migrate` | Migrate an app with hardcoded LLM prompts to AgentControl in five stages (extract, wrap, tools, tracking, evals) |
 | `agentcontrol/configs-update` | Update and delete configs, manage lifecycle |
