@@ -531,5 +531,53 @@
     "created": true,
     "config_id": "arc_mock_0001",
     "environments": []
+  },
+  "list-metrics": {
+    "items": [
+      { "key": "checkout-completed", "name": "Checkout completed", "kind": "custom", "isNumeric": false, "eventKey": "checkout-completed", "tags": ["conversion"] },
+      { "key": "page-load-ms", "name": "Page load time (ms)", "kind": "custom", "isNumeric": true, "eventKey": "page-load-ms", "tags": ["performance"] }
+    ],
+    "totalCount": 2
+  },
+  "create-metric": {
+    "key": "{{metricKey}}",
+    "name": "{{metricName}}",
+    "kind": "custom",
+    "isNumeric": false,
+    "eventKey": "{{metricKey}}",
+    "_id": "metric-0001",
+    "tags": []
+  },
+  "create-experiment": {
+    "key": "{{experimentKey}}",
+    "name": "{{experimentName}}",
+    "_id": "exp-0001",
+    "environmentKey": "{{environmentKey}}",
+    "currentIteration": {
+      "status": "not_started",
+      "hypothesis": "{{hypothesis}}",
+      "treatments": [
+        { "_id": "treat-control", "name": "Control", "baseline": true, "allocationPercent": 50 },
+        { "_id": "treat-treatment", "name": "Treatment", "baseline": false, "allocationPercent": 50 }
+      ]
+    }
+  },
+  "start-experiment-iteration": {
+    "key": "{{experimentKey}}",
+    "environmentKey": "{{environmentKey}}",
+    "currentIteration": { "status": "running" }
+  },
+  "get-experiment": {
+    "key": "{{experimentKey}}",
+    "name": "{{experimentName}}",
+    "environmentKey": "{{environmentKey}}",
+    "currentIteration": {
+      "status": "running",
+      "hypothesis": "{{hypothesis}}",
+      "treatments": [
+        { "_id": "treat-control", "name": "Control", "baseline": true, "allocationPercent": 50 },
+        { "_id": "treat-treatment", "name": "Treatment", "baseline": false, "allocationPercent": 50 }
+      ]
+    }
   }
 }
