@@ -34,7 +34,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 
 | Skill | Description |
 |-------|-------------|
-| `agentcontrol/agentcontrol-onboarding` | Connect an application to a selected AI Config using authenticated LaunchDarkly setup instructions |
+| `agentcontrol/agentcontrol-onboarding` | Connect an application to a selected project, environment, and AI Config using OAuth-authenticated LaunchDarkly tools |
 | `agentcontrol/configs-create` | Create configs with variations for agent or completion mode |
 | `agentcontrol/migrate` | Migrate an app with hardcoded LLM prompts to AgentControl in five stages (extract, wrap, tools, tracking, evals) |
 | `agentcontrol/configs-update` | Update and delete configs, manage lifecycle |
@@ -72,7 +72,7 @@ This repo is a [Claude Code plugin](https://code.claude.com/docs/en/create-plugi
    ```
    /plugin install launchdarkly@launchdarkly-ai-tooling
    ```
-3. Authenticate the LaunchDarkly MCP server when prompted with your [API access token](https://docs.launchdarkly.com/home/account/api).
+3. Complete the hosted LaunchDarkly MCP server's OAuth flow when prompted.
 
 Once installed, skills are available as `/launchdarkly:<skill-name>` across all your projects, and the MCP server can read and modify your flags directly.
 

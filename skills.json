@@ -10,11 +10,11 @@
     },
     {
       "name": "agentcontrol-onboarding",
-      "description": "Onboard an application to LaunchDarkly AgentControl from an AI Config key. Connects authenticated LaunchDarkly tooling, detects the local AI call, fetches account-specific setup instructions, proposes a minimal integration, runs it once, and reports the result.",
+      "description": "Onboard an application to LaunchDarkly AgentControl from project, environment, and AI Config keys. Uses the OAuth-authenticated hosted MCP tools, detects the local AI call, proposes a minimal integration, and runs it once.",
       "path": "skills/agentcontrol/agentcontrol-onboarding",
       "version": "0.1.0",
       "license": "Apache-2.0",
-      "compatibility": "Requires an MCP-compatible coding agent, the LaunchDarkly unified hosted MCP server, and an authenticated LaunchDarkly capability that can resolve the supplied AI Config to its project and selected environment"
+      "compatibility": "Requires an MCP-compatible coding agent and OAuth access to the LaunchDarkly unified hosted MCP server with get-ai-config and get-environments"
     },
     {
       "name": "aiconfig-agent-graphs",
