@@ -5,9 +5,10 @@ flag check looks like in this repo: which calls evaluate a flag, where keys
 come from, which files ship, and which LaunchDarkly project and environments
 the flags live in. That's the repo's **profile**. You don't normally write
 one: for a repo without one, `ld-factory.pyz start` derives it from the code and
-checks it against the change, and asks for a repair only when the check
-fails ([PROFILE_REPAIR.md](PROFILE_REPAIR.md)). This page is the format, for
-that repair and for a developer who wants to write a profile by hand.
+checks it against the change; what it can't account for becomes leads for
+the gate search, and a repair is offered, never required
+([PROFILE_REPAIR.md](PROFILE_REPAIR.md)). This page is the format, for that
+repair and for a developer who wants to write a profile by hand.
 
 The profile is data, not judgment. Write only what you find in the repo, and
 check it before relying on it: a pattern that matches nothing makes every
@@ -20,6 +21,15 @@ A profile written by hand goes at
 `~/.cache/should-i-flag/profiles/<org>__<repo>.json`, keyed by the
 repo's `origin`. It's picked up from there on every later run. Never write
 it into the repo being checked.
+
+A repo can instead commit just the additions a derived profile needs, in
+`.launchdarkly/should-i-flag.json`, beside its Code References config. It
+has a saved repair's shape (`{"additions": {...}}`, the fields under
+`evaluation` below, plus `flag_declarations` and `flag_defaults`), and is
+applied to the derived profile on every run, wherever the check runs. It's
+read at the base the change is checked against, so a pull request can't
+change how its own change is read. The repo's developers commit it; the
+check never writes it.
 
 ## Steps
 

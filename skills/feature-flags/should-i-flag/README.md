@@ -35,9 +35,10 @@ order.
 | `SHOULD_I_FLAG_PROFILES` | unset | Folders (separated like `PATH`) of repo profiles, `<name>.json`, each naming its `repo` and optionally a `launchdarkly` section (instance, project, environments). |
 | `SHOULD_I_FLAG_RUNS` | `~/.cache/should-i-flag/` | Where run folders go. |
 
-A repo without a profile gets one derived from its code on each run, checked
-against the change, and repaired by the agent only when that check fails
-([references/PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)). The repair's
-additions are saved under `~/.cache/should-i-flag/profiles/` and applied on
+A repo without a profile gets one derived from its code on each run and
+checked against the change. Lines the check can't account for never stop the
+run: they become leads for the gate search, and the agent may repair the
+profile ([references/PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)), never
+must. A repair's additions are saved under `~/.cache/should-i-flag/profiles/` and applied on
 top of the derived profile on later runs; any that no longer match the code
 are left out.
