@@ -2,11 +2,11 @@
 name: should-i-flag
 description: "should-flag-change v2 (preview): a decision-tree version that decides whether a committed code change should ship behind a LaunchDarkly feature flag, with checked evidence and a structured advisory recommendation. Use only when your instructions or the user name should-i-flag; the default for this task is should-flag-change (v1). Read-only: it never creates or modifies flags."
 license: Apache-2.0
-compatibility: "Advisory and read-only. Needs a git checkout with the change committed, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run, it hands off to the should-flag-change skill. Returns a structured verdict as a `recommend-flag` block."
+compatibility: "Advisory and read-only. Needs a git checkout with the change committed (a full clone: shallow is fine, a --filter partial clone is not), a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run, it hands off to the should-flag-change skill. Returns a structured verdict as a `recommend-flag` block."
 metadata:
   author: launchdarkly
   version: "0.1.0"
-  graph: "f9bc205321ea"
+  graph: "ae68844604b5"
 ---
 
 # Should This Change Be Behind a Flag?
@@ -61,6 +61,11 @@ ld-factory.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
 
 - `REPO_PATH` defaults to the current directory, `--head` to `HEAD`, `--base`
   to the remote's default branch (`origin/HEAD`, else `origin/main`).
+- **Clone the whole tree.** The evidence reads files the change doesn't
+  touch: callers, routes, middleware, flag declarations. A shallow clone
+  (`--depth`) is fine, and so is a sparse working tree, but not a partial
+  clone (`--filter=blob:none`): `start` stops with exit 2 when files at the
+  change's commit or its base are missing.
 - **On a pull request** (CI, a PR review), pass the PR's base and head:
   `--base origin/<base_ref> --head <head_sha>`, and its title and body
   (write the body to a file first). Without them the commit message stands in
@@ -72,16 +77,26 @@ ld-factory.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
   consumer search below read them.
 
 It prints `RUN: <folder>` and status lines (`CHECKING`, `CHANGE`,
-`UNCOMMITTED`, `PR TEXT`, `LAUNCHDARKLY`). By exit code:
+`UNCOMMITTED`, `PR TEXT`, `PROFILE CHECK`, `LAUNCHDARKLY`). By exit code:
 
 | Exit | Meaning | What you do |
 |---|---|---|
 | 0 | Ready | Go to step 3 and ask for the first question. `next` sends you to step 2's searches once they're needed. |
 | 7 | LaunchDarkly flags are needed | Fetch the flags listed in `RUN/launchdarkly-needed.txt` as [LAUNCHDARKLY.md](references/LAUNCHDARKLY.md) says, then run the same `start` command again. If you have no way to read LaunchDarkly, run it again with `--no-launchdarkly`. |
-| 9 | The profile it derived for this repo misreads the change | Follow `RUN/profile_repair.txt` ([PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)), write `RUN/profile_fix.json`, run `ld-factory.pyz profile RUN`, then run the same `start` command again. |
 | 4 | Nothing committed to check | Stop; tell the developer to commit (a WIP commit is fine) and ask again. |
 | 6 | Can't tell which changes are this branch's | Stop and report it: a person needs to decide. |
 | 2 | Setup problem | If you passed something wrong (a ref, a file), fix it and run `start` again; otherwise hand off to `should-flag-change` (above) and say why. |
+
+`PROFILE CHECK` says whether the profile used for this repo finds the flag
+checks in the changed files. Lines it can't account for (a flag key with no
+check it recognizes, a check for a key LaunchDarkly has no flag for) never stop
+the run: `start` still exits 0, lists them in `RUN/profile_leads.json`, notes
+them in the evidence, and hands the keys to the gate search (step 2) as leads.
+Go on to step 3. For a profile it derived, `start` also writes
+`RUN/profile_repair.txt`, an optional repair: worth it only when the leads are
+many or keep naming the same helper. Then follow it
+([PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)) and run the same `start` command
+again; if the repair doesn't hold, drop it and go on.
 
 ### 2. Two searches the evidence can't do (when `next` asks)
 

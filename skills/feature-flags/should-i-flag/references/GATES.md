@@ -40,7 +40,28 @@ above the diff:
 - a CSS class, data attribute or theme value the changed styles apply under,
   set only when the flag is on;
 - a configuration value or registration (a job, a route table entry, a
-  dependency binding) made only when the flag is on.
+  dependency binding) made only when the flag is on;
+- a guard the framework runs before the handler or page, attached rather
+  than called: route middleware, an interceptor or decorator, a route
+  module's loader, that refuses, redirects or returns early unless the flag
+  is on. The chain then runs from the guard's check, through the line that
+  attaches it, to the route registration that serves the changed code.
+
+LEADS FROM THE PROFILE CHECK
+These lines in the changed files name a flag key, but the evidence found no
+flag check there that it recognizes:
+{LEADS}
+Some are real checks through a helper the evidence doesn't know (a hook, a
+wrapper, a middleware or route option, a predicate or config struct), and a
+real check can gate the change. Many are not checks at all: a key in a log
+field, a scope or cookie name, a config or member field, a test value. Read
+each at {HEAD} far enough to tell which. Report a lead only as a gate with the
+usual verified chain (below): the line where the helper evaluates the flag, or
+the lead's own line when that is the check, then the line where its value
+decides and the changed code under it. A gate inside the changed files counts
+here, since the evidence didn't see it. Leave out the leads that aren't
+checks, and the ones that don't gate the change: there's nothing to report
+about them.
 
 WHAT TO REPORT
 Only a gate you can show end to end, at {HEAD}: the line where the flag is
