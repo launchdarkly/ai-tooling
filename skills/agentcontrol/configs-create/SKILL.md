@@ -12,7 +12,7 @@ metadata:
 
 You're using a skill that will guide you through creating a config in LaunchDarkly. Your job is to understand the use case, choose the right mode, create the config and its variations, and verify everything is set up correctly.
 
-> **⚠️ This skill creates a config — it does not make it servable.** A freshly-created config has its **fallthrough pointing at an auto-generated disabled variation**, not at the variation you just created. The SDK will return `ai_config.enabled=False` on every evaluation until you flip targeting on and point the fallthrough at your new variation. This is not a bug — it's the default state. **You must run `/configs-targeting` (or the equivalent REST / CLI call shown in Step 5) before verifying against the SDK**, or verification will look like the LD-served path is broken when it isn't. The single most common failure mode users hit with this skill is skipping the targeting step and spending time debugging `enabled=False` in their application code.
+> **⚠️ This skill creates a config — it does not make it servable.** A freshly-created config has its **fallthrough pointing at an auto-generated disabled variation**, not at the variation you just created. The SDK will return `ai_config.enabled=False` on every evaluation until you flip targeting on and point the fallthrough at your new variation. This is not a bug — it's the default state. **You must run `/configs-targeting` (or the equivalent REST call shown in Step 5) before verifying against the SDK**, or verification will look like the LD-served path is broken when it isn't. The single most common failure mode users hit with this skill is skipping the targeting step and spending time debugging `enabled=False` in their application code.
 
 ## Prerequisites
 
@@ -161,10 +161,9 @@ Print this checklist verbatim to the user after Step 4, then wait for confirmati
 
 `configs-targeting` is the canonical path — it handles percentage rollouts, targeted rules, and variation-ID lookups. But for the simplest case ("promote the new variation to fallthrough in one environment"), you can run the underlying semantic PATCH yourself once you know the new variation's `_id`.
 
-Get the variation ID (use `get-ai-config` MCP, or):
+Get the variation ID (use `get-ai-config` MCP, or the LaunchDarkly CLI):
 ```bash
-curl -s "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
-  -H "Authorization: {api_token}" -H "LD-API-Version: beta" \
+ldcli ai-configs get-ai-config-targeting --project $PROJECT --config $CONFIG_KEY \
   | jq '.variations[] | {key, _id}'
 ```
 
@@ -177,12 +176,7 @@ curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/
   -d '{"instructions":[{"kind":"updateFallthroughVariationOrRollout","variationId":"<id-from-step-above>"}]}'
 ```
 
-Or the same thing via the LD CLI if it's installed locally:
-```bash
-ldcli resources ai-configs update-ai-config-targeting \
-  --projectKey $PROJECT --configKey $CONFIG_KEY --envKey $ENV \
-  --data '{"instructions":[{"kind":"updateFallthroughVariationOrRollout","variationId":"<id>"}]}'
-```
+Keep this step on `curl`. The CLI form, `ldcli ai-configs update-ai-config-targeting --project $PROJECT --config $CONFIG_KEY --semantic-patch -d '...'`, sends `null` in place of the `-d` payload in ldcli 3.12.0, because the API spec marks this request body optional and ldcli only reads `-d` for required bodies; the request reaches the API with no instructions.
 
 Do not use `turnTargetingOn` — that semantic-patch instruction does **not** work for configs. `updateFallthroughVariationOrRollout` is the only instruction that actually flips the fallthrough.
 

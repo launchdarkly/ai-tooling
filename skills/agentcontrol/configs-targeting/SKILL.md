@@ -20,7 +20,7 @@ Configure targeting rules for configs to control which variations serve to diffe
 
 ## API Access
 
-Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent, reach for the LaunchDarkly CLI before raw `curl`: `ldcli` resource commands are top-level (`ldcli ai-configs ...`, not `ldcli resources ai-configs ...`), they take the same JSON bodies as the REST API through `-d`, and they print JSON. Check for it with `ldcli --version`; the notes below describe 3.12.0. If it is missing, ask before installing: `brew tap launchdarkly/homebrew-tap && brew install ldcli` on macOS, `npm install -g @launchdarkly/ldcli` where Node is available, or a binary from the releases page at https://github.com/launchdarkly/ldcli/releases. If you cannot install it in this environment, call the REST API directly with `curl`, as the PATCH examples below do. Authenticate with `ldcli login`, a device flow the user completes in their browser that writes the token to the CLI's config file, or ask the user to paste an API access token for this session and pass it with `--access-token`. One known gap: ldcli 3.12.0 sends `null` in place of the `-d` payload on operations whose request body is optional in the API spec, which includes `ai-configs update-ai-config-targeting` and `ai-configs update-ai-config-variation`, so those calls stay on `curl` below; substitute the pasted token for `{api_token}` there. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 ## Core Concepts
 
@@ -55,16 +55,14 @@ Content-Type: application/json; domain-model=launchdarkly.semanticpatch
 ### Step 1: Get Targeting (with Variation IDs)
 
 ```bash
-curl -X GET "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/{configKey}/targeting" \
-  -H "Authorization: {api_token}" \
-  -H "LD-API-Version: beta"
+ldcli ai-configs get-ai-config-targeting --project {projectKey} --config {configKey}
 ```
 
 Response includes `variations` array with `_id` (UUID) for each variation.
 
 ### Step 2: Edit the Default Rule
 
-Edit the default rule to serve the variation you created.
+Edit the default rule to serve the variation you created. The PATCH calls in Steps 2 and 3 use `curl` rather than `ldcli ai-configs update-ai-config-targeting`: ldcli 3.12.0 sends `null` in place of the `-d` payload on that command (see API Access).
 
 > **Important:** The `turnTargetingOn` instruction does not work for configs. Use `updateFallthroughVariationOrRollout` instead.
 
