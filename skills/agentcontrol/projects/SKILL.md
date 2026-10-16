@@ -26,7 +26,7 @@ You're using a skill that will guide you through setting up LaunchDarkly project
 
 ## API Access
 
-Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent, reach for the LaunchDarkly CLI before raw REST calls: `ldcli` resource commands are top-level (`ldcli projects ...`, `ldcli metrics ...`), they take the same JSON bodies as the REST API through `-d`, and they print JSON. Authenticate with `ldcli login`, a device flow the user completes in their browser that writes the token to the CLI's config file, or ask the user to paste an API access token for this session and pass it with `--access-token`; where an example below still calls the REST API directly, substitute that token for `{api_token}`. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 See [Quick Start](references/quick-start.md) for API usage patterns.
 
@@ -124,10 +124,9 @@ Follow the chosen reference guide to implement project management. Key considera
 
 After creating the project, verify it works:
 
-1. **Fetch to confirm it exists.** Prefer the MCP `get-project` tool over raw `curl` — it returns a typed object you can inspect directly. If you must call the REST API:
+1. **Fetch to confirm it exists.** Prefer the MCP `get-project` tool — it returns a typed object you can inspect directly. If you must go outside MCP:
    ```bash
-   curl -X GET "https://app.launchdarkly.com/api/v2/projects/{projectKey}?expand=environments" \
-     -H "Authorization: {api_token}"
+   ldcli projects get --project {projectKey} --expand environments
    ```
    **Do not pipe the response straight into a `.environments.items[]`-style `jq` filter.** The shape of `environments` varies by `expand` parameter — sometimes it's `{items: [...]}`, sometimes a bare array — and a hand-rolled filter will fail with `Cannot index array with string "items"`. Run `jq -e .` first to inspect the actual shape, or use `jq '.environments | if type == "object" then .items else . end'` to handle both.
 

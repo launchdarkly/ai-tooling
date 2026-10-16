@@ -4,6 +4,8 @@ All notable changes to this repository will be documented in this file.
 
 ## Unreleased
 
+- `agentcontrol/configs-targeting`, `online-evals`, `projects`, `custom-metrics`, `configs-create`: when a step has no MCP tool, fall back to the LaunchDarkly CLI (`ldcli`) before `curl`. Reads and creates now show `ldcli` commands; the AI Config targeting and variation PATCH examples stay on `curl` because ldcli 3.12.0 sends `null` in place of `-d` on operations whose request body is optional. Also replaces the `configs-create` CLI example, which used a non-existent `ldcli resources ai-configs ...` form.
+
 - Rename `factory/launchdarkly-factory-settings` to `release-autopilot/launchdarkly-release-autopilot-settings` and switch it to the `*-release-autopilot-*` MCP tools (Claude Code plugin 1.0.2, Cursor plugin 1.0.3). Requires a hosted MCP server that exposes the new tool names.
 
 - `factory/launchdarkly-factory-settings`: when GitHub is not installed or this member has not authorized, hand the user `githubConnectUrl` (the integration drawer's install or authorize page) and retry after they finish.

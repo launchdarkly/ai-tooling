@@ -20,7 +20,7 @@ Attach judges to config variations for automatic quality scoring using LLM-as-a-
 
 ## API Access
 
-Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent, reach for the LaunchDarkly CLI before raw `curl`: `ldcli` resource commands are top-level (`ldcli ai-configs ...`, not `ldcli resources ai-configs ...`), they take the same JSON bodies as the REST API through `-d`, and they print JSON. Authenticate with `ldcli login`, a device flow the user completes in their browser that writes the token to the CLI's config file, or ask the user to paste an API access token for this session and pass it with `--access-token`. One known gap: ldcli 3.12.0 sends `null` in place of the `-d` payload on operations whose request body is optional in the API spec, which includes `ai-configs update-ai-config-targeting` and `ai-configs update-ai-config-variation`, so those calls stay on `curl` below; substitute the pasted token for `{api_token}` there. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 ## Core Concepts
 
@@ -63,11 +63,7 @@ For domain-specific evaluation, create judge configs:
 
 ```bash
 # Create judge config
-curl -X POST "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json" \
-  -H "LD-API-Version: beta" \
-  -d '{
+ldcli ai-configs create-ai-config --project {projectKey} -d '{
     "key": "security-judge",
     "name": "Security Judge",
     "mode": "judge",
@@ -81,11 +77,7 @@ curl -X POST "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-confi
 Then add a variation with the evaluation prompt:
 
 ```bash
-curl -X POST "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/security-judge/variations" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json" \
-  -H "LD-API-Version: beta" \
-  -d '{
+ldcli ai-configs create-ai-config-variation --project {projectKey} --config security-judge -d '{
     "key": "default",
     "name": "Default",
     "messages": [
@@ -105,7 +97,7 @@ curl -X POST "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-confi
 
 ### Step 2: Attach Judges to Variations
 
-Use the variation PATCH endpoint:
+Use the variation PATCH endpoint. This call stays on `curl`: ldcli 3.12.0 sends `null` in place of the `-d` payload on `ai-configs update-ai-config-variation` (see API Access).
 
 ```bash
 curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/{configKey}/variations/{variationKey}" \
@@ -130,8 +122,11 @@ Each judge config needs its fallthrough set to the enabled variation. Configs de
 
 > **Note:** `turnTargetingOn` does not work for configs. Use `updateFallthroughVariationOrRollout` instead.
 
+This call also stays on `curl`, for the same ldcli 3.12.0 reason as Step 2.
+
 ```bash
-# First get the variation ID for "Default" from GET targeting response
+# First get the variation ID for "Default":
+#   ldcli ai-configs get-ai-config-targeting --project {projectKey} --config security-judge
 curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/security-judge/targeting" \
   -H "Authorization: {api_token}" \
   -H "Content-Type: application/json; domain-model=launchdarkly.semanticpatch" \
