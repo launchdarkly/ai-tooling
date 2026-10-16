@@ -61,7 +61,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 
 ## Install as a Claude Code Plugin
 
-This repo is a [Claude Code plugin](https://code.claude.com/docs/en/create-plugins). Installing it gives you all the skills above plus the LaunchDarkly MCP server.
+This repo is a [Claude Code plugin](https://code.claude.com/docs/en/plugins/create). Installing it gives you all the skills above plus the LaunchDarkly MCP server.
 
 1. Add this repo as a plugin marketplace in Claude Code:
    ```
