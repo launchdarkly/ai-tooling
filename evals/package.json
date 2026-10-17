@@ -38,7 +38,7 @@
     "eval:matrix": "node scripts/run-models.js --models=haiku,sonnet,opus"
   },
   "devDependencies": {
-    "js-yaml": "^4.3.1",
+    "js-yaml": "^4.3.2",
     "promptfoo": "^0.122.0",
     "zod": "^3.22.4"
   },
