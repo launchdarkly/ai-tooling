@@ -58,6 +58,7 @@
     "mongoose": "^9.7.2",
     "protobufjs@7": "^7.6.5",
     "protobufjs@8": "^8.7.2",
+    "proxy-addr": "^2.0.8",
     "sharp": "^0.35.4",
     "socket.io-parser": "^4.2.7",
     "undici@7": "7.29.1",
