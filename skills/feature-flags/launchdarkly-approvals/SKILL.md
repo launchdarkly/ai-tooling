@@ -18,12 +18,11 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Required MCP tools:**
 - `create-approval-request`: submit a flag or segment change for review
-- `get-approval-request`: read one request by id, including its decision and review comments
+- `list-approval-requests`: list a flag's or segment's requests in one environment, or pass `id` to read one request with its decision and `reviews`
 - `apply-approval-request`: apply an approved flag or segment request
 
 **Optional MCP tools:**
 - `get-environment`: read an environment's approval settings
-- `list-approval-requests`: find requests for a flag or segment in one environment
 - `create-agentcontrol-config-approval`, `list-agentcontrol-config-approvals`, `apply-agentcontrol-config-approval`: the same workflow for AgentControl Configs
 
 ## Core Principles
@@ -74,7 +73,20 @@ The result has `approvalRequest.id` and `approvalRequest.url`.
 
 ### Step 4: Detect the outcome
 
-When the user says the request was reviewed, call `get-approval-request` with the id once.
+When the user says the request was reviewed, read it once by id:
+
+```
+Tool: list-approval-requests
+Input:
+  projectKey: "my-project"
+  flagKey: "new-checkout"        # the same flagKey or segmentKey the request was created for
+  env: "production"
+  id: "<approval-request-id>"
+```
+
+For an AgentControl Config, call `list-agentcontrol-config-approvals` with `projectKey`, `configKey`, and `id`. The request must belong to the flag, segment, or config you name. A `status` filter still applies, so omit it when you read by id.
+
+The result holds that one request in the usual item shape. Its `reviews` list each review's `kind` and `comment`.
 
 | `reviewStatus` | `status` | What to do |
 |---|---|---|
@@ -82,10 +94,12 @@ When the user says the request was reviewed, call `get-approval-request` with th
 | `declined` | any | Report the decline and the reviewer's `comment` from `reviews`. Do not apply |
 | `pending` | `pending` | Not reviewed yet. Say so and share the url again; check again only when the user asks |
 | any | `completed` | Already applied. Verify the resource (for a flag, `get-flag`) |
-| any | `scheduled` | Applied on a schedule; not live until `executionDate` |
+| any | `scheduled` | Applied on a schedule; not live yet. Do not report it as live |
 | any | `failed` | Applying failed. Report it and point the user to the url |
 
 `reviewStatus` can stay `pending` after one approval when the environment needs more than one (`minNumApprovals`).
+
+For integration-managed approvals with auto-apply on, reading the request can make LaunchDarkly apply it once approved. Read `status` from the result rather than assuming the change is still pending.
 
 ### Step 5: Apply an approved request
 
@@ -107,13 +121,13 @@ The tool reads the request back before it reports:
 
 ## Finding a request later
 
-If you no longer have the id, call `list-approval-requests` with `flagKey` or `segmentKey` and `env`. Pass `status: ["pending"]` for open requests, or `["completed"]` for applied ones. Each item has `id`, `status`, `reviewStatus`, and `url`.
+If you no longer have the id, call `list-approval-requests` with `flagKey` or `segmentKey` and `env`. Pass `status: ["pending"]` for open requests, or `["completed"]` for applied ones. Each item has `id`, `status`, `reviewStatus`, `url`, and `reviews`. For an AgentControl Config, call `list-agentcontrol-config-approvals` with `configKey`.
 
 ## What not to do
 
 - Do not try to approve or decline a request, and do not use API workarounds to skip review.
 - Do not retry a blocked write.
-- Do not call `get-approval-request` repeatedly while waiting for a reviewer.
+- Do not read the request repeatedly while waiting for a reviewer.
 - Do not apply a declined or pending request.
 - Do not report a scheduled change as live.
 

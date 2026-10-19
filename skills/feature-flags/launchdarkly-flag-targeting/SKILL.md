@@ -26,8 +26,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 **Optional MCP tools:**
 - `copy-flag-config`: copy targeting configuration from one environment to another
 - `create-approval-request`: create an approval request when direct changes are blocked
-- `get-approval-request`: check whether a request was approved or declined
-- `list-approval-requests`: find approval requests for a flag
+- `list-approval-requests`: find approval requests for a flag, or pass `id` to check whether one was approved or declined
 - `apply-approval-request`: apply an already-approved approval request
 
 ## Core Concept: Evaluation Order
@@ -116,7 +115,7 @@ When a write tool returns an error that starts with `Blocked: approval is requir
 
 1. **Create an approval request** with `create-approval-request`, passing the instructions from the blocked message unchanged
 2. **Hand it to a human**: open the request's `url` in the user's browser when your client can, and show the link
-3. **Check the outcome** with `get-approval-request` once the user says it has been reviewed, not in a loop
+3. **Check the outcome** with `list-approval-requests` and the request's `id` once the user says it has been reviewed, not in a loop
 4. **Apply the request** with `apply-approval-request` only once `reviewStatus` is `approved`
 5. **Verify the result** with `get-flag` after applying
 

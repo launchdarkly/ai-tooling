@@ -29,7 +29,7 @@ Some environments require approval for changes.
 - [ ] Include a clear description of the intended change in the approval request
 - [ ] Open the request's `url` in the user's browser when your client can, and show the link
 - [ ] Do NOT attempt to bypass approval or auto-approve
-- [ ] Check the outcome with `get-approval-request` once the user says the request has been reviewed
+- [ ] Check the outcome with `list-approval-requests` and the request's `id` once the user says the request has been reviewed
 - [ ] Only apply a request (`apply-approval-request`) if reviewStatus is "approved"
 
 See [Approval Workflows](approval-workflows.md) for the complete reference.
