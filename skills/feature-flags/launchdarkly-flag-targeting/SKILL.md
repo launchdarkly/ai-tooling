@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.1.0-experimental"
+  version: "1.2.0-experimental"
 ---
 
 # LaunchDarkly Flag Targeting & Rollout
@@ -26,7 +26,8 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 **Optional MCP tools:**
 - `copy-flag-config`: copy targeting configuration from one environment to another
 - `create-approval-request`: create an approval request when direct changes are blocked
-- `list-approval-requests`: check on pending approval requests for a flag
+- `get-approval-request`: check whether a request was approved or declined
+- `list-approval-requests`: find approval requests for a flag
 - `apply-approval-request`: apply an already-approved approval request
 
 ## Core Concept: Evaluation Order
@@ -79,12 +80,11 @@ Based on what the user wants and what you found, choose the right tool and strat
 Before applying changes, especially in production, run through the [Safety Checklist](references/safety-checklist.md). The key checks:
 
 1. **Right environment?** Double-check you're targeting the intended environment.
-2. **Approval required?** Some environments require approval workflows. If any mutation tool returns `requiresApproval: true`:
-   - Inform the user that this environment requires approvals.
-   - Share the `approvalUrl` if provided.
-   - Offer to create an approval request using `create-approval-request` with the same instructions (returned in the `instructions` field of the response).
-   - Do NOT attempt to bypass approval or auto-approve.
-   - See [Approval Workflows](references/approval-workflows.md) for the full process.
+2. **Approval required?** Some environments require approval workflows. If a write tool returns an error that starts with `Blocked: approval is required`, nothing was applied:
+   - Do not retry the write. Tell the user that this environment requires approval.
+   - Offer to create an approval request with `create-approval-request`, passing the instructions from the message unchanged.
+   - Open the returned request's `url` in the user's browser when your client can, and show the link. A human approves or declines it; you cannot.
+   - Follow the [approvals skill](../launchdarkly-approvals/SKILL.md) for the full process.
 3. **Prerequisite flags?** If this flag has prerequisites, they must be met before targeting works as expected.
 4. **Rule ordering impact?** If adding rules, consider where they fall in evaluation order. Rules evaluate top-to-bottom, first match wins.
 5. **Include a comment.** Always add an audit trail comment, especially for production changes.
@@ -112,12 +112,12 @@ After applying changes, confirm the result:
 
 ### Handling Approval-Required Environments
 
-When any mutation tool returns `requiresApproval: true`, the direct change was blocked because the environment requires approvals. Follow the [Approval Workflows](references/approval-workflows.md) reference to:
+When a write tool returns an error that starts with `Blocked: approval is required`, the direct change was blocked because the environment requires approvals. Follow the [approvals skill](../launchdarkly-approvals/SKILL.md) to:
 
-1. **Create an approval request** with `create-approval-request` using the `instructions` from the blocked response
-2. **Inform the user** about the pending approval and share the approval request details
-3. **Check on approval status** later with `list-approval-requests` if requested
-4. **Apply the request** with `apply-approval-request` once a reviewer has approved it (reviewStatus is "approved")
+1. **Create an approval request** with `create-approval-request`, passing the instructions from the blocked message unchanged
+2. **Hand it to a human**: open the request's `url` in the user's browser when your client can, and show the link
+3. **Check the outcome** with `get-approval-request` once the user says it has been reviewed, not in a loop
+4. **Apply the request** with `apply-approval-request` only once `reviewStatus` is `approved`
 5. **Verify the result** with `get-flag` after applying
 
 ## Important Context
@@ -133,4 +133,4 @@ When any mutation tool returns `requiresApproval: true`, the direct change was b
 - [Targeting Patterns](references/targeting-patterns.md): Rollout strategies, rule construction, individual targeting, and cross-environment copying
 - [Context Availability](references/context-availability.md): Which context kinds/attributes a rule, target, or rollout can use — matching the kind to the surface where the flag is read, key vs attribute, and rollout bucketing
 - [Safety Checklist](references/safety-checklist.md): Pre-change verification, approval workflows, environment awareness
-- [Approval Workflows](references/approval-workflows.md): Creating, checking, and applying approval requests
+- [Approval Workflows](references/approval-workflows.md): Summary of the approval flow; the [approvals skill](../launchdarkly-approvals/SKILL.md) has the full workflow

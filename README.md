@@ -17,6 +17,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `feature-flags/launchdarkly-flag-discovery` | Audit flags, find stale/launched flags, and assess removal readiness |
 | `feature-flags/launchdarkly-flag-create` | Create new feature flags in a way that fits existing codebase patterns |
 | `feature-flags/launchdarkly-flag-targeting` | Control targeting, rollouts, rules, and cross-environment config |
+| `feature-flags/launchdarkly-approvals` | Request approval for a blocked change, open the link for a human reviewer, check the outcome, and apply it once approved |
 | `feature-flags/launchdarkly-flag-cleanup` | Safely remove flags from code using LaunchDarkly as the source of truth |
 | `feature-flags/launchdarkly-flag-drift` | Detect and reconcile drift between an in-code SDK fallback default and the LaunchDarkly default rule |
 | `feature-flags/launchdarkly-guarded-rollout` | Configure guarded rollouts with progressive traffic, metric monitoring, and rollback |
