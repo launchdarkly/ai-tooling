@@ -24,11 +24,11 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `feature-flags/flag-and-release-change` | End-to-end PR orchestrator: decide → create + wire the flag → record its release (composes the skills above) |
 | `feature-flags/launchdarkly-flag-qualitative-feedback-setup` | Add a qualitative user feedback widget tied to a flag, adapting to the project's framework and design system |
 
-### Factory
+### Release Autopilot
 
 | Skill | Description |
 |-------|-------------|
-| `factory/launchdarkly-factory-settings` | Turn on GitHub App auto-flagging / auto-releasing, map `owner/name` repos, or diagnose why a PR was not classified (confirm before every write) |
+| `release-autopilot/launchdarkly-release-autopilot-settings` | Turn on GitHub App auto-flagging / auto-releasing, map `owner/name` repos, or diagnose why a PR was not classified (confirm before every write) |
 
 ### AgentControl
 
