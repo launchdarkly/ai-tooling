@@ -25,6 +25,8 @@ The `query-traces` tool returns paginated trace entries with timestamp, span det
 
 **Session-scoped traces.** Use `query="secure_session_id=<id>"` with `start_date` = session `created_at`, `end_date` = +3 hours.
 
+**Ordered spans in a trace.** To require that spans in the same trace happened in order, or that one never followed another, use `span(A) THEN span(B)` or `span(A) THEN no_span(B)`, for example `span(service_name=checkout span_name=reserve) THEN no_span(service_name=payments)`. Load `relationship-search.md` for the full syntax.
+
 ## Typical patterns
 
 1. **Latency investigation** — find the slow operation via `query-aggregations` with `product_type="traces"` and `group_by="span_name"`, then drill in with `query-traces` for specific slow instances.
