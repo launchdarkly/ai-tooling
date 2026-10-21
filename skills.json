@@ -469,7 +469,7 @@
       "name": "projects",
       "description": "Guide for setting up LaunchDarkly projects in your codebase. Helps you assess your stack, choose the right approach, and integrate project management that makes sense for your architecture.",
       "path": "skills/agentcontrol/projects",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "compatibility": "Requires LaunchDarkly API access token with projects:write permission or LaunchDarkly MCP server."
     },
     {

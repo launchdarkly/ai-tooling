@@ -4,7 +4,7 @@ description: Guide for setting up LaunchDarkly projects in your codebase. Helps 
 compatibility: Requires LaunchDarkly API access token with projects:write permission or LaunchDarkly MCP server.
 metadata:
   author: launchdarkly
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # LaunchDarkly Projects Setup
@@ -112,6 +112,7 @@ Follow the chosen reference guide to implement project management. Key considera
 
 3. **SDK Key Management:**
    - Extract and store SDK keys for each environment
+   - Save the key the application uses as `LD_SDK_KEY`. The Python and Node.js AI SDKs read that variable and initialize on the first AI call. They don't read `LAUNCHDARKLY_SDK_KEY`.
    - Use the same pattern as other secrets in your codebase
    - Consider separate keys for test/staging/production
 
@@ -132,19 +133,32 @@ After creating the project, verify it works:
    **Do not pipe the response straight into a `.environments.items[]`-style `jq` filter.** The shape of `environments` varies by `expand` parameter — sometimes it's `{items: [...]}`, sometimes a bare array — and a hand-rolled filter will fail with `Cannot index array with string "items"`. Run `jq -e .` first to inspect the actual shape, or use `jq '.environments | if type == "object" then .items else . end'` to handle both.
 
 2. **Test SDK integration:**
-   Run a quick verification to ensure the SDK key works:
+   Put the key in `.env` as `LD_SDK_KEY`, then initialize the AI SDK from the project directory. Python needs `pip install launchdarkly-server-sdk launchdarkly-ai-server python-dotenv`:
    ```python
-   import ldclient
-   from ldclient.config import Config
+   import asyncio
+   from dotenv import load_dotenv
+   from launchdarkly_ai_server import init_client, get_client, shutdown
 
-   ldclient.set_config(Config("{sdk_key}"))
-   # SDK initializes successfully
+   load_dotenv()
 
-   # Always flush events before closing — trailing events are at risk of being
-   # lost otherwise, in short-lived scripts and long-running services alike.
-   ldclient.get().flush()
-   ldclient.get().close()
+   async def main():
+       await init_client()
+       print("SDK initialized:", get_client().is_initialized())
+       # shutdown() flushes pending events before closing the connection.
+       await shutdown()
+
+   asyncio.run(main())
    ```
+   Node.js needs `npm install @launchdarkly/ai-node dotenv`:
+   ```javascript
+   import 'dotenv/config';
+   import { initClient, getClient, shutdown } from '@launchdarkly/ai-node';
+
+   await initClient();
+   console.log('SDK initialized:', getClient().initialized());
+   await shutdown();
+   ```
+   A valid key prints `SDK initialized: True` (Python) or `true` (Node.js). With an invalid key, Python logs `HTTP error 401 (invalid SDK key)` and prints `False`, and Node.js throws `LDTimeoutError` after 10 seconds. With no key, both raise an error that asks for `LD_SDK_KEY`.
 
 3. **Report results:**
    - ✓ Project exists and has environments
@@ -218,13 +232,13 @@ ai-apac           → Asia-Pacific Region
 After setting up projects:
 
 1. **Create configs** - Use the `configs-create` skill
-2. **Set up SDK Integration** - Use the `sdk` skill
+2. **Set up SDK Integration** - Use the `sdk-install` skill
 3. **Configure Targeting** - Use the `configs-targeting` skill
 
 ## Related Skills
 
 - `configs-create` - Create configs in projects
-- `sdk` - Integrate SDK in your application
+- `sdk-install` - Integrate SDK in your application
 - `configs-targeting` - Configure config targeting
 - `configs-variations` - Manage config variations
 
