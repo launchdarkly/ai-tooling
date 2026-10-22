@@ -454,8 +454,8 @@
       "name": "online-evals",
       "description": "Attach judges to config variations for automatic LLM-as-a-judge evaluation. Create custom judges, configure sampling rates, and monitor quality scores.",
       "path": "skills/agentcontrol/online-evals",
-      "version": "0.1.0",
-      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.20.0+ or Node.js v0.20.0+ for automatic metric recording and the consolidated `track_judge_result` / `trackJudgeResult` API."
+      "version": "0.2.0",
+      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js)."
     },
     {
       "name": "plan",
