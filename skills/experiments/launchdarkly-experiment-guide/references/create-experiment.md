@@ -14,7 +14,7 @@ which checks for the *specific* create tools — a flags-only MCP does not quali
    present these calls for them to run later and stop.
 
 You need these values, gathered in earlier steps:
-- `projectKey`, `environmentKey` (from `get-environments`).
+- `projectKey`, `environmentKey` (from `get-project`, or `get-environment` for one environment).
 - Primary metric key (reused or newly created).
 - Flag key, the variation IDs for control/treatment, the targeting `ruleId`
   (fallthrough rule id is the string `"fallthrough"`), and current
@@ -40,7 +40,6 @@ You need these values, gathered in earlier steps:
   "key": "redesigned-checkout-experiment",
   "name": "Redesigned Checkout Experiment",
   "description": "Test the redesigned checkout against the current flow.",
-  "methodology": "bayesian",
   "iteration": {
     "hypothesis": "The redesigned checkout will lift completion ~3% for logged-in shoppers.",
     "primarySingleMetricKey": "checkout-completed",
@@ -62,10 +61,13 @@ You need these values, gathered in earlier steps:
 }
 ```
 
-3. **Start data collection** — `start-experiment-iteration` with
-   `{ projectKey, environmentKey, experimentKey }`. Requires the flag to be on,
-   a `randomizationUnit`, and at least one non-zero allocation.
-4. **Verify** — `get-experiment`; confirm `currentIteration.status === "running"`.
+3. **Verify** — `get-experiment`; confirm the experiment exists with a
+   `not_started` iteration.
+
+Create the experiment as a draft. Start it only after the flag and tracking
+code are deployed and the user says yes again. Starting
+(`start-experiment-iteration`) requires the flag to be on, a
+`randomizationUnit`, and at least one non-zero allocation.
 
 Rules that matter: exactly one treatment has `baseline: true`; allocations sum
 to 100; the `iteration` object is required on create.
@@ -97,7 +99,6 @@ POST /api/v2/projects/{projectKey}/environments/{environmentKey}/experiments
 {
   "key": "redesigned-checkout-experiment",
   "name": "Redesigned Checkout Experiment",
-  "methodology": "bayesian",
   "iteration": {
     "hypothesis": "The redesigned checkout will lift completion ~3% for logged-in shoppers.",
     "primarySingleMetricKey": "checkout-completed",
@@ -114,7 +115,8 @@ POST /api/v2/projects/{projectKey}/environments/{environmentKey}/experiments
 }
 ```
 
-**Start the iteration:** `create-experiment` already created a `not_started`
+**Start the iteration** (only after the flag and tracking code are deployed and
+the user says yes again): `create-experiment` already created a `not_started`
 iteration — do **not** `POST .../iterations` to start it (that creates a second,
 now-deprecated iteration). Start the existing draft with a semantic-patch `PATCH`
 on the experiment:

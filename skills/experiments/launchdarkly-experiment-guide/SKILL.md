@@ -71,7 +71,7 @@ discover a missing tool only at the create step:
 
 - **Account read** — list flags, metrics, environments (Step 2 reuse).
 - **Metric create** — create a metric and its event (Step 5, if none fits).
-- **Experiment create + start** — create the experiment and start its iteration (Step 8).
+- **Experiment create + start** — create the experiment (Step 8) and, later, start its iteration.
 
 Resolve a path, in precedence order:
 
@@ -85,8 +85,9 @@ Resolve a path, in precedence order:
    account (so the Step 2 scan still works), but you **cannot create the metric
    or experiment**. Scan and draft as normal, then stop before any write — see
    "Act on the outcome" below. This is **not** "no connection."
-4. **No LD access at all** → you can't even read the account. **Stop here — do
-   not scan or proceed silently.**
+4. **No LD access at all** → you can't even read the account. **Stop at Step
+   0.** Don't start Step 1: no reading project files, no `git log`, no guess at
+   what the product is.
 
 > Verify the *specific* create tools exist at Step 0 — "an LD MCP is connected"
 > does **not** mean you can create an experiment. A flags-only MCP will let you
@@ -103,14 +104,18 @@ Resolve a path, in precedence order:
   the draft + ready-to-run commands and finish in the UI or via
   `launchdarkly-experiment-setup`. Don't tell them LaunchDarkly is unreachable —
   it isn't; you just can't create from here.
-- **No access (4):** stop now, and offer to connect or to continue **draft-only**
-  (no account scan, no writes — working only from the codebase):
+- **No access (4):** stop now. Your entire reply is the message below — no
+  product read, no summary of the code, nothing from later steps — and then wait
+  for the user. The user decides whether to connect before any discovery work
+  happens, not after. Only if they say **draft-only** do you continue, starting
+  at Step 1 (no account scan, no writes — working only from the codebase):
   > "I can read your code, but I can't reach your LaunchDarkly account — so I
-  > can't see your existing flags/metrics or create the experiment. Set up an
-  > experiment-capable LD MCP (the `mcp-configure` onboarding skill walks through
-  > it) or set an `LD_API_KEY` token, then re-run. Or say **'draft only'** and
-  > I'll produce the hypothesis, metric/flag plan, code snippets, and exact API
-  > calls — without touching your account."
+  > can't see your existing flags/metrics or create the experiment. Connect the
+  > LaunchDarkly MCP server (setup guide:
+  > https://launchdarkly.com/docs/home/getting-started/mcp-hosted) or set an
+  > `LD_API_KEY` token in your shell and restart this session, then re-run.
+  > Or say **'draft only'** and I'll produce the hypothesis, metric/flag plan,
+  > code snippets, and exact API calls — without touching your account."
 
 **Capabilities by connection:**
 
@@ -123,6 +128,9 @@ Resolve a path, in precedence order:
 | No LD access | ❌ | ❌ | **Fail fast**; draft-only (no scan, no create) |
 
 ### Step 1: Understand the product (lightweight scan)
+
+Start this step only once Step 0 found access (full or partial) or the user
+chose draft-only.
 
 Build a quick mental model of what this app *is* and who uses it. Keep it cheap
 — you are not auditing the whole codebase.
@@ -155,8 +163,14 @@ visibility into their existing flags and metrics.)
 - **Metrics** — list existing metrics (MCP `list-metrics` / REST
   `GET /api/v2/metrics/{projectKey}`). If a relevant metric already exists (e.g.
   `checkout-completed`), prefer it as the experiment's primary metric.
-- **Environments** — get the environments (MCP `get-environments`) so you target
-  the right one (usually `production`) and know the environment key.
+- **Environments** — list the project's environments (MCP `get-project`, or
+  `get-environment` for one environment's details) so you target the right one
+  and know the environment key.
+- **Project and environment** — if the account has more than one project, ask
+  the user which one this app uses instead of guessing. Run the experiment in
+  the environment the app connects to: match the app's client-side ID to the
+  environments `get-project` returns, and ask when there's no match or the app
+  uses a server SDK key.
 
 Summarize what you found that's relevant: "You already have a
 `checkout-completed` conversion metric and a `new-checkout` flag — we can build
@@ -206,7 +220,7 @@ metric** (the single number that decides the experiment).
   rate, latency) — but keep exactly one primary.
 
 Give the user the **tracking code snippet** they need to paste in, matched to
-their SDK. See [Code snippets](references/snippets.md).
+their SDK.
 
 ### Step 6: Line up the flag
 
@@ -217,8 +231,10 @@ between (control vs. treatment).
   variations and find its targeting rule.
 - If not, delegate to `launchdarkly-flag-create` to create one that matches the
   codebase's existing flag patterns, and to wrap the feature in it. Give the
-  user the **flag-evaluation snippet** for their SDK (see
-  [Code snippets](references/snippets.md)).
+  user the **flag-evaluation snippet** for their SDK.
+- If the app uses a browser or mobile SDK, create the flag with client-side
+  availability on (`clientSideAvailability.usingEnvironmentId`, or
+  `usingMobileKey` for mobile), or the app can't read the flag.
 
 You'll need the flag key, the variation IDs, and the targeting `ruleId` +
 current `flagConfigVersion` for the rule that will drive the experiment (the
@@ -236,11 +252,12 @@ Present the draft like this:
 > - **Flag:** `new-checkout` — Control (current) 50% vs. New checkout 50%.
 > - **Primary metric:** `checkout-completed` (conversion).
 > - **Guardrail:** `checkout-error-rate` (should not increase).
-> - **Environment:** `production` · **Methodology:** Bayesian.
+> - **Environment:** `production` · **Methodology:** Frequentist (LaunchDarkly's default).
 > - **What I'll create:** 1 metric (already exists → reuse), experiment + first iteration.
 
 Then **ask for explicit confirmation** with clear options: *Create it* /
-*Change something* / *Just give me the steps, I'll do it myself*.
+*Change something* / *Just give me the steps, I'll do it myself*. Ask it as a
+structured question when your agent supports one, so the yes is unambiguous.
 
 ### Step 8: Create (only after yes)
 
@@ -249,9 +266,8 @@ two implementations. See [Create the experiment](references/create-experiment.md
 for the exact MCP calls and REST payloads.
 
 - **MCP path (preferred):** create any missing metric, then call
-  `create-experiment` with the nested first iteration, then
-  `start-experiment-iteration`. (Delegating to `launchdarkly-experiment-setup`
-  handles the field details and lifecycle.)
+  `create-experiment` with the nested first iteration. (Delegating to
+  `launchdarkly-experiment-setup` handles the field details and lifecycle.)
 - **REST fallback:** `POST /api/v2/metrics/{projectKey}` for a new metric, then
   `POST /api/v2/projects/{projectKey}/environments/{envKey}/experiments` with the
   iteration body.
@@ -260,10 +276,15 @@ for the exact MCP calls and REST payloads.
   from the reference, and point them at `launchdarkly-experiment-setup` to finish
   once they're connected.
 
+Create the experiment as a draft. Start it only after the flag and tracking
+code are deployed and the user says yes again. Starting needs the flag on; if
+the environment requires approval to change it, start only after the approval
+request is approved.
+
 After creating, verify (MCP `get-experiment` / REST `GET …/experiments/{key}`)
-and report: what was created, that the iteration is running (or ready to start),
-the flag/metric it's wired to, and the one thing they should do next (ship the
-winner later, or start the iteration).
+and report: what was created, that it's a draft that isn't collecting data yet,
+the flag/metric it's wired to, and the one thing they should do next (deploy the
+code, then tell you to start it).
 
 ## Edge Cases
 
@@ -299,7 +320,5 @@ winner later, or start the iteration).
   infer the product and surface recent features.
 - [Hypothesis guide](references/hypothesis-guide.md): templates, worked
   examples by product type, turning a fuzzy goal into a testable statement.
-- [Code snippets](references/snippets.md): flag-evaluation and metric `track()`
-  snippets across LaunchDarkly SDKs.
 - [Create the experiment](references/create-experiment.md): the abstracted
   create step — MCP calls and REST payloads, with the exact fields.

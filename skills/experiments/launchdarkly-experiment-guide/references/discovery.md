@@ -38,10 +38,9 @@ code is fresh.
   `useFlags`, `ldClient`) — a recently-added flag with no experiment is an ideal
   candidate.
 
-## Detect the LaunchDarkly SDK (for later snippets)
+## Detect the LaunchDarkly SDK
 
-Grep the manifest/imports to pick the right snippet language in
-[snippets.md](snippets.md):
+Grep the manifest/imports to find which SDK the code uses:
 
 - `launchdarkly-node-server-sdk`, `@launchdarkly/node-server-sdk` → Node server
 - `launchdarkly-js-client-sdk`, `launchdarkly-react-client-sdk` → browser/React

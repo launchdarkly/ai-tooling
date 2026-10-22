@@ -597,7 +597,7 @@
   },
   {
     "name": "create-metric",
-    "description": "Create a metric that measures an experiment outcome. Use kind 'custom' with isNumeric false for conversion (yes/no) metrics, or isNumeric true for numeric metrics (latency, revenue). eventKey is the tracked event the metric counts.",
+    "description": "Create a metric that measures an experiment outcome. measureType 'occurrence' is a conversion (did each user do it at least once), 'count' totals events, and 'value' averages or sums the number sent with track(). eventKey is the tracked event the metric counts.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -605,12 +605,16 @@
         "key": { "type": "string", "description": "Unique metric key (immutable)" },
         "name": { "type": "string", "description": "Human-readable metric name" },
         "kind": { "type": "string", "enum": ["custom", "pageview", "click"], "description": "Metric kind (default custom)" },
-        "isNumeric": { "type": "boolean", "description": "True for numeric metrics, false for conversion metrics" },
+        "measureType": { "type": "string", "enum": ["count", "occurrence", "value"], "description": "occurrence = conversion, count = event total, value = numeric value" },
+        "valueAggregation": { "type": "string", "enum": ["sum", "average"], "description": "Only for measureType 'value': average (default) or sum" },
+        "unit": { "type": "string", "description": "Unit for value metrics, e.g. USD or ms" },
         "eventKey": { "type": "string", "description": "The event key the metric counts (matches the track() call)" },
+        "urls": { "type": "array", "description": "Required for pageview and click metrics: pages to match", "items": { "type": "object", "properties": { "kind": { "type": "string", "enum": ["substring", "exact", "canonical", "regex"] }, "substring": { "type": "string" }, "url": { "type": "string" }, "pattern": { "type": "string" } }, "required": ["kind"] } },
+        "selector": { "type": "string", "description": "Required for click metrics: CSS selector that triggers the event" },
         "successCriteria": { "type": "string", "enum": ["HigherThanBaseline", "LowerThanBaseline"], "description": "Which direction is success" },
         "description": { "type": "string", "description": "What the metric measures" }
       },
-      "required": ["projectKey", "key", "name"]
+      "required": ["projectKey", "key", "name", "measureType", "successCriteria"]
     }
   },
   {

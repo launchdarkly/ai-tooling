@@ -61,10 +61,12 @@
     "tags": [],
     "variations": [
       {
+        "_id": "var-true",
         "value": true,
         "name": "true"
       },
       {
+        "_id": "var-false",
         "value": false,
         "name": "false"
       }
@@ -93,10 +95,12 @@
     "tags": [],
     "variations": [
       {
+        "_id": "var-true",
         "value": true,
         "name": "true"
       },
       {
+        "_id": "var-false",
         "value": false,
         "name": "false"
       }
@@ -196,21 +200,20 @@
   "get-project": {
     "key": "{{projectKey}}",
     "name": "{{projectKey}}",
-    "environments": {
-      "items": [
-        {
-          "key": "test",
-          "name": "Test",
-          "color": "417505"
-        },
-        {
-          "key": "production",
-          "name": "Production",
-          "color": "D43F3A"
-        }
-      ],
-      "totalCount": 2
-    }
+    "environments": [
+      {
+        "key": "test",
+        "name": "Test",
+        "clientSideId": "5f0000000000000000000001",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000001"
+      },
+      {
+        "key": "production",
+        "name": "Production",
+        "clientSideId": "5f0000000000000000000002",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000002"
+      }
+    ]
   },
   "list-feature-flags": {
     "items": [
@@ -533,9 +536,9 @@
     "environments": []
   },
   "list-metrics": {
-    "items": [
-      { "key": "checkout-completed", "name": "Checkout completed", "kind": "custom", "isNumeric": false, "eventKey": "checkout-completed", "tags": ["conversion"] },
-      { "key": "page-load-ms", "name": "Page load time (ms)", "kind": "custom", "isNumeric": true, "eventKey": "page-load-ms", "tags": ["performance"] }
+    "metrics": [
+      { "key": "checkout-completed", "name": "Checkout completed", "kind": "custom", "measureType": "occurrence", "isNumeric": false, "unitAggregationType": "average", "successCriteria": "HigherThanBaseline", "eventKey": "checkout-completed", "tags": ["conversion"] },
+      { "key": "page-load-ms", "name": "Page load time (ms)", "kind": "custom", "measureType": "value", "isNumeric": true, "unitAggregationType": "average", "successCriteria": "LowerThanBaseline", "eventKey": "page-load-ms", "tags": ["performance"] }
     ],
     "totalCount": 2
   },
@@ -543,7 +546,8 @@
     "key": "{{metricKey}}",
     "name": "{{metricName}}",
     "kind": "custom",
-    "isNumeric": false,
+    "measureType": "occurrence",
+    "successCriteria": "HigherThanBaseline",
     "eventKey": "{{metricKey}}",
     "_id": "metric-0001",
     "tags": []
@@ -572,7 +576,7 @@
     "name": "{{experimentName}}",
     "environmentKey": "{{environmentKey}}",
     "currentIteration": {
-      "status": "running",
+      "status": "not_started",
       "hypothesis": "{{hypothesis}}",
       "treatments": [
         { "_id": "treat-control", "name": "Control", "baseline": true, "allocationPercent": 50 },

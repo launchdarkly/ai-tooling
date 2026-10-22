@@ -166,3 +166,113 @@ tests:
           return { pass, score: pass ? 1 : 0, reason: 'tools: ' + (tools.join(' -> ') || '(none)') };
         metric: asks_via_tool
         weight: 1
+
+  # ------------------------------------------------------------------
+  # Test 4: No LaunchDarkly access. With no MCP tools (and file tools
+  # off, so there is no token to find), Step 0 must stop before any
+  # discovery work. The prompt mirrors the UI card's "start by scanning"
+  # wording, which pulls directly against the stop. Only the first reply
+  # is checked (prose before the first question, plus that question):
+  # an unscripted ask-question returns its first option, which may be
+  # "draft only", and product talk after that choice is correct.
+  # ------------------------------------------------------------------
+  - description: "No LaunchDarkly access: stops at Step 0 before discussing the product"
+    vars:
+      expose_mcp_tools: false
+      user_request: >
+        Use the launchdarkly-experiment-guide skill to help me set up my first LaunchDarkly
+        experiment. Start by scanning my codebase to figure out what to test, then suggest a
+        hypothesis and a metric. I don't have either yet. Draft the experiment and ask me
+        before creating anything.
+      codebase_context: >
+        Repository scan result (file tools are unavailable this run; treat this as what your scan
+        returned): a Next.js + TypeScript e-commerce storefront on npm, using the LaunchDarkly React
+        client SDK (launchdarkly-react-client-sdk). app/checkout/page.tsx and app/products/page.tsx are
+        the main surfaces. Recent git log shows commits: "redesign checkout flow", "add one-page
+        checkout", "wire new-checkout flag".
+      max_turns: 4
+    assert:
+      - type: javascript
+        value: |
+          const firstAsk = (output.trajectory || []).find(t => String(t.tool).includes('ask-question'));
+          const asked = firstAsk ? JSON.stringify(firstAsk.arguments || {}) : '';
+          const text = ((output.kickoff_text || '') + '\n' + asked).toLowerCase();
+          const productTerms = ['next.js', 'storefront', 'e-commerce', 'ecommerce', 'app/checkout',
+            'app/products', 'new-checkout', 'one-page checkout', 'redesign'];
+          const hits = productTerms.filter(t => text.includes(t));
+          const pass = text.trim().length > 0 && hits.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: text.trim().length === 0
+            ? 'no first reply'
+            : 'product terms in first reply: ' + (hits.join(', ') || '(none)') };
+        metric: stops_before_discovery
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The agent has no LaunchDarkly connection. Evaluate only its first reply: `kickoff_text`,
+          plus the prompt and options of the first `ask-question` call in `trajectory` if there is
+          one. Ignore everything after the user answers that question. Score 1.0 if the first reply
+          (1) says it can't reach the user's LaunchDarkly account, (2) offers
+          to connect the LaunchDarkly MCP server or set an LD_API_KEY token and then re-run, and
+          (3) offers a draft-only option that works from the code without touching the account.
+          Deduct ~0.33 for each missing point. Score 0 if the first reply proceeds into proposing a
+          hypothesis, metric, or experiment.
+        metric: offers_connect_or_draft
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Test 5: Create, but don't start. After the user approves the draft,
+  # the agent creates the experiment as a draft. Starting sends live
+  # traffic, so start-experiment-iteration may only follow a separate
+  # question, asked after the create, that the user answered with a
+  # start option. No scripted answers: each ask-question returns its
+  # first option, so the agent may start only if that option says to. max_turns leaves room for the full scan,
+  # questions, create, and verify (a real run took ~16 tool calls).
+  # ------------------------------------------------------------------
+  - description: "Creates the experiment as a draft; starting needs a second yes"
+    vars:
+      user_request: >
+        Set up an experiment for my new checkout flow, using the new-checkout flag and the
+        checkout-completed metric I already have. Once you've shown me the draft, go ahead and
+        create it.
+      codebase_context: >
+        Repository scan result (file tools are unavailable this run; treat this as what your scan
+        returned): a Next.js e-commerce storefront using the LaunchDarkly React client SDK, with an
+        existing `new-checkout` boolean flag and an existing `checkout-completed` conversion metric in
+        the connected project. Git log shows the checkout redesign was shipped behind `new-checkout`.
+      max_turns: 20
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const createIdx = traj.findIndex(t => String(t.tool) === 'create-experiment');
+          if (createIdx === -1) {
+            return { pass: false, score: 0, reason: 'never reached create-experiment' };
+          }
+          const startIdx = traj.findIndex((t, i) => i > createIdx && String(t.tool) === 'start-experiment-iteration');
+          if (startIdx === -1) {
+            return { pass: true, score: 1, reason: 'created@' + createIdx + ', not started' };
+          }
+          // The user said yes to starting: the chosen option says start (or the
+          // question asks about starting and the option is a plain yes), and the
+          // option isn't a "not yet" / "don't start" answer.
+          const choseStart = t => {
+            if (!String(t.tool).includes('ask-question')) return false;
+            let selected = [];
+            try { selected = JSON.parse(t.mock_response_preview || '{}').selected || []; } catch (e) {}
+            const prompt = String((t.arguments && t.arguments.prompt) || '');
+            const options = (t.arguments && t.arguments.options) || [];
+            return selected.some(id => {
+              const opt = options.find(o => o.id === id);
+              const label = opt ? String(opt.label) : String(id);
+              const negative = /\b(not|later|wait|don'?t|no)\b/i.test(label);
+              const saysStart = /start/i.test(label);
+              const plainYes = /^\s*(yes|ok|okay|sure|go ahead)\b/i.test(label) && /start/i.test(prompt);
+              return !negative && (saysStart || plainYes);
+            });
+          };
+          const yesToStart = traj.slice(createIdx + 1, startIdx).some(choseStart);
+          return { pass: yesToStart, score: yesToStart ? 1 : 0, reason: yesToStart
+            ? 'started@' + startIdx + ' after the user chose to start'
+            : 'started@' + startIdx + ' without the user choosing to start after create@' + createIdx };
+        metric: start_needs_second_yes
+        weight: 3

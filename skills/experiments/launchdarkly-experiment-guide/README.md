@@ -30,10 +30,13 @@ it reuses the metric and flag skills for those pieces.
 | Choose / create a metric, instrument the event | `launchdarkly-metric-choose` · `-create` · `-instrument` |
 | Create / wrap a flag to match the codebase | `launchdarkly-flag-create` |
 
-## Installation (Local)
+## Installation
 
-Copy `skills/experiments/launchdarkly-experiment-guide/` into your client's
-skills path.
+From your project's root directory:
+
+```bash
+npx skills add launchdarkly/ai-tooling --skill launchdarkly-experiment-guide -y
+```
 
 ## Prerequisites
 
@@ -58,9 +61,3 @@ Help me set up an experiment for the new checkout flow
 ```
 What should I experiment on, and how do I measure it?
 ```
-
-## Copy-paste prompt (for the LaunchDarkly UI)
-
-See [`PROMPT.md`](PROMPT.md) for the copy-pasteable prompt surfaced in the LD UI.
-It's the zero-context entry point a user pastes into their local agent to kick
-off the guided flow.
