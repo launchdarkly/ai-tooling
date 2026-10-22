@@ -510,7 +510,7 @@
       "name": "tools",
       "description": "Give your agents capabilities through tools (function calling). Helps you identify what your agent needs to do, create tool definitions, and attach them to config variations.",
       "path": "skills/agentcontrol/tools",
-      "version": "1.0.0-experimental",
+      "version": "1.1.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     }
