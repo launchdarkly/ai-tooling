@@ -1,209 +1,102 @@
-# Gemini Metrics Tracking
+# Gemini / Google GenAI Metrics Tracking
 
-**There is no LaunchDarkly provider package for Gemini today** (neither Python nor Node). The canonical path is Tier 3: a small custom extractor composed with `trackMetricsOf`. The Gemini response shape is stable — `response.usage_metadata` / `response.usageMetadata` carries `prompt_token_count` / `promptTokenCount`, `candidates_token_count` / `candidatesTokenCount`, and `total_token_count` / `totalTokenCount` — so the extractor is three lines.
+There's no Gemini-specific handler package. Configs served from Gemini have the provider name `Gemini`. Use the LangChain handler with a model factory, or wrap your existing `google-genai` call in a custom handler.
 
-## Tier 1 is not available
+## Tier 2 — LangChain handler with a model factory
 
-`ManagedModel` does not currently ship a Gemini provider. If you need Tier 1 for a chat app, route via the LangChain provider package (`ChatGoogleGenerativeAI` under the hood), which restores the zero-tracker-call experience. See [langchain-tracking.md](langchain-tracking.md).
+The LangChain handler doesn't build Gemini models by default; without a factory it would send the Gemini model name to OpenAI. Pass a factory that builds `ChatGoogleGenerativeAI` from the served config:
 
-## Tier 3 — Custom extractor + `trackMetricsOf` (primary)
+```bash
+pip install launchdarkly-ai-server launchdarkly-ai-langchain-messages langchain-google-genai
+```
 
-Gemini's API diverges from OpenAI's in three places that matter for a wrapper:
+```python
+from langchain_google_genai import ChatGoogleGenerativeAI
+from launchdarkly_ai_server import config
+from launchdarkly_ai_langchain_messages import create_langchain_messages_handler
 
-1. **System messages are a top-level field.** `GenerateContentConfig.system_instruction` / `systemInstruction` carries the system prompt; the `contents` array only holds `user` and `model` turns. You cannot put a `role: "system"` item in `contents`.
-2. **Assistant messages use role `model`.** Convert `role: "assistant"` → `role: "model"` when mapping LD messages into Gemini's `contents`.
-3. **Parameter names differ.** `max_tokens` on a LaunchDarkly variation (the snake_case key shown in the LD UI) becomes `max_output_tokens` on Python's `GenerateContentConfig`, or `maxOutputTokens` in Node. Other LD parameter names (`temperature`, `top_p`, `top_k`) either pass through or map with the same helper.
+gemini = create_langchain_messages_handler(
+    lambda cfg: ChatGoogleGenerativeAI(model=cfg["model"]["name"], **cfg["model"].get("parameters", {}))
+)
 
-Two helpers absorb the divergence — a message splitter and a parameter remapper — and the metrics extractor sits on top.
+# Reads GOOGLE_API_KEY from the environment
+result = await config(key="customer-support-chat", handler=gemini).invoke(user_input, context)
+```
 
-**Python** — `google-genai`:
+If other variations of the same config use OpenAI or Anthropic, pass their exact-provider handlers too. They take precedence over the LangChain wildcard, so the factory only runs for Gemini variations.
+
+## Tier 3 — Custom handler around `google-genai`
 
 ```python
 from google import genai
-from google.genai.types import Content, Part, GenerateContentConfig
-from ldai.providers.types import LDAIMetrics, TokenUsage
+from google.genai import types
+from launchdarkly_ai_server import config, create_handler
 
-gemini_client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+client = genai.Client()  # reads GOOGLE_API_KEY
 
-def gemini_metrics(response) -> LDAIMetrics:
-    usage = response.usage_metadata
-    return LDAIMetrics(
-        success=True,
-        tokens=TokenUsage(
-            total=usage.total_token_count or 0,
-            input=usage.prompt_token_count or 0,
-            output=usage.candidates_token_count or 0,
-        ) if usage else None,
+async def call_gemini(ld_config, user_input, tool_handlers, variables, history):
+    messages = ld_config.get("messages", [])
+    params = ld_config["model"].get("parameters", {})
+    response = await client.aio.models.generate_content(
+        model=ld_config["model"]["name"],
+        contents=[
+            *[
+                types.Content(role="model" if m["role"] == "assistant" else "user", parts=[types.Part(text=m["content"])])
+                for m in messages
+                if m["role"] != "system"
+            ],
+            types.Content(role="user", parts=[types.Part(text=user_input)]),
+        ],
+        config=types.GenerateContentConfig(
+            system_instruction="\n".join(m["content"] for m in messages if m["role"] == "system") or None,
+            temperature=params.get("temperature"),
+            max_output_tokens=params.get("max_tokens"),
+        ),
     )
+    usage = response.usage_metadata
+    return {
+        "output": response.text or "",
+        "usage": {"input": usage.prompt_token_count or 0, "output": usage.candidates_token_count or 0},
+    }
 
-def map_to_gemini_messages(ld_messages):
-    """Split LD messages into (system_instruction, contents) for google-genai.
-    System messages concatenate into the top-level system_instruction; user and
-    assistant messages become Content items with role 'user' or 'model'."""
-    system_parts: list[str] = []
-    contents: list[Content] = []
-    for m in ld_messages or []:
-        if m.role == "system":
-            system_parts.append(m.content)
-        elif m.role == "user":
-            contents.append(Content(role="user", parts=[Part(text=m.content)]))
-        elif m.role == "assistant":
-            contents.append(Content(role="model", parts=[Part(text=m.content)]))
-    return (" ".join(system_parts) or None), contents
-
-def gemini_config_kwargs(params):
-    """Map config parameter names to google-genai's GenerateContentConfig.
-    LaunchDarkly stores max_tokens (snake_case, matching the LD UI); Gemini's
-    Python SDK expects max_output_tokens. Drop `tools` — they go on
-    GenerateContentConfig.tools directly; leaving them here would double-pass."""
-    mapping = {"max_tokens": "max_output_tokens"}
-    return {mapping.get(k, k): v for k, v in (params or {}).items() if k != "tools"}
-
-def call_with_tracking(ai_config, user_prompt: str) -> str | None:
-    if not ai_config.enabled:
-        return None
-
-    system_instruction, contents = map_to_gemini_messages(ai_config.messages or [])
-    contents.append(Content(role="user", parts=[Part(text=user_prompt)]))
-
-    params = (ai_config.model.to_dict().get("parameters") if ai_config.model else None) or {}
-
-    def call_gemini():
-        return gemini_client.models.generate_content(
-            model=ai_config.model.name,
-            contents=contents,
-            config=GenerateContentConfig(
-                system_instruction=system_instruction,
-                **gemini_config_kwargs(params),
-            ),
-        )
-
-    tracker = ai_config.create_tracker()
-    # Exceptions are tracked automatically — track_metrics_of catches
-    # exceptions, records tracker.track_error(), and re-raises.
-    response = tracker.track_metrics_of(gemini_metrics, call_gemini)
-    return response.text
+result = await config(
+    key="customer-support-chat",
+    handler=create_handler(("Gemini", "messages"), call_gemini),
+).invoke(user_input, context)
 ```
 
-**Node** — `@google/genai`:
+**Node.js** with `@google/genai`:
 
 ```typescript
-import { GoogleGenAI, type Content } from '@google/genai';
-import type { LDAIMetrics } from '@launchdarkly/server-sdk-ai';
+import { GoogleGenAI } from '@google/genai';
+import { config, createHandler } from '@launchdarkly/ai-node';
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+const ai = new GoogleGenAI({});
 
-const geminiMetrics = (response: any): LDAIMetrics => {
-  const usage = response.usageMetadata;
+const callGemini = createHandler(['Gemini', 'messages'], async (ldConfig, userInput) => {
+  const messages = ldConfig.messages ?? [];
+  const response = await ai.models.generateContent({
+    model: ldConfig.model.name,
+    contents: [
+      ...messages
+        .filter((m) => m.role !== 'system')
+        .map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+      { role: 'user', parts: [{ text: userInput ?? '' }] },
+    ],
+    config: {
+      systemInstruction: messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') || undefined,
+    },
+  });
   return {
-    success: true,
-    tokens: usage
-      ? {
-          total: usage.totalTokenCount ?? 0,
-          input: usage.promptTokenCount ?? 0,
-          output: usage.candidatesTokenCount ?? 0,
-        }
-      : undefined,
+    output: response.text ?? '',
+    usage: {
+      input: response.usageMetadata?.promptTokenCount ?? 0,
+      output: response.usageMetadata?.candidatesTokenCount ?? 0,
+    },
   };
-};
+});
 
-function mapToGeminiMessages(
-  ldMessages?: Array<{ role: string; content: string }>,
-): { systemInstruction: string | undefined; contents: Content[] } {
-  const contents: Content[] = [];
-  const systemParts: string[] = [];
-  for (const m of ldMessages ?? []) {
-    if (m.role === 'system') systemParts.push(m.content);
-    else if (m.role === 'user') contents.push({ role: 'user', parts: [{ text: m.content }] });
-    else if (m.role === 'assistant') contents.push({ role: 'model', parts: [{ text: m.content }] });
-  }
-  return {
-    systemInstruction: systemParts.length ? systemParts.join(' ') : undefined,
-    contents,
-  };
-}
-
-// Map config parameter names to @google/genai's GenerateContentConfig keys.
-// LaunchDarkly stores max_tokens (snake_case, matching the LD UI); @google/genai
-// expects maxOutputTokens. Drop `tools` — they go on GenerateContentConfig.tools
-// directly; leaving them here would double-pass.
-function geminiConfigFields(params: Record<string, unknown>): Record<string, unknown> {
-  const mapping: Record<string, string> = { max_tokens: 'maxOutputTokens' };
-  return Object.fromEntries(
-    Object.entries(params ?? {})
-      .filter(([k]) => k !== 'tools')
-      .map(([k, v]) => [mapping[k] ?? k, v]),
-  );
-}
-
-async function callWithTracking(
-  aiConfig: LDAICompletionConfig,
-  userPrompt: string,
-): Promise<string | null> {
-  if (!aiConfig.enabled) return null;
-
-  const { systemInstruction, contents } = mapToGeminiMessages(aiConfig.messages);
-  contents.push({ role: 'user', parts: [{ text: userPrompt }] });
-
-  const params = (aiConfig.model?.parameters ?? {}) as Record<string, unknown>;
-
-  const tracker = aiConfig.createTracker();
-  // Exceptions are tracked automatically — trackMetricsOf catches
-  // exceptions, records tracker.trackError(), and re-throws.
-  const response = await tracker.trackMetricsOf(
-    geminiMetrics,
-    () => genAI.models.generateContent({
-      model: aiConfig.model!.name,
-      contents,
-      config: {
-        systemInstruction,
-        ...geminiConfigFields(params),
-      },
-    }),
-  );
-  return response.text ?? null;
-}
+const result = await config({ key: 'customer-support-chat', handler: callGemini }).invoke(userInput, context);
 ```
 
-Notes on the extractor shape:
-
-- Gemini uses `snake_case` in Python (`prompt_token_count`) and `camelCase` in Node (`promptTokenCount`). The LD `TokenUsage` / `LDAIMetrics` type is the same in both.
-- `total_token_count` already includes input + output from Google; do not recompute it.
-- `success: true` in the extractor is not a lie — `trackMetricsOf` only calls the extractor on the success path. On the error path, `trackMetricsOf` records `trackError()` internally and re-throws; no caller-side catch block is required.
-
-## Tools
-
-LaunchDarkly stores attached tools on `ai_config.model.parameters.tools` in the flat `{type, name, description, parameters}` shape. Gemini's `GenerateContentConfig.tools` expects a list of `{function_declarations: [{name, description, parameters}]}` blocks (Python) or `{functionDeclarations: [...]}` (Node), so convert at runtime:
-
-```python
-ld_tools = (params.get("tools") or [])
-gemini_tools = [
-    {
-        "function_declarations": [
-            {
-                "name": t["name"],
-                "description": t.get("description", ""),
-                "parameters": t.get("parameters", {"type": "object", "properties": {}}),
-            }
-            for t in ld_tools
-        ],
-    }
-] if ld_tools else []
-```
-
-Tool handlers stay in your application code — LaunchDarkly stores the schema, your application owns the behavior. For the full agent loop pattern (`MAX_STEPS`, `functionCalls` handling, `tracker.track_tool_call`), see the agent-mode section of `tools`.
-
-## Tier 2 option — route via LangChain
-
-If the app can adopt LangChain, the LangChain provider package handles Gemini (via `@langchain/google-genai` / `langchain-google-genai`) through the standard `trackMetricsOf(getAIMetricsFromResponse, ...)` pattern. The provider package handles LaunchDarkly→LangChain provider-name mapping (for example, `"gemini"` → `"google_genai"`) and forwards all variation parameters automatically, so you do not need your own mapping helper. See [langchain-tracking.md](langchain-tracking.md).
-
-## Tier 4 — Manual (streaming only)
-
-Streaming Gemini needs manual TTFT tracking; the pattern is identical to OpenAI streaming. See [streaming-tracking.md](streaming-tracking.md).
-
-## What NOT to do
-
-- **Do not look for a `track_gemini_metrics` helper** — it does not exist. Gemini support lives in the extractor above.
-- **Do not invent a provider package** like `@launchdarkly/server-sdk-ai-gemini` or `launchdarkly-server-sdk-ai-gemini`. Neither exists on npm or PyPI. Check [ai-providers in js-core](https://github.com/launchdarkly/js-core/tree/main/packages/ai-providers) and [python-server-sdk-ai/packages/ai-providers](https://github.com/launchdarkly/python-server-sdk-ai/tree/main/packages/ai-providers) before recommending one.
-- **Do not put `role: "system"` items inside `contents`.** Gemini will either ignore them or error. The system prompt goes on `system_instruction` / `systemInstruction`.
-- **Do not assume LaunchDarkly stores `maxTokens` (camelCase) as the parameter key.** The UI and the stored variation use `max_tokens`. The mapping helper renames it to `max_output_tokens` / `maxOutputTokens` for Gemini's SDK.
+Gemini calls the assistant role `model` and takes the system prompt as `system_instruction`, so map both from the config's messages. For Vertex AI, configs use the provider name `Vertex`; register the same function with `("Vertex", "messages")` and a `genai.Client(vertexai=True, ...)`.

@@ -1,90 +1,56 @@
 # Strands Agents Metrics Tracking
 
-**There is no LaunchDarkly provider package for Strands.** Strands is a provider-agnostic agent SDK — the same `Agent` class runs against Anthropic, OpenAI, and Bedrock by swapping the `model` argument — so the tracking pattern plugs in at the agent layer, not the provider layer. Tier 3 (custom extractor + `trackMetricsOf`) is the canonical path.
+**There is no LaunchDarkly handler package for Strands.** Strands owns its agent loop and runs against Anthropic, OpenAI, or Bedrock by swapping the `model` argument, so wrap the agent turn in a custom handler. The SDK then records duration, success/error, and the tokens you return.
 
-The Strands `AgentResult` object exposes a `metrics.accumulated_usage` dict (Python) / `metrics.accumulatedUsage` object (Node) that already aggregates token counts across every provider call the agent made in a single `invoke_async` turn — including any tool-calling round trips. That means one extractor call covers the whole turn, unlike the per-response shape from Anthropic or OpenAI direct.
+The Strands `AgentResult` exposes `metrics.accumulated_usage` (Python) / `metrics.accumulatedUsage` (Node.js), which already sums tokens across every model call in the turn, including tool-calling round trips. The key names are camelCase even in Python: `inputTokens`, `outputTokens`.
 
-The key names inside `accumulated_usage` are camelCase even in Python: `inputTokens`, `outputTokens`, `totalTokens`.
+## Custom handler (agent mode)
 
-## Tier 1 is not available
-
-`ManagedModel` does not currently ship a Strands runner. Strands owns its own agent loop and short-term memory (`SlidingWindowConversationManager`), so wrapping it in a LaunchDarkly managed runner would fight against the framework. Stay on Tier 3.
-
-## Tier 3 — Explicit `track_duration_of` + manual `track_tokens` (primary)
-
-This is the shape in the LaunchDarkly Strands integration guide. Use it when the call site is already async and you want token extraction split out from duration tracking.
+Agent-mode configs carry `instructions` instead of `messages`. Register the same function once per provider your variations serve; `ld_config["provider"]["name"]` tells you which model class to build:
 
 ```python
-from ldai.tracker import TokenUsage
+from strands import Agent
+from strands.models.anthropic import AnthropicModel
+from strands.models.bedrock import BedrockModel
+from strands.models.openai import OpenAIModel
+from launchdarkly_ai_server import config, create_handler
 
+def build_model(ld_config):
+    name = ld_config["model"]["name"]
+    params = {k: v for k, v in ld_config["model"].get("parameters", {}).items() if k != "tools"}
+    provider = ld_config["provider"]["name"]
+    if provider == "Anthropic":
+        return AnthropicModel(model_id=name, max_tokens=params.pop("max_tokens", 1024), params=params)
+    if provider == "OpenAI":
+        return OpenAIModel(model_id=name, params=params)
+    return BedrockModel(model_id=name, **params)
 
-def track_strands_metrics(tracker, result):
-    """Record token usage from a Strands AgentResult on the LD tracker."""
-    usage = getattr(result.metrics, "accumulated_usage", {}) or {}
-    input_tokens = usage.get("inputTokens", 0)
-    output_tokens = usage.get("outputTokens", 0)
-    total = usage.get("totalTokens", 0) or (input_tokens + output_tokens)
-    if total > 0:
-        tracker.track_tokens(
-            TokenUsage(input=input_tokens, output=output_tokens, total=total)
-        )
+async def run_strands(ld_config, user_input, tool_handlers, variables, history):
+    agent = Agent(
+        model=build_model(ld_config),
+        system_prompt=ld_config.get("instructions", ""),
+        tools=my_strands_tools,
+    )
+    result = await agent.invoke_async(user_input)
+    usage = result.metrics.accumulated_usage or {}
+    return {
+        "output": str(result),
+        "usage": {"input": usage.get("inputTokens", 0), "output": usage.get("outputTokens", 0)},
+    }
 
+handlers = [create_handler((provider, "agent"), run_strands) for provider in ("Anthropic", "OpenAI", "Bedrock")]
 
-async def run_turn(agent, tracker, user_input):
-    try:
-        result = await tracker.track_duration_of(lambda: agent.invoke_async(user_input))
-        tracker.track_success()
-        track_strands_metrics(tracker, result)
-        return result.message["content"][0]["text"]
-    except Exception:
-        tracker.track_error()
-        raise
+result = await config(key="research-agent", handler=handlers).invoke(user_input, context)
 ```
 
-**What this tracks:**
-- Duration — from the `track_duration_of` wrapper around `invoke_async`.
-- Tokens — from `accumulated_usage`, including any tool-calling round trips inside the turn.
-- Success / error — explicit, in the try/except.
+Drop `tools` from the model parameters before passing them to the Strands model class; Strands takes tools through the `Agent` constructor.
 
-## Tier 3 — Single-call `track_metrics_of_async` variant
+**Tool-call metrics.** The SDK records `$ld:ai:tool_call` for the functions it hands your handler in `tool_handlers`. Tools that Strands calls directly, as in the example above, aren't recorded. To record them, pass `tool_handlers` to `config()` and build the Strands tools from the `tool_handlers` argument your handler receives, for example by wrapping each one with Strands' `@tool` decorator.
 
-If you prefer the single-call form that matches the rest of the provider-tracking references, fold the extractor into an `LDAIMetrics` return and use `track_metrics_of_async`:
+## Node.js
 
-```python
-from ldai.providers.types import LDAIMetrics, TokenUsage
+The Strands TypeScript SDK ships `BedrockModel` and `OpenAIModel` only, with no `AnthropicModel`. The same pattern applies: `createHandler([provider, 'agent'], fn)`, and read `result.metrics.accumulatedUsage` for tokens. Variations that serve Anthropic through Strands need the Python SDK today.
 
+## Shut down before exit
 
-def strands_extractor(result) -> LDAIMetrics:
-    usage = getattr(result.metrics, "accumulated_usage", {}) or {}
-    input_tokens = usage.get("inputTokens", 0)
-    output_tokens = usage.get("outputTokens", 0)
-    total = usage.get("totalTokens", 0) or (input_tokens + output_tokens)
-    return LDAIMetrics(
-        success=True,
-        tokens=TokenUsage(input=input_tokens, output=output_tokens, total=total),
-    )
-
-
-async def run_turn(agent, tracker, user_input):
-    # Exceptions are tracked automatically — track_metrics_of_async catches
-    # exceptions, records tracker.track_error(), and re-raises.
-    result = await tracker.track_metrics_of_async(
-        strands_extractor,
-        lambda: agent.invoke_async(user_input),
-    )
-    return result.message["content"][0]["text"]
-```
-
-Pick the style that matches the rest of the codebase — the two variants record the same metrics.
-
-## Provider dispatch stays in your code
-
-Strands model classes are provider-specific (`AnthropicModel`, `OpenAIModel`, `BedrockModel`). To serve more than one provider from a single config key, dispatch on `agent_config.provider.name` before constructing the `Agent`. See [agent-mode-frameworks.md § Strands Agent](../../migrate/references/agent-mode-frameworks.md) for the `create_strands_model` dispatcher, including the rule that `parameters.tools` must be dropped before being passed into the Strands model class (tools flow through the `Agent` constructor, not through model params).
-
-## Always flush before exit
-
-Strands examples are commonly short-lived scripts (`python run_agent.py ...`). Trailing analytics events can be lost if the client closes before flushing. Always call `ldclient.get().flush()` (and `ldclient.get().close()` on exit) after the last turn.
-
-## Node / TypeScript caveat
-
-The Strands TypeScript SDK ships `BedrockModel` and `OpenAIModel` only — no `AnthropicModel`. The same Tier-3 pattern applies (custom extractor over `result.metrics.accumulatedUsage`, then `tracker.trackMetricsOf` or explicit `trackDurationOf` + `trackTokens`), but multi-provider variations that include Anthropic require the Python SDK today.
+Strands examples are often short-lived scripts. Call `await shutdown()` after the last turn so trailing events are flushed.

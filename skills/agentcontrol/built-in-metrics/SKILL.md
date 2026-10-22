@@ -1,31 +1,42 @@
 ---
 name: built-in-metrics
-description: "Instrument an existing codebase with LaunchDarkly config tracking. Walks the four-tier ladder (managed runner → provider package → custom extractor + trackMetricsOf → raw manual) and picks the lowest-ceremony option that still captures duration, tokens, and success/error."
+description: "Instrument an existing codebase so LaunchDarkly records config metrics (duration, tokens, success/error, tool calls). Walks the ladder (convenience function → config() with a handler package → custom handler → manual track()) and picks the lowest-ceremony option that still captures what the Monitoring tab needs."
 license: Apache-2.0
-compatibility: Requires the LaunchDarkly server-side AI SDK (`launchdarkly-server-sdk-ai>=0.20.0` for Python or `@launchdarkly/server-sdk-ai>=0.20.0` for Node) and an existing config.
+compatibility: Requires `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js), a handler package for your provider, and an existing config.
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "2.0.0-experimental"
 ---
 
 # Agent Metrics Instrumentation
 
-You're using a skill that wires LaunchDarkly agent metrics around an existing provider call. Your job is to audit what's already there, pick the right tier from the ladder below, and implement it with the **least ceremony that still captures the metrics the Monitoring tab needs** (duration, input/output tokens, success/error, plus TTFT when streaming).
+You're using a skill that gets LaunchDarkly agent metrics flowing from an existing provider call. Your job is to audit what's already there, pick the right tier from the ladder below, and implement it with the **least ceremony that still captures the metrics the Monitoring tab needs**.
 
-The single most important thing to get right: **default to the highest tier that fits the shape of the call**. Going lower ("just write the manual tracker calls") looks flexible but costs you drift, missed metrics, and legacy patterns the SDKs have moved past.
+The single most important thing to get right: **in the current SDKs, metrics are a side effect of routing the call through the SDK.** There is no tracker to create and no wrapper to call. If the provider call runs inside `config().invoke()` (or a convenience function), the SDK records the metrics. If it runs outside, nothing is recorded.
+
+## What the SDK records
+
+Every `invoke()` and `stream()` call records these events against the served variation:
+
+| Event | Metric |
+|---|---|
+| `$ld:ai:duration:total` | Duration, in milliseconds |
+| `$ld:ai:generation:success` / `$ld:ai:generation:error` | Generation counts and error rate |
+| `$ld:ai:tokens:input`, `:output`, `:total` | Token usage, from the handler's normalized usage |
+| `$ld:ai:tool_call` | One event per tool call the SDK dispatches |
+
+The current SDKs do **not** record time to first token or user feedback. For feedback, see Tier 4.
 
 ## The four-tier ladder
 
-This is the order the official SDK READMEs (Python core, Node core, and every provider package) recommend. Walk from the top and stop at the first tier that fits:
+Walk from the top and stop at the first tier that fits:
 
-| Tier | Pattern | Use when | Tracks automatically |
-|------|---------|----------|----------------------|
-| **1 — Managed runner** | Python: `ai_client.create_model(...)` returning a `ManagedModel`, then `await model.run(...)`. <br>Node: `aiClient.createModel(...)` returning a `ManagedModel`, then `await model.run(...)`. | The call is conversational (chat history, turn-based). This is what the provider READMEs lead with. | Duration, tokens, success/error — **all of it, zero tracker calls**. |
-| **2 — Provider package + `trackMetricsOf`** | `tracker.trackMetricsOf(Provider.getAIMetricsFromResponse, () => providerCall())`. Provider packages today: `@launchdarkly/server-sdk-ai-openai`, `-langchain`, `-vercel` (Node) and `launchdarkly-server-sdk-ai-openai`, `-langchain` (Python). | The shape isn't a chat loop (one-shot completion, structured output, agent step) but the framework or provider has a package. | Duration + success/error from the wrapper; tokens from the package's built-in `getAIMetricsFromResponse` extractor. |
-| **3 — Custom extractor + `trackMetricsOf`** | Same `trackMetricsOf` wrapper, but you write a small function that maps the provider response to `LDAIMetrics` (tokens + success). | No provider package exists (Anthropic direct, Gemini, Cohere, custom HTTP). | Duration + success/error from the wrapper; tokens from your extractor. |
-| **4 — Raw manual** | Separate calls to `trackDuration`, `trackTokens`, `trackSuccess` / `trackError`, plus `trackTimeToFirstToken` for streams. | Streaming with TTFT, unusual response shapes, partial tracking, anything Tier 2–3 can't cleanly wrap. | Only what you explicitly call — it's on you to not miss one. |
-
-Every provider — OpenAI, LangChain, Vercel, Bedrock, Anthropic, Gemini, custom HTTP — uses the same generic shape: `tracker.trackMetricsOf(getAIMetricsFromResponse, () => providerCall())` in Node, `tracker.track_metrics_of(get_ai_metrics_from_response, provider_call)` in Python. The extractor is the only thing that changes per provider: import `getAIMetricsFromResponse` from the matching `@launchdarkly/server-sdk-ai-<provider>` (or `ldai_<provider>`) package, or write a small custom function that returns `LDAIMetrics`. There are no provider-specific tracker methods.
+| Tier | Pattern | Use when |
+|------|---------|----------|
+| **1 — Convenience function** | `openai_messages(key, input, context)` / `openaiMessages(key, input, context)`, one per handler package | One provider in one mode, no tools, no streaming. The shortest path. |
+| **2 — `config()` + handler package** | `config(key=..., handler=[...]).invoke(input, context)` / `.stream(...)` | A handler package covers your provider, and you need more than one provider or mode, tools, template variables, streaming, or background judges. |
+| **3 — Custom handler** | `create_handler((provider, mode), fn)` / `createHandler([provider, mode], fn)`, passed to `config()` | No handler package fits (Gemini SDK, Bedrock via boto3, Strands, custom HTTP), or you want to keep an existing provider call as is. |
+| **4 — Manual `track()`** | `get_client().track(event_key, context, result.track_data, value)` | Events the SDK doesn't record: user feedback and business outcomes. Never for duration, tokens, or success, which the SDK already records. |
 
 ## Workflow
 
@@ -33,44 +44,42 @@ Every provider — OpenAI, LangChain, Vercel, Bedrock, Anthropic, Gemini, custom
 
 Before picking a tier, find the provider call and answer these questions:
 
-- [ ] **Shape?** Is it a chat loop (history + turn-based), a one-shot completion, an agent step, or something else? → drives Tier 1 vs 2.
-- [ ] **Framework?** Raw provider SDK? LangChain / LangGraph? Vercel AI SDK? CrewAI? Strands? → drives which Tier-2 provider package (if any) applies.
-- [ ] **Provider?** OpenAI, Anthropic, Bedrock, Gemini, Azure, custom HTTP? → cross-reference with the package availability matrix below.
-- [ ] **Streaming?** If yes, you'll need TTFT tracking, which means Tier 4 for the TTFT part even if the rest is Tier 2.
-- [ ] **Language?** Python or Node? Provider-package coverage differs between them.
-- [ ] **Already using a config?** If not, route to `configs-create` first — tracking requires a tracker, which is obtained by calling `create_tracker()` / `createTracker()` on the config object returned by `completion_config()` / `completionConfig()` / `createModel()`.
-- [ ] **On the current SDK API?** If the call site uses `aiclient.config(...)` / `aiClient.config(...)` or constructs an `AIConfig(...)` / `LDAIConfig` default, it's on the pre-0.20 surface. Migrate it as part of this work before adding tracking:
-   - `aiclient.config(...)` → `aiclient.completion_config(...)` for one-shot/chat or `aiclient.agent_config(...)` for agent mode (mirror the call signature). Node is the same with camelCase.
-   - `AIConfig(...)` default → `AICompletionConfigDefault(...)` or `AIAgentConfigDefault(...)` (Node: `LDAICompletionConfigDefault` / `LDAIAgentConfigDefault`). `AIConfig` is the base class the SDK returns; it isn't a valid default-value constructor — the typed `*Default` variants are.
-   - If the result was being tuple-unpacked (`config, tracker = aiclient.config(...)`), drop the unpack — the new methods return a single config object. Obtain the tracker via `config.create_tracker()` / `aiConfig.createTracker()`.
-   - For deeper rewrites (call sites with hardcoded model/prompt as well), hand off to `migrate` instead of doing the full migration here.
+- [ ] **Provider?** OpenAI, Anthropic, Bedrock, Gemini, custom HTTP? → cross-reference with the handler matrix below.
+- [ ] **Framework?** Raw provider SDK, LangChain / LangGraph, OpenAI Agents SDK, Claude Agent SDK, Strands?
+- [ ] **Mode?** A completion (`messages`) or an agent (`agent`)? The served variation's mode selects the handler.
+- [ ] **Streaming?** Use `stream()` instead of `invoke()`. Metrics are recorded the same way, but time to first token isn't.
+- [ ] **Language?** Python or Node.js? Handler coverage is the same in both.
+- [ ] **Already using a config?** If not, route to `configs-create` first.
+- [ ] **On a legacy SDK?** If the code imports `ldai` / `@launchdarkly/server-sdk-ai`, or calls `create_tracker()`, `track_metrics_of()`, `trackMetricsOf()`, `completion_config()`, or `create_model()`, it's on the legacy surface. Replace it as part of this work (see [Replacing legacy tracker code](#replacing-legacy-tracker-code)). For call sites with hardcoded models or prompts, hand off to `migrate` instead.
 
-### 2. Look up your Tier-2 option
+### 2. Look up your handler
 
-Use this matrix to decide whether Tier 2 (provider package) is available for your situation. If it's not, drop to Tier 3 (custom extractor). If the shape is chat-loop, go to Tier 1 first regardless of what's in this matrix.
+Install the core package (`launchdarkly-ai-server` or `@launchdarkly/ai-node`) plus one handler package per provider and mode you serve:
 
-| Framework / provider | Python provider package | Node provider package | Reference |
+| Provider / framework | Python handler package | Node.js handler package | Reference |
 |---|---|---|---|
-| OpenAI (direct SDK) | `launchdarkly-server-sdk-ai-openai` | `@launchdarkly/server-sdk-ai-openai` | [openai-tracking.md](references/openai-tracking.md) |
-| LangChain / LangGraph | `launchdarkly-server-sdk-ai-langchain` | `@launchdarkly/server-sdk-ai-langchain` | [langchain-tracking.md](references/langchain-tracking.md) |
-| Vercel AI SDK | — | `@launchdarkly/server-sdk-ai-vercel` | (use the Vercel provider docs) |
-| AWS Bedrock (Converse or InvokeModel) | — (use LangChain-aws or custom extractor) | — (use LangChain-aws or custom extractor) | [bedrock-tracking.md](references/bedrock-tracking.md) |
-| Anthropic direct SDK | — | — | [anthropic-tracking.md](references/anthropic-tracking.md) |
-| Gemini / Google GenAI | — | — | [gemini-tracking.md](references/gemini-tracking.md) |
-| Strands Agents | — (Tier 3 custom extractor) | — (Tier 3 custom extractor) | [strands-tracking.md](references/strands-tracking.md) |
-| Cohere, Mistral, custom HTTP | — | — | Tier 3 custom extractor |
-| **Any provider, streaming + TTFT** | — (Tier 4 only) | `trackStreamMetricsOf` (no TTFT) + manual TTFT | [streaming-tracking.md](references/streaming-tracking.md) |
+| OpenAI | `launchdarkly-ai-openai-messages`, `-openai-agents` | `@launchdarkly/ai-openai-messages`, `-openai-agents` | [openai-tracking.md](references/openai-tracking.md) |
+| Anthropic | `launchdarkly-ai-claude-messages`, `-claude-agents` | `@launchdarkly/ai-claude-messages`, `-claude-agents` | [anthropic-tracking.md](references/anthropic-tracking.md) |
+| LangChain / LangGraph (any provider) | `launchdarkly-ai-langchain-messages`, `-langchain-agents` | `@launchdarkly/ai-langchain-messages`, `-langchain-agents` | [langchain-tracking.md](references/langchain-tracking.md) |
+| AWS Bedrock | LangChain handler + `langchain-aws`, or a custom handler | LangChain handler, or a custom handler | [bedrock-tracking.md](references/bedrock-tracking.md) |
+| Gemini / Google GenAI | LangChain handler with a model factory, or a custom handler | Same | [gemini-tracking.md](references/gemini-tracking.md) |
+| Strands Agents | Custom handler | Custom handler | [strands-tracking.md](references/strands-tracking.md) |
+| Cohere, Mistral, custom HTTP | Custom handler | Custom handler | [anthropic-tracking.md](references/anthropic-tracking.md#tier-3--custom-handler) shows the shape |
+| Any provider, streaming | `stream()` | `stream()` | [streaming-tracking.md](references/streaming-tracking.md) |
+
+The LangChain handlers register for every provider (`"*"`) and only apply when no exact-provider handler matches.
 
 ### 3. Implement from the matching reference
 
-Once you know the tier and the provider, open the reference file and follow the pattern. The references are written so Tier 1 is always the first example, Tier 2/3 next, and Tier 4 last. Stop at the first tier that matches the app's shape.
+Open the reference file and follow the pattern. Stop at the first tier that matches the app's shape.
 
 Guardrails that apply to every tier:
 
-1. **Always check `config.enabled`** before making the tracked call. A disabled config means the user has flagged the feature off — you should short-circuit to whatever fallback the app uses (cached response, error, degraded path) rather than making the provider call at all.
-2. **Wrap the existing call, don't rewrite it.** Tier 2 and Tier 3 are designed to slot around an unmodified provider call. If you find yourself rewriting the call to fit the tracker, you're at the wrong tier — drop down one.
-3. **Errors are handled inside `trackMetricsOf`.** The wrapper catches exceptions, records `trackError()` internally, and re-raises — do **not** add `except: tracker.trackError()` on top, it's a noop that also trips the at-most-once guard. Tier 1 handles both paths automatically. At Tier 4 (manual, streaming, `track_duration_of`) the caller does own the error-tracking call.
-4. **Always flush before close.** Call `ldClient.flush()` (Python: `ldclient.get().flush()`; Node: `await ldClient.flush()`) before closing the client. Trailing events are at risk of being lost otherwise — in short-lived scripts and long-running services alike. In Node, `ldClient.close()` returns a Promise; await it.
+1. **Handle disabled configs.** `invoke()` raises a `RuntimeError` when the served variation is disabled or the config can't be reached. Catch it and fall back to whatever the app does when the feature is off, or call `inspect_config(key, context)` / `inspectConfig(key, context)` first, which returns the `enabled` state without raising.
+2. **Don't add tracking on top.** The SDK already records duration, tokens, success, and errors. A manual `track("$ld:ai:tokens:total", ...)` next to `invoke()` double counts.
+3. **Let errors propagate.** When a handler raises, the SDK records the duration and a generation error, then re-raises to the caller. Don't catch and swallow the exception inside a custom handler, or the call is recorded as a success.
+4. **Match the provider name exactly.** Handlers route on the config's provider name and mode, case-sensitively: `("OpenAI", "messages")`, `("Anthropic", "messages")`, `("Bedrock", "messages")`, `("Gemini", "messages")`. In Python the first argument to `create_handler` must be a tuple.
+5. **Shut down cleanly.** Call `await shutdown()` before the process exits. It flushes pending events, then closes the client. Trailing events are at risk of being lost otherwise, in short-lived scripts and long-running services alike.
 
 ### 4. Verify
 
@@ -78,32 +87,57 @@ Confirm the Monitoring tab fills in:
 
 - [ ] Run one real request through the instrumented path.
 - [ ] Open the config in LaunchDarkly → **Monitoring** tab. Duration, token counts, and generation counts should appear within 1–2 minutes.
-- [ ] Force an error (bad API key, zero `max_tokens`, whatever) and confirm the error count increments.
-- [ ] If streaming: verify TTFT appears. If it doesn't, you probably wrapped the stream creation with `trackMetricsOf` but didn't add the manual `trackTimeToFirstToken` call — see [streaming-tracking.md](references/streaming-tracking.md).
+- [ ] Force an error (bad API key, unreachable endpoint) and confirm the error count increments.
+- [ ] If you see generations but no tokens, the handler isn't returning usage. Custom handlers must return `{"output": ..., "usage": {"input": n, "output": n}}`.
 
-## Quick reference: tracker methods
+## Replacing legacy tracker code
 
-Obtain a tracker via the factory on the config object: `tracker = config.create_tracker()` (Python) or `const tracker = aiConfig.createTracker()` (Node). Call the factory once per execution and reuse the returned `tracker` for every call — each factory invocation mints a new `runId` that tags every tracking event emitted by that tracker so events from a single execution can be correlated together (via exported events / downstream systems). The Monitoring tab aggregates events rather than grouping them by run today — the `runId` is useful when events are exported or queried outside the UI, and is the identifier the SDK's at-most-once guards are keyed on. The methods below are the raw API surface — most of the time you should not call them individually; use `trackMetricsOf` or a Tier-1 managed runner. The list is here so you can recognize the methods in existing code and reach for the right one when you genuinely need Tier 4.
+| Legacy | Current |
+|---|---|
+| `LDAIClient(ldclient.get())` / `initAi(ldClient)` | Lazy init from `LD_SDK_KEY`, or `init_client()` / `initClient()` |
+| `completion_config()` / `agent_config()` + provider call | `config(key=..., handler=...).invoke(input, context)` |
+| `create_model()` + `model.run()` | `config().invoke()` or a convenience function |
+| `tracker.track_metrics_of(extractor, fn)` / `trackMetricsOf` | Delete. Route the call through a handler package or a custom handler. |
+| `get_ai_metrics_from_response` / custom `LDAIMetrics` extractors | Delete. Handlers return normalized usage. |
+| `track_duration`, `track_tokens`, `track_success`, `track_error` | Delete. Recorded on every call. |
+| `track_tool_call(s)` | Delete. Recorded for each tool the SDK dispatches. |
+| `track_time_to_first_token` | Not recorded by the current SDKs. |
+| `track_feedback({kind})` | `get_client().track("$ld:ai:feedback:user:positive" or ":negative", context, result.track_data, 1)` (Tier 4) |
+| `track_judge_result` | Attached judges record their own scores. See `online-evals`. |
+| `ldclient.get().flush()` + `close()` | `await shutdown()` |
 
-| Method (Python ↔ Node) | Tier | What it does |
-|---|---|---|
-| `track_metrics_of(extractor, fn)` / `trackMetricsOf(extractor, fn)` | **2 / 3** | Wraps a provider call, captures duration + success/error, calls your extractor for tokens. **This is the default generic tracker.** |
-| `track_metrics_of_async(extractor, fn)` (Python) | 2 / 3 | Async variant of the above. |
-| `trackStreamMetricsOf(extractor, streamFn)` (Node only) | 2 / 3 | Streaming variant. Captures per-chunk usage when the extractor handles chunks. Does **not** auto-capture TTFT. |
-| `track_duration(ms)` / `trackDuration(ms)` | 4 | Record latency in milliseconds. |
-| `track_duration_of(fn)` / `trackDurationOf(fn)` | 4 | Wraps a callable and records duration automatically. Does not capture tokens or success — pair with explicit calls. |
-| `track_tokens(TokenUsage)` / `trackTokens({input, output, total})` | 4 | Record token usage. |
-| `track_time_to_first_token(ms)` / `trackTimeToFirstToken(ms)` | 4 | Record TTFT for streaming responses. |
-| `track_success()` / `trackSuccess()` | 4 | Mark the generation as successful. Required for the Monitoring tab to count it. |
-| `track_error()` / `trackError()` | 4 | Mark the generation as failed. Do not also call `trackSuccess()` in the same request. |
-| `track_feedback({kind})` / `trackFeedback({kind})` | any | Record thumbs-up / thumbs-down from a feedback UI. Independent of the success/error path. |
-| `track_tool_call(name)` / `trackToolCall(name)` | any | Record a single tool invocation by name. Available on both SDKs. |
-| `track_tool_calls([names])` / `trackToolCalls([names])` | any | Batch variant — record a list of tool invocations in one call. |
-| `track_judge_result(result)` / `trackJudgeResult(result)` | any | Record a programmatic judge evaluation. `result.sampled` indicates whether evaluation ran. |
+## Tier 4 — User feedback
+
+The SDK doesn't record thumbs-up / thumbs-down, but the Monitoring tab still reads the feedback events. Keep the `track_data` from the `invoke()` result and send the event when the user responds:
+
+```python
+from ldclient import Context
+from launchdarkly_ai_server import get_client
+
+result = await config(key="support-agent", handler=handler).invoke(user_input, context)
+
+# Later, when the user clicks thumbs up or down:
+event = "$ld:ai:feedback:user:positive" if thumbs_up else "$ld:ai:feedback:user:negative"
+get_client().track(event, Context.from_dict(context), result.track_data, 1)
+```
+
+```typescript
+import { getClient } from '@launchdarkly/ai-node';
+
+const result = await config({ key: 'support-agent', handler }).invoke(userInput, context);
+
+const event = thumbsUp ? '$ld:ai:feedback:user:positive' : '$ld:ai:feedback:user:negative';
+getClient().track(event, context, result.trackData, 1);
+```
+
+`track_data` identifies the config, variation, version, and model, so the feedback lands on the variation that produced the response. In Python, convert the context dict with `Context.from_dict()` before calling `track()`.
+
+For business outcomes such as conversions or resolutions, use the `custom-metrics` skill with the same `track_data`.
 
 ## Related skills
 
 - `configs-create` — prerequisite if the app doesn't have a config yet
 - `custom-metrics` — business metrics (conversion, resolution, retention) layered on top of the agent metrics this skill captures
 - `online-evals` — automatic quality scoring (LLM-as-judge) on sampled live requests; complementary to the metrics here
+- `tools` — tool implementations and custom handler details
 - `migrate` — Stage 4 of the hardcoded-to-AgentControl migration delegates to this skill

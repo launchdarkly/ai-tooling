@@ -1,163 +1,134 @@
 # OpenAI Metrics Tracking
 
-OpenAI is covered by a first-class LaunchDarkly provider package in both Python and Node. Walk the tiers from top to bottom and stop at the first one that fits the call shape.
+OpenAI has first-class handler packages in both Python and Node.js: `-openai-messages` for completion mode (Responses API) and `-openai-agents` for agent mode (OpenAI Agents SDK). Walk the tiers from top to bottom and stop at the first one that fits.
 
-## Tier 1 — Managed runner (chat apps)
+## Tier 1 — Convenience function
 
-The simplest path for conversational OpenAI calls. Zero tracker calls — duration, tokens, and success/error are all captured by `run()`.
+One provider, one mode, no tools. Duration, tokens, and success/error are recorded with no extra code.
 
-**Python** — `ManagedModel` via `ai_client.create_model()`:
+**Python** (`pip install launchdarkly-ai-server launchdarkly-ai-openai-messages`):
 
 ```python
-from ldclient import Context
-from ldai import LDAIClient, AICompletionConfigDefault, ModelConfig, LDMessage, ProviderConfig
+from launchdarkly_ai_openai_messages import openai_messages
 
-default_config = AICompletionConfigDefault(
-    enabled=True,
-    model=ModelConfig(name="gpt-4o"),
-    provider=ProviderConfig(name="openai"),
-    messages=[LDMessage(role="system", content="You are a helpful assistant.")],
+# Reads LD_SDK_KEY and OPENAI_API_KEY from the environment
+result = await openai_messages(
+    "customer-support-chat",
+    user_input,
+    {"kind": "user", "key": "user-123"},
+)
+print(result.response)
+```
+
+**Node.js** (`npm install @launchdarkly/ai-node @launchdarkly/ai-openai-messages`):
+
+```typescript
+import { openaiMessages } from '@launchdarkly/ai-openai-messages';
+
+const result = await openaiMessages('customer-support-chat', userInput, {
+  kind: 'user',
+  key: 'user-123',
+});
+console.log(result.response);
+```
+
+## Tier 2 — `config()` with handler packages
+
+Use this when you need tools, template variables, streaming, background judges, or more than one mode. The served variation's mode picks the handler.
+
+**Python:**
+
+```python
+from launchdarkly_ai_server import config, shutdown
+from launchdarkly_ai_openai_messages import create_openai_messages_handler
+from launchdarkly_ai_openai_agents import create_openai_agent_handler
+
+support = config(
+    key="customer-support-chat",
+    handler=[create_openai_messages_handler(), create_openai_agent_handler()],
+    tool_handlers={"lookup-order": lookup_order},
 )
 
-async def handle_turn(ai_client: LDAIClient, context: Context, user_input: str) -> str:
-    model = await ai_client.create_model(
-        "customer-support-chat",
-        context,
-        default_config,
-    )
-    if not model:
-        return "Feature is currently unavailable."
-    response = await model.run(user_input)
-    return response.content
+result = await support.invoke(user_input, context, {"tier": "premium"})
+print(result.response)
+
+await shutdown()  # before the process exits
 ```
 
-**Node** — `ManagedModel` via `aiClient.createModel()`:
+**Node.js:**
 
 ```typescript
-import { init } from '@launchdarkly/node-server-sdk';
-import { initAi } from '@launchdarkly/server-sdk-ai';
+import { config, shutdown } from '@launchdarkly/ai-node';
+import { createOpenAIHandler } from '@launchdarkly/ai-openai-messages';
+import { createOpenAIAgentHandler } from '@launchdarkly/ai-openai-agents';
 
-const ldClient = init(process.env.LD_SDK_KEY!);
-const aiClient = initAi(ldClient);
+const support = config({
+  key: 'customer-support-chat',
+  handler: [createOpenAIHandler(), createOpenAIAgentHandler()],
+  toolHandlers: { 'lookup-order': lookupOrder },
+});
 
-async function handleTurn(context: LDContext, userInput: string): Promise<string> {
-  const model = await aiClient.createModel(
-    'customer-support-chat',
-    context,
-    {
-      enabled: true,
-      model: { name: 'gpt-4o' },
-      provider: { name: 'openai' },
-      messages: [{ role: 'system', content: 'You are a helpful assistant.' }],
-    },
-  );
-  if (!model) return 'Feature is currently unavailable.';
-  const response = await model.run(userInput);
-  return response.content;
-}
+const result = await support.invoke(userInput, context, { tier: 'premium' });
+console.log(result.response);
+
+await shutdown();
 ```
 
-Tracking is handled inside `run()`. You do not need `trackMetricsOf`, `trackSuccess`, or `trackTokens` at this tier.
+**Errors.** If the OpenAI call fails, the SDK records the duration and a generation error, then re-raises. Let it propagate to your own error handling; don't add tracking calls.
 
-## Tier 2 — Provider package + `trackMetricsOf` (non-chat shapes)
+## Tier 3 — Custom handler (Azure OpenAI, LiteLLM, custom clients)
 
-Use this when the call isn't a chat loop (one-shot completion, structured output, batch job, agent step). The provider package exposes a static `getAIMetricsFromResponse` that knows how to pull tokens out of an OpenAI response; you compose it with the generic `trackMetricsOf` wrapper.
-
-**Python** — `launchdarkly-server-sdk-ai-openai`:
+The handler packages create their own OpenAI client, so they don't cover Azure OpenAI deployments, OpenAI-compatible proxies such as LiteLLM, or a client with custom retries. Keep your existing call and wrap it in a custom handler. The SDK records the metrics from the usage you return:
 
 ```python
-managed = await ai_client.create_model("my-config-key", context, default_config)
-if managed:
-    result = await managed.run(user_prompt)
-    return result.content
-```
+from openai import AsyncAzureOpenAI
+from launchdarkly_ai_server import config, create_handler
 
-`managed.run()` tracks automatically — the managed runner handles duration, tokens, and success/error end-to-end. If you need finer-grained control (e.g., you want to supply your own OpenAI client with custom retries), use the raw SDK + `track_metrics_of` with the bare extractor:
+client = AsyncAzureOpenAI()  # reads AZURE_OPENAI_* from the environment
 
-```python
-import openai
-from ldai_openai import get_ai_metrics_from_response
-
-client = openai.OpenAI()
-
-ai_config = ai_client.completion_config("my-config-key", context, default_config)
-if not ai_config.enabled:
-    return None
-
-tracker = ai_config.create_tracker()
-
-def call_openai():
-    return client.chat.completions.create(
-        model=ai_config.model.name,
-        messages=[
-            {"role": "system", "content": ai_config.messages[0].content},
-            {"role": "user", "content": user_prompt},
-        ],
+async def call_azure(ld_config, user_input, tool_handlers, variables, history):
+    response = await client.chat.completions.create(
+        model=ld_config["model"]["name"],
+        messages=[*ld_config.get("messages", []), {"role": "user", "content": user_input}],
+        **ld_config["model"].get("parameters", {}),
     )
+    return {
+        "output": response.choices[0].message.content,
+        "usage": {
+            "input": response.usage.prompt_tokens,
+            "output": response.usage.completion_tokens,
+        },
+    }
 
-response = tracker.track_metrics_of(get_ai_metrics_from_response, call_openai)
-return response.choices[0].message.content
+result = await config(
+    key="customer-support-chat",
+    handler=create_handler(("OpenAI", "messages"), call_azure),
+).invoke(user_input, context)
 ```
-
-**Node** — `@launchdarkly/server-sdk-ai-openai`:
 
 ```typescript
-import { OpenAI } from 'openai';
-import { getAIMetricsFromResponse } from '@launchdarkly/server-sdk-ai-openai';
+import { AzureOpenAI } from 'openai';
+import { config, createHandler } from '@launchdarkly/ai-node';
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const client = new AzureOpenAI();
 
-const aiConfig = await aiClient.completionConfig('my-config-key', context, defaultConfig);
-if (!aiConfig.enabled) return null;
+const callAzure = createHandler(['OpenAI', 'messages'], async (ldConfig, userInput) => {
+  const response = await client.chat.completions.create({
+    model: ldConfig.model.name,
+    messages: [...(ldConfig.messages ?? []), { role: 'user', content: userInput ?? '' }],
+    ...ldConfig.model.parameters,
+  });
+  return {
+    output: response.choices[0].message.content,
+    usage: { input: response.usage?.prompt_tokens, output: response.usage?.completion_tokens },
+  };
+});
 
-const tracker = aiConfig.createTracker();
-const response = await tracker.trackMetricsOf(
-  getAIMetricsFromResponse,
-  () => client.chat.completions.create({
-    model: aiConfig.model!.name,
-    messages: [
-      ...aiConfig.messages,
-      { role: 'user', content: userPrompt },
-    ],
-  }),
-);
-return response.choices[0].message.content;
+const result = await config({ key: 'customer-support-chat', handler: callAzure }).invoke(userInput, context);
 ```
 
-**Error handling.** `trackMetricsOf` catches exceptions internally, records `trackError()` on the tracker, and re-throws — so you do **not** need a try/catch block that calls `trackError()` yourself. Call the wrapper directly; if the caller wants to log or handle the exception, do that in addition to (not instead of) letting it propagate:
+The provider name in `create_handler` must match the config's model provider exactly (`"OpenAI"`). A custom handler with an exact provider name takes precedence over the LangChain wildcard handler.
 
-```typescript
-const tracker = aiConfig.createTracker();
-const response = await tracker.trackMetricsOf(
-  getAIMetricsFromResponse,
-  () => client.chat.completions.create({ /* ... */ }),
-);
-return response.choices[0].message.content;
-```
+## Streaming
 
-Python behaves the same with `track_metrics_of`. Do not add `except: tracker.track_error()` on top — it's a noop that would also trip the at-most-once guard.
-
-## Tier 3 — Custom extractor (fallback)
-
-You should not need Tier 3 for OpenAI — the provider package covers it. If you're using a fork, a drop-in replacement (LiteLLM, Azure OpenAI via raw HTTP), or something the provider package doesn't recognize, write a small extractor:
-
-```python
-from ldai.providers.types import LDAIMetrics, TokenUsage
-
-def my_openai_extractor(response) -> LDAIMetrics:
-    return LDAIMetrics(
-        success=True,
-        tokens=TokenUsage(
-            total=response.usage.total_tokens,
-            input=response.usage.prompt_tokens,
-            output=response.usage.completion_tokens,
-        ),
-    )
-
-tracker = ai_config.create_tracker()
-response = tracker.track_metrics_of(my_openai_extractor, call_openai)
-```
-
-## Tier 4 — Manual (streaming only)
-
-For OpenAI streaming calls you need manual tracking because the current provider packages don't capture TTFT. See [streaming-tracking.md](streaming-tracking.md) for the full pattern. The short version: the helper that looks like it should work (`trackStreamMetricsOf` in Node) captures tokens from stream chunks but does not record TTFT, so you still need a manual `trackTimeToFirstToken` call on the first content chunk.
+Use `stream()` instead of `invoke()`. See [streaming-tracking.md](streaming-tracking.md).
