@@ -377,11 +377,13 @@ for (const task of result.judgeTasks ?? []) {
 If your application calls the model itself, wrap that call in a handler with `create_handler` (`createHandler`). `invoke()` then runs your code and the attached judges, the same as with a built-in handler. The judges still need a handler for their own provider:
 
 ```python
-from launchdarkly_ai_server import config, create_handler
+from launchdarkly_ai_server import config, create_handler, parse_template
 from launchdarkly_ai_openai_messages import create_openai_messages_handler
 
 async def my_pipeline(ld_config, user_input, tool_handlers, variables, history):
-    output, usage = await run_my_agent(ld_config["messages"], user_input)
+    # Custom handlers fill {{name}} placeholders themselves
+    messages = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])]
+    output, usage = await run_my_agent(messages, user_input)
     return {"output": output, "usage": {"input": usage.input_tokens, "output": usage.output_tokens}}
 
 handlers = [
