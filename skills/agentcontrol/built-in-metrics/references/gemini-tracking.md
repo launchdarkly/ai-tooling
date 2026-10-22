@@ -16,7 +16,10 @@ from launchdarkly_ai_server import config
 from launchdarkly_ai_langchain_messages import create_langchain_messages_handler
 
 gemini = create_langchain_messages_handler(
-    lambda cfg: ChatGoogleGenerativeAI(model=cfg["model"]["name"], **cfg["model"].get("parameters", {}))
+    lambda cfg: ChatGoogleGenerativeAI(
+        model=cfg["model"]["name"],
+        **{k: v for k, v in cfg["model"].get("parameters", {}).items() if k != "tools"},
+    )
 )
 
 # Reads GOOGLE_API_KEY from the environment
@@ -30,12 +33,12 @@ If other variations of the same config use OpenAI or Anthropic, pass their exact
 ```python
 from google import genai
 from google.genai import types
-from launchdarkly_ai_server import config, create_handler
+from launchdarkly_ai_server import config, create_handler, parse_template
 
 client = genai.Client()  # reads GOOGLE_API_KEY
 
 async def call_gemini(ld_config, user_input, tool_handlers, variables, history):
-    messages = ld_config.get("messages", [])
+    messages = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])]
     params = ld_config["model"].get("parameters", {})
     response = await client.aio.models.generate_content(
         model=ld_config["model"]["name"],
@@ -69,12 +72,12 @@ result = await config(
 
 ```typescript
 import { GoogleGenAI } from '@google/genai';
-import { config, createHandler } from '@launchdarkly/ai-node';
+import { config, createHandler, parseTemplate } from '@launchdarkly/ai-node';
 
 const ai = new GoogleGenAI({});
 
-const callGemini = createHandler(['Gemini', 'messages'], async (ldConfig, userInput) => {
-  const messages = ldConfig.messages ?? [];
+const callGemini = createHandler(['Gemini', 'messages'], async (ldConfig, userInput, toolHandlers, variables) => {
+  const messages = (ldConfig.messages ?? []).map((m) => ({ ...m, content: parseTemplate(m.content, variables ?? {}) }));
   const response = await ai.models.generateContent({
     model: ldConfig.model.name,
     contents: [

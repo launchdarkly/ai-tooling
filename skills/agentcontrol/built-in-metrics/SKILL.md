@@ -75,7 +75,7 @@ Open the reference file and follow the pattern. Stop at the first tier that matc
 
 Guardrails that apply to every tier:
 
-1. **Handle disabled configs.** `invoke()` raises a `RuntimeError` when the served variation is disabled or the config can't be reached. Catch it and fall back to whatever the app does when the feature is off, or call `inspect_config(key, context)` / `inspectConfig(key, context)` first, which returns the `enabled` state without raising.
+1. **Handle disabled configs.** `invoke()` raises a `RuntimeError` when the served variation is disabled or the config can't be reached. Catch it and fall back to whatever the app does when the feature is off, or call `await inspect_config(key, context)` / `await inspectConfig(key, context)` first, which returns the `enabled` state without raising.
 2. **Don't add tracking on top.** The SDK already records duration, tokens, success, and errors. A manual `track("$ld:ai:tokens:total", ...)` next to `invoke()` double counts.
 3. **Let errors propagate.** When a handler raises, the SDK records the duration and a generation error, then re-raises to the caller. Don't catch and swallow the exception inside a custom handler, or the call is recorded as a success.
 4. **Match the provider name exactly.** Handlers route on the config's provider name and mode, case-sensitively: `("OpenAI", "messages")`, `("Anthropic", "messages")`, `("Bedrock", "messages")`, `("Gemini", "messages")`. In Python the first argument to `create_handler` must be a tuple.

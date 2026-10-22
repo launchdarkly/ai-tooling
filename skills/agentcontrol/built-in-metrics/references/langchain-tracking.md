@@ -19,9 +19,14 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from launchdarkly_ai_langchain_messages import create_langchain_messages_handler
 
 handler = create_langchain_messages_handler(
-    lambda cfg: ChatGoogleGenerativeAI(model=cfg["model"]["name"], **cfg["model"].get("parameters", {}))
+    lambda cfg: ChatGoogleGenerativeAI(
+        model=cfg["model"]["name"],
+        **{k: v for k, v in cfg["model"].get("parameters", {}).items() if k != "tools"},
+    )
 )
 ```
+
+The factory receives the raw config, so drop `tools` from the parameters: attached tool definitions are stored there in LaunchDarkly's format, and the handler binds tools separately.
 
 You can also pass a chat model instance, if every variation uses the same model.
 
@@ -87,7 +92,7 @@ run = to_lang_graph(
     resolve_graph("support-graph", context=context),
     {"tool_handlers": {"lookup-order": lookup_order}, "context": context},
 )
-result = await run.ainvoke("I was double charged")
+result = await run.invoke("I was double charged")
 ```
 
 `to_lang_graph` takes its options as a dict in the second argument, not as keyword arguments. For building the graph itself, see the `agent-graphs` skill.

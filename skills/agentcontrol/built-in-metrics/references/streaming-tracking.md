@@ -43,16 +43,17 @@ Pass a stream function as the third argument to `create_handler` / `createHandle
 
 ```python
 from openai import AsyncAzureOpenAI
-from launchdarkly_ai_server import config, create_handler
+from launchdarkly_ai_server import config, create_handler, parse_template
 
 client = AsyncAzureOpenAI()
 
-def to_messages(ld_config, user_input):
-    return [*ld_config.get("messages", []), {"role": "user", "content": user_input}]
+def to_messages(ld_config, user_input, variables):
+    messages = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])]
+    return [*messages, {"role": "user", "content": user_input}]
 
 async def call(ld_config, user_input, tool_handlers, variables, history):
     response = await client.chat.completions.create(
-        model=ld_config["model"]["name"], messages=to_messages(ld_config, user_input)
+        model=ld_config["model"]["name"], messages=to_messages(ld_config, user_input, variables)
     )
     return {
         "output": response.choices[0].message.content,
@@ -62,7 +63,7 @@ async def call(ld_config, user_input, tool_handlers, variables, history):
 async def call_stream(ld_config, user_input, tool_handlers, variables, history):
     stream = await client.chat.completions.create(
         model=ld_config["model"]["name"],
-        messages=to_messages(ld_config, user_input),
+        messages=to_messages(ld_config, user_input, variables),
         stream=True,
         stream_options={"include_usage": True},  # usage arrives on the final chunk
     )

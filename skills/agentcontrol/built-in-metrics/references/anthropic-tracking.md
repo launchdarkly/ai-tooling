@@ -53,12 +53,12 @@ Use a custom handler to keep an existing Anthropic call, for example one with cu
 
 ```python
 from anthropic import AsyncAnthropic
-from launchdarkly_ai_server import config, create_handler
+from launchdarkly_ai_server import config, create_handler, parse_template
 
 client = AsyncAnthropic()
 
 async def call_anthropic(ld_config, user_input, tool_handlers, variables, history):
-    messages = ld_config.get("messages", [])
+    messages = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])]
     system = "\n".join(m["content"] for m in messages if m["role"] == "system")
     response = await client.messages.create(
         model=ld_config["model"]["name"],
@@ -82,12 +82,12 @@ result = await config(
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { config, createHandler } from '@launchdarkly/ai-node';
+import { config, createHandler, parseTemplate } from '@launchdarkly/ai-node';
 
 const client = new Anthropic();
 
-const callAnthropic = createHandler(['Anthropic', 'messages'], async (ldConfig, userInput) => {
-  const messages = ldConfig.messages ?? [];
+const callAnthropic = createHandler(['Anthropic', 'messages'], async (ldConfig, userInput, toolHandlers, variables) => {
+  const messages = (ldConfig.messages ?? []).map((m) => ({ ...m, content: parseTemplate(m.content, variables ?? {}) }));
   const response = await client.messages.create({
     model: ldConfig.model.name,
     max_tokens: Number(ldConfig.model.parameters?.max_tokens ?? 1024),

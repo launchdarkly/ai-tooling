@@ -30,12 +30,12 @@ Use this to keep an existing boto3 client, with its credentials, retries, or gua
 ```python
 import asyncio
 import boto3
-from launchdarkly_ai_server import config, create_handler
+from launchdarkly_ai_server import config, create_handler, parse_template
 
 bedrock = boto3.client("bedrock-runtime")
 
 async def call_bedrock(ld_config, user_input, tool_handlers, variables, history):
-    messages = ld_config.get("messages", [])
+    messages = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])]
     params = ld_config["model"].get("parameters", {})
     response = await asyncio.to_thread(
         bedrock.converse,
@@ -68,12 +68,12 @@ result = await config(
 
 ```typescript
 import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
-import { config, createHandler } from '@launchdarkly/ai-node';
+import { config, createHandler, parseTemplate } from '@launchdarkly/ai-node';
 
 const bedrock = new BedrockRuntimeClient({});
 
-const callBedrock = createHandler(['Bedrock', 'messages'], async (ldConfig, userInput) => {
-  const messages = ldConfig.messages ?? [];
+const callBedrock = createHandler(['Bedrock', 'messages'], async (ldConfig, userInput, toolHandlers, variables) => {
+  const messages = (ldConfig.messages ?? []).map((m) => ({ ...m, content: parseTemplate(m.content, variables ?? {}) }));
   const response = await bedrock.send(
     new ConverseCommand({
       modelId: ldConfig.model.name,

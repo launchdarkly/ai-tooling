@@ -76,21 +76,25 @@ await shutdown();
 
 **Errors.** If the OpenAI call fails, the SDK records the duration and a generation error, then re-raises. Let it propagate to your own error handling; don't add tracking calls.
 
+**Parameters in Python.** `launchdarkly-ai-openai-messages` 0.2.x sends no variation parameters to OpenAI, so `temperature`, `max_output_tokens`, and the rest are ignored. The Node.js handler forwards them, mapping `max_tokens` to `max_output_tokens`. If a Python variation depends on its parameters, use a custom handler (Tier 3) and check the CHANGELOG for changes.
+
 ## Tier 3 — Custom handler (Azure OpenAI, LiteLLM, custom clients)
 
 The handler packages create their own OpenAI client, so they don't cover Azure OpenAI deployments, OpenAI-compatible proxies such as LiteLLM, or a client with custom retries. Keep your existing call and wrap it in a custom handler. The SDK records the metrics from the usage you return:
 
 ```python
 from openai import AsyncAzureOpenAI
-from launchdarkly_ai_server import config, create_handler
+from launchdarkly_ai_server import config, create_handler, parse_template
 
 client = AsyncAzureOpenAI()  # reads AZURE_OPENAI_* from the environment
 
 async def call_azure(ld_config, user_input, tool_handlers, variables, history):
+    params = {k: v for k, v in ld_config["model"].get("parameters", {}).items() if k != "tools"}
+    messages = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])]
     response = await client.chat.completions.create(
         model=ld_config["model"]["name"],
-        messages=[*ld_config.get("messages", []), {"role": "user", "content": user_input}],
-        **ld_config["model"].get("parameters", {}),
+        messages=[*messages, {"role": "user", "content": user_input}],
+        **params,
     )
     return {
         "output": response.choices[0].message.content,
@@ -108,15 +112,17 @@ result = await config(
 
 ```typescript
 import { AzureOpenAI } from 'openai';
-import { config, createHandler } from '@launchdarkly/ai-node';
+import { config, createHandler, parseTemplate } from '@launchdarkly/ai-node';
 
 const client = new AzureOpenAI();
 
-const callAzure = createHandler(['OpenAI', 'messages'], async (ldConfig, userInput) => {
+const callAzure = createHandler(['OpenAI', 'messages'], async (ldConfig, userInput, toolHandlers, variables) => {
+  const { tools, ...params } = ldConfig.model.parameters ?? {};
+  const messages = (ldConfig.messages ?? []).map((m) => ({ ...m, content: parseTemplate(m.content, variables ?? {}) }));
   const response = await client.chat.completions.create({
     model: ldConfig.model.name,
-    messages: [...(ldConfig.messages ?? []), { role: 'user', content: userInput ?? '' }],
-    ...ldConfig.model.parameters,
+    messages: [...messages, { role: 'user', content: userInput ?? '' }],
+    ...params,
   });
   return {
     output: response.choices[0].message.content,
@@ -128,6 +134,8 @@ const result = await config({ key: 'customer-support-chat', handler: callAzure }
 ```
 
 The provider name in `create_handler` must match the config's model provider exactly (`"OpenAI"`). A custom handler with an exact provider name takes precedence over the LangChain wildcard handler.
+
+Two things every custom handler must do: render `{{name}}` placeholders with `parse_template` / `parseTemplate`, which the handler packages do for you, and drop `tools` from `model.parameters`, where attached tool definitions are stored in LaunchDarkly's format and rejected by the provider.
 
 ## Streaming
 
