@@ -154,7 +154,7 @@ The tool functions the SDK passes in are already wrapped to record `$ld:ai:tool_
 
 ```python
 from anthropic import AsyncAnthropic
-from launchdarkly_ai_server import create_handler
+from launchdarkly_ai_server import create_handler, parse_template
 
 anthropic_client = AsyncAnthropic()
 MAX_STEPS = 5
@@ -164,12 +164,16 @@ async def call_anthropic(ld_config, user_input, tool_handlers, variables, histor
         {"name": t["name"], "description": t.get("description", ""), "input_schema": t["parameters"]}
         for t in (ld_config.get("tools") or {}).values()
     ]
-    system = "\n".join(m["content"] for m in ld_config.get("messages") or [] if m["role"] == "system")
+    # Handler packages fill {{name}} placeholders; custom handlers must do it themselves
+    system = "\n".join(
+        parse_template(m["content"], variables) for m in ld_config.get("messages") or [] if m["role"] == "system"
+    )
+    max_tokens = (ld_config["model"].get("parameters") or {}).get("max_tokens", 1024)
     messages = [{"role": "user", "content": user_input}]
     usage = {"input": 0, "output": 0}
     for _ in range(MAX_STEPS):
         response = await anthropic_client.messages.create(
-            model=ld_config["model"]["name"], max_tokens=1024,
+            model=ld_config["model"]["name"], max_tokens=max_tokens,
             system=system, messages=messages, tools=tools,
         )
         usage["input"] += response.usage.input_tokens
