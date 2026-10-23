@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.3.1"
+  version: "0.3.2"
 ---
 
 # LaunchDarkly Experiment Setup
@@ -67,7 +67,7 @@ These five must come from the user:
 - **Randomization unit**: the context kind the experiment randomizes on (for example `user`).
 - **Primary metric**: the single metric or funnel that decides the result.
 
-If any are missing, ask for every missing one in one message, then wait. Leave them blank until the user supplies them. `list-metrics`, `list-metric-events`, and `get-flag` are fine while you gather this; `create-metric` and `create-experiment` are not. Once the user names the flag, `get-flag` resolves `ruleId`, `flagConfigVersion`, and the variation ids they named.
+If any are missing, ask for every missing one in one message, then wait. Leave them blank until the user supplies them. `list-metrics` and `get-flag` are fine while you gather this. `list-metric-events` is not: call it only after the user has said a new primary metric is a custom event and named its event key. `create-metric` and `create-experiment` are not. Once the user names the flag, `get-flag` resolves `ruleId`, `flagConfigVersion`, and the variation ids they named.
 
 Settings the user did not mention can stay on LaunchDarkly's defaults. List each default you are using in the design:
 
@@ -84,12 +84,17 @@ Leave `analysisConfig` unset unless the user set it, and say that in the design.
 
 1. Use `list-metrics` to find existing metrics. The user names the primary metric.
 2. If it already exists, keep its name and key for the design review.
-3. If it does not exist and it is based on a custom event, call `list-metric-events` for that event key.
+3. If it does not exist, a miss only means the metric is new. The user has often named the metric and not its kind or event key. Those are collected in the design, in the next item. Until the user has said the kind and, for a custom event, the event key:
+   - Do not call `list-metric-events`.
+   - Do not check the metric name, or any other key the user did not give, as the event key.
+   - Do not skip the flow check by treating the metric as `pageview` or `click`.
+   - Do not block creation for an event you have not identified.
+4. For a new metric, the design must say what kind it is (`custom`, `pageview`, or `click`), what it is based on (event key, URL match, or click selector), and how it is measured: share of units who converted, a total count, or an average. If the user has not chosen how it is measured, ask in the design message and leave that choice blank. "yes", "looks good", and "create it" do not fill it. Only a reply that names one of those three measures does. That reply fills the blank. It is not approval: show the completed design again and ask the user to approve it.
+5. After the user has said the new metric is `custom` and named its event key, call `list-metric-events` for that event key.
    - If the event is not reaching LaunchDarkly, tell the user and ask them to trigger it first. Leave the metric uncreated, and leave the experiment uncreated.
    - If the event is arriving, carry the metric into the design review.
-4. Pageview and click metrics have no custom event key, so skip `list-metric-events` for those.
-5. For a new metric, the design must say what kind it is (`custom`, `pageview`, or `click`), what it is based on (event key, URL match, or click selector), and how it is measured: share of units who converted, a total count, or an average. If the user has not chosen how it is measured, ask in the design message and leave that choice blank. "yes", "looks good", and "create it" do not fill it. Only a reply that names one of those three measures does. That reply fills the blank. It is not approval: show the completed design again and ask the user to approve it.
-6. Pass the user-named primary metric as `primarySingleMetricKey` or `primaryFunnelKey`.
+6. Pageview and click metrics have no custom event key. Skip `list-metric-events` only after the user has said the kind is `pageview` or `click`.
+7. Pass the user-named primary metric as `primarySingleMetricKey` or `primaryFunnelKey`.
 
 | Goal | Metric type | Example key |
 |------|-------------|-------------|
@@ -104,7 +109,7 @@ You need the `ruleId` and current `flagConfigVersion` of the flag rule that will
 
 ### Step 3: Create the Experiment
 
-Show the full design and wait until it is approved before calling `create-metric` or `create-experiment`. Include the flag and variations, hypothesis, control variation, other treatments, randomization unit, flag config (`flagKey`, `ruleId`, `flagConfigVersion`), and every default you are applying (traffic split, Bayesian methodology, `launchdarkly` data source, `canReshuffleTraffic: true`). For an existing primary metric, include its name and key. For a new one, include its kind, what it is based on, and how it is measured. Call `create-metric` only for a new metric you are allowed to create, and only after how it is measured is filled in, then call `create-experiment`.
+Show the full design and wait until it is approved before calling `create-metric` or `create-experiment`. Include the flag and variations, hypothesis, control variation, other treatments, randomization unit, flag config (`flagKey`, `ruleId`, `flagConfigVersion`), and every default you are applying (traffic split, Bayesian methodology, `launchdarkly` data source, `canReshuffleTraffic: true`). For an existing primary metric, include its name and key. For a new one, include its kind, what it is based on, and how it is measured. Call `create-metric` only for a new metric you are allowed to create — a custom event whose user-named event key `list-metric-events` shows is arriving, or a `pageview` or `click` metric — and only after how it is measured is filled in, then call `create-experiment`.
 
 "yes", "looks good", and "create it" approve a design that is already complete. They do not choose how a new metric is measured. While that choice is blank, ask again and do not call `create-metric`. A reply that only names the measure — share of units who converted, a total count, or an average — fills the blank. Show the full design again with that measure filled in, and ask for approval of the completed design. Do not call `create-metric` or `create-experiment` on that reply.
 
@@ -259,7 +264,8 @@ If the experiment was inconclusive or no variation beat the control, declare the
 
 | Situation | Action |
 |-----------|--------|
-| Primary metric doesn't exist and is a custom event | Call `list-metric-events`. If the event is not reaching LaunchDarkly, tell the user and ask them to trigger it. If it is, include the new metric's kind, event key, and measurement in the design review. Call `create-metric` only after how it is measured is filled in and the design is approved. A reply that only names the measure fills that blank. Show the completed design again and ask for approval. "yes", "looks good", and "create it" do not fill a blank measure. |
+| Primary metric doesn't exist, and its kind or event key is still unknown | Do not call `list-metric-events`. Collect the kind and what it is based on in the design. Do not check the metric name as an event key, skip the flow check, or block creation. |
+| Primary metric doesn't exist and the user has said it is a custom event and named its event key | Call `list-metric-events` for that event key. If the event is not reaching LaunchDarkly, tell the user and ask them to trigger it. If it is, include the new metric's kind, event key, and measurement in the design review. Call `create-metric` only after how it is measured is filled in and the design is approved. A reply that only names the measure fills that blank. Show the completed design again and ask for approval. "yes", "looks good", and "create it" do not fill a blank measure. |
 | A required piece is missing | Ask for every missing required piece in one message and wait. |
 | Design not approved | Show the full design and wait. `create-metric` and `create-experiment` stay uncalled. |
 | User has not said to start | Leave the iteration in `not_started`. `start-experiment-iteration` and `save-and-start-experiment-iteration` stay uncalled. |
@@ -273,7 +279,8 @@ If the experiment was inconclusive or no variation beat the control, declare the
 ## What NOT to Do
 
 - Don't fill in a missing flag, variation, hypothesis, control variation, randomization unit, or primary metric yourself.
-- Don't call `create-metric` for a custom-event primary metric when `list-metric-events` shows the event is not reaching LaunchDarkly.
+- Don't call `list-metric-events` when `list-metrics` misses a primary metric whose kind or event key the user has not given. Don't treat the metric name as that event key, skip the check by assuming `pageview` or `click`, or block creation for an event you have not identified.
+- Don't call `create-metric` for a custom-event primary metric when `list-metric-events`, called for the event key the user named, shows the event is not reaching LaunchDarkly.
 - Don't call `create-metric` or `create-experiment` before the user approves a complete design.
 - Don't treat "yes", "looks good", or "create it" as choosing how a new metric is measured, and don't call `create-metric` while that choice is blank. A reply that only names the measure fills the blank. Show the completed design again and ask for approval before `create-metric` or `create-experiment`.
 - Don't call `start-experiment-iteration` or `save-and-start-experiment-iteration` until the user explicitly says to start.
