@@ -182,7 +182,7 @@ async function initializeLaunchDarkly() {
     console.log(`✓ LaunchDarkly project ready: ${project.key}`);
     
     // Store SDK key for SDK initialization
-    process.env.LAUNCHDARKLY_SDK_KEY = sdkKey || '';
+    process.env.LD_SDK_KEY = sdkKey || '';
   } catch (error) {
     console.error('Failed to initialize LaunchDarkly:', error);
     process.exit(1);
