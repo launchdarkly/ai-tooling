@@ -500,6 +500,21 @@
     }
   },
   {
+    "name": "list-projects",
+    "description": "List LaunchDarkly projects in the account. Use to discover project keys before calling project-scoped tools.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "description": "Search by project name or key (case-insensitive)" },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Filter by tag (all must match)" },
+        "sort": { "type": "string", "enum": ["name", "-name"], "description": "Sort order" },
+        "limit": { "type": "number", "description": "Page size" },
+        "offset": { "type": "number", "description": "Page offset" }
+      },
+      "required": []
+    }
+  },
+  {
     "name": "get-project",
     "description": "Get a project by key. Returns the project's key, name, and environments.",
     "input_schema": {

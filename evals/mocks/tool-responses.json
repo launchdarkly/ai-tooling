@@ -197,6 +197,13 @@
     ],
     "totalCount": 2
   },
+  "list-projects": {
+    "projects": [
+      { "key": "default", "name": "LaunchDarkly", "tags": [] }
+    ],
+    "totalCount": 1,
+    "pageInfo": { "limit": 25, "offset": 0 }
+  },
   "get-project": {
     "key": "{{projectKey}}",
     "name": "{{projectKey}}",
