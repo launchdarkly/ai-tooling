@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { LDClient } from "launchdarkly-js-client-sdk";
-import { sendFeedback, type LDFeedbackSentiment } from './sendFeedback';
+import { MAX_FEEDBACK_LENGTH, sendFeedback, type LDFeedbackSentiment } from './sendFeedback';
 
 const ThumbsUpIcon = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -107,6 +107,7 @@ export function PopoverFeedback({
             name="feedback"
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
+            maxLength={MAX_FEEDBACK_LENGTH}
             placeholder={prompt}
             rows={3}
             style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem", boxSizing: "border-box", border: "1px solid #ccc", borderRadius: "0.25rem", fontFamily: "sans-serif" }}
