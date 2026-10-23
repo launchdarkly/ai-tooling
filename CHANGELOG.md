@@ -4,6 +4,8 @@ All notable changes to this repository will be documented in this file.
 
 ## Unreleased
 
+- `experiments/launchdarkly-experiment-setup`: require the flag and variations, hypothesis, control, randomization unit, and primary metric from the user before creating anything; check `list-metric-events` before creating a custom-event primary metric and skip creation when the event is not flowing; show the full design, including metric settings and LaunchDarkly defaults, and wait for an explicit yes before `create-metric` or `create-experiment`; start an iteration only after the user says to start (0.3.0).
+
 - Rename `factory/launchdarkly-factory-settings` to `release-autopilot/launchdarkly-release-autopilot-settings` and switch it to the `*-release-autopilot-*` MCP tools (Claude Code plugin 1.0.2, Cursor plugin 1.0.3). Requires a hosted MCP server that exposes the new tool names.
 
 - `factory/launchdarkly-factory-settings`: when GitHub is not installed or this member has not authorized, hand the user `githubConnectUrl` (the integration drawer's install or authorize page) and retry after they finish.
