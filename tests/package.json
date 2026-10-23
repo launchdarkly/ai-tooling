@@ -14,7 +14,7 @@
     "cache:clear": "promptfoo cache clear"
   },
   "devDependencies": {
-    "promptfoo": "^0.122.0"
+    "promptfoo": "^0.124.0"
   },
   "overrides": {
     "@ai-sdk/provider-utils@4": "4.0.46",
@@ -23,7 +23,7 @@
     "js-yaml@4": "^4.3.1",
     "mongoose": "^9.7.2",
     "sharp": "^0.35.3",
-    "simple-git": "^3.36.0",
+    "simple-git": "^4.0.2",
     "socket.io-parser": "^4.2.7",
     "uuid@13": "^13.0.1"
   }
