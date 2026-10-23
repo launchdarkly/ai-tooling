@@ -207,6 +207,7 @@ client.flush();
 - If `@launchdarkly/session-replay` is in the project, include the session ID via `LDRecord.getSession()?.sessionSecureID`. If not, remove the session replay import and `o11y_session_id` logic from the template.
 - Place the utility where the project keeps its LD-related code (alongside existing flag helpers, in a `lib/` or `utils/` directory, etc.)
 - Export the `LDFeedbackSentiment` type if using TypeScript
+- Keep the length limits from the template: `feedback_answer` and `feedback_prompt` are truncated to `MAX_FEEDBACK_LENGTH` (4096 characters), and `custom_properties` is dropped if it serializes to more than `MAX_CUSTOM_PROPERTIES_LENGTH` (4096 characters). Set `maxLength={MAX_FEEDBACK_LENGTH}` on the widget's text input so users see the limit while typing.
 
 **Verification:** After creating the file, search the codebase to confirm it exists and contains the expected content — a `sendFeedback` export that calls `client.track('$ld:feedback', ...)` followed by `client.flush()`. If not found, fix before proceeding.
 
