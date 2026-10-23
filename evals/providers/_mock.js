@@ -37,6 +37,11 @@ function buildReplacements(input) {
     toolDescription: safe.description || "A tool",
     projectKey: safe.projectKey || "my-project",
     environmentKey: safe.environmentKey || safe.env || "production",
+    metricKey: safe.metricKey || safe.key || "unknown-metric",
+    metricName: safe.metricName || safe.name || "Unknown Metric",
+    experimentKey: safe.experimentKey || safe.key || "unknown-experiment",
+    experimentName: safe.experimentName || safe.name || "Unknown Experiment",
+    hypothesis: safe.hypothesis || (safe.iteration && safe.iteration.hypothesis) || "",
   };
 }
 
