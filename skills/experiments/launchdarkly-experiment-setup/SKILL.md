@@ -183,6 +183,8 @@ Before starting, the API requires that:
 - the iteration has a `randomizationUnit`, and
 - at least one treatment has a non-zero `allocationPercent`.
 
+If the flag is off in that environment when the user says to start, don't change the flag. Tell the user the flag must be on in that environment, and that turning it on starts serving its variations to users there. Ask whether they want to turn it on themselves or have you do it, and wait for an explicit answer before calling any tool that changes the flag. Once the flag is on, call `get-flag` again to get the current `flagConfigVersion`, update the draft to use it, and tell the user you did, before starting.
+
 Pass `changeJustification` if you're restarting after a prior iteration was stopped.
 
 ### Step 5: Verify
@@ -259,6 +261,7 @@ If the experiment was inconclusive or no variation beat the control, declare the
 | A required piece is missing | Ask for every missing required piece in one message and wait. |
 | Design not approved | Show the full design and wait. `create-metric` and `create-experiment` stay uncalled. |
 | User has not said to start | Leave the iteration in `not_started`. `start-experiment-iteration` and `save-and-start-experiment-iteration` stay uncalled. |
+| Flag is off when the user says to start | Don't change the flag. Tell the user the flag must be on in that environment, and that turning it on starts serving its variations to users there. Ask whether they want to turn it on themselves or have you do it, and wait for an explicit answer before calling any tool that changes the flag. Once the flag is on, call `get-flag` again to get the current `flagConfigVersion`, update the draft to use it, and tell the user you did, before starting. |
 | Flag has no variations to compare | Create flag variations before designing treatments. |
 | You don't know the flag's `ruleId` / `flagConfigVersion` | Use `get-flag` or `get-flag-status-across-envs`. The fallthrough rule's id is the string `"fallthrough"`. |
 | Experiment already exists | Use `list-experiments` to find it; `get-experiment` for details. |
@@ -271,6 +274,7 @@ If the experiment was inconclusive or no variation beat the control, declare the
 - Don't call `create-metric` for a custom-event primary metric when `list-metric-events` shows the event is not reaching LaunchDarkly.
 - Don't call `create-metric` or `create-experiment` before the user explicitly approves the full design.
 - Don't call `start-experiment-iteration` or `save-and-start-experiment-iteration` until the user explicitly says to start.
+- Don't turn a flag on or off, or change its targeting, unless the user explicitly asks you to.
 - Don't omit `iteration` on `create-experiment` — it's required.
 - Don't set `baseline: true` on more than one treatment.
 - Don't let `allocationPercent` values fail to sum to 100 across treatments.
