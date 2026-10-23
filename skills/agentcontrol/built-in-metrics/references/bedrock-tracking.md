@@ -95,4 +95,6 @@ const callBedrock = createHandler(['Bedrock', 'messages'], async (ldConfig, user
 const result = await config({ key: 'customer-support-chat', handler: callBedrock }).invoke(userInput, context);
 ```
 
+The handler forwards `temperature` only when the variation sets it. Some newer models, such as Claude Haiku 5.5, reject `temperature`, so leave it out of variations that serve them.
+
 The Converse API returns the same `usage` shape for every Bedrock model family, so one handler covers Claude, Llama, Nova, and the rest. For the older `InvokeModel` API, token counts are in model-specific response fields; return them in the same `usage` dict.
