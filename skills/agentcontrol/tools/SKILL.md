@@ -160,16 +160,18 @@ anthropic_client = AsyncAnthropic()
 MAX_STEPS = 5
 
 async def call_anthropic(ld_config, user_input, tool_handlers, variables, history):
+    # Name each tool by its config key, which is also its key in tool_handlers
     tools = [
-        {"name": t["name"], "description": t.get("description", ""), "input_schema": t["parameters"]}
-        for t in (ld_config.get("tools") or {}).values()
+        {"name": key, "description": t.get("description", ""), "input_schema": t["parameters"]}
+        for key, t in (ld_config.get("tools") or {}).items()
     ]
     # Handler packages fill {{name}} placeholders; custom handlers must do it themselves
     system = "\n".join(
         parse_template(m["content"], variables) for m in ld_config.get("messages") or [] if m["role"] == "system"
     )
     max_tokens = (ld_config["model"].get("parameters") or {}).get("max_tokens", 1024)
-    messages = [{"role": "user", "content": user_input}]
+    prior = [{"role": m["role"], "content": m["content"]} for m in history or [] if m["role"] in ("user", "assistant")]
+    messages = [*prior, {"role": "user", "content": user_input}]
     usage = {"input": 0, "output": 0}
     for _ in range(MAX_STEPS):
         response = await anthropic_client.messages.create(
