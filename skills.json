@@ -110,11 +110,11 @@
     },
     {
       "name": "built-in-metrics",
-      "description": "Instrument an existing codebase with LaunchDarkly config tracking. Walks the four-tier ladder (managed runner \u2192 provider package \u2192 custom extractor + trackMetricsOf \u2192 raw manual) and picks the lowest-ceremony option that still captures duration, tokens, and success/error.",
+      "description": "Instrument an existing codebase so LaunchDarkly records config metrics (duration, tokens, success/error, tool calls). Walks the ladder (convenience function \u2192 config() with a handler package \u2192 custom handler \u2192 manual track()) and picks the lowest-ceremony option that still captures what the Monitoring tab needs.",
       "path": "skills/agentcontrol/built-in-metrics",
-      "version": "1.0.0-experimental",
+      "version": "2.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the LaunchDarkly server-side AI SDK (`launchdarkly-server-sdk-ai>=0.20.0` for Python or `@launchdarkly/server-sdk-ai>=0.20.0` for Node) and an existing config."
+      "compatibility": "Requires `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js), a handler package for your provider, and an existing config."
     },
     {
       "name": "configs-create",
