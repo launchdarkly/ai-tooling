@@ -138,6 +138,43 @@ this repository.
 - Put under `outside_repo` only a lead you can't check in a listed client
   checkout: a repository that isn't listed, or a caller you can't show.
 
+DATA GATES: CODE THAT ONLY ACTS ON RECORDS FLAGGED CODE WRITES
+Changed code can run whatever a flag says and still do nothing until the
+flag is on: it only acts on records -- rows of a table, a column, a stored
+field, a record of some kind or status -- that only code behind the flag
+writes. A reader of a column only a flagged path fills; a handler for
+conversations of a kind only a flagged path creates. That counts as behind
+the flag. Follow the data the changed code reads back
+to every place that writes it, and when each write is behind a flag, report
+it under `data_gates`:
+- `data`: the records, in plain words (`what`), and `name`: the identifier
+  every write of them names, so a search for it finds them all -- the column
+  or field, or the constant for the kind or status. When the name is a
+  value (a kind, a status), a write can also set it from a variable: add the
+  field or setter it is written through under `also` (`WithKind`, `Status`),
+  and list each of its uses too -- a write of a different value is an other
+  use.
+- `readers`: the changed lines that act only on those records.
+- `writers`: EVERY line at {HEAD} that writes those records: inserts or
+  updates them, sets the field, creates a record of that kind. Each says how
+  it is reached: `gated` (give that flag's gate: a chain in the gate format
+  above, ending with the write line itself, role `writes`), `off` (it writes
+  them only empty -- a null column, an empty list -- quote the line that
+  makes it so as `off_line`), `test`, or `none` (nothing reaches it at head;
+  say why in `note`). A migration or backfill that fills existing rows is a
+  writer.
+- `other_uses`: every other line at {HEAD} in shipping code that names
+  `name`: reads, declarations (a struct field, a column a migration adds
+  empty), registrations. Imports need no listing.
+- `ld-factory.pyz gates` checks every quoted line, checks each gated writer's chain
+  like a gate, and searches {HEAD} for `name`: a line in shipping code you
+  didn't list drops the whole claim. A line that writes the records is a
+  writer even where it also reads them: listing it as an other use hides
+  an ungated write.
+- No data gate when ungated code writes the records, or wrote them before
+  this change (records that already exist are there for the change to act
+  on), or when no flag is behind any writer.
+
 Read-only: don't modify the repository or a client checkout, create or change
 flags, or use the network.
 
@@ -146,7 +183,7 @@ Write ONLY this JSON to {RUN}/gates.json, then run
 
 {"gates": [{"key": "the-flag-key", "how": "route | layout | helper | hook | caller | handler | css | config | other",
             "covers": "all | part", "covers_note": "which changed hunks it gates, if part",
-            "chain": [{"path": "path/at/head", "line": 123, "text": "the exact line", "role": "evaluates | decides | passes | renders | calls | styles | registers | changed"}],
+            "chain": [{"path": "path/at/head", "line": 123, "text": "the exact line", "role": "evaluates | decides | passes | renders | calls | styles | registers | writes | changed"}],
             "why": "one sentence, in plain words about the developer's code: how this flag being off keeps the changed code from running or being seen"}],
  "covered_units": [{"unit": {"path": "path/at/head", "line": 12, "text": "the exact definition line", "name": "the identifier callers use", "route": "/the/route/path, for an endpoint (else leave out)", "external": "the name a client calls it by, when it differs (a GraphQL field), else leave out"},
                     "declared_at": [{"repo": "a client's name, for a line there (else leave out)", "path": "...", "line": 0, "text": "..."}],
@@ -155,5 +192,13 @@ Write ONLY this JSON to {RUN}/gates.json, then run
                                  "off_because": "for off: how this path leaves the new behavior off", "off_line": {"path": "...", "line": 0, "text": "..."},
                                  "note": "for none: why nothing reaches this caller"}],
                     "why": "one sentence: every way a customer reaches this unit is behind a flag or leaves the new behavior off"}],
+ "data_gates": [{"data": {"name": "the identifier every write names", "also": ["the field or setter a write sets it through, for a value such as a kind"], "what": "the records, in plain words"},
+                 "readers": [{"path": "path/at/head", "line": 40, "text": "the exact changed line that acts on them"}],
+                 "writers": [{"path": "...", "line": 0, "text": "the exact writing line", "reached_by": "gated | off | test | none",
+                              "gate": {"key": "the-flag-key", "chain": ["...links as in gates, the last one this write line, role writes..."]},
+                              "off_because": "for off: why it writes them only empty", "off_line": {"path": "...", "line": 0, "text": "..."},
+                              "note": "for none: why nothing reaches this write"}],
+                 "other_uses": [{"path": "...", "line": 0, "text": "a line that names it without writing it"}],
+                 "why": "one sentence: the changed code only acts on these records, and only flagged code writes them"}],
  "outside_repo": [{"key_or_name": "...", "reference": "path:line and what it says"}],
  "searched": "one or two sentences: the routes, callers, helpers or styles you followed"}
