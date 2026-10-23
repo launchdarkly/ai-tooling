@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.3.2"
+  version: "0.3.0"
 ---
 
 # LaunchDarkly Experiment Setup
