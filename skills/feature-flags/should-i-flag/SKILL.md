@@ -1,12 +1,12 @@
 ---
 name: should-i-flag
-description: "should-flag-change v2 (preview): a decision-tree version that decides whether a committed code change should ship behind a LaunchDarkly feature flag, with checked evidence and a structured advisory recommendation. Use only when your instructions or the user name should-i-flag; the default for this task is should-flag-change (v1). Read-only: it never creates or modifies flags."
+description: "should-flag-change v2 (preview): a decision-tree version that decides whether a committed code change should ship behind a LaunchDarkly feature flag, with checked evidence and a structured advisory recommendation. Use only when your instructions or the user name should-i-flag; the default for this task is should-flag-change (v1). When they do, run it on every change, including test-only, docs, dependency and already-flagged ones: those finish in a minute or two, and its verdict, not your own read of the diff, is the decision. Read-only: it never creates or modifies flags."
 license: Apache-2.0
-compatibility: "Advisory and read-only. Needs a git checkout with the change committed (a full clone: shallow is fine, a --filter partial clone is not), a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run, it hands off to the should-flag-change skill. Returns a structured verdict as a `recommend-flag` block."
+compatibility: "Advisory and read-only. Needs a git checkout with the change committed (shallow is fine; a --filter partial clone is filled in from its remote), a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run, it hands off to the should-flag-change skill. Returns a structured verdict as a `recommend-flag` block."
 metadata:
   author: launchdarkly
   version: "0.1.0"
-  graph: "ae68844604b5"
+  graph: "3ca2cedbe3a5"
 ---
 
 # Should This Change Be Behind a Flag?
@@ -45,7 +45,7 @@ why, when this skill can't run:
 - there's no shell, no `python3` or no `git`, or no checkout of the change
   (for example, only a pasted diff);
 - `ld-factory.pyz` crashes, or reports a setup problem (exit 2) you can't fix by
-  correcting what you passed it.
+  correcting what you passed it or, for a partial clone, by cloning again.
 
 Follow `should-flag-change` from the start, and never mix the two. If it isn't
 available either, say so and stop.
@@ -61,11 +61,13 @@ ld-factory.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
 
 - `REPO_PATH` defaults to the current directory, `--head` to `HEAD`, `--base`
   to the remote's default branch (`origin/HEAD`, else `origin/main`).
-- **Clone the whole tree.** The evidence reads files the change doesn't
-  touch: callers, routes, middleware, flag declarations. A shallow clone
-  (`--depth`) is fine, and so is a sparse working tree, but not a partial
-  clone (`--filter=blob:none`): `start` stops with exit 2 when files at the
-  change's commit or its base are missing.
+- **The whole tree at the change's commit and its base.** The evidence
+  reads files the change doesn't touch: callers, routes, middleware, flag
+  declarations. A shallow clone (`--depth`) is fine, and so is a sparse
+  working tree. In a partial clone (`--filter=blob:none`, `--filter=tree:0`)
+  `start` fetches the files it lacks at those two commits from the clone's
+  remote first (`PARTIAL CLONE`); it adds objects only, never a checkout or a
+  ref. When that fetch can't fill them, it stops with exit 2.
 - **On a pull request** (CI, a PR review), pass the PR's base and head:
   `--base origin/<base_ref> --head <head_sha>`, and its title and body
   (write the body to a file first). Without them the commit message stands in
@@ -77,7 +79,7 @@ ld-factory.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
   consumer search below read them.
 
 It prints `RUN: <folder>` and status lines (`CHECKING`, `CHANGE`,
-`UNCOMMITTED`, `PR TEXT`, `PROFILE CHECK`, `LAUNCHDARKLY`). By exit code:
+`UNCOMMITTED`, `PR TEXT`, `PROFILE CHECK`, `LAUNCHDARKLY`, `PARTIAL CLONE`). By exit code:
 
 | Exit | Meaning | What you do |
 |---|---|---|
@@ -85,7 +87,7 @@ It prints `RUN: <folder>` and status lines (`CHECKING`, `CHANGE`,
 | 7 | LaunchDarkly flags are needed | Fetch the flags listed in `RUN/launchdarkly-needed.txt` as [LAUNCHDARKLY.md](references/LAUNCHDARKLY.md) says, then run the same `start` command again. If you have no way to read LaunchDarkly, run it again with `--no-launchdarkly`. |
 | 4 | Nothing committed to check | Stop; tell the developer to commit (a WIP commit is fine) and ask again. |
 | 6 | Can't tell which changes are this branch's | Stop and report it: a person needs to decide. |
-| 2 | Setup problem | If you passed something wrong (a ref, a file), fix it and run `start` again; otherwise hand off to `should-flag-change` (above) and say why. |
+| 2 | Setup problem | If it says the clone is partial, do what it says: clone the repository again without `--filter`, keeping its full history (no `--depth`: the diff needs the merge base), check out the same commit, and run the same `start` command again. If you passed something wrong (a ref, a file), fix it and run `start` again; otherwise hand off to `should-flag-change` (above) and say why. |
 
 `PROFILE CHECK` says whether the profile used for this repo finds the flag
 checks in the changed files. Lines it can't account for (a flag key with no
@@ -126,8 +128,12 @@ a changed unit, each behind a flag or leaving the new behavior off) is kept
 only when its lines match and a search of the commit finds no caller you
 didn't list; callers in a client repository are checked the same way in
 that checkout at its pinned commit, and their flags read from that
-repository's LaunchDarkly project (`CALLER COVERAGE: N verified, M dropped`). An empty list is a
-correct result when nothing gates the change: don't guess.
+repository's LaunchDarkly project (`CALLER COVERAGE: N verified, M dropped`). A
+data gate (changed code that only acts on records whose every writer is
+behind a flag) is kept the same way: its lines match, and a search of the
+commit for the data's name finds no use you didn't list (`DATA GATES: N
+verified, M dropped`). An empty list is a correct result when nothing gates
+the change: don't guess.
 
 **Then the risk search.** Some changes rework a path customers already use in
 a way that can fail them -- a new call or write to another service, an
