@@ -41,6 +41,9 @@
  *                                 promptfoo's Nunjucks var rendering; the wrapper is
  *                                 stripped here (see stripRawWrapper).
  *   max_turns                   - per-test override, clamped to 1..30 (default 15)
+ *   expose_mcp_tools            - per-test override of the provider config option
+ *                                 (true/false), e.g. to run one test with no
+ *                                 LaunchDarkly tools
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
  *                                 successive `ask-question` calls
  *   mock_files                  - optional object mapping relative file paths to
@@ -148,6 +151,15 @@ function stripRawWrapper(value) {
   return m ? m[1] : value;
 }
 
+// A test can override the suite's expose_mcp_tools config for itself. YAML may
+// hand the var over as a boolean or as the string "true"/"false"; any other
+// value falls back to the config.
+function resolveExposeMcpTools(configValue, varValue) {
+  if (varValue === false || varValue === "false") return false;
+  if (varValue === true || varValue === "true") return true;
+  return configValue;
+}
+
 function clampMaxTurns(raw) {
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return DEFAULT_MAX_TURNS;
@@ -211,6 +223,10 @@ class ClaudeSkillAgentSdk {
     const codebaseContext = stripRawWrapper(context?.vars?.codebase_context || "");
     const gitDiff = stripRawWrapper(context?.vars?.git_diff || "");
     const maxTurns = clampMaxTurns(context?.vars?.max_turns);
+    const exposeMcpTools = resolveExposeMcpTools(
+      this.exposeMcpTools,
+      context?.vars?.expose_mcp_tools,
+    );
     const askQuestionAnswers = Array.isArray(
       context?.vars?.mock_ask_question_answers,
     )
@@ -239,7 +255,7 @@ class ClaudeSkillAgentSdk {
     let currentTurn = 0;
     const mockState = createMockState();
 
-    const mcpTools = this.exposeMcpTools
+    const mcpTools = exposeMcpTools
       ? toolDefs.map((def) =>
           tool(
             def.name,
@@ -266,7 +282,7 @@ class ClaudeSkillAgentSdk {
         )
       : [];
 
-    const mockServer = this.exposeMcpTools
+    const mockServer = exposeMcpTools
       ? createSdkMcpServer({ name: "launchdarkly-mocks", tools: mcpTools })
       : null;
 
@@ -325,7 +341,7 @@ class ClaudeSkillAgentSdk {
       : null;
 
     const allowedMcpToolNames = [];
-    if (this.exposeMcpTools) {
+    if (exposeMcpTools) {
       for (const def of toolDefs) {
         allowedMcpToolNames.push(`mcp__launchdarkly-mocks__${def.name}`);
       }
@@ -338,7 +354,7 @@ class ClaudeSkillAgentSdk {
 
     const harnessPrompt = [
       `You are running under an evaluation harness. The skill "${this.skillSlug}" is loaded into your context.`,
-      this.exposeMcpTools
+      exposeMcpTools
         ? "LaunchDarkly MCP tools are exposed as in-process mocks for this run; treat them as pre-authorized and call them when the skill directs you to."
         : "No LaunchDarkly MCP tools are available for this run.",
       this.exposeAskQuestion
@@ -570,3 +586,4 @@ class ClaudeSkillAgentSdk {
 module.exports = ClaudeSkillAgentSdk;
 // Exposed for unit tests; the promptfoo loader uses the class default export.
 module.exports.stripRawWrapper = stripRawWrapper;
+module.exports.resolveExposeMcpTools = resolveExposeMcpTools;
