@@ -20,7 +20,11 @@ def build_model(ld_config):
     params = {k: v for k, v in ld_config["model"].get("parameters", {}).items() if k != "tools"}
     provider = ld_config["provider"]["name"]
     if provider == "Anthropic":
-        return AnthropicModel(model_id=name, max_tokens=params.pop("max_tokens", 1024), params=params)
+        max_tokens = params.pop("max_tokens", 1024)
+        # anthropic 2.x no longer accepts temperature or top_p
+        params.pop("temperature", None)
+        params.pop("top_p", None)
+        return AnthropicModel(model_id=name, max_tokens=max_tokens, params=params or None)
     if provider == "OpenAI":
         return OpenAIModel(model_id=name, params=params)
     return BedrockModel(model_id=name, **params)
