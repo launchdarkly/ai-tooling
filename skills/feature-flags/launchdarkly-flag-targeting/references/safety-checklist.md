@@ -24,12 +24,12 @@ Run through this checklist before applying any targeting changes, especially in 
 
 Some environments require approval for changes.
 
-- [ ] If any mutation tool returns `requiresApproval: true`, inform the user
-- [ ] Provide the approval URL if one was returned
-- [ ] Offer to create an approval request with `create-approval-request` using the returned `instructions`
+- [ ] If a write tool returns `Blocked: approval is required`, inform the user and do not retry the write
+- [ ] Offer to create an approval request with `create-approval-request`, passing the blocked message's instructions unchanged
 - [ ] Include a clear description of the intended change in the approval request
+- [ ] Open the request's `url` in the user's browser when your client can, and show the link
 - [ ] Do NOT attempt to bypass approval or auto-approve
-- [ ] If checking on a previous request, use `list-approval-requests`
+- [ ] Check the outcome with `list-approval-requests` and the request's `id` once the user says the request has been reviewed
 - [ ] Only apply a request (`apply-approval-request`) if reviewStatus is "approved"
 
 See [Approval Workflows](approval-workflows.md) for the complete reference.

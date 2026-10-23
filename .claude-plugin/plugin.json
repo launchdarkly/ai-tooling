@@ -30,6 +30,7 @@
     "./skills/feature-flags/launchdarkly-flag-create",
     "./skills/feature-flags/launchdarkly-flag-discovery",
     "./skills/feature-flags/launchdarkly-flag-targeting",
+    "./skills/feature-flags/launchdarkly-approvals",
     "./skills/metrics/launchdarkly-metric-choose",
     "./skills/metrics/launchdarkly-metric-create",
     "./skills/metrics/launchdarkly-metric-instrument",
