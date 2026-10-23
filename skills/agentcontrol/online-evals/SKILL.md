@@ -71,7 +71,7 @@ curl -X POST "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-confi
     "key": "security-judge",
     "name": "Security Judge",
     "mode": "judge",
-    "evaluationMetricKey": "security",
+    "evaluationMetricKey": "$ld:ai:judge:security",
     "isInverted": false
   }'
 ```
@@ -198,10 +198,14 @@ class AIConfigJudges:
         Args:
             key: Judge config key
             name: Display name
-            metric_key: Metric key for scoring (appears as $ld:ai:judge:{metric_key})
+            metric_key: Metric key for scoring; "security" is sent as "$ld:ai:judge:security"
             system_prompt: Evaluation instructions
             is_inverted: True if lower scores are better (e.g., toxicity)
         """
+        # The API rejects a bare metric key
+        if not metric_key.startswith("$ld:ai:judge:"):
+            metric_key = f"$ld:ai:judge:{metric_key}"
+
         # Create config
         config_url = f"{self.base_url}/projects/{self.project_key}/ai-configs"
         response = requests.post(config_url, headers=self.headers, json={
@@ -251,7 +255,9 @@ class AIConfigJudges:
         targeting = response.json()
         variation_id = None
         for var in targeting.get("variations", []):
-            if var.get("key") == variation_key or var.get("name") == variation_key:
+            # The variation key is in value._ldMeta.variationKey, not on the item itself
+            meta_key = ((var.get("value") or {}).get("_ldMeta") or {}).get("variationKey")
+            if meta_key == variation_key or var.get("name") == variation_key:
                 variation_id = var.get("_id")
                 break
 
