@@ -280,17 +280,19 @@ class AIConfigJudges:
 
 ## SDK: Inline Evaluation
 
-`invoke()` runs every judge attached to the served variation, samples each at its rate, and records the scores as metrics. Pass a handler for each provider your config and its judges use:
+`invoke()` runs every judge attached to the served variation, samples each at its rate, and records the scores as metrics. Pass a handler for each provider your config and its judges use. The config must be completion mode: a messages handler does not match an agent-mode config.
 
 ```python
 import asyncio
 from launchdarkly_ai_server import config, shutdown
 from launchdarkly_ai_openai_messages import create_openai_messages_handler
 
+config_key = "support-agent"  # completion mode
+
 async def main():
     # Reads LD_SDK_KEY and OPENAI_API_KEY from the environment
     result = await config(
-        key="support-agent",
+        key=config_key,
         handler=create_openai_messages_handler(),
     ).invoke("How can LaunchDarkly help me?", {"kind": "user", "key": "user-123"})
 
@@ -334,7 +336,9 @@ from launchdarkly_ai_openai_messages import create_openai_messages_handler
 
 handler = create_openai_messages_handler()
 
-result = await config(key="support-agent", handler=handler, skip_judges=True).invoke(
+config_key = "support-agent"  # completion mode
+
+result = await config(key=config_key, handler=handler, skip_judges=True).invoke(
     "How can LaunchDarkly help me?", {"kind": "user", "key": "user-123"}
 )
 
@@ -380,6 +384,9 @@ If your application calls the model itself, wrap that call in a handler with `cr
 from launchdarkly_ai_server import config, create_handler, parse_template
 from launchdarkly_ai_openai_messages import create_openai_messages_handler
 
+config_key = "support-agent"  # completion mode
+
+# run_my_agent is your existing pipeline; it returns the text and the provider's usage object
 async def my_pipeline(ld_config, user_input, tool_handlers, variables, history):
     # Custom handlers fill {{name}} placeholders themselves
     messages = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])]
@@ -391,7 +398,7 @@ handlers = [
     create_openai_messages_handler(),                       # the judge's provider
 ]
 
-result = await config(key="support-agent", handler=handlers).invoke(user_input, context)
+result = await config(key=config_key, handler=handlers).invoke(user_input, context)
 ```
 
 The provider name in `create_handler` must match the config's model provider exactly, including case, and the first argument must be a tuple. For the full handler contract, see the `tools` skill.
