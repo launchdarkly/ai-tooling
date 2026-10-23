@@ -199,7 +199,7 @@ class AIConfigJudges:
             key: Judge config key
             name: Display name
             metric_key: Metric key for scoring; "security" is sent as "$ld:ai:judge:security"
-            system_prompt: Evaluation instructions
+            system_prompt: Evaluation instructions; {{message_history}} is appended if missing
             is_inverted: True if lower scores are better (e.g., toxicity)
         """
         # The API rejects a bare metric key
@@ -219,6 +219,10 @@ class AIConfigJudges:
         if response.status_code not in [200, 201]:
             print(f"[ERROR] Creating config: {response.text}")
             return {}
+
+        # Without {{message_history}} the judge never sees the conversation it scores
+        if "{{message_history}}" not in system_prompt:
+            system_prompt = f"{system_prompt}\n\n{{{{message_history}}}}"
 
         # Create variation
         var_url = f"{self.base_url}/projects/{self.project_key}/ai-configs/{key}/variations"
