@@ -532,7 +532,7 @@
   },
   {
     "name": "match-release-policies",
-    "description": "Preview which release policy governs a flag in an environment and what a policy-based release would do. Before the flag exists pass flagTags for client-side matching; after it exists pass flagKey for the authoritative server-resolved policy. Returns winningPolicy, winningReleaseMethod (immediate|progressive|guarded|null), and any auto-attached metric/metric-group keys.",
+    "description": "Preview which release policy governs a flag in an environment and what a policy-based release would do. Before the flag exists pass flagTags for client-side matching; after it exists pass flagKey for the authoritative server-resolved policy. Returns winningPolicy, winningReleaseMethod (immediate|progressive|guarded|null), any auto-attached metric/metric-group keys, and a warnings array. A non-empty warnings array (code missing_policy when nothing matched, or incomplete_policy when the matched policy lacks required stages/metrics) means you must NOT present the environment as a clean policy rollout — surface the warning and stop for clarification.",
     "input_schema": {
       "type": "object",
       "properties": {

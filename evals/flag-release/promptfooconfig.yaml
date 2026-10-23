@@ -354,3 +354,92 @@ tests:
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
         weight: 3
+
+  # ==================================================================
+  # MISSING POLICY — the environment has no matching release policy. The
+  # mock's project `no-release-policies` makes match-release-policies
+  # return a missing_policy warning. The skill must SURFACE the warning
+  # and NOT present/record production as a clean `policy` rollout, nor
+  # invent a fallback. (EMSR-1930)
+  # ==================================================================
+  - description: "Missing policy: surfaces the missing_policy warning, does not record an unbacked policy rollout"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `reporting-export` already exists (created OFF) for PR acme/data#12,
+        in project `no-release-policies`. Record its automated release for
+        `production`, releasing on merge.
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = tools.includes('match-release-policies');
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'previewed policy' : 'did not call match-release-policies' };
+        metric: previewed_policy
+        weight: 2
+
+      - type: javascript
+        value: |
+          // Must not present a clean `policy` rollout the policy can't back: either
+          // record nothing (warned and asked), or at least not record production as
+          // releaseType `policy`.
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
+          if (!rec) return { pass: true, score: 1, reason: 'stopped without recording (warned and asked)' };
+          const prod = ((rec.arguments && rec.arguments.environments) || []).find(e => e.environmentKey === 'production');
+          const pass = !prod || prod.releaseType !== 'policy';
+          return { pass, score: pass ? 1 : 0, reason: prod ? `recorded production as releaseType=${prod.releaseType}` : 'production not recorded' };
+        metric: no_unbacked_policy_release
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The environment `production` has NO matching release policy —
+          match-release-policies returned a `missing_policy` warning.
+          Evaluate the response:
+          1. Does it SURFACE that no release policy matches, rather than silently
+             proceeding?
+          2. Does it STOP for clarification / offer an alternative (e.g. `simple`, or
+             setting up a policy) instead of claiming a clean `policy` rollout or
+             inventing a fallback rollout?
+          3. Did it avoid turning the flag on by hand?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
+        metric: rationale_quality
+        weight: 3
+
+  # ==================================================================
+  # INCOMPLETE POLICY — a policy matches but can't govern a rollout as-is
+  # (guarded with no stages). The mock's project `incomplete-policy`
+  # returns an incomplete_policy warning. The skill must surface it and
+  # NOT claim a clean guarded rollout. (EMSR-1930)
+  # ==================================================================
+  - description: "Incomplete policy: surfaces the incomplete_policy warning, does not claim a clean guarded rollout"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `pricing-v2` already exists (created OFF) for PR acme/store#77, in
+        project `incomplete-policy`. Record its automated release for `production`,
+        releasing on merge.
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = tools.includes('match-release-policies');
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'previewed policy' : 'did not call match-release-policies' };
+        metric: previewed_policy
+        weight: 2
+
+      - type: llm-rubric
+        value: |
+          The `production` release policy MATCHED but is INCOMPLETE — it is guarded
+          with no stages, and match-release-policies returned an `incomplete_policy`
+          warning (missing: stages).
+          Evaluate the response:
+          1. Does it SURFACE the incomplete-policy warning (a guarded policy that can't
+             run as-is), rather than describing a clean guarded rollout?
+          2. Does it stop / recommend fixing the policy or using `simple` or an explicit
+             override, instead of inventing the missing stages?
+          3. Did it avoid turning the flag on by hand?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
+        metric: rationale_quality
+        weight: 4
