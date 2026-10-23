@@ -387,7 +387,7 @@ Delegate: **`online-evals`** (sub-step 3, optional — offline eval doesn't dele
 |-----------|--------|
 | App already initializes `LDClient` for feature flags | Reuse it — `init_client(client=ldclient.get())` / `initClient(ldClient)`. Do not create a second client |
 | App is on the legacy AI SDK (`ldai`, `@launchdarkly/server-sdk-ai`) | Treat `completion_config` / `agent_config` / `create_tracker` call sites as Stage 1 targets. Replace with `config().invoke()`, delete tracker code, and replace `*ConfigDefault` fallbacks with the original-call fallback |
-| App uses LangChain `ChatOpenAI(model=...)` | Use the LangChain handler package. For providers it doesn't build itself (anything but OpenAI, Anthropic, Bedrock), pass a model factory: `create_langchain_messages_handler(lambda cfg: ChatX(model=cfg["model"]["name"], **cfg["model"].get("parameters", {})))` |
+| App uses LangChain `ChatOpenAI(model=...)` | Use the LangChain handler package. For providers it doesn't build itself (anything but OpenAI, Anthropic, Bedrock), pass a model factory: `create_langchain_messages_handler(lambda cfg: ChatX(model=cfg["model"]["name"], **{k: v for k, v in cfg["model"].get("parameters", {}).items() if k != "tools"}))`. The factory gets the raw config, so drop `tools` |
 | Retry wrapper around the provider call | Keep it inside a custom handler, around the provider call. The SDK records one generation per `invoke()`, however many retries happen inside |
 | App has no tools — Stage 3 skipped | Move directly from Stage 2 verification to Stage 4 |
 | Mode mismatch: user said agent, audit shows one-shot chat | Choose completion mode unless the app uses a prebuilt agent (`create_agent`, `createReactAgent`), CrewAI, Strands, or a similar goal-driven framework |

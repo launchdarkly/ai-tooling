@@ -77,7 +77,8 @@ Rules for every custom handler:
 
 - **Render templates yourself.** Handler packages call `parse_template` / `parseTemplate`; custom handlers must, or `{{name}}` reaches the model as literal text.
 - **Strip `tools` from `model.parameters`.** Attached tool definitions are stored there in LaunchDarkly's format and will be rejected by the provider SDK. The definitions are also available as `ld_config["tools"]`, a map from tool name to `{description, parameters}`.
-- **Don't catch provider exceptions.** If the handler raises, the SDK records the duration and an error, then re-raises to your fallback.
+- **Don't catch provider exceptions.** If the handler raises, the SDK records the duration and an error, then re-raises it to the caller.
+- **Don't raise `RuntimeError` from a handler.** The fallback around `invoke()` catches `RuntimeError` as "LaunchDarkly can't serve this config", so a handler failure of that type would be silently served by the hardcoded path. Raise a specific exception type instead.
 - **Provider names are case-sensitive:** `OpenAI`, `Anthropic`, `Bedrock`, `Gemini`.
 
 ## Tool-scoped and app-scoped knobs go in `model.custom`
@@ -151,6 +152,8 @@ const result = await agent.invoke(userInput, context);
 If the app compiles its own graph (`bind_tools` + `ToolNode`, custom nodes), keep it and wrap one `ainvoke` in a custom agent handler. Build the graph's tools from the wrapped `tool_handlers` so tool calls are recorded, and sum `usage_metadata` across the turn's messages:
 
 ```python
+import inspect
+
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool as lc_tool
 from launchdarkly_ai_server import config, create_handler, parse_template
@@ -160,7 +163,8 @@ def build_tools(ld_config, tool_handlers):
     for name, spec in (ld_config.get("tools") or {}).items():
         fn = tool_handlers[name]
         async def call(_fn=fn, **kwargs):
-            return str(await _fn(kwargs))
+            result = _fn(kwargs)
+            return str(await result if inspect.isawaitable(result) else result)
         tools.append(lc_tool(name, call, description=spec.get("description", ""), args_schema=spec.get("parameters") or {}))
     return tools
 
@@ -228,6 +232,9 @@ If the loop calls OpenAI or Anthropic and only exists to dispatch tools, **delet
 If the loop does more (custom stopping rules, a provider without a handler package), move it into a custom handler unchanged. Call the wrapped `tool_handlers[name](args)` for each tool call, accumulate usage across iterations, and return the sum:
 
 ```python
+class AgentStepLimitError(Exception):
+    pass
+
 async def run_loop(ld_config, user_input, tool_handlers, variables, history):
     system = parse_template(ld_config.get("instructions", ""), variables)
     tool_specs = ld_config.get("tools") or {}
@@ -243,7 +250,7 @@ async def run_loop(ld_config, user_input, tool_handlers, variables, history):
         for call in calls:
             result = await tool_handlers[call.name](call.args)
             messages.extend(tool_result_messages(call, result))
-    raise RuntimeError("agent exceeded MAX_STEPS")
+    raise AgentStepLimitError(f"agent exceeded {MAX_STEPS} steps")
 ```
 
 ## Tools
