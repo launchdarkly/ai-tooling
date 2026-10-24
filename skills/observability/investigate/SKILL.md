@@ -42,7 +42,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 - `errors.md` — when looking at error groups, stack traces, exception frequency
 - `sessions.md` — when reconstructing user journeys or correlating frontend behavior with backend events
 - `metrics.md` — when aggregating across a large dataset or building a chart
-- `relationship-search.md` — when a sessions or traces question depends on how events relate: order (`THEN`), absence (`no_span`), co-occurrence (`AND`), or alternatives (`OR`), including spans vs. logs
+- `relationship-search.md` — when a sessions question depends on how events relate: order (`THEN`), absence (`no_span`), co-occurrence (`AND`), or alternatives (`OR`), including spans vs. logs
 
 ## Universal guidance
 

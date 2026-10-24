@@ -1,17 +1,19 @@
 # Relationship search: `span(...)`, `log(...)`, and `THEN`
 
-Load this file when a `query-sessions` or `query-traces` question depends on how events relate to each other: "did A happen and then B?", "did A happen but never B?", "which sessions had both A and B?", "either A or B?".
+Load this file when a `query-sessions` question depends on how events relate to each other: "did A happen and then B?", "did A happen but never B?", "which sessions had both A and B?", "either A or B?".
 
 Plain filters such as `visited-url=*/pricing* visited-url=*/checkout*` only check that a session matched each filter, in any order and not necessarily on the same event. Relationship search wraps each event in its own block and joins the blocks with `AND`, `OR`, or `THEN`. Never tell the user that event order or absence cannot be checked; use this syntax instead.
 
 ## Blocks
 
-| Block | Matches | Available in |
-|---|---|---|
-| `span(A)` | at least one span matching `A` | `query-sessions` (same session), `query-traces` (same trace) |
-| `no_span(A)` | no span matches `A` | `query-sessions`, `query-traces` |
-| `log(A)` | at least one log matching `A`, recorded during the session | `query-sessions` only |
-| `no_log(A)` | no log matches `A` during the session | `query-sessions` only |
+| Block | Matches |
+|---|---|
+| `span(A)` | at least one span matching `A` in the session |
+| `no_span(A)` | no span in the session matches `A` |
+| `log(A)` | at least one log matching `A`, recorded during the session |
+| `no_log(A)` | no log matches `A` during the session |
+
+Relationship search is available in `query-sessions` only. Don't use `span(...)` chains or `THEN` in `query-traces`.
 
 In Session Replay search, every page view, click, network request, `track` call, and flag evaluation is stored as a span, so `span(...)` covers frontend events as well as backend spans. Log blocks only join logs recorded with the session's `secure_session_id`. Frontend console logs carry it. Backend logs carry it only when the SDK propagated the session to that request.
 
@@ -99,12 +101,6 @@ os_name=(iOS OR Android) country=US (span(span_name="click" event.text="Cancel S
 span(span_name="click" event.text="Save") THEN span(span_name="click" event.text="Save")
 ```
 
-In `query-traces`, the same blocks correlate on the trace instead of the session:
-
-```
-span(service_name=checkout span_name=reserve) THEN no_span(service_name=payments)
-```
-
 ## Rules the parser enforces
 
 - `THEN` only joins blocks, never plain filters. Write `country=US span(A)`, not `country=US THEN span(A)`.
@@ -113,7 +109,6 @@ span(service_name=checkout span_name=reserve) THEN no_span(service_name=payments
 - `NOT` cannot precede a block or a chain. Use `no_span(...)` / `no_log(...)` instead. `span(NOT x)` means "some event that isn't x", which almost every session has.
 - Blocks cannot be nested, and a parenthesized group cannot follow `THEN`. Expand `span(A) THEN (span(B) OR span(C))` into `(span(A) THEN span(B)) OR (span(A) THEN span(C))`, or merge `B` and `C` into one block with a value group.
 - `OR` between a block and a plain session filter is rejected. `country=US span(A) OR span(B)` is also rejected, because it parses as `(country=US AND span(A)) OR span(B)`. Wrap the alternatives: `country=US (span(A) OR span(B))`.
-- In `query-traces`, `any_span(...)`, `child_span(...)`, `parent_span(...)`, `root_span(...)`, and `any_session(...)` cannot be `THEN` steps. Log blocks are not available in trace search.
 
 ## Not supported
 
@@ -121,7 +116,7 @@ Don't invent syntax for these. Rewrite to the closest supported form and tell th
 
 - **Time bounds** ("B within 10 seconds of A"): there is no `WITHIN`. `THEN` means "later, with no upper bound".
 - **Counts** ("clicked Retry at least 3 times"): there is no count operator. Chain `THEN` once per occurrence for small numbers.
-- **Ordering across sessions**: every block is scoped to one session (or one trace).
+- **Ordering across sessions**: every block is scoped to one session.
 
 ## Interpreting results
 
