@@ -581,5 +581,90 @@
       },
       "required": ["projectKey", "flagKey", "environments"]
     }
+  },
+  {
+    "name": "list-metrics",
+    "description": "List metrics in a project. Use to find existing metrics to reuse as an experiment's primary or guardrail metric before creating a new one.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" },
+        "query": { "type": "string", "description": "Search by metric name or key" },
+        "limit": { "type": "number", "description": "Max number of results (default 20)" }
+      },
+      "required": ["projectKey"]
+    }
+  },
+  {
+    "name": "create-metric",
+    "description": "Create a metric that measures an experiment outcome. Use kind 'custom' with isNumeric false for conversion (yes/no) metrics, or isNumeric true for numeric metrics (latency, revenue). eventKey is the tracked event the metric counts.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" },
+        "key": { "type": "string", "description": "Unique metric key (immutable)" },
+        "name": { "type": "string", "description": "Human-readable metric name" },
+        "kind": { "type": "string", "enum": ["custom", "pageview", "click"], "description": "Metric kind (default custom)" },
+        "isNumeric": { "type": "boolean", "description": "True for numeric metrics, false for conversion metrics" },
+        "eventKey": { "type": "string", "description": "The event key the metric counts (matches the track() call)" },
+        "successCriteria": { "type": "string", "enum": ["HigherThanBaseline", "LowerThanBaseline"], "description": "Which direction is success" },
+        "description": { "type": "string", "description": "What the metric measures" }
+      },
+      "required": ["projectKey", "key", "name"]
+    }
+  },
+  {
+    "name": "create-experiment",
+    "description": "Create an experiment with its first iteration. The nested iteration object carries the hypothesis, metrics, treatments, and flag config. Exactly one treatment must have baseline true and allocationPercent values must sum to 100.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" },
+        "environmentKey": { "type": "string", "description": "The environment key" },
+        "key": { "type": "string", "description": "Unique experiment key" },
+        "name": { "type": "string", "description": "Human-readable experiment name" },
+        "description": { "type": "string", "description": "What the experiment tests" },
+        "methodology": { "type": "string", "enum": ["bayesian", "frequentist"], "description": "Stats methodology (default bayesian)" },
+        "iteration": {
+          "type": "object",
+          "description": "The first data-collection window",
+          "properties": {
+            "hypothesis": { "type": "string" },
+            "primarySingleMetricKey": { "type": "string" },
+            "metrics": { "type": "array", "items": { "type": "object", "properties": { "key": { "type": "string" } } } },
+            "treatments": { "type": "array", "items": { "type": "object" } },
+            "flags": { "type": "object" },
+            "randomizationUnit": { "type": "string" }
+          }
+        }
+      },
+      "required": ["projectKey", "environmentKey", "key", "name", "iteration"]
+    }
+  },
+  {
+    "name": "start-experiment-iteration",
+    "description": "Begin collecting data for an experiment's current draft iteration. Requires the flag to be on, a randomizationUnit set, and at least one non-zero treatment allocation.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" },
+        "environmentKey": { "type": "string", "description": "The environment key" },
+        "experimentKey": { "type": "string", "description": "The experiment key" }
+      },
+      "required": ["projectKey", "environmentKey", "experimentKey"]
+    }
+  },
+  {
+    "name": "get-experiment",
+    "description": "Get an experiment's status, treatments, metrics, and current iteration. Use to verify an experiment after creating or starting it.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" },
+        "environmentKey": { "type": "string", "description": "The environment key" },
+        "experimentKey": { "type": "string", "description": "The experiment key" }
+      },
+      "required": ["projectKey", "environmentKey", "experimentKey"]
+    }
   }
 ]
