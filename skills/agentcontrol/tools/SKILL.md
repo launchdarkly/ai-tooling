@@ -173,7 +173,12 @@ async def call_anthropic(ld_config, user_input, tool_handlers, variables, histor
     # Handler packages fill {{name}} placeholders; custom handlers must do it themselves
     rendered = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages") or []]
     system = "\n".join(m["content"] for m in rendered if m["role"] == "system")
-    max_tokens = (ld_config["model"].get("parameters") or {}).get("max_tokens", 1024)
+    # anthropic 2.x no longer accepts temperature or top_p; tools come from ld_config["tools"]
+    params = {
+        k: v for k, v in (ld_config["model"].get("parameters") or {}).items()
+        if k not in ("tools", "temperature", "top_p")
+    }
+    max_tokens = params.pop("max_tokens", 1024)
     # Config turns (few-shot examples), then history, then the new input
     messages = compose_history(
         history=history or [],
@@ -184,7 +189,7 @@ async def call_anthropic(ld_config, user_input, tool_handlers, variables, histor
     for _ in range(MAX_STEPS):
         response = await anthropic_client.messages.create(
             model=ld_config["model"]["name"], max_tokens=max_tokens,
-            system=system, messages=messages, tools=tools,
+            system=system, messages=messages, tools=tools, **params,
         )
         usage["input"] += response.usage.input_tokens
         usage["output"] += response.usage.output_tokens
