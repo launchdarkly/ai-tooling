@@ -114,6 +114,12 @@ get past whether the change ships and changes what the product does. A change
 settled before that (nothing ships, no behavior changes, only a flag cleanup
 or a data-prep step) never needs them.
 
+You do these searches yourself, reading the code at the change's commit with
+read-only git, as the search files say:
+`git -C <checkout> show <head>:<path>` and
+`git -C <checkout> grep -n <pattern> <head>`. `ld-factory.pyz` doesn't search for you:
+`gates` and `risks` only check what you found.
+
 Follow `RUN/gate_search.txt` (written by `start`; the method is
 [GATES.md](references/GATES.md)). Write its JSON to `RUN/gates.json`, then:
 
@@ -285,6 +291,9 @@ ld-factory.pyz decide RUN
 
 It checks every citation against the evidence (an answer whose citations
 don't check out counts as unresolved), walks the tree, and prints the result.
+Run it as is, with its whole output: don't pipe it through `grep`, `sed`,
+`head` or `tail`. The output holds the `should-i-flag-record` the decision is
+reviewed from (step 5), and a filtered one loses it.
 
 | Exit | Meaning | What you do |
 |---|---|---|
@@ -298,7 +307,8 @@ don't check out counts as unresolved), walks the tree, and prints the result.
 `decide` prints the result in plain English (`RESULT`, `WHY`, `DECIDING
 QUESTION`, and when a flag is suggested `REASONS FOR A FLAG`, `FLAG TO ADD`,
 `WHERE TO CHECK IT`, `WHAT A ROLLOUT CAN MEASURE`, `NEARBY FLAGS`, `NEXT
-STEPS`), then `ALSO CHECKED`, `CAVEAT`, and a fenced block:
+STEPS`), then `ALSO CHECKED`, `FLAG REMOVAL` when there is one, `CAVEAT`, and
+a fenced block:
 
 ````
 ```json recommend-flag
@@ -323,6 +333,11 @@ that review only: don't copy it, summarize it, or pass it on to the developer.
   `reasons`, as well as printing the block. If your instructions say to
   translate the verdict into another tool instead, do that rather than
   calling `recommend-flag`.
+- When the block has `flag_removal_warnings`, each warning's `note` goes on
+  verbatim, whichever tool takes the verdict: as `flag_removal_warnings` if
+  the tool has that field, else appended to its `reasons` (or, for another
+  tool, to its free-text summary or rationale) starting `Flag removal:`.
+  Never drop it: it is how the people still on the deleted side find out.
 
 Then summarize for the developer in short paragraphs, using only what
 `decide` printed:
@@ -337,9 +352,13 @@ Then summarize for the developer in short paragraphs, using only what
 3. `UNCLEAR, BUT IT DIDN'T MATTER`, if present: a question the check couldn't
    settle, which every answer would decide the same way.
 4. `WORTH A LOOK`, if present.
-5. Anything from step 1 to act on: uncommitted changes left out, or
+5. `FLAG REMOVAL`, if present, close to verbatim: the change deletes a flag
+   some real users still get the other side of. It doesn't change the
+   result, but pass it on wherever the result goes, so the people still on
+   the other side aren't switched by surprise.
+6. Anything from step 1 to act on: uncommitted changes left out, or
    LaunchDarkly state not read.
-6. The `CAVEAT`, in a sentence.
+7. The `CAVEAT`, in a sentence.
 
 Don't add facts the output doesn't give you. List the `ALSO CHECKED`
 questions only if asked how it got there. Leave out how the check ran: the
