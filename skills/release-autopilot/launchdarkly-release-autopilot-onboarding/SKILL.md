@@ -138,9 +138,9 @@ If Step 1 returned repos and no `githubConnectUrl`, skip this step.
 
 ### Step 5: Choose inference
 
-Release Autopilot runs its agents on Vega. Each project has Vega inference settings. Use `AskUserQuestion` with header "Inference":
+Release Autopilot runs its agents on Vega. Bring your own key is optional: a project that does not set it up uses LaunchDarkly managed Vega inference. Use `AskUserQuestion` with header "Inference":
 
-- label: "LaunchDarkly managed", description: "The agents run on a model that LaunchDarkly hosts. No setup"
+- label: "LaunchDarkly managed (Recommended)", description: "The default. The agents run on Vega inference that LaunchDarkly hosts. No setup"
 - label: "Bring your own key", description: "The agents run on your own Anthropic or OpenAI account. Your provider bills you for usage"
 
 For "LaunchDarkly managed", go to Step 6.
