@@ -1,8 +1,8 @@
 ---
 name: custom-metrics
-description: "Create, track, retrieve, update, and delete custom business metrics for configs. Covers full lifecycle: define metric kinds via API, emit events via SDK, and query results."
+description: "Create, track, retrieve, update, and delete custom business metrics for configs. Covers full lifecycle: define metrics with the LaunchDarkly MCP server, emit events via SDK, and query results."
 license: Apache-2.0
-compatibility: SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js). Requires a LaunchDarkly API token with the `writer` role for metric management.
+compatibility: Requires the remotely hosted LaunchDarkly MCP server to create and read metrics. Updating or deleting a metric needs a LaunchDarkly API token with the `writer` role. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js).
 metadata:
   author: launchdarkly
   version: "1.1.0-experimental"
@@ -10,29 +10,53 @@ metadata:
 
 # Custom Metrics for Configs
 
-Full lifecycle management of custom business metrics: create metric definitions via API, track events via SDK, retrieve metric data, and manage metrics programmatically.
+Full lifecycle management of custom business metrics: create metric definitions with the MCP server, track events via SDK, retrieve metric data, and manage metrics programmatically.
 
 ## Prerequisites
 
 - LaunchDarkly AI SDK initialized (see `sdk-install`). The SDK reads `LD_SDK_KEY` from the environment.
-- LaunchDarkly API token with `writer` role for metric management
+- The remotely hosted LaunchDarkly MCP server configured in your environment
+- A LaunchDarkly API token with the `writer` role, only to update or delete metrics, or for scripts that can't use MCP
 - Understanding of built-in agent metrics (see `built-in-metrics`)
 
 ## API Access
 
-Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+Use the LaunchDarkly MCP server tools wherever one exists: they authenticate via OAuth and need no token. Create metrics with `create-metric`, check that events are arriving with `list-metric-events`, and read definitions with `get-metric` and `list-metrics`. The MCP server can't update or delete metrics, so those steps use the REST API. For them, or for scripts that can't use MCP, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 ## Metrics Lifecycle Overview
 
 | Step | Method | Purpose |
 |------|--------|---------|
-| 1. Create | API | Define metric in LaunchDarkly |
+| 1. Create | MCP `create-metric` | Define metric in LaunchDarkly |
 | 2. Track | SDK | Send events to the metric |
-| 3. Get | API | Retrieve metric definition/data |
+| 3. Get | MCP `get-metric`, `list-metrics` | Retrieve metric definition/data |
 | 4. Update | API | Modify metric properties |
 | 5. Delete | API | Remove metric |
 
-## 1. Create Metric (API)
+## 1. Create Metric
+
+Call `create-metric`. `eventKey` must match the key your code passes to `track()`:
+
+```json
+{
+  "projectKey": "support-ai",
+  "key": "ai.task.completion",
+  "name": "Agent Task Completion Rate",
+  "kind": "custom",
+  "eventKey": "ai.task.completion",
+  "measureType": "value",
+  "valueAggregation": "average",
+  "successCriteria": "HigherThanBaseline",
+  "unit": "count",
+  "description": "Tracks successful agent task completions"
+}
+```
+
+`measureType` is `count` (how many times the event fired), `occurrence` (whether each user fired it at all), or `value` (a number sent with the event). Then confirm with `get-metric`.
+
+### Scripts without MCP
+
+The REST API equivalent:
 
 **Required fields for numeric custom metrics:**
 - `successCriteria` - Must be one of: `"HigherThanBaseline"`, `"LowerThanBaseline"`
@@ -222,7 +246,9 @@ def track_revenue(ld_client, user_id: str, revenue: float, source: str):
         )
 ```
 
-## 3. Get Metrics (API)
+## 3. Get Metrics
+
+Use `get-metric` for one metric and `list-metrics` for all of them. After you start tracking, `list-metric-events` shows which event keys have arrived and when, which is the fastest way to catch an `eventKey` that doesn't match `track()`. The REST equivalents for scripts:
 
 ### Get Single Metric
 
@@ -486,7 +512,8 @@ class SessionMetricsTracker:
 Custom metrics appear in:
 - **Metrics** page in LaunchDarkly UI
 - **Monitoring tab** of your config
-- Via API using `get_metric()` or `list_metrics()`
+- From the agent with the `get-metric`, `list-metrics`, and `list-metric-events` MCP tools
+- From scripts with `get_metric()` or `list_metrics()`
 
 ## Related Skills
 
