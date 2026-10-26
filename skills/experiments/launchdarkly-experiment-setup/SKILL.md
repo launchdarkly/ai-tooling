@@ -59,7 +59,7 @@ Experiments in LaunchDarkly measure the impact of feature flag variations on key
 1. **Metrics first**: ensure the metrics you'll reference exist before creating the experiment.
 2. **Clear hypothesis**: every iteration requires a `hypothesis` string from the user. See Before you create anything.
 3. **Proper controls**: exactly one treatment must have `baseline: true`.
-4. **Sufficient sample size**: let iterations run long enough for statistical significance.
+4. **Sufficient sample size**: let iterations run long enough to support a decision. See Step 7.
 5. **One change at a time**: test one variable per experiment for clear attribution.
 
 ## Before you create anything
@@ -84,7 +84,7 @@ Label every suggested value in the design as suggested, with a one-line reason, 
 Settings the user did not mention can stay on LaunchDarkly's defaults. List each default you are using in the design:
 
 - **Traffic split**: equal `allocationPercent` across the variations the user named (two variations is 50/50). The values must sum to 100.
-- **Statistics**: `methodology` `"bayesian"`.
+- **Statistics**: LaunchDarkly default (frequentist, sequential testing). Do not send `methodology` unless the user chooses one. If they choose one, send that value and show it here instead of this default. A Bayesian choice is `methodology` `"bayesian"`.
 - **Data source**: `dataSource` `"launchdarkly"`.
 - **Reshuffle**: `canReshuffleTraffic` `true`.
 
@@ -103,7 +103,7 @@ If nothing is missing, skip the gather message and go straight to the design. Ot
 
 If the user's wording already makes one of these clear, do not ask about it. "The share of users who sent the `cta-clicked` event" already names the measure, the kind, and the event key.
 
-Show the design only when nothing is blank. Never show a design with a missing value. Include every piece gathered above, the other treatments, flag config (`flagKey`, `ruleId`, `flagConfigVersion`), and every default you are applying. Label each suggested value. See Before you create anything.
+Show the design only when nothing is blank. Never show a design with a missing value. Include every piece gathered above, the other treatments, flag config (`flagKey`, `ruleId`, `flagConfigVersion`), and every default you are applying. Statistics reads `LaunchDarkly default (frequentist, sequential testing)` unless the user chose a methodology, in which case show their choice. Label each suggested value. See Before you create anything.
 
 **STOP HERE** until the user approves the design.
 
@@ -148,7 +148,6 @@ Call `create-experiment`. The top-level fields describe the experiment; the nest
   "name": "Checkout Flow v2 Experiment",
   "description": "Compare the redesigned checkout against the current flow.",
   "tags": ["growth", "checkout"],
-  "methodology": "bayesian",
   "iteration": {
     "hypothesis": "The redesigned checkout will lift completion rate by 3%.",
     "primarySingleMetricKey": "checkout-completed",
@@ -185,11 +184,13 @@ Call `create-experiment`. The top-level fields describe the experiment; the nest
 }
 ```
 
+Omit `methodology` unless the user chose one. When they did, set it to that value (`"bayesian"`, `"frequentist"`, or `"export_only"`).
+
 Useful optional top-level fields:
 - `holdoutId` — attach an existing holdout.
 - `dataSource` — `"launchdarkly"` (default), `"snowflake"`, or `"databricks"`.
-- `methodology` — `"bayesian"` (default), `"frequentist"`, or `"export_only"`.
-- `analysisConfig` — set thresholds, multiple-comparison correction, or sequential testing.
+- `methodology` — send only when the user chooses one: `"bayesian"`, `"frequentist"`, or `"export_only"`. Omit it otherwise. LaunchDarkly's default is frequentist with sequential testing.
+- `analysisConfig` — set only the fields the user set. Leave it unset to keep sequential testing on.
 
 Useful optional iteration fields:
 - `attributes` — array of context attribute keys to slice results by (e.g. `["country", "device"]`).
@@ -268,9 +269,9 @@ Example: swap the treatment allocation and add a metric in a single call.
 
 ### Step 7: Stop the Iteration
 
-When you've reached significance or made a call, stop the iteration. **A winning treatment is required to stop** — LaunchDarkly does not let you end an iteration without declaring a winner. Pass the winning treatment's id (returned in `get-experiment` as `_id` on each treatment) plus a `winningReason`.
+When the results support a decision, or the user has made a call, stop the iteration. For a frequentist experiment that decision is statistical significance. For a Bayesian experiment it is the probability to beat baseline or the probability to be best. Quote only the statistic for the methodology in use. **A winning treatment is required to stop** — LaunchDarkly does not let you end an iteration without declaring a winner. Pass the winning treatment's id (returned in `get-experiment` as `_id` on each treatment) plus a `winningReason`.
 
-If the experiment was inconclusive or no variation beat the control, declare the **baseline/control treatment as the winner** and say so in `winningReason` (e.g. "Inconclusive — no significant lift, keeping control"). There is no "stop without a winner" path.
+If the experiment was inconclusive or no variation beat the control, declare the **baseline/control treatment as the winner** and say so in `winningReason` (e.g. "Inconclusive — keeping control"). There is no "stop without a winner" path.
 
 ```json
 {
@@ -278,13 +279,15 @@ If the experiment was inconclusive or no variation beat the control, declare the
   "environmentKey": "production",
   "experimentKey": "checkout-flow-v2-experiment",
   "winningTreatmentId": "treat-002",
-  "winningReason": "Two weeks of data, +4.1% lift on the primary metric with PBBL > 95%."
+  "winningReason": "Two weeks of data, +4.1% lift on the primary metric."
 }
 ```
 
+Name the decision statistic in `winningReason`. Frequentist: significance, or that it was not significant. Bayesian: probability to beat baseline or probability to be best. Do not quote a Bayesian probability, or a prior, on a frequentist experiment.
+
 **Report results:**
 - Iteration stopped with the declared `winningTreatmentId` (the control/baseline if inconclusive).
-- Lift / significance summary on the primary metric.
+- Lift on the primary metric, plus the decision statistic for the methodology in use.
 - Next steps (ship the winner, roll back, or start a follow-up iteration).
 
 ## Edge Cases
@@ -319,5 +322,5 @@ If the experiment was inconclusive or no variation beat the control, declare the
 - Don't set `baseline: true` on more than one treatment.
 - Don't let `allocationPercent` values fail to sum to 100 across treatments.
 - Don't try to change locked iteration fields with `update-experiment` while the iteration is `running` — reach for `save-and-start-experiment-iteration` instead.
-- Don't stop iterations early — wait for statistical significance.
+- Don't stop iterations early — wait for a decision the methodology supports. See Step 7.
 - Don't run multiple experiments on the same flag at the same time without a careful holdout design.
