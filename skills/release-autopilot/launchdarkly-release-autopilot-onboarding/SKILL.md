@@ -131,7 +131,7 @@ If Step 1 returned repos and no `githubConnectUrl`, skip this step.
 
 ### Step 4: Map repositories
 
-1. **Choose repos.** If the current workspace has a `git remote` on the install list, offer it first. Use `AskUserQuestion` with header "Repos", `multiSelect: true`, and up to four repos from the install list, as `owner/name`. If the install has more than four repos, say the user can type any other `owner/name` from the list in Other. Use only repos that came back from `list-release-autopilot-github-repos`. If a repo the user wants is not on the list, tell them to add it to the App's repository access in GitHub, then repeat Step 3's "Done" check.
+1. **Choose repos.** If the current workspace has a `git remote` on the install list, offer it first. Use `AskUserQuestion` with header "Repos", `multiSelect: true`, and up to four repos from the install list, as `owner/name`. If the install has more than four repos, say the user can type any other `owner/name` from the list in Other. Use only repos that came back from `list-release-autopilot-github-repos`. If a repo the user wants is not on the list, compare its owner to the owners on the list. If the owner is on the list, the App lacks access to that repo: tell the user to add it to the App's repository access in GitHub. If the owner is not on the list, the App is not installed on that GitHub organization, and `githubConnectUrl` will not appear because the account already has an install elsewhere: tell the user that an owner of that organization must install the LaunchDarkly GitHub App on it. Either way, wait for "Done" and list again.
 2. **Choose a project for each repo.** Each repo maps to one LaunchDarkly project, which is where Release Autopilot creates flags and metrics for that repo. If `list-projects` is available, offer the projects as options. Otherwise ask for the project key.
 3. **Check existing mappings** with the `githubRepoId` join from Step 1. Skip a repo that is already mapped to the chosen project, and tell the user it is already set up. A repo mapped to a different project needs its own line in Step 7, because remapping changes where its flags are created.
 4. **Say what starts when.** If the account already has a capability on, mapping a repo starts that automation in the repo as soon as Step 8 maps it.
@@ -180,7 +180,7 @@ For each project from Step 4:
 
    Record the plan. Do not call `create-release-plan` yet.
 
-If `list-release-plans` returns 403 with `Plan does not allow this operation`, the account's LaunchDarkly plan does not include environment release plans. Tell the user that auto-releasing needs a plan that includes them, drop auto-releasing from this setup, and continue with the other steps. Do not retry.
+If `list-release-plans` returns 403 with `Plan does not allow this operation`, the account's LaunchDarkly plan does not include environment release plans, so this skill cannot create them. Do not retry. Auto-releasing can still be on for such an account, using the project's release policies instead. Call `list-release-policies` for the project and show the user what it returns, including any `warnings` such as a missing or incomplete policy. Record no plan writes, and in Step 7 say that auto-releasing in this project depends on its release policies.
 
 `list-release-plans` hides incomplete plans that were migrated from release policies. If the user expects a plan that is missing, call it again with `includeIncomplete: true`. An incomplete plan cannot start a release, so it needs a new complete plan in that environment.
 
@@ -230,10 +230,10 @@ Report a short checklist with each item marked verified or reported by the user.
 |-----------|--------|
 | Every Release Autopilot tool returns 404 | The account is not in the alpha. **STOP** and tell the user |
 | `githubConnectUrl` with `flow=install` | Step 3. The user needs a GitHub org owner to install the App |
-| Repo not on the install list | The App does not have access to that repo. The user adds it in GitHub, then you list again |
+| Repo not on the install list | Same owner as listed repos: the user grants the App access to it. New owner: an org owner installs the App on that organization. Then list again |
 | Repo already mapped to a different project | Show the current mapping. Remapping changes where flags are created, so it needs its own line in Step 7 |
 | Auto-releasing picked but no metrics exist | Offer the metric skills. Without metrics, the plan is progressive and nothing rolls back automatically |
-| `list-release-plans` returns 403 `Plan does not allow this operation` | The account's plan lacks environment release plans. Drop auto-releasing from this setup and tell the user |
+| `list-release-plans` returns 403 `Plan does not allow this operation` | The account's plan lacks environment release plans. Show `list-release-policies` and its warnings instead, and create no plans |
 | Incomplete migrated plan | Cannot start a release. Create a complete plan in that environment |
 | User lacks permission for a write | Report the failed write and the missing permission. Do not retry with other settings |
 | Bring your own key chosen | Browser step only. Record it as reported, never as verified |
