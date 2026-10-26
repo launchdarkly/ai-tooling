@@ -104,7 +104,7 @@
       "name": "apply",
       "description": "Apply LaunchDarkly SDK onboarding: install dependency (or dual-SDK pair), configure env and secrets with consent, add init at entrypoint(s), verify compile. Nested under sdk-install; next is run.",
       "path": "skills/onboarding/sdk-install/apply",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "Apache-2.0",
       "compatibility": "Requires integration plan and LaunchDarkly credentials (see parent onboarding)"
     },
@@ -175,7 +175,7 @@
       "name": "detect",
       "description": "Detect repository stack for LaunchDarkly SDK onboarding: languages, frameworks, package managers, monorepo targets, entrypoints, existing LD usage. Nested under sdk-install; next is plan.",
       "path": "skills/onboarding/sdk-install/detect",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "Apache-2.0",
       "compatibility": "Requires access to the project repository"
     },
@@ -455,7 +455,7 @@
       "name": "onboarding",
       "description": "Scripted onboarding for LaunchDarkly: quiet execution, fixed sequence, SDK install, first flag with a live reveal, MCP offered afterwards. Enforces step completion before advancing and redirects drift. Use when adding LaunchDarkly, setting up or integrating feature flags in a project, SDK integration, or 'onboard me'.",
       "path": "skills/onboarding",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "license": "Apache-2.0",
       "compatibility": "Requires an MCP-capable coding agent and `npx` on PATH for optional skill installs. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.",
       "tags": [
@@ -480,7 +480,7 @@
       "name": "plan",
       "description": "Generate a minimal LaunchDarkly SDK integration plan from detected stack: choose SDK type(s), dual-SDK server+client when required, files to change, env conventions. Nested under sdk-install; follows detect, precedes apply.",
       "path": "skills/onboarding/sdk-install/plan",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "Apache-2.0",
       "compatibility": "Requires completed or equivalent detect context (see sibling detect skill)"
     },
@@ -495,7 +495,7 @@
       "name": "sdk-install",
       "description": "Install and initialize the correct LaunchDarkly SDK during onboarding by running nested skills in order: detect, plan, apply. Parent onboarding Step 4 is first flag.",
       "path": "skills/onboarding/sdk-install",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "Apache-2.0",
       "compatibility": "Requires a supported language/framework in the project. SDK credentials are required by [Apply](apply/SKILL.md), not for [Detect](detect/SKILL.md) / [Plan](plan/SKILL.md) alone (see parent onboarding **Prerequisites**)."
     },
