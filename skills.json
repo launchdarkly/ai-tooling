@@ -165,11 +165,11 @@
     },
     {
       "name": "custom-metrics",
-      "description": "Create, track, retrieve, update, and delete custom business metrics for configs. Covers full lifecycle: define metric kinds via API, emit events via SDK, and query results.",
+      "description": "Create, track, retrieve, update, and delete custom business metrics for configs. Covers full lifecycle: define metrics with the LaunchDarkly MCP server, emit events via SDK, and query results.",
       "path": "skills/agentcontrol/custom-metrics",
-      "version": "1.0.0-experimental",
+      "version": "1.1.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the LaunchDarkly server SDK and a LaunchDarkly API token with the `writer` role for metric management."
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server to create and read metrics. Updating or deleting a metric needs a LaunchDarkly API token with the `writer` role. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js)."
     },
     {
       "name": "detect",

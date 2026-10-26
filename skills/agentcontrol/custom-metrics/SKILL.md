@@ -1,38 +1,62 @@
 ---
 name: custom-metrics
-description: "Create, track, retrieve, update, and delete custom business metrics for configs. Covers full lifecycle: define metric kinds via API, emit events via SDK, and query results."
+description: "Create, track, retrieve, update, and delete custom business metrics for configs. Covers full lifecycle: define metrics with the LaunchDarkly MCP server, emit events via SDK, and query results."
 license: Apache-2.0
-compatibility: Requires the LaunchDarkly server SDK and a LaunchDarkly API token with the `writer` role for metric management.
+compatibility: Requires the remotely hosted LaunchDarkly MCP server to create and read metrics. Updating or deleting a metric needs a LaunchDarkly API token with the `writer` role. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js).
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "1.1.0-experimental"
 ---
 
 # Custom Metrics for Configs
 
-Full lifecycle management of custom business metrics: create metric definitions via API, track events via SDK, retrieve metric data, and manage metrics programmatically.
+Full lifecycle management of custom business metrics: create metric definitions with the MCP server, track events via SDK, retrieve metric data, and manage metrics programmatically.
 
 ## Prerequisites
 
-- LaunchDarkly SDK initialized (see `sdk`)
-- LaunchDarkly API token with `writer` role for metric management
+- LaunchDarkly AI SDK initialized (see `sdk-install`). The SDK reads `LD_SDK_KEY` from the environment.
+- The remotely hosted LaunchDarkly MCP server configured in your environment
+- A LaunchDarkly API token with the `writer` role, only to update or delete metrics, or for scripts that can't use MCP
 - Understanding of built-in agent metrics (see `built-in-metrics`)
 
 ## API Access
 
-Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+Use the LaunchDarkly MCP server tools wherever one exists: they authenticate via OAuth and need no token. Create metrics with `create-metric`, check that events are arriving with `list-metric-events`, and read definitions with `get-metric` and `list-metrics`. The MCP server can't update or delete metrics, so those steps use the REST API. For them, or for scripts that can't use MCP, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 ## Metrics Lifecycle Overview
 
 | Step | Method | Purpose |
 |------|--------|---------|
-| 1. Create | API | Define metric in LaunchDarkly |
+| 1. Create | MCP `create-metric` | Define metric in LaunchDarkly |
 | 2. Track | SDK | Send events to the metric |
-| 3. Get | API | Retrieve metric definition/data |
+| 3. Get | MCP `get-metric`, `list-metrics` | Retrieve metric definition/data |
 | 4. Update | API | Modify metric properties |
 | 5. Delete | API | Remove metric |
 
-## 1. Create Metric (API)
+## 1. Create Metric
+
+Call `create-metric`. `eventKey` must match the key your code passes to `track()`:
+
+```json
+{
+  "projectKey": "support-ai",
+  "key": "ai.task.completion",
+  "name": "Agent Task Completion Rate",
+  "kind": "custom",
+  "eventKey": "ai.task.completion",
+  "measureType": "value",
+  "valueAggregation": "average",
+  "successCriteria": "HigherThanBaseline",
+  "unit": "count",
+  "description": "Tracks successful agent task completions"
+}
+```
+
+`measureType` is `count` (how many times the event fired), `occurrence` (whether each user fired it at all), or `value` (a number sent with the event). Then confirm with `get-metric`.
+
+### Scripts without MCP
+
+The REST API equivalent:
 
 **Required fields for numeric custom metrics:**
 - `successCriteria` - Must be one of: `"HigherThanBaseline"`, `"LowerThanBaseline"`
@@ -112,16 +136,14 @@ def create_metric(
 
 ## 2. Track Events (SDK)
 
-Once the metric is created, track events using the SDK:
+Once the metric is created, track events with the client the AI SDK manages. `get_client()` returns the underlying LaunchDarkly server SDK client, so `track()` takes a `Context`, optional data, and a numeric value:
 
 ```python
 from ldclient import Context
-from ldclient.config import Config
-import ldclient
+from launchdarkly_ai_server import get_client, init_client
 
-# Initialize (see sdk for details)
-ldclient.set_config(Config("your-sdk-key"))
-ld_client = ldclient.get()
+await init_client()  # reads LD_SDK_KEY
+ld_client = get_client()
 
 def track_metric(ld_client, user_id: str, metric_key: str, value: float, data: dict = None):
     """Track an event to a metric."""
@@ -134,6 +156,38 @@ def track_metric(ld_client, user_id: str, metric_key: str, value: float, data: d
         metric_value=value
     )
 ```
+
+### Attribute Metrics to a Config Variation
+
+To see a custom metric next to a config's built-in metrics, and to compare it across variations, send the `track_data` (`trackData`) from the `invoke()` result as the event data. It carries the config key, variation key, version, and model:
+
+```python
+from ldclient import Context
+from launchdarkly_ai_server import config, get_client
+
+context = {"kind": "user", "key": "user-123"}
+result = await config(key="support-agent", handler=handler).invoke(user_input, context)
+
+resolved = customer_confirmed_resolution(result.response)
+get_client().track(
+    "ai.task.completion",
+    Context.from_dict(context),
+    result.track_data,
+    1.0 if resolved else 0.0,
+)
+```
+
+```typescript
+import { config, getClient } from '@launchdarkly/ai-node';
+
+const context = { kind: 'user', key: 'user-123' };
+const result = await config({ key: 'support-agent', handler }).invoke(userInput, context);
+
+const resolved = customerConfirmedResolution(result.response);
+getClient().track('ai.task.completion', context, result.trackData, resolved ? 1 : 0);
+```
+
+> **Note:** `invoke()` takes the context as a plain dict, but the Python `track()` needs an `ldclient` `Context`, so convert it with `Context.from_dict()`. Node.js accepts the same object in both places.
 
 ### Common Tracking Patterns
 
@@ -192,7 +246,9 @@ def track_revenue(ld_client, user_id: str, revenue: float, source: str):
         )
 ```
 
-## 3. Get Metrics (API)
+## 3. Get Metrics
+
+Use `get-metric` for one metric and `list-metrics` for all of them. After you start tracking, `list-metric-events` shows which event keys have arrived and when, which is the fastest way to catch an `eventKey` that doesn't match `track()`. The REST equivalents for scripts:
 
 ### Get Single Metric
 
@@ -322,48 +378,46 @@ def delete_metric(project_key: str, metric_key: str):
 ## Complete Workflow Example
 
 ```python
-import os
-import requests
+import asyncio
 from ldclient import Context
-from ldclient.config import Config
-import ldclient
+from launchdarkly_ai_server import get_client, init_client, shutdown
 
-# Setup
 API_TOKEN = "{api_token}"  # token the user provided for this session
-SDK_KEY = os.environ.get("LAUNCHDARKLY_SDK_KEY")
 PROJECT_KEY = "support-ai"
 
-ldclient.set_config(Config(SDK_KEY))
-ld_client = ldclient.get()
+async def main():
+    # 1. Create metric
+    create_metric(
+        PROJECT_KEY,
+        "ai.task.completion",
+        name="Agent Task Completion Rate",
+        kind="custom",
+        is_numeric=True,
+        description="Tracks successful agent task completions"
+    )
 
-# 1. Create metric
-create_metric(
-    PROJECT_KEY,
-    "ai.task.completion",
-    name="Agent Task Completion Rate",
-    kind="custom",
-    is_numeric=True,
-    description="Tracks successful agent task completions"
-)
+    # 2. Track events
+    await init_client()  # reads LD_SDK_KEY
+    ld_client = get_client()
+    context = Context.builder("user-123").build()
+    ld_client.track("ai.task.completion", context, metric_value=1.0)
+    ld_client.track("ai.task.completion", context, metric_value=1.0)
+    ld_client.track("ai.task.completion", context, metric_value=0.0)  # failure
+    await shutdown()  # flushes events, then closes the client
 
-# 2. Track events
-context = Context.builder("user-123").build()
-ld_client.track("ai.task.completion", context, metric_value=1.0)
-ld_client.track("ai.task.completion", context, metric_value=1.0)
-ld_client.track("ai.task.completion", context, metric_value=0.0)  # failure
-ld_client.flush()
+    # 3. Get metric definition
+    metric = get_metric(PROJECT_KEY, "ai.task.completion")
 
-# 3. Get metric definition
-metric = get_metric(PROJECT_KEY, "ai.task.completion")
+    # 4. Update metric name
+    rename_metric(PROJECT_KEY, "ai.task.completion", "Agent Task Success Rate")
 
-# 4. Update metric name
-rename_metric(PROJECT_KEY, "ai.task.completion", "Agent Task Success Rate")
+    # 5. List all metrics
+    list_metrics(PROJECT_KEY)
 
-# 5. List all metrics
-list_metrics(PROJECT_KEY)
+    # 6. Delete metric (when no longer needed)
+    # delete_metric(PROJECT_KEY, "ai.task.completion")
 
-# 6. Delete metric (when no longer needed)
-# delete_metric(PROJECT_KEY, "ai.task.completion")
+asyncio.run(main())
 ```
 
 ## Session Metrics Tracker
@@ -450,7 +504,7 @@ class SessionMetricsTracker:
 1. **Create Before Track** - Metric must exist before tracking events
 2. **Use Numeric Metrics** - Set `isNumeric=True` for aggregation
 3. **Consistent Keys** - Use same key in `create_metric()` and `ld_client.track()`
-4. **Always flush before close** - Call `ld_client.flush()` (await in Node) before `close()`. Trailing events are at risk of being lost otherwise, in short-lived scripts and long-running services alike. This is not a serverless-only rule; it applies to any process that exits.
+4. **Always shut down cleanly** - Call `await shutdown()` before your process exits. It flushes pending events and then closes the client. Trailing events are at risk of being lost otherwise, in short-lived scripts and long-running services alike. This is not a serverless-only rule; it applies to any process that exits.
 5. **Rate Limit** - Don't track on every keystroke
 
 ## Viewing Metrics
@@ -458,11 +512,12 @@ class SessionMetricsTracker:
 Custom metrics appear in:
 - **Metrics** page in LaunchDarkly UI
 - **Monitoring tab** of your config
-- Via API using `get_metric()` or `list_metrics()`
+- From the agent with the `get-metric`, `list-metrics`, and `list-metric-events` MCP tools
+- From scripts with `get_metric()` or `list_metrics()`
 
 ## Related Skills
 
-- `sdk` - SDK setup
+- `sdk-install` - SDK setup
 - `built-in-metrics` - Built-in agent metrics (tokens, duration, cost)
 - `online-evals` - Quality metrics via judges
 
@@ -470,4 +525,5 @@ Custom metrics appear in:
 
 - [Metrics API Documentation](https://apidocs.launchdarkly.com/tag/Metrics)
 - [Custom Events Documentation](https://docs.launchdarkly.com/sdk/features/events)
-- [Python SDK track() Reference](https://launchdarkly-python-sdk.readthedocs.io/)
+- [AI SDK reference for Python](https://launchdarkly.com/docs/sdk/ai/python)
+- [AI SDK reference for Node.js](https://launchdarkly.com/docs/sdk/ai/node-js)
