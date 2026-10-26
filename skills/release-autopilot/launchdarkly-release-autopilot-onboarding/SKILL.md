@@ -1,6 +1,6 @@
 ---
 name: launchdarkly-release-autopilot-onboarding
-description: "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick the capabilities you want (auto-flagging, auto-releasing), connect the GitHub App, map repositories to projects, choose Vega inference (LaunchDarkly managed or bring your own key), set up environment release plans, then verify. Use when the user wants to set up, onboard to, get started with, or turn on Release Autopilot for the first time. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead."
+description: "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick the capabilities you want (auto-flagging, auto-releasing), connect the GitHub App, map repositories to projects, choose Vega inference (LaunchDarkly managed by default, or bring your own key), review or set up how each environment releases (environment release plans, or release policies where plans are not available), then verify. Use when the user wants to set up, onboard to, get started with, or turn on Release Autopilot for the first time. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
@@ -10,7 +10,7 @@ metadata:
 
 # LaunchDarkly Release Autopilot Onboarding
 
-You're using a skill that walks a user through setting up Release Autopilot from nothing to a working setup. The user picks the capabilities they want, and you set up only what those capabilities need: the GitHub App, repository mappings, Vega inference, and environment release plans.
+You're using a skill that walks a user through setting up Release Autopilot from nothing to a working setup. The user picks the capabilities they want, and you set up only what those capabilities need: the GitHub App, repository mappings, Vega inference, and how each environment releases.
 
 **This is a step-by-step wizard.** Ask one question at a time and wait for each answer. Gather every decision first, confirm one plan, and only then write. Release Autopilot opens and changes pull requests, and auto-releasing can ship code, so every write is production automation.
 
@@ -26,21 +26,24 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 - `list-release-autopilot-repo-settings` / `get-release-autopilot-repo-settings` / `update-release-autopilot-repo-settings`
 
 **Required for auto-releasing:**
+- `list-release-policies`
+- `list-metrics` (plans and policies can only attach metrics that exist)
+
+**Used for auto-releasing when available:**
 - `list-release-plans` / `create-release-plan`
-- `list-metrics` (release plans can only attach metrics that exist)
 
 **Optional MCP tools:**
 - `list-projects` / `get-project`: offer project and environment keys as options instead of asking for free text
 
 If a required tool is missing, stop and tell the user which one. Do not invent REST calls. If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
 
-If only the auto-releasing tools are missing, the server predates environment release plans. Run the rest of the setup, and tell the user that auto-releasing setup needs the latest server.
+If `list-release-plans` or `create-release-plan` is missing, use the release policy path in Step 6, the same as for a 403.
 
 Release Autopilot is in alpha. If every Release Autopilot tool returns 404, the account is not in the alpha. Tell the user and stop.
 
 ## Core Principles
 
-1. **Only set up what they picked.** Release plans exist for auto-releasing. If the user picks auto-flagging only, skip the release plan step.
+1. **Only set up what they picked.** Release plans and policies matter only for auto-releasing. If the user picks auto-flagging only, skip Step 6.
 2. **Least privilege by default.** Recommend auto-flagging with approval required. Auto-releasing is opt-in and you must say it can ship code.
 3. **Gather, confirm, then write.** No write happens before [Step 7](#step-7-confirm-the-plan). The confirmation lists every write with its current and proposed state.
 4. **Never act in the user's browser.** GitHub install, GitHub authorization, and bring-your-own-key setup are browser steps. Give the exact link and wait for the user to say they finished.
@@ -69,7 +72,7 @@ Present this intro (you may lightly adapt the wording, but keep the structure):
 > 3. **Connect GitHub**: install or authorize the LaunchDarkly GitHub App.
 > 4. **Map repositories**: choose which repos Release Autopilot watches, and which LaunchDarkly project each one uses.
 > 5. **Choose inference**: run the agents on LaunchDarkly managed inference or on your own model provider key.
-> 6. **Set up release plans** (auto-releasing only): define how each environment rolls out a change.
+> 6. **Review release setup** (auto-releasing only): check or define how each environment rolls out a change.
 > 7. **Confirm the plan**: I'll show every change before I make it.
 > 8. **Apply and verify**: I'll make the changes and check the result.
 >
@@ -102,7 +105,7 @@ For "Change one setting" or "Diagnose a PR", stop this skill and follow [`launch
 Use `AskUserQuestion` with header "Capabilities", `multiSelect: true`:
 
 - label: "Auto-flagging (Recommended)", description: "Release Autopilot reads each pull request and, when a change should ship behind a flag, opens a PR that adds the flag"
-- label: "Auto-releasing", description: "After a flagged change deploys, Release Autopilot releases it with your environment release plans. This can ship code to users"
+- label: "Auto-releasing", description: "After a flagged change deploys, Release Autopilot releases it with the environment's release plan or release policy. This can ship code to users"
 
 If the user picks auto-flagging, ask header "Approval":
 
@@ -133,14 +136,17 @@ If Step 1 returned repos and no `githubConnectUrl`, skip this step.
 
 1. **Choose repos.** If the current workspace has a `git remote` on the install list, offer it first. Use `AskUserQuestion` with header "Repos", `multiSelect: true`, and up to four repos from the install list, as `owner/name`. If the install has more than four repos, say the user can type any other `owner/name` from the list in Other. Use only repos that came back from `list-release-autopilot-github-repos`. If a repo the user wants is not on the list, compare its owner to the owners on the list. If the owner is on the list, the App lacks access to that repo: tell the user to add it to the App's repository access in GitHub. If the owner is not on the list, the App is not installed on that GitHub organization, and `githubConnectUrl` will not appear because the account already has an install elsewhere: tell the user that an owner of that organization must install the LaunchDarkly GitHub App on it. Either way, wait for "Done" and list again.
 2. **Choose a project for each repo.** Each repo maps to one LaunchDarkly project, which is where Release Autopilot creates flags and metrics for that repo. If `list-projects` is available, offer the projects as options. Otherwise ask for the project key.
-3. **Check existing mappings** with the `githubRepoId` join from Step 1. Skip a repo that is already mapped to the chosen project, and tell the user it is already set up. A repo mapped to a different project needs its own line in Step 7, because remapping changes where its flags are created.
+3. **Check existing mappings** with the `githubRepoId` join from Step 1.
+   - Mapped to the chosen project, and its effective capabilities match the user's picks: tell the user it is already set up, and write nothing.
+   - Mapped to the chosen project, but a capability the user did not pick is effectively on: record a repo override that turns it off, as its own line in Step 7.
+   - Mapped to a different project: do not remap it in this flow. Remapping changes where its flags are created. Tell the user to use [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md) to unmap it first, then run this step again.
 4. **Say what starts when.** If the account already has a capability on, mapping a repo starts that automation in the repo as soon as Step 8 maps it.
 
 ### Step 5: Choose inference
 
 Release Autopilot runs its agents on Vega. Bring your own key is optional: a project that does not set it up uses LaunchDarkly managed Vega inference. Use `AskUserQuestion` with header "Inference":
 
-- label: "LaunchDarkly managed (Recommended)", description: "The default. The agents run on Vega inference that LaunchDarkly hosts. No setup"
+- label: "LaunchDarkly managed", description: "The default if you choose nothing. The agents run on Vega inference that LaunchDarkly hosts. No setup"
 - label: "Bring your own key", description: "The agents run on your own Anthropic or OpenAI account. Your provider bills you for usage"
 
 For "LaunchDarkly managed", go to Step 6.
@@ -157,15 +163,15 @@ Then ask header "Inference":
 
 You cannot read inference settings, so record the answer as the user's statement, not as verified.
 
-### Step 6: Set up release plans (auto-releasing only)
+### Step 6: Review release setup (auto-releasing only)
 
 Skip this step if the user did not pick auto-releasing.
 
-Auto-releasing releases each change with a **release plan**: a reusable recipe for one environment, made of phases, rollout steps, and metrics. A plan with metrics makes the release guarded, so a regression on a metric can roll it back. Release plans replace project-level release policies.
+Auto-releasing releases each change the way the environment is set up to release. On accounts with **environment release plans**, that is a plan: a reusable recipe for one environment, made of phases, rollout steps, and metrics. On accounts without them, it is the project's **release policies**. Either way, metrics make the release guarded, so a regression on a metric can roll it back. With neither, a release can fall back to defaults, which are often an immediate release.
 
 For each project from Step 4:
 
-1. **Choose environments.** Use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-project`, or ask). Auto-releasing works in the environments that have a plan.
+1. **Choose environments.** Use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-project`, or ask). Check each environment you pick.
 2. **Check existing plans.** For each chosen environment, call `list-release-plans`. If a complete plan exists, show its name, phases, and metrics, and ask header "Plan":
    - label: "Use this plan", description: "Keep the existing plan for this environment"
    - label: "Create another", description: "Add a new plan for this environment"
@@ -173,14 +179,21 @@ For each project from Step 4:
    1. Randomization unit: the context kind to roll out by, such as `user` or `account`.
    2. Rollout steps: offer header "Rollout" with options such as "1% → 10% → 50% → 100%, 4h holds", or "10% → 100%, 24h hold". The user can type another schedule in Other.
    3. Advancement: header "Advance", options "Automatic", description "Move to the next step when the hold ends and metrics are healthy", and "Manual", description "A person moves each step".
-   4. Metrics: call `list-metrics`. Offer up to four relevant metrics with `multiSelect: true`. If none fit, use [`launchdarkly-metric-choose`](../../metrics/launchdarkly-metric-choose/SKILL.md) to decide which metrics to add, and record each one to create. Do not create them yet: Step 8 creates them with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md) before the release plans that use them. A plan without metrics is progressive, not guarded: say so.
+   4. Metrics: call `list-metrics`. Offer up to four relevant metrics with `multiSelect: true`. If none fit, use [`launchdarkly-metric-choose`](../../metrics/launchdarkly-metric-choose/SKILL.md) to decide which metrics to add, and record each one to create. Do not create them yet: Step 8 creates them in LaunchDarkly with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md) before the release plans that use them. This skill creates the metric only. If the event is not sent by the app yet, list instrumenting it as a follow-up for the user; do not edit code or `.env` files in this flow. A plan without metrics is progressive, not guarded: say so.
    5. Cleanup: header "Cleanup", options "Leave rules in place" and "Remove rules and update the default rule", each with its outcome.
 
    Every phase needs at least one clause. For a phase that targets everyone, use `{ attribute: "kind", op: "in", values: ["<randomization unit>"], contextKind: "<randomization unit>" }`.
 
    Record the plan. Do not call `create-release-plan` yet.
 
-If `list-release-plans` returns 403 with `Plan does not allow this operation`, the account's LaunchDarkly plan does not include environment release plans, so this skill cannot create them. Do not retry. Auto-releasing can still be on for such an account, using the project's release policies instead. Call `list-release-policies` for the project and show the user what it returns, including any `warnings` such as a missing or incomplete policy. Record no plan writes, and in Step 7 say that auto-releasing in this project depends on its release policies.
+If `list-release-plans` returns 403 with `Plan does not allow this operation`, the account's LaunchDarkly plan does not include environment release plans, so this skill cannot create them. Do not retry. Auto-releasing can still be on for such an account, using the project's release policies instead. Call `list-release-policies` for the project and show the user what it returns, including any `warnings`. Record no plan writes.
+
+If the policies have no warnings for the chosen environments, say that auto-releasing in this project uses those policies. If there is any warning, such as `missing_policy` or `incomplete_policy`, a release there can fall back to defaults, which are often immediate. Ask header "Release defaults":
+
+- label: "Keep auto-releasing off here (Recommended)", description: "Map the repo with auto-releasing off until the project has a complete release policy"
+- label: "Accept the fallback", description: "Auto-release with the default behavior, which can be an immediate release to everyone"
+
+For "Keep auto-releasing off here", the repo mapping in Step 8 sends an auto-releasing override that turns it off. Release policies are edited in the project's release settings in the LaunchDarkly UI; this skill does not change them.
 
 `list-release-plans` hides incomplete plans that were migrated from release policies. If the user expects a plan that is missing, call it again with `includeIncomplete: true`. An incomplete plan cannot start a release, so it needs a new complete plan in that environment.
 
@@ -191,7 +204,7 @@ If `list-release-plans` returns 403 with `Plan does not allow this operation`, t
 List every write in the order you will make it. For each write, state the current and the proposed state and the blast radius, using the wording rules from the settings skill's [Confirm before write](../launchdarkly-release-autopilot-settings/SKILL.md#confirm-before-write):
 
 1. **Metrics and release plans**: one line per metric to create and per environment, with the plan name, steps, advancement, and metrics.
-2. **Repo mappings**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, the mapping sends a repo override that turns it off, so the repo cannot inherit it from the account. Say so: "Auto-releasing: OFF (repo override; the account has it ON)."
+2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, the mapping sends a repo override that turns it off, so the repo cannot inherit it from the account. Say so: "Auto-releasing: OFF (repo override; the account has it ON)."
 3. **Account settings**: for example, "Auto-flagging: OFF → ON, approval required. Mapped repos that inherit this setting can start getting auto-flagging PRs." If auto-releasing turns on, say: "Auto-releasing: OFF → ON. This can ship code."
 4. **Browser steps the user reported done**: GitHub and inference, marked as reported, not verified.
 
@@ -206,18 +219,18 @@ On "Change something", make the change and show the full plan again. Do not go t
 
 Make only the writes in the confirmed plan, in this order. Stop at the first failure, report it, and do not continue.
 
-1. Metrics recorded in Step 6, with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md).
+1. Metrics recorded in Step 6, created in LaunchDarkly with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md). Skip its instrumentation steps.
 2. `create-release-plan` for each new plan.
 3. `update-release-autopilot-repo-settings` for each repo, with `repo: "owner/name"` and `projectKey`. For each capability the user did not pick, send `{ "enabled": false }` for it, so the repo does not inherit it from the account.
 4. `update-release-autopilot-settings` with only the confirmed fields. Never send `autoCleanup`.
 
-The order matters. Release plans come first so that no release can start without the plan the user chose. The account gates come last because turning a capability on starts automation in every mapped repo that inherits it.
+The order matters. When the plan creates release plans, they come first, so that no release can start without the plan the user chose. The account gates come last because turning a capability on starts automation in every mapped repo that inherits it.
 
 ### Step 9: Verify
 
 1. `get-release-autopilot-settings`: the account gates match the plan.
 2. `get-release-autopilot-repo-settings` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan.
-3. `list-release-plans` for each environment: the new plans are listed.
+3. If plans were created, `list-release-plans` for each environment: the new plans are listed. On the release policy path, report the policy state from Step 6 instead.
 
 Report a short checklist with each item marked verified or reported by the user. Then tell the user how to see it work:
 
@@ -231,9 +244,9 @@ Report a short checklist with each item marked verified or reported by the user.
 | Every Release Autopilot tool returns 404 | The account is not in the alpha. **STOP** and tell the user |
 | `githubConnectUrl` with `flow=install` | Step 3. The user needs a GitHub org owner to install the App |
 | Repo not on the install list | Same owner as listed repos: the user grants the App access to it. New owner: an org owner installs the App on that organization. Then list again |
-| Repo already mapped to a different project | Show the current mapping. Remapping changes where flags are created, so it needs its own line in Step 7 |
+| Repo already mapped to a different project | Do not remap here. The user unmaps it with the settings skill, then maps it in this flow |
 | Auto-releasing picked but no metrics exist | Offer the metric skills. Without metrics, the plan is progressive and nothing rolls back automatically |
-| `list-release-plans` returns 403 `Plan does not allow this operation` | The account's plan lacks environment release plans. Show `list-release-policies` and its warnings instead, and create no plans |
+| `list-release-plans` returns 403 `Plan does not allow this operation` | The account's plan lacks environment release plans. Show `list-release-policies` and its warnings, create no plans, and keep auto-releasing off where a policy is missing unless the user accepts the fallback |
 | Incomplete migrated plan | Cannot start a release. Create a complete plan in that environment |
 | User lacks permission for a write | Report the failed write and the missing permission. Do not retry with other settings |
 | Bring your own key chosen | Browser step only. Record it as reported, never as verified |
@@ -258,7 +271,7 @@ Report a short checklist with each item marked verified or reported by the user.
 ## Example Flows
 
 **Happy path: auto-flagging only, managed inference.**
-Step 1 → nothing set up, install list has repos. Step 2 → auto-flagging, approval required. Step 3 → skipped. Step 4 → maps `acme/web` to project `web`. Step 5 → managed. Step 6 → skipped. Step 7 → two writes: map `acme/web` inheriting auto-flagging ON and auto-releasing OFF, then account auto-flagging ON with approval. Step 8 → applies. Step 9 → verified.
+Step 1 → nothing set up, install list has repos. Step 2 → auto-flagging, approval required. Step 3 → skipped. Step 4 → maps `acme/web` to project `web`. Step 5 → managed. Step 6 → skipped. Step 7 → two writes: map `acme/web` with auto-releasing OFF (repo override), then account auto-flagging ON with approval. Step 8 → applies. Step 9 → verified.
 
 **Both capabilities, no GitHub App yet.**
 Step 1 → `githubConnectUrl` with `flow=install`. Step 2 → both capabilities. Step 3 → user installs the App, selects "Done", repos appear. Step 4 → maps `acme/api` to `api`. Step 5 → bring your own key, user saves settings in the browser. Step 6 → `production` has no plan; creates `prod-guarded` with 1% → 10% → 50% → 100%, automatic advancement, metric `api-error-rate`. Step 7 → plan, mapping, and account writes, plus two reported browser steps. Steps 8–9 → applied and verified.

@@ -421,7 +421,7 @@
     },
     {
       "name": "launchdarkly-release-autopilot-onboarding",
-      "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick the capabilities you want (auto-flagging, auto-releasing), connect the GitHub App, map repositories to projects, choose Vega inference (LaunchDarkly managed or bring your own key), set up environment release plans, then verify. Use when the user wants to set up, onboard to, get started with, or turn on Release Autopilot for the first time. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
+      "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick the capabilities you want (auto-flagging, auto-releasing), connect the GitHub App, map repositories to projects, choose Vega inference (LaunchDarkly managed by default, or bring your own key), review or set up how each environment releases (environment release plans, or release policies where plans are not available), then verify. Use when the user wants to set up, onboard to, get started with, or turn on Release Autopilot for the first time. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
       "version": "0.1.0-experimental",
       "license": "Apache-2.0",

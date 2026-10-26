@@ -10,7 +10,7 @@ This skill teaches agents how to:
 - Hand the user the GitHub App install or authorize link, and continue after they finish
 - Map chosen `owner/name` repos to LaunchDarkly projects
 - Guide LaunchDarkly managed inference or bring-your-own-key setup
-- Create environment release plans, with metrics, for auto-releasing
+- Review or create environment release plans for auto-releasing, or show release policies where plans are not available
 - Confirm one plan that lists every write before making any change, then verify
 
 ## Installation (Local)
@@ -19,7 +19,7 @@ This skill teaches agents how to:
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot settings tools, and `list-release-plans`, `create-release-plan`, and `list-metrics` for auto-releasing. Release Autopilot is in alpha, so accounts outside the alpha get 404s.
+The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot settings tools, and `list-release-policies` and `list-metrics` for auto-releasing (`list-release-plans` and `create-release-plan` when the account has environment release plans). Release Autopilot is in alpha, so accounts outside the alpha get 404s.
 
 ## Usage
 
