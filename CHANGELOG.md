@@ -4,6 +4,7 @@ All notable changes to this repository will be documented in this file.
 
 ## Unreleased
 
+- Claude Code marketplace: add `version`, `author`, `homepage`, `repository`, `license`, `category`, and `keywords` to the `launchdarkly` entry in `.claude-plugin/marketplace.json` so directory listings get the same metadata as `.claude-plugin/plugin.json`. A test keeps the two in sync.
 - Rename `factory/launchdarkly-factory-settings` to `release-autopilot/launchdarkly-release-autopilot-settings` and switch it to the `*-release-autopilot-*` MCP tools (Claude Code plugin 1.0.2, Cursor plugin 1.0.3). Requires a hosted MCP server that exposes the new tool names.
 
 - `factory/launchdarkly-factory-settings`: when GitHub is not installed or this member has not authorized, hand the user `githubConnectUrl` (the integration drawer's install or authorize page) and retry after they finish.
