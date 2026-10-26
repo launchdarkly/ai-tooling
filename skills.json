@@ -175,7 +175,7 @@
       "name": "detect",
       "description": "Detect repository stack for LaunchDarkly SDK onboarding: languages, frameworks, package managers, monorepo targets, entrypoints, existing LD usage. Nested under sdk-install; next is plan.",
       "path": "skills/onboarding/sdk-install/detect",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "Apache-2.0",
       "compatibility": "Requires access to the project repository"
     },

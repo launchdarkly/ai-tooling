@@ -205,7 +205,7 @@ Rules: the SDK key lives in an environment variable, never hardcoded. One client
 This applies whenever the user mentions observability, session replay, error monitoring, logs, or tracing, at any point: in the first message, mid-flow, or as a follow-up after onboarding is done ("Can you also add the observability plugin?"). Follow [Observability plugin](references/sdk/observability-plugin.md) for the package and wiring per stack. The essentials:
 
 - Add the plugin to the `plugins` option of the LaunchDarkly client's existing init, reusing its key. No second client, no second credential, no key prompt.
-- If the client is already initialized (this run, an earlier session, or before onboarding), add the plugin to that init. Do not redo the SDK install, and do not create another first flag for a follow-up request.
+- If the client is already initialized, add the plugin to that init without redoing the SDK install or asking for a key. Mid-onboarding, then continue to the first flag as usual. As a follow-up after onboarding finished, confirm in one line and stop: no restarted onboarding, no new first flag.
 - Session replay with no privacy level named: use the strictest setting (`privacySetting: 'strict'` in the browser).
 - If the installed SDK is too old to accept `plugins` and the fix is a major-version upgrade or a different package, ask before changing it, naming the version problem in one line.
 - If the stack has no observability plugin, say so in one line and continue with feature flags. Do not substitute OpenTelemetry or another package.

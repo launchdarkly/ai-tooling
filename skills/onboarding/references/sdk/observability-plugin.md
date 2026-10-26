@@ -12,7 +12,8 @@ Load this file whenever the user mentions observability, session replay, error m
 The request can arrive at any point:
 
 - **In the first message or during setup:** treat it as part of the SDK install. The plugin is added in the same pass as the SDK, not offered as a later step.
-- **After the client is already initialized** (earlier in this run, in a previous session, or by the project before onboarding), including a short follow-up such as "Can you also add the observability plugin?": add the plugin to that existing init. Do not redo detect, plan, or the SDK install, do not ask for a key, and do not create another first flag. Then confirm in one line.
+- **Client already initialized, onboarding still in progress** (the SDK install finished earlier in this run, or the project had LaunchDarkly before onboarding): add the plugin to that existing init without redoing detect, plan, or the SDK install, and without asking for a key. Then continue onboarding as usual, including the first flag if it does not exist yet.
+- **Follow-up after onboarding finished** (the first flag exists), such as "Can you also add the observability plugin?": add the plugin to the existing init, confirm in one line, and stop. Do not restart onboarding, ask for a key, or create another first flag.
 
 ## Rules
 

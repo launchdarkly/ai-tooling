@@ -39,7 +39,7 @@ Execute **all three** unless the [detect decision tree](detect/SKILL.md#decision
 
 Shared references for all steps: [SDK recipes](../references/sdk/recipes.md), [SDK snippets](../references/sdk/snippets/).
 
-**Observability plugin:** When the user mentions observability, session replay, error monitoring, logs, or tracing (in the first message or later), carry that into plan and apply: the plugin package(s) and the `plugins` entry on the client from [Observability plugin](../references/sdk/observability-plugin.md). Same client, same key. If the client is already initialized, skip detect and plan and add the plugin to the existing init.
+**Observability plugin:** When the user mentions observability, session replay, error monitoring, logs, or tracing (in the first message or later), carry that into plan and apply: the plugin package(s) and the `plugins` entry on the client from [Observability plugin](../references/sdk/observability-plugin.md). Same client, same key. If the client is already initialized, skip detect and plan and add the plugin to the existing init, then return to the parent flow (first flag during onboarding; nothing further for a follow-up after onboarding finished).
 
 ### After Step 3 completes
 

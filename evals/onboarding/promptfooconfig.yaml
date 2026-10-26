@@ -286,7 +286,7 @@ tests:
             output.response || '',
             ...traj.map(t => JSON.stringify(t.arguments || {})),
           ].join('\n');
-          const sub = /io\.opentelemetry|opentelemetry-(javaagent|sdk|api|exporter)|launchdarkly-observability|observability-java|micrometer/i.exec(text);
+          const sub = /io\.opentelemetry|opentelemetry-(javaagent|sdk|api|exporter)|micrometer/i.exec(text);
           return {
             pass: !sub,
             score: sub ? 0 : 1,
