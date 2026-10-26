@@ -1,6 +1,6 @@
 # Metrics API
 
-Retrieve config metrics via the LaunchDarkly REST API.
+Retrieve config metrics via the LaunchDarkly REST API. The MCP server has no tool for these totals; `get-agentcontrol-config-health` covers only recent success and error counts.
 
 ## Endpoint
 
@@ -10,7 +10,7 @@ GET /api/v2/projects/{projectKey}/ai-configs/{configKey}/metrics
 
 ## Authentication
 
-Requires an API token with `ai-configs:read` permission.
+Requires an API token with `ai-configs:read` permission. Ask the user to paste one for the session; don't search environment variables or config files for it.
 
 ```python
 headers = {

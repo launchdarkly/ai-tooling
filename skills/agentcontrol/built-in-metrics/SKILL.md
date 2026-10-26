@@ -87,6 +87,7 @@ Confirm the Monitoring tab fills in:
 
 - [ ] Run one real request through the instrumented path.
 - [ ] Open the config in LaunchDarkly → **Monitoring** tab. Duration, token counts, and generation counts should appear within 1–2 minutes.
+- [ ] Or check from the agent: the `get-agentcontrol-config-health` MCP tool reports recent generation successes and errors per environment. It doesn't return token or duration totals; for those, use the [metrics API](references/metrics-api.md).
 - [ ] Force an error (bad API key, unreachable endpoint) and confirm the error count increments.
 - [ ] If you see generations but no tokens, the handler isn't returning usage. Custom handlers must return `{"output": ..., "usage": {"input": n, "output": n}}`.
 
@@ -130,7 +131,7 @@ const event = thumbsUp ? '$ld:ai:feedback:user:positive' : '$ld:ai:feedback:user
 getClient().track(event, context, result.trackData, 1);
 ```
 
-`track_data` identifies the config, variation, version, and model, so the feedback lands on the variation that produced the response. In Python, convert the context dict with `Context.from_dict()` before calling `track()`.
+`track_data` identifies the config, variation, version, and model, so the feedback lands on the variation that produced the response. `stream()` doesn't return `track_data` in the current SDKs, so feedback on streamed responses can't be attributed to a variation yet. In Python, convert the context dict with `Context.from_dict()` before calling `track()`.
 
 For business outcomes such as conversions or resolutions, use the `custom-metrics` skill with the same `track_data`.
 
