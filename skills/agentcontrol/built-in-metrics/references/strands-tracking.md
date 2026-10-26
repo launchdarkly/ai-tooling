@@ -21,9 +21,9 @@ def build_model(ld_config):
     provider = ld_config["provider"]["name"]
     if provider == "Anthropic":
         max_tokens = params.pop("max_tokens", 1024)
-        # anthropic 2.x no longer accepts temperature or top_p
-        params.pop("temperature", None)
-        params.pop("top_p", None)
+        # anthropic 2.x no longer accepts temperature, top_p, or top_k
+        for k in ("temperature", "top_p", "top_k"):
+            params.pop(k, None)
         return AnthropicModel(model_id=name, max_tokens=max_tokens, params=params or None)
     if provider == "OpenAI":
         return OpenAIModel(model_id=name, params=params)
