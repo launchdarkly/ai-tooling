@@ -155,8 +155,11 @@ For "LaunchDarkly managed", go to Step 6.
 
 For "Bring your own key", there is no MCP tool for inference settings yet, so this is a browser step:
 
-1. The key lives in the account's integration settings. Tell the user to add an Anthropic or OpenAI key there.
-2. The project must then use it. For each project from Step 4, give the user `/projects/{projectKey}/settings/vega` on their LaunchDarkly instance (for example `https://app.launchdarkly.com`, or their EU or federal URL) and tell them to select their own key and save. LaunchDarkly checks the key with the provider when they save, and shows the cause if the check fails.
+For each project from Step 4, give the user `/projects/{projectKey}/settings/vega` on their LaunchDarkly instance (for example `https://app.launchdarkly.com`, or their EU or federal URL). On that page they:
+
+1. Select bring your own key. If the account has no Anthropic or OpenAI key yet, the page links to the integration form to add one. Keys are account-wide, so later projects can reuse them.
+2. Keep or change the suggested default and small models.
+3. Save. LaunchDarkly checks the key with the provider before it stores the settings, and shows the cause if the check fails.
 
 Then ask header "Inference":
 
