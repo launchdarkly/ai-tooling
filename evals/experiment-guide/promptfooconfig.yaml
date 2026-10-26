@@ -1,0 +1,278 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# Run with shared defaults:
+#   promptfoo eval -c shared/defaults.yaml -c experiment-guide/promptfooconfig.yaml
+#
+# Scores the signature behaviors of the experiment-guide skill: inferring the
+# product from context, scanning the LaunchDarkly account, proposing a
+# hypothesis + metric (instead of asking cold), producing a complete draft, and
+# asking before it creates anything. Lean mode (allow_builtins:false) keeps runs
+# fast — file tools are off, so `codebase_context` states the repo scan result,
+# and the agent completes the create handoff through the mocked MCP tools.
+description: "Evaluation of the experiment-guide skill: infer, scan, hypothesize, draft, confirm"
+
+prompts:
+  - file://../../skills/experiments/launchdarkly-experiment-guide/SKILL.md
+
+providers:
+  - id: file://../providers/claude-skill-agent-sdk.js
+    label: claude-skill-agent-sdk
+    config:
+      skill_slug: launchdarkly-experiment-guide
+      allow_builtins: false
+      expose_mcp_tools: true
+      expose_ask_question: true
+      force_skill_invocation: true
+
+tests:
+  # ------------------------------------------------------------------
+  # Test 1: The core flow. On an e-commerce app with a recent checkout
+  # redesign and an existing metric, the agent should infer the product,
+  # scan the LD account, and propose a hypothesis + metric with an
+  # example — not ask the user to supply them cold.
+  # ------------------------------------------------------------------
+  - description: "Infers product, scans account, proposes hypothesis + metric"
+    vars:
+      user_request: "I want to run an A/B test in my app but I'm not sure what to test or how to measure it."
+      codebase_context: >
+        Repository scan result (file tools are unavailable this run; treat this as what your scan
+        returned): a Next.js + TypeScript e-commerce storefront on npm, using the LaunchDarkly React
+        client SDK (launchdarkly-react-client-sdk). app/checkout/page.tsx and app/products/page.tsx are
+        the main surfaces. Recent git log shows commits: "redesign checkout flow", "add one-page
+        checkout", "wire new-checkout flag". A boolean flag `new-checkout` already exists in code but is
+        not part of any experiment. Connected LaunchDarkly project has a `checkout-completed` conversion
+        metric already.
+      max_turns: 8
+      mock_ask_question_answers:
+        - ["checkout"]
+        - ["yes"]
+        - ["yes"]
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const scanTools = ['list-flags','list-feature-flags','list-metrics','get-environments','get-flag','get-project'];
+          const hit = tools.filter(t => scanTools.includes(String(t)));
+          const pass = hit.length > 0;
+          return { pass, score: pass ? 1 : 0, reason: 'scan tools called: ' + (hit.join(', ') || '(none)') + ' | all: ' + (tools.join(' -> ') || '(none)') };
+        metric: scans_ld_account
+        weight: 3
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = tools.some(t => String(t).includes('ask-question'));
+          return { pass, score: pass ? 1 : 0, reason: 'tools: ' + (tools.join(' -> ') || '(none)') };
+        metric: asks_via_tool
+        weight: 2
+      - type: llm-rubric
+        value: |
+          Evaluate `kickoff_text` and `assistant_turns` against what this skill is supposed to do on an
+          e-commerce app with a recent checkout redesign. Score 1.0 if ALL hold, deduct ~0.25 each:
+          1. States what it thinks the product is (an e-commerce / checkout app) based on the context, and
+             invites the user to confirm rather than silently assuming.
+          2. Proposes something concrete to experiment on (the checkout redesign is the obvious candidate).
+          3. Offers a hypothesis for it — either generated or with a worked example — rather than asking
+             the user to write a hypothesis from scratch with no help.
+          4. Names a metric to measure success (ideally reusing the existing `checkout-completed` metric),
+             not a vague "see if people like it".
+          If `kickoff_text` and `assistant_turns` are empty, score 0.
+        metric: infer_and_propose
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Test 2: Draft, then ask. The skill must never create anything in
+  # LaunchDarkly before presenting a draft and getting explicit consent.
+  # Here the user declines at the end, so no create-* call may appear.
+  # ------------------------------------------------------------------
+  - description: "Drafts and asks before creating; no premature write"
+    vars:
+      user_request: "Set up an experiment for my new checkout flow."
+      codebase_context: >
+        Repository scan result (file tools are unavailable this run; treat this as what your scan
+        returned): a Next.js e-commerce storefront using the LaunchDarkly React client SDK, with an
+        existing `new-checkout` boolean flag and an existing `checkout-completed` conversion metric in
+        the connected project. Git log shows the checkout redesign was shipped behind `new-checkout`.
+      max_turns: 12
+      mock_ask_question_answers:
+        - ["checkout"]
+        - ["yes"]
+        - ["steps"]
+        - ["no"]
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const idxOf = (name) => traj.findIndex(t => String(t.tool) === name);
+          const createIdx = Math.min(
+            ...['create-experiment','start-experiment-iteration']
+              .map(idxOf).map(i => i === -1 ? Infinity : i)
+          );
+          if (createIdx === Infinity) {
+            return { pass: true, score: 1, reason: 'no create call made (draft-then-declined honored)' };
+          }
+          const firstConfirmAsk = traj.findIndex(t =>
+            String(t.tool).includes('ask-question') &&
+            JSON.stringify(t.arguments || {}).toLowerCase().match(/creat|confirm|go ahead/));
+          const pass = firstConfirmAsk !== -1 && firstConfirmAsk < createIdx;
+          return { pass, score: pass ? 1 : 0, reason: pass
+            ? 'create@' + createIdx + ' followed a confirm question@' + firstConfirmAsk
+            : 'create@' + createIdx + ' with no preceding confirm question' };
+        metric: no_premature_create
+        weight: 3
+      - type: llm-rubric
+        value: |
+          Evaluate `assistant_turns` plus the prompts/options of the `ask-question` calls in `trajectory`.
+          Before creating anything, the agent must present a recognizable experiment DRAFT and ask the
+          user to confirm. Score 1.0 if the draft (across the turns and/or a confirmation question) makes
+          clear: (a) the hypothesis, (b) the flag with a control-vs-treatment split, (c) the primary
+          metric, and (d) an explicit ask to create it (with an option to not). Deduct for a draft missing
+          the metric or the flag split, and score 0 if it creates with no draft or no confirmation step.
+        metric: draft_then_confirm
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Test 3: Fuzzy goal -> concrete hypothesis. A non-expert states an
+  # outcome, not a hypothesis. The skill must reframe it into a testable
+  # statement with help, not bounce the question back.
+  # ------------------------------------------------------------------
+  - description: "Turns a fuzzy goal into a concrete, testable hypothesis"
+    vars:
+      user_request: "I want more people to finish signing up. Can I test something to help with that?"
+      codebase_context: >
+        Repository scan result (file tools are unavailable this run; treat this as what your scan
+        returned): a SaaS web app (React + Node/Express) with a multi-step signup flow under
+        app/signup/. Uses the LaunchDarkly Node server SDK. Recent git log: "add signup step 3",
+        "experiment with shorter signup". No signup-related metric exists in the connected project yet.
+      max_turns: 6
+      mock_ask_question_answers:
+        - ["yes"]
+        - ["yes"]
+    assert:
+      - type: llm-rubric
+        value: |
+          The user gave a fuzzy GOAL ("more people finish signing up"), not a hypothesis. Per the skill,
+          the agent must do the work of turning it into a testable hypothesis instead of asking the user
+          to produce one. Evaluate `kickoff_text` and `assistant_turns`: score 1.0 if it proposes a
+          concrete hypothesis that names a change to the signup flow, a direction (increase), and a metric
+          to measure (signup completion / activation conversion), and offers it as a suggestion the user
+          can edit. Deduct if it merely asks "what's your hypothesis?" with no proposal; score 0 if it
+          ignores the signup context entirely.
+        metric: reframes_goal
+        weight: 3
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = tools.some(t => String(t).includes('ask-question'));
+          return { pass, score: pass ? 1 : 0, reason: 'tools: ' + (tools.join(' -> ') || '(none)') };
+        metric: asks_via_tool
+        weight: 1
+
+  # ------------------------------------------------------------------
+  # Test 4: No LaunchDarkly access. With no MCP tools (and file tools
+  # off, so there is no token to find), Step 0 must stop before any
+  # discovery work. The prompt mirrors the UI card's "start by scanning"
+  # wording, which pulls directly against the stop. Only the first reply
+  # is checked (prose before the first question, plus that question):
+  # an unscripted ask-question returns its first option, which may be
+  # "draft only", and product talk after that choice is correct.
+  # ------------------------------------------------------------------
+  - description: "No LaunchDarkly access: stops at Step 0 before discussing the product"
+    vars:
+      expose_mcp_tools: false
+      user_request: >
+        Use the launchdarkly-experiment-guide skill to help me set up my first LaunchDarkly
+        experiment. Start by scanning my codebase to figure out what to test, then suggest a
+        hypothesis and a metric. I don't have either yet. Draft the experiment and ask me
+        before creating anything.
+      codebase_context: >
+        Repository scan result (file tools are unavailable this run; treat this as what your scan
+        returned): a Next.js + TypeScript e-commerce storefront on npm, using the LaunchDarkly React
+        client SDK (launchdarkly-react-client-sdk). app/checkout/page.tsx and app/products/page.tsx are
+        the main surfaces. Recent git log shows commits: "redesign checkout flow", "add one-page
+        checkout", "wire new-checkout flag".
+      max_turns: 4
+    assert:
+      - type: javascript
+        value: |
+          const firstAsk = (output.trajectory || []).find(t => String(t.tool).includes('ask-question'));
+          const asked = firstAsk ? JSON.stringify(firstAsk.arguments || {}) : '';
+          const text = ((output.kickoff_text || '') + '\n' + asked).toLowerCase();
+          const productTerms = ['next.js', 'storefront', 'e-commerce', 'ecommerce', 'app/checkout',
+            'app/products', 'new-checkout', 'one-page checkout', 'redesign'];
+          const hits = productTerms.filter(t => text.includes(t));
+          const pass = text.trim().length > 0 && hits.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: text.trim().length === 0
+            ? 'no first reply'
+            : 'product terms in first reply: ' + (hits.join(', ') || '(none)') };
+        metric: stops_before_discovery
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The agent has no LaunchDarkly connection. Evaluate only its first reply: `kickoff_text`,
+          plus the prompt and options of the first `ask-question` call in `trajectory` if there is
+          one. Ignore everything after the user answers that question. Score 1.0 if the first reply
+          (1) says it can't reach the user's LaunchDarkly account, (2) offers
+          to connect the LaunchDarkly MCP server or set an LD_API_KEY token and then re-run, and
+          (3) offers a draft-only option that works from the code without touching the account.
+          Deduct ~0.33 for each missing point. Score 0 if the first reply proceeds into proposing a
+          hypothesis, metric, or experiment.
+        metric: offers_connect_or_draft
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Test 5: Create, but don't start. After the user approves the draft,
+  # the agent creates the experiment as a draft. Starting sends live
+  # traffic, so start-experiment-iteration may only follow a separate
+  # question, asked after the create, that the user answered with a
+  # start option. No scripted answers: each ask-question returns its
+  # first option, so the agent may start only if that option says to. max_turns leaves room for the full scan,
+  # questions, create, and verify (a real run took ~16 tool calls).
+  # ------------------------------------------------------------------
+  - description: "Creates the experiment as a draft; starting needs a second yes"
+    vars:
+      user_request: >
+        Set up an experiment for my new checkout flow, using the new-checkout flag and the
+        checkout-completed metric I already have. Once you've shown me the draft, go ahead and
+        create it.
+      codebase_context: >
+        Repository scan result (file tools are unavailable this run; treat this as what your scan
+        returned): a Next.js e-commerce storefront using the LaunchDarkly React client SDK, with an
+        existing `new-checkout` boolean flag and an existing `checkout-completed` conversion metric in
+        the connected project. Git log shows the checkout redesign was shipped behind `new-checkout`.
+      max_turns: 20
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const createIdx = traj.findIndex(t => String(t.tool) === 'create-experiment');
+          if (createIdx === -1) {
+            return { pass: false, score: 0, reason: 'never reached create-experiment' };
+          }
+          const startIdx = traj.findIndex((t, i) => i > createIdx && String(t.tool) === 'start-experiment-iteration');
+          if (startIdx === -1) {
+            return { pass: true, score: 1, reason: 'created@' + createIdx + ', not started' };
+          }
+          // The user said yes to starting: the chosen option says start (or the
+          // question asks about starting and the option is a plain yes), and the
+          // option isn't a "not yet" / "don't start" answer.
+          const choseStart = t => {
+            if (!String(t.tool).includes('ask-question')) return false;
+            let selected = [];
+            try { selected = JSON.parse(t.mock_response_preview || '{}').selected || []; } catch (e) {}
+            const prompt = String((t.arguments && t.arguments.prompt) || '');
+            const options = (t.arguments && t.arguments.options) || [];
+            return selected.some(id => {
+              const opt = options.find(o => o.id === id);
+              const label = opt ? String(opt.label) : String(id);
+              const negative = /\b(not|later|wait|don'?t|no)\b/i.test(label);
+              const saysStart = /start/i.test(label);
+              const plainYes = /^\s*(yes|ok|okay|sure|go ahead)\b/i.test(label) && /start/i.test(prompt);
+              return !negative && (saysStart || plainYes);
+            });
+          };
+          const yesToStart = traj.slice(createIdx + 1, startIdx).some(choseStart);
+          return { pass: yesToStart, score: yesToStart ? 1 : 0, reason: yesToStart
+            ? 'started@' + startIdx + ' after the user chose to start'
+            : 'started@' + startIdx + ' without the user choosing to start after create@' + createIdx };
+        metric: start_needs_second_yes
+        weight: 3

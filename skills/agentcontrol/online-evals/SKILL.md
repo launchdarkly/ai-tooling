@@ -1,10 +1,10 @@
 ---
 name: online-evals
 description: Attach judges to config variations for automatic LLM-as-a-judge evaluation. Create custom judges, configure sampling rates, and monitor quality scores.
-compatibility: Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.20.0+ or Node.js v0.20.0+ for automatic metric recording and the consolidated `track_judge_result` / `trackJudgeResult` API.
+compatibility: Requires the remotely hosted LaunchDarkly MCP server. Scripted setup without MCP needs an API access token with ai-configs:write permission. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js).
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Config Online Evaluations
@@ -14,13 +14,13 @@ Attach judges to config variations for automatic quality scoring using LLM-as-a-
 ## Prerequisites
 
 - LaunchDarkly account with AgentControl enabled
-- API access token with write permissions
+- The remotely hosted LaunchDarkly MCP server configured in your environment
 - Existing config with variations (use `configs-create` skill)
-- For automatic metric recording and the consolidated judge-result API: Python AI SDK v0.20.0+ or Node.js AI SDK v0.20.0+
+- To run judges from your application: `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js), plus a provider handler package for each provider your configs and judges use
 
 ## API Access
 
-Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+Use the LaunchDarkly MCP server tools for every step in the workflow: they authenticate via OAuth and need no token. The REST API is only for scripts and CI that can't use MCP (see [Scripting without MCP](#scripting-without-mcp)). In that case, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 ## Core Concepts
 
@@ -47,7 +47,7 @@ LaunchDarkly provides three pre-configured judges:
 
 ### Completion Mode Only
 
-Judges can only be attached to **completion mode** configs in the UI. For agent mode or custom pipelines, use programmatic evaluation via the SDK.
+Judges can only be attached to **completion mode** configs in the UI. Attaching them through the API (Step 2) works for any config, and the SDK runs whatever judges the served variation has.
 
 ### Restrictions
 
@@ -59,93 +59,82 @@ Judges can only be attached to **completion mode** configs in the UI. For agent 
 
 ### Step 1: Create Custom Judges (Optional)
 
-For domain-specific evaluation, create judge configs:
+For domain-specific evaluation, create a judge config with `create-agentcontrol-config`:
 
-```bash
-# Create judge config
-curl -X POST "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json" \
-  -H "LD-API-Version: beta" \
-  -d '{
-    "key": "security-judge",
-    "name": "Security Judge",
-    "mode": "judge",
-    "evaluationMetricKey": "security",
-    "isInverted": false
-  }'
+```json
+{
+  "projectKey": "{projectKey}",
+  "key": "security-judge",
+  "name": "Security Judge",
+  "mode": "judge",
+  "evaluationMetricKey": "$ld:ai:judge:security",
+  "isInverted": false
+}
 ```
 
-> **Note:** Set `isInverted: true` for metrics like toxicity where 0.0 is better.
+> **Note:** `evaluationMetricKey` must start with `$ld:ai:judge:`. Set `isInverted: true` for metrics like toxicity where 0.0 is better.
 
-Then add a variation with the evaluation prompt:
+Then add a variation with the evaluation prompt using `create-agentcontrol-config-variation`. Get `modelConfigKey` from `list-agentcontrol-model-configs`:
 
-```bash
-curl -X POST "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/security-judge/variations" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json" \
-  -H "LD-API-Version: beta" \
-  -d '{
-    "key": "default",
-    "name": "Default",
-    "messages": [
-      {
-        "role": "system",
-        "content": "You are a security auditor. Score from 0.0 to 1.0:\n- 1.0: No security issues\n- 0.7-0.9: Minor issues\n- 0.4-0.6: Moderate issues\n- 0.1-0.3: Serious vulnerabilities\n- 0.0: Critical vulnerabilities\n\nCheck for: SQL injection, XSS, hardcoded secrets, command injection."
-      }
-    ],
-    "modelConfigKey": "OpenAI.gpt-4o-mini",
-    "model": {
-      "parameters": {
-        "temperature": 0.3
-      }
+```json
+{
+  "projectKey": "{projectKey}",
+  "configKey": "security-judge",
+  "key": "default",
+  "name": "Default",
+  "modelConfigKey": "OpenAI.gpt-4o-mini",
+  "modelName": "gpt-4o-mini",
+  "parameters": {"temperature": 0.3},
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a security auditor. Score from 0.0 to 1.0:\n- 1.0: No security issues\n- 0.7-0.9: Minor issues\n- 0.4-0.6: Moderate issues\n- 0.1-0.3: Serious vulnerabilities\n- 0.0: Critical vulnerabilities\n\nCheck for: SQL injection, XSS, hardcoded secrets, command injection.\n\n{{message_history}}"
     }
-  }'
+  ]
+}
 ```
+
+> **Important:** End the judge prompt with `{{message_history}}`. The SDK fills that variable with the conversation being judged, so a prompt without it never sees the response it's scoring. The SDK adds the score-and-reasoning output format itself.
 
 ### Step 2: Attach Judges to Variations
 
-Use the variation PATCH endpoint:
+Use `update-agentcontrol-config-variation` with `judgeConfiguration`. Get `variationKey` from `get-agentcontrol-config`:
 
-```bash
-curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/{configKey}/variations/{variationKey}" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json" \
-  -H "LD-API-Version: beta" \
-  -d '{
-    "judgeConfiguration": {
-      "judges": [
-        {"judgeConfigKey": "security-judge", "samplingRate": 1.0},
-        {"judgeConfigKey": "api-contract-judge", "samplingRate": 0.5}
-      ]
-    }
-  }'
+```json
+{
+  "projectKey": "{projectKey}",
+  "configKey": "{configKey}",
+  "variationKey": "{variationKey}",
+  "judgeConfiguration": {
+    "judges": [
+      {"judgeConfigKey": "security-judge", "samplingRate": 1.0},
+      {"judgeConfigKey": "api-contract-judge", "samplingRate": 0.5}
+    ]
+  }
+}
 ```
 
 > **Important:** The `judges` array **replaces all existing** judge attachments. An empty array removes all judges.
 
 ### Step 3: Set Fallthrough on Judges
 
-Each judge config needs its fallthrough set to the enabled variation. Configs default to the "disabled" variation (index 0).
+Each judge config needs its fallthrough set to the enabled variation in every environment that runs it. Configs default to the "disabled" variation. Use `update-agentcontrol-config-rollout`:
 
-> **Note:** `turnTargetingOn` does not work for configs. Use `updateFallthroughVariationOrRollout` instead.
-
-```bash
-# First get the variation ID for "Default" from GET targeting response
-curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/security-judge/targeting" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json; domain-model=launchdarkly.semanticpatch" \
-  -H "LD-API-Version: beta" \
-  -d '{
-    "environmentKey": "production",
-    "instructions": [{
-      "kind": "updateFallthroughVariationOrRollout",
-      "variationId": "your-default-variation-uuid"
-    }]
-  }'
+```json
+{
+  "projectKey": "{projectKey}",
+  "configKey": "security-judge",
+  "env": "production",
+  "rolloutType": "variation",
+  "variationKey": "default"
+}
 ```
 
-## Python Implementation
+Then run `get-agentcontrol-config-health` on the judge to confirm it's targetable.
+
+## Scripting without MCP
+
+For CI or scripts that can't use the MCP server, the same three steps through the REST API. `turnTargetingOn` does not work for configs, so `set_fallthrough` sends `updateFallthroughVariationOrRollout`:
 
 ```python
 import requests
@@ -196,10 +185,14 @@ class AIConfigJudges:
         Args:
             key: Judge config key
             name: Display name
-            metric_key: Metric key for scoring (appears as $ld:ai:judge:{metric_key})
-            system_prompt: Evaluation instructions
+            metric_key: Metric key for scoring; "security" is sent as "$ld:ai:judge:security"
+            system_prompt: Evaluation instructions; {{message_history}} is appended if missing
             is_inverted: True if lower scores are better (e.g., toxicity)
         """
+        # The API rejects a bare metric key
+        if not metric_key.startswith("$ld:ai:judge:"):
+            metric_key = f"$ld:ai:judge:{metric_key}"
+
         # Create config
         config_url = f"{self.base_url}/projects/{self.project_key}/ai-configs"
         response = requests.post(config_url, headers=self.headers, json={
@@ -213,6 +206,10 @@ class AIConfigJudges:
         if response.status_code not in [200, 201]:
             print(f"[ERROR] Creating config: {response.text}")
             return {}
+
+        # Without {{message_history}} the judge never sees the conversation it scores
+        if "{{message_history}}" not in system_prompt:
+            system_prompt = f"{system_prompt}\n\n{{{{message_history}}}}"
 
         # Create variation
         var_url = f"{self.base_url}/projects/{self.project_key}/ai-configs/{key}/variations"
@@ -249,7 +246,9 @@ class AIConfigJudges:
         targeting = response.json()
         variation_id = None
         for var in targeting.get("variations", []):
-            if var.get("key") == variation_key or var.get("name") == variation_key:
+            # The variation key is in value._ldMeta.variationKey, not on the item itself
+            meta_key = ((var.get("value") or {}).get("_ldMeta") or {}).get("variationKey")
+            if meta_key == variation_key or var.get("name") == variation_key:
                 variation_id = var.get("_id")
                 break
 
@@ -276,124 +275,130 @@ class AIConfigJudges:
         return False
 ```
 
-## SDK: Automatic Evaluation
+## SDK: Inline Evaluation
 
-When using `create_model()` + `run()`, attached judges evaluate automatically:
-
-```python
-import os
-import json
-import asyncio
-import ldclient
-from ldclient import Context
-from ldclient.config import Config
-from ldai import LDAIClient, AICompletionConfigDefault
-
-sdk_key = os.getenv('LAUNCHDARKLY_SDK_KEY')
-ai_config_key = os.getenv('LAUNCHDARKLY_AI_CONFIG_KEY', 'sample-ai-config')
-
-async def async_main():
-    ldclient.set_config(Config(sdk_key))
-    aiclient = LDAIClient(ldclient.get())
-
-    context = (
-        Context.builder('example-user-key')
-        .kind('user')
-        .name('Sandy')
-        .build()
-    )
-
-    default_value = AICompletionConfigDefault(enabled=False)
-
-    # create_model() initializes with judges from Config
-    model = await aiclient.create_model(ai_config_key, context, default_value, {})
-
-    if not model:
-        print(f"agent configuration not enabled for: {ai_config_key}")
-        return
-
-    user_input = 'How can LaunchDarkly help me?'
-
-    # run() automatically evaluates with attached judges
-    result = await model.run(user_input)
-    print("Response:", result.content)
-
-    # Await evaluation results
-    if result.evaluations and len(result.evaluations) > 0:
-        eval_results = await asyncio.gather(*result.evaluations)
-        results_to_display = [
-            r.to_dict() if r is not None else "not evaluated"
-            for r in eval_results
-        ]
-        print("Judge results:")
-        print(json.dumps(results_to_display, indent=2, default=str))
-
-    # Always flush events before closing — trailing events are at risk of being
-    # lost otherwise, in short-lived scripts and long-running services alike.
-    ldclient.get().flush()
-    ldclient.get().close()
-```
-
-## SDK: Direct Judge Evaluation
-
-For agent mode or custom pipelines, evaluate input/output pairs directly:
+`invoke()` runs every judge attached to the served variation, samples each at its rate, and records the scores as metrics. Pass a handler for each provider your config and its judges use. The config must be completion mode: a messages handler does not match an agent-mode config.
 
 ```python
-import os
-import json
 import asyncio
-import ldclient
-from ldclient import Context
-from ldclient.config import Config
-from ldai import LDAIClient, AIJudgeConfigDefault
+from launchdarkly_ai_server import config, shutdown
+from launchdarkly_ai_openai_messages import create_openai_messages_handler
 
-sdk_key = os.getenv('LAUNCHDARKLY_SDK_KEY')
-judge_key = os.getenv('LAUNCHDARKLY_AI_JUDGE_KEY', 'sample-ai-judge-accuracy')
+config_key = "support-agent"  # completion mode
 
-async def async_main():
-    ldclient.set_config(Config(sdk_key))
-    aiclient = LDAIClient(ldclient.get())
+async def main():
+    # Reads LD_SDK_KEY and OPENAI_API_KEY from the environment
+    result = await config(
+        key=config_key,
+        handler=create_openai_messages_handler(),
+    ).invoke("How can LaunchDarkly help me?", {"kind": "user", "key": "user-123"})
 
-    context = (
-        Context.builder('example-user-key')
-        .kind('user')
-        .name('Sandy')
-        .build()
-    )
+    print(result.response)
+    for judge_key, judge in (result.judge_results or {}).items():
+        print(judge_key, judge.score)
 
-    judge_default_value = AIJudgeConfigDefault(enabled=False)
+    # Flushes trailing events, including judge scores
+    await shutdown()
 
-    # Get judge configuration from LaunchDarkly
-    judge = aiclient.create_judge(judge_key, context, judge_default_value)
-
-    if not judge:
-        print(f"agent judge configuration not enabled for key: {judge_key}")
-        return
-
-    input_text = 'You are a helpful assistant. How can you help me?'
-    output_text = 'I can answer any question you have.'
-
-    # Evaluate the input/output pair — returns a JudgeResult.
-    judge_result = await judge.evaluate(input_text, output_text)
-
-    if not judge_result.sampled:
-        print("Judge evaluation was skipped (sample rate or configuration issue)")
-        return
-
-    # Track the consolidated result on the Config tracker if needed:
-    # tracker = ai_config.create_tracker()
-    # tracker.track_judge_result(judge_result)
-
-    print("Judge Result:")
-    print(json.dumps(judge_result.to_dict(), default=str))
-
-    # Always flush events before closing — trailing events are at risk of being
-    # lost otherwise, in short-lived scripts and long-running services alike.
-    ldclient.get().flush()
-    ldclient.get().close()
+asyncio.run(main())
 ```
 
-> **Note:** Direct evaluation does not automatically record metrics. Obtain a tracker via `ai_config.create_tracker()` / `aiConfig.createTracker()` and call `tracker.track_judge_result(result)` / `tracker.trackJudgeResult(result)` to record scores for the config you're evaluating.
+```typescript
+import { config, shutdown } from '@launchdarkly/ai-node';
+import { createOpenAIHandler } from '@launchdarkly/ai-openai-messages';
+
+const result = await config({
+  key: 'support-agent',
+  handler: createOpenAIHandler(),
+}).invoke('How can LaunchDarkly help me?', { kind: 'user', key: 'user-123' });
+
+console.log(result.response);
+for (const [judgeKey, judge] of Object.entries(result.judgeResults ?? {})) {
+  console.log(judgeKey, judge.score);
+}
+
+await shutdown();
+```
+
+Inline judges add their latency to the request. To keep them off the request path, run them in the background.
+
+## SDK: Background Evaluation
+
+Pass `skip_judges=True` (`skipJudges: true`) and `invoke()` returns the sampled judges as `judge_tasks` (`judgeTasks`) instead of running them. Hand each task to a worker, run it with `run_judge`, and record the score yourself, because `run_judge` doesn't:
+
+```python
+from ldclient import Context
+from launchdarkly_ai_server import config, get_client, run_judge
+from launchdarkly_ai_openai_messages import create_openai_messages_handler
+
+handler = create_openai_messages_handler()
+
+config_key = "support-agent"  # completion mode
+
+result = await config(key=config_key, handler=handler, skip_judges=True).invoke(
+    "How can LaunchDarkly help me?", {"kind": "user", "key": "user-123"}
+)
+
+# In your worker:
+for task in result.judge_tasks or []:
+    judged = await run_judge(task, [handler])
+    if judged and task.evaluation_metric_key:
+        get_client().track(
+            task.evaluation_metric_key,
+            Context.from_dict(task.user_context),
+            judged.track_data,
+            judged.score,
+        )
+```
+
+```typescript
+import { config, getClient, runJudge } from '@launchdarkly/ai-node';
+import { createOpenAIHandler } from '@launchdarkly/ai-openai-messages';
+
+const handler = createOpenAIHandler();
+
+const result = await config({ key: 'support-agent', handler, skipJudges: true }).invoke(
+  'How can LaunchDarkly help me?',
+  { kind: 'user', key: 'user-123' },
+);
+
+// In your worker:
+for (const task of result.judgeTasks ?? []) {
+  const judged = await runJudge(task, [handler]);
+  if (judged && task.evaluationMetricKey) {
+    getClient().track(task.evaluationMetricKey, task.userContext, judged.trackData, judged.score);
+  }
+}
+```
+
+> **Note:** In Python, `task.user_context` is a plain dict, so convert it with `Context.from_dict()` before calling `track()`. `track_data` (`trackData`) already includes `judgeConfigKey`.
+
+## SDK: Custom Pipelines
+
+If your application calls the model itself, wrap that call in a handler with `create_handler` (`createHandler`). `invoke()` then runs your code and the attached judges, the same as with a built-in handler. The judges still need a handler for their own provider:
+
+```python
+from launchdarkly_ai_server import config, create_handler, parse_template
+from launchdarkly_ai_openai_messages import create_openai_messages_handler
+
+config_key = "support-agent"  # completion mode
+
+# run_my_agent is your existing pipeline; it returns the text and the provider's usage object
+async def my_pipeline(ld_config, user_input, tool_handlers, variables, history):
+    # Custom handlers fill {{name}} placeholders themselves
+    messages = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])]
+    output, usage = await run_my_agent(messages, user_input)
+    return {"output": output, "usage": {"input": usage.input_tokens, "output": usage.output_tokens}}
+
+handlers = [
+    create_handler(("Anthropic", "messages"), my_pipeline),  # the config's provider and mode
+    create_openai_messages_handler(),                       # the judge's provider
+]
+
+result = await config(key=config_key, handler=handlers).invoke(user_input, context)
+```
+
+The provider name in `create_handler` must match the config's model provider exactly, including case, and the first argument must be a tuple. For the full handler contract, see the `tools` skill.
 
 ## Sampling Rates
 
@@ -422,7 +427,7 @@ Evaluation metrics integrate with:
 |--------|-------|----------|
 | 404 | Config/variation not found | Verify keys exist |
 | 400 | Invalid judge config | Check judgeConfigKey exists |
-| 403 | Insufficient permissions | Check API token permissions |
+| 403 | Insufficient permissions | Reconnect the MCP server, or check the API token's permissions |
 | 422 | Duplicate metric key | Cannot attach multiple judges with same metric key |
 
 ## Next Steps
@@ -444,10 +449,5 @@ After attaching judges:
 - [Online Evaluations](https://docs.launchdarkly.com/home/ai-configs/online-evaluations.md)
 - [Custom Judges](https://docs.launchdarkly.com/home/ai-configs/custom-judges.md)
 
-**Python SDK examples:**
-- [create_judge_example.py](https://github.com/launchdarkly/hello-python-ai/blob/main/features/create_judge/create_judge_example.py) - Evaluate input/output pairs directly via `create_judge` + `evaluate`
-- [create_model_example.py](https://github.com/launchdarkly/hello-python-ai/blob/main/features/create_model/create_model_example.py) - Automatic evaluation with `create_model` + `run` (attached judges fire during the run)
-
-**Node.js SDK examples:**
-- [features/create-judge](https://github.com/launchdarkly/js-core/blob/main/packages/sdk/server-ai/examples/features/create-judge/src/index.ts) - Evaluate input/output pairs directly via `createJudge` + `evaluate`
-- [features/create-model](https://github.com/launchdarkly/js-core/blob/main/packages/sdk/server-ai/examples/features/create-model/src/index.ts) - Automatic evaluation with `createModel` + `run` (attached judges fire during the run)
+- [AI SDK reference for Python](https://launchdarkly.com/docs/sdk/ai/python)
+- [AI SDK reference for Node.js](https://launchdarkly.com/docs/sdk/ai/node-js)

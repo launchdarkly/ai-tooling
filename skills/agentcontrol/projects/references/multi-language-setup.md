@@ -220,7 +220,7 @@ def setup_project(service_name: str):
     
     # Save to .env
     with open(".env", "w") as f:
-        f.write(f"LAUNCHDARKLY_SDK_KEY={sdk_key}\n")
+        f.write(f"LD_SDK_KEY={sdk_key}\n")
     
     print(f"✓ Setup complete for {service_name}")
 ```
@@ -243,7 +243,7 @@ async function setupProject(serviceName: string): Promise<void> {
   const sdkKey = await pm.getSdkKey(serviceName, 'production');
   
   // Save to .env
-  fs.writeFileSync('.env', `LAUNCHDARKLY_SDK_KEY=${sdkKey}\n`);
+  fs.writeFileSync('.env', `LD_SDK_KEY=${sdkKey}\n`);
   
   console.log(`✓ Setup complete for ${serviceName}`);
 }
@@ -284,7 +284,7 @@ func setupProject(serviceName string) error {
     }
     defer f.Close()
     
-    fmt.Fprintf(f, "LAUNCHDARKLY_SDK_KEY=%s\n", sdkKey)
+    fmt.Fprintf(f, "LD_SDK_KEY=%s\n", sdkKey)
     
     fmt.Printf("✓ Setup complete for %s\n", serviceName)
     return nil
@@ -337,8 +337,8 @@ Standardize environment variable names across languages:
 
 ```bash
 # Common convention
-LAUNCHDARKLY_SDK_KEY=<production-key>
-LAUNCHDARKLY_SDK_KEY_TEST=<test-key>
+LD_SDK_KEY=<production-key>
+LD_SDK_KEY_TEST=<test-key>
 LAUNCHDARKLY_PROJECT_KEY=<project-key>
 LAUNCHDARKLY_ENVIRONMENT=<production|test>
 ```
@@ -348,27 +348,27 @@ LAUNCHDARKLY_ENVIRONMENT=<production|test>
 **Python:**
 ```python
 import os
-sdk_key = os.environ['LAUNCHDARKLY_SDK_KEY']
+sdk_key = os.environ['LD_SDK_KEY']
 ```
 
 **Node.js:**
 ```typescript
-const sdkKey = process.env.LAUNCHDARKLY_SDK_KEY;
+const sdkKey = process.env.LD_SDK_KEY;
 ```
 
 **Go:**
 ```go
-sdkKey := os.Getenv("LAUNCHDARKLY_SDK_KEY")
+sdkKey := os.Getenv("LD_SDK_KEY")
 ```
 
 **Ruby:**
 ```ruby
-sdk_key = ENV['LAUNCHDARKLY_SDK_KEY']
+sdk_key = ENV['LD_SDK_KEY']
 ```
 
 **Java:**
 ```java
-String sdkKey = System.getenv("LAUNCHDARKLY_SDK_KEY");
+String sdkKey = System.getenv("LD_SDK_KEY");
 ```
 
 ## Container/K8s ConfigMap
@@ -407,7 +407,7 @@ spec:
       containers:
       - name: app
         env:
-        - name: LAUNCHDARKLY_SDK_KEY
+        - name: LD_SDK_KEY
           valueFrom:
             secretKeyRef:
               name: launchdarkly-secrets
@@ -435,7 +435,7 @@ spec:
   - name: app
     image: my-service:latest
     env:
-    - name: LAUNCHDARKLY_SDK_KEY
+    - name: LD_SDK_KEY
       value: /var/run/secrets/launchdarkly/sdk-key
     volumeMounts:
     - name: ld-keys

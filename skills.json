@@ -165,11 +165,11 @@
     },
     {
       "name": "custom-metrics",
-      "description": "Create, track, retrieve, update, and delete custom business metrics for configs. Covers full lifecycle: define metric kinds via API, emit events via SDK, and query results.",
+      "description": "Create, track, retrieve, update, and delete custom business metrics for configs. Covers full lifecycle: define metrics with the LaunchDarkly MCP server, emit events via SDK, and query results.",
       "path": "skills/agentcontrol/custom-metrics",
-      "version": "1.0.0-experimental",
+      "version": "1.1.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the LaunchDarkly server SDK and a LaunchDarkly API token with the `writer` role for metric management."
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server to create and read metrics. Updating or deleting a metric needs a LaunchDarkly API token with the `writer` role. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js)."
     },
     {
       "name": "detect",
@@ -227,6 +227,25 @@
       "version": "0.1.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+    },
+    {
+      "name": "launchdarkly-experiment-guide",
+      "description": "Guide a developer from 'I don't know what to test' to a ready-to-create LaunchDarkly experiment. Use when someone wants to run an experiment or A/B test but doesn't have a metric, a flag, or a hypothesis yet, or isn't sure what to measure. Scans the codebase and the connected LaunchDarkly account, proposes a hypothesis and metric from real context, wires up the flag and tracking code, then drafts the experiment and offers to create it. Built for engineers without a data-science or product-analytics background.",
+      "path": "skills/experiments/launchdarkly-experiment-guide",
+      "version": "0.1.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Uses the LaunchDarkly MCP server when it is configured; otherwise falls back to the LaunchDarkly REST API (needs a LaunchDarkly API token). Reads the local codebase and git history.",
+      "tags": [
+        "launchdarkly",
+        "experimentation",
+        "ab-testing",
+        "experiments",
+        "metrics",
+        "feature-flags",
+        "hypothesis",
+        "guided",
+        "mcp"
+      ]
     },
     {
       "name": "launchdarkly-experiment-setup",
@@ -454,8 +473,8 @@
       "name": "online-evals",
       "description": "Attach judges to config variations for automatic LLM-as-a-judge evaluation. Create custom judges, configure sampling rates, and monitor quality scores.",
       "path": "skills/agentcontrol/online-evals",
-      "version": "0.1.0",
-      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.20.0+ or Node.js v0.20.0+ for automatic metric recording and the consolidated `track_judge_result` / `trackJudgeResult` API."
+      "version": "0.2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Scripted setup without MCP needs an API access token with ai-configs:write permission. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js)."
     },
     {
       "name": "plan",
@@ -469,8 +488,8 @@
       "name": "projects",
       "description": "Guide for setting up LaunchDarkly projects in your codebase. Helps you assess your stack, choose the right approach, and integrate project management that makes sense for your architecture.",
       "path": "skills/agentcontrol/projects",
-      "version": "0.4.0",
-      "compatibility": "Requires LaunchDarkly API access token with projects:write permission or LaunchDarkly MCP server."
+      "version": "0.5.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Code that creates projects itself (scripts, IaC, admin tools) needs an API access token with projects:write permission."
     },
     {
       "name": "sdk-install",
