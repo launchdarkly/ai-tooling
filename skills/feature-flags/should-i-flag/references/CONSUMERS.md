@@ -31,8 +31,19 @@ interface that exists at {BASE} returns (an HTTP or GraphQL response, a tool
 or RPC result, a webhook payload, stored data another program reads).
 - A request the change makes differently (what it sends) is not one.
 - An interface the diff adds has no contract yet.
-- A response that failed at {BASE} and now succeeds is a repair, not one. A
-  request that still fails but with a different status or error body IS one.
+- A response that failed at {BASE} and now succeeds is a repair, not one.
+  Except a guard: a change that removes or loosens a check that refuses an
+  action on purpose -- an approval requirement, a permission or role check, a
+  plan, entitlement or policy limit -- so requests it was meant to refuse at
+  {BASE} now go through IS one. A guard that refused requests it was meant to
+  allow (the PR or a test the diff adds shows the refusal was the bug) is
+  repaired, not removed. A validation error, a lookup that wrongly found
+  nothing, or a crash is not a guard.
+- A request that still fails, where only how the failure is reported changes
+  (a server error, 5xx, that now returns a client error, 4xx, or a clearer error
+  message or body), is a repair too. It IS one when the failure moves the other
+  way (a client error that now returns a server error), or when a separate
+  reader at {BASE} branches on the old status or error code.
 
 WHAT IS A SEPARATE READER
 Code in a separate client -- a frontend, SDK, CLI, another service, or a
