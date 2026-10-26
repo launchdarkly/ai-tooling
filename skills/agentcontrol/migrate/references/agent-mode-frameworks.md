@@ -103,14 +103,15 @@ agent = config(key="support-agent", handler=handlers, tool_handlers={"search": s
 
 Code outside a handler can read knobs with `(await inspect_config(key, context))["config"]["model"]["custom"]`, at the cost of a second evaluation per turn. Keep the current values as code defaults so the fallback behaves the same.
 
-**MCP caveat.** If the variation-update MCP tool doesn't expose `custom`, PATCH it through the REST API:
+Set the knobs with the `update-agentcontrol-config-variation` MCP tool. `custom` replaces the whole object, so send every knob, not only the one you're changing:
 
-```bash
-curl -X PATCH \
-  "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/variations/$VARIATION_ID" \
-  -H "Authorization: $LD_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"patch":[{"op":"add","path":"/model/custom","value":{"max_search_results":10}}]}'
+```json
+{
+  "projectKey": "{projectKey}",
+  "configKey": "{configKey}",
+  "variationKey": "{variationKey}",
+  "custom": {"max_search_results": 10}
+}
 ```
 
 ## Framework by framework

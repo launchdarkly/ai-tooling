@@ -238,7 +238,7 @@ For variations served from a provider the LangChain handler doesn't build itself
 
 ## Rules of thumb across all three examples
 
-1. **The request handler's signature and return shape stay the same.** Only where the model, prompt, and parameters come from changes, plus the `try` / `except RuntimeError` around `invoke()`.
+1. **The request handler's logic and return shape stay the same.** Only where the model, prompt, and parameters come from changes, plus the `try` / `except RuntimeError` around `invoke()`. The signature does change: the handler becomes async and takes a context source such as `user_id`. Update every caller, or keep a sync wrapper that calls `asyncio.run()` for scripts.
 2. **The fallback is the original code**, renamed. See [fallback-defaults-pattern.md](fallback-defaults-pattern.md).
 3. **Build a context per request.** It's a plain dict carrying targeting inputs — user ID, plan tier, region. Reuse the attributes the app already uses for feature flags.
 4. **Build `config()` once; call `invoke()` per request.** The instance holds routing and tools; each `invoke()` evaluates targeting fresh.

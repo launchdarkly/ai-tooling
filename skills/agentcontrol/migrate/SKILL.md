@@ -89,7 +89,7 @@ If a CHANGELOG entry post-dates this skill and changes an API you're about to us
 ## Core Principles
 
 1. **Inspect before you mutate.** Every stage begins with a read-only audit. Do not touch code until Step 1 is confirmed by the user.
-2. **Move the source of config, not the business logic.** The request handler, its inputs, and its return shape stay the same. What changes is where the model, prompt, and parameters come from, and that the provider call runs inside a handler.
+2. **Move the source of config, not the business logic.** The request handler's logic and return shape stay the same. What changes is where the model, prompt, and parameters come from, and that the provider call runs inside a handler. The call site does change shape: it becomes async and needs a context source such as the user ID. Update every caller, or keep a sync wrapper that calls `asyncio.run()` for scripts.
 3. **The fallback is the current behavior.** Keep the original hardcoded call as a function and run it when `invoke()` raises, so the app is unchanged if LaunchDarkly is unreachable.
 4. **Stages are ordered.** Wrap before you add tools. Add tools before you verify metrics. Verify metrics before you add evals.
 5. **Hand off to focused skills, manually.** Each stage that needs a LaunchDarkly write tells the user to run a sibling slash-command and waits for them to come back.
@@ -243,14 +243,17 @@ This is the first stage that writes code. It has eight sub-steps.
    **If the provider has no handler package, or the call has logic you must keep** (retries, prompt caching, a proxy, Azure OpenAI), wrap the existing call in a custom handler instead. The handler receives the served config as a dict, so the hardcoded literals become reads from it:
 
    ```python
+   from openai import AsyncOpenAI
    from launchdarkly_ai_server import config, create_handler, parse_template
+
+   openai_client = AsyncOpenAI()
 
    async def call_openai(ld_config, user_input, tool_handlers, variables, history):
        params = ld_config["model"].get("parameters", {})
        messages = [
            {**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])
        ]
-       response = openai_client.chat.completions.create(
+       response = await openai_client.chat.completions.create(
            model=ld_config["model"]["name"],
            temperature=params.get("temperature"),
            max_tokens=params.get("max_tokens"),
@@ -329,7 +332,7 @@ Every `invoke()` and `stream()` call records duration, input/output/total tokens
 
 1. **Check the Monitoring tab.** Hit the wrapped endpoint in staging, then open the config in LaunchDarkly → **Monitoring**. Duration, token, and generation counts should appear within 1–2 minutes. Force an error (bad provider key) and confirm the error count increments; the SDK records the error and re-raises.
 2. **If tokens are missing**, the handler isn't returning usage. Custom handlers must return `{"output": ..., "usage": {"input": n, "output": n}}`. For streaming, enable usage on the final chunk (`stream_options={"include_usage": True}` for OpenAI).
-3. **Wire feedback if the app has thumbs-up/down UI.** The SDK doesn't record feedback. Store the result's `track_data` with the message and send the event when the user responds:
+3. **Wire feedback if the app has thumbs-up/down UI.** The SDK doesn't record feedback. Store the result's `track_data` with the message and send the event when the user responds. `stream()` doesn't return `track_data` in the current SDKs, so feedback on streamed responses can't be attributed to a variation yet:
 
    ```python
    from ldclient import Context
@@ -371,8 +374,13 @@ Delegate: none required. Point the user at **`built-in-metrics`** for per-provid
 
    ```python
    result = await config(key="chat-assistant", handler=handlers, skip_judges=True).invoke(user_input, context)
+   # The event loop holds only weak references to tasks, so keep them until they finish
+   _background = set()
+
    for task in result.judge_tasks or []:
-       asyncio.create_task(run_judge_worker(task))
+       t = asyncio.create_task(run_judge_worker(task))
+       _background.add(t)
+       t.add_done_callback(_background.discard)
    ```
 
 5. **Verify.**
