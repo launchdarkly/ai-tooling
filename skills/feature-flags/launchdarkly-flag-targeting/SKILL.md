@@ -17,11 +17,11 @@ You're using a skill that will guide you through changing who sees what for a fe
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `get-flag`: understand current state before making changes
+- `get-flags`: with `flagKey`, understand current state before making changes
 - `toggle-flag`: turn targeting on or off for a flag in an environment
 - `update-rollout`: change the default rule (fallthrough) variation or percentage rollout
 - `update-targeting-rules`: add, remove, or modify custom targeting rules
-- `update-individual-targets`: add or remove specific users/contexts from individual targeting
+- `update-flag-targeting`: add or remove specific users/contexts from individual targeting
 
 **Optional MCP tools:**
 - `copy-flag-config`: copy targeting configuration from one environment to another
@@ -47,7 +47,7 @@ This means: if you add a targeting rule but the flag is OFF, nobody sees the cha
 Before changing anything, check what's already configured.
 
 1. **Confirm the environment.** "Turn it on" without specifying an environment is ambiguous. Always confirm which environment the user means. Default to asking rather than assuming.
-2. **Fetch the flag.** Use `get-flag` with the target environment to see:
+2. **Fetch the flag.** Use `get-flags` with `flagKey` and the target environment to see:
    - `on`: Is targeting currently enabled?
    - `fallthrough`: What's the default rule? (variation or percentage rollout)
    - `offVariation`: What serves when the flag is off?
@@ -68,7 +68,7 @@ Based on what the user wants and what you found, choose the right tool and strat
 | "Turn it off" | `toggle-flag` with `on: false` | Serves offVariation to everyone |
 | "Roll out to X%" | `update-rollout` with `rolloutType: "percentage"` | Weights must sum to 100 |
 | "Enable for beta users" | `update-targeting-rules`: add a rule with clause | Rules are ANDed within, ORed between |
-| "Add specific users" | `update-individual-targets` | Highest priority, overrides all rules |
+| "Add specific users" | `update-flag-targeting` | Highest priority, overrides all rules |
 
 **Before writing a rule, individual target, or percentage rollout, confirm the context supports it.** A rule that names a context kind or attribute the flag's evaluation doesn't carry silently never matches; individual targets match the context **key**, not an attribute like email; and a rollout can only bucket by a kind present where the flag is read. See [Context Availability](references/context-availability.md) to pick a context that will actually fire.
 | "Full rollout" | `update-rollout` with `rolloutType: "variation"` | Serve one variation to everyone |
@@ -95,7 +95,7 @@ Use the appropriate tool for the change. Key notes:
 - **`toggle-flag`**: Specify `on: true` or `on: false`, the `env`, and a `comment`.
 - **`update-rollout`**: Use `rolloutType: "percentage"` with human-friendly weights (e.g., 80 for 80%) that sum to 100, or `rolloutType: "variation"` with a `variationIndex`.
 - **`update-targeting-rules`**: Instructions support `addRule`, `removeRule`, `updateRuleVariationOrRollout`, `addClauses`, `removeClauses`, `reorderRules`.
-- **`update-individual-targets`**: Instructions support `addTargets`, `removeTargets`, `addContextTargets`, `removeContextTargets`, `replaceTargets`.
+- **`update-flag-targeting`**: Instructions support `addTargets`, `removeTargets`, `replaceTargets`, `addPrerequisite`, `removePrerequisite`.
 
 See [Targeting Patterns](references/targeting-patterns.md) for detailed instruction examples.
 
@@ -103,7 +103,7 @@ See [Targeting Patterns](references/targeting-patterns.md) for detailed instruct
 
 After applying changes, confirm the result:
 
-1. **Fetch the updated flag.** Use `get-flag` again to verify the new state.
+1. **Fetch the updated flag.** Use `get-flags` with `flagKey` again to verify the new state.
 2. **Confirm what the user expects.** Describe the resulting targeting in plain language:
    - "The flag is now ON in production, serving `true` to 25% of users and `false` to 75%."
    - "Beta users now see variation A. Everyone else gets the default (variation B)."
@@ -117,7 +117,7 @@ When a write tool returns an error that starts with `Blocked: approval is requir
 2. **Hand it to a human**: open the request's `url` in the user's browser when your client can, and show the link
 3. **Check the outcome** with `list-approval-requests` and the request's `id` once the user says it has been reviewed, not in a loop
 4. **Apply the request** with `apply-approval-request` only once `reviewStatus` is `approved`
-5. **Verify the result** with `get-flag` after applying
+5. **Verify the result** with `get-flags` and `flagKey` after applying
 
 ## Important Context
 

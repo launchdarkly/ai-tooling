@@ -23,7 +23,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Optional MCP tools:**
 - `get-environment`: read an environment's approval settings
-- `create-agentcontrol-config-approval`, `list-agentcontrol-config-approvals`, `apply-agentcontrol-config-approval`: the same workflow for AgentControl Configs
+- `create-agent-config-approval`, `list-agent-config-approvals`, `apply-agent-config-approval`: the same workflow for AgentControl Configs
 
 ## Core Principles
 
@@ -59,7 +59,7 @@ Input:
 ```
 
 - Segment requests need at least one reviewer in `notifyMemberIds` or `notifyTeamKeys`. Flag requests take reviewers only when the user names them.
-- AgentControl Config changes use `create-agentcontrol-config-approval` with `configKey` and at least one reviewer.
+- AgentControl Config changes use `create-agent-config-approval` with `configKey` and at least one reviewer.
 - If the message says no tool submits this approval, ask the user to request approval in LaunchDarkly.
 
 ### Step 3: Hand the request to a human
@@ -78,13 +78,10 @@ When the user says the request was reviewed, read it once by id:
 ```
 Tool: list-approval-requests
 Input:
-  projectKey: "my-project"
-  flagKey: "new-checkout"        # the same flagKey or segmentKey the request was created for
-  env: "production"
   id: "<approval-request-id>"
 ```
 
-For an AgentControl Config, call `list-agentcontrol-config-approvals` with `projectKey`, `configKey`, and `id`. The request must belong to the flag, segment, or config you name. A `status` filter still applies, so omit it when you read by id.
+The id from create is enough on its own. If you also pass `projectKey`, `env`, and `flagKey` or `segmentKey`, they must match the request's resource. For an AgentControl Config, call `list-agent-config-approvals` with `id`. A `status` filter still applies to `list-approval-requests`, so omit it when you read by id.
 
 The result holds that one request in the usual item shape. Its `reviews` list each review's `kind` and `comment`.
 
@@ -93,7 +90,7 @@ The result holds that one request in the usual item shape. Its `reviews` list ea
 | `approved` | `pending` | Offer to apply it (Step 5), or apply it if the user already asked |
 | `declined` | any | Report the decline and the reviewer's `comment` from `reviews`. Do not apply |
 | `pending` | `pending` | Not reviewed yet. Say so and share the url again; check again only when the user asks |
-| any | `completed` | Already applied. Verify the resource (for a flag, `get-flag`) |
+| any | `completed` | Already applied. Verify the resource (for a flag, `get-flags` with `flagKey`) |
 | any | `scheduled` | Applied on a schedule; not live yet. Do not report it as live |
 | any | `failed` | Applying failed. Report it and point the user to the url |
 
@@ -115,13 +112,13 @@ Input:
 
 The tool reads the request back before it reports:
 
-- `applied: true`: the change is live. Verify it, for a flag with `get-flag`.
+- `applied: true`: the change is live. Verify it, for a flag with `get-flags` and `flagKey`.
 - `scheduled: true`: the change runs at `executionDate`. Do not report it as live.
 - `applied: false` with a `message`: the change did not apply. Report the message.
 
 ## Finding a request later
 
-If you no longer have the id, call `list-approval-requests` with `flagKey` or `segmentKey` and `env`. Pass `status: ["pending"]` for open requests, or `["completed"]` for applied ones. Each item has `id`, `status`, `reviewStatus`, `url`, and `reviews`. For an AgentControl Config, call `list-agentcontrol-config-approvals` with `configKey`.
+If you no longer have the id, call `list-approval-requests` with `projectKey`, `env`, and `flagKey` or `segmentKey`. Pass `status: ["pending"]` for open requests, or `["completed"]` for applied ones. Each item has `id`, `status`, `reviewStatus`, `url`, and `reviews`. For an AgentControl Config, call `list-agent-config-approvals` with `projectKey` and `configKey`.
 
 ## What not to do
 

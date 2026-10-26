@@ -12,7 +12,7 @@ Run through this checklist before applying any targeting changes, especially in 
 ### 2. Right Flag?
 
 - [ ] Confirmed the flag key matches what the user intends
-- [ ] If the flag key could be ambiguous, verify with `get-flag`
+- [ ] If the flag key could be ambiguous, verify with `get-flags` and `flagKey`
 
 ### 3. Understand Current State
 
@@ -78,6 +78,6 @@ For any change to a production environment:
 
 ## After the Change
 
-- [ ] Verified the new state with `get-flag`
+- [ ] Verified the new state with `get-flags` and `flagKey`
 - [ ] Described the resulting targeting to the user in plain language
 - [ ] Confirmed the change achieves what the user asked for
