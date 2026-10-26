@@ -73,7 +73,7 @@ def search(query: str) -> dict:
     return TavilySearch(max_results=max_results).invoke({"query": query})
 ```
 
-Mirror the same shape on the LaunchDarkly variation. **MCP caveat.** The `update-agentcontrol-config-variation` MCP tool does not currently expose the `custom` field — to populate `model.custom` on an existing variation, PATCH it through the REST API directly:
+Mirror the same shape on the LaunchDarkly variation. **MCP caveat.** The `update-ai-config-variation` MCP tool does not currently expose the `custom` field — to populate `model.custom` on an existing variation, PATCH it through the REST API directly:
 
 ```bash
 curl -X PATCH \
