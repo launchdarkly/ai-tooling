@@ -241,11 +241,11 @@ Individual targets are the highest priority: they override all rules.
 
 ### Context-kind targets (non-user)
 
-For custom context kinds (device, organization, etc.):
+For custom context kinds (device, organization, etc.), pass `contextKind` on `addTargets` or `removeTargets`. `update-flag-targeting` does not accept `addContextTargets` or `removeContextTargets`.
 
 ```json
 {
-  "kind": "addContextTargets",
+  "kind": "addTargets",
   "contextKind": "organization",
   "variationId": "<variation-id>",
   "values": ["org-123", "org-456"]
@@ -254,7 +254,7 @@ For custom context kinds (device, organization, etc.):
 
 ```json
 {
-  "kind": "removeContextTargets",
+  "kind": "removeTargets",
   "contextKind": "organization",
   "variationId": "<variation-id>",
   "values": ["org-123"]
