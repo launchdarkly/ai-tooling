@@ -153,10 +153,9 @@ Only write provider-specific tool code when no handler package covers your provi
 The tool functions the SDK passes in are already wrapped to record `$ld:ai:tool_call`, so call them directly. Return the final text and the token usage. Here's a bounded loop against Anthropic:
 
 ```python
-import json
-
 from anthropic import AsyncAnthropic
-from launchdarkly_ai_server import compose_history, create_handler, parse_template
+# tool_result_string needs launchdarkly-ai-server 0.4.0+
+from launchdarkly_ai_server import compose_history, create_handler, parse_template, tool_result_string
 
 anthropic_client = AsyncAnthropic()
 MAX_STEPS = 5
@@ -200,8 +199,7 @@ async def call_anthropic(ld_config, user_input, tool_handlers, variables, histor
         for block in response.content:
             if block.type == "tool_use":
                 output = await tool_handlers[block.name](block.input)
-                content = output if isinstance(output, str) else "" if output is None else json.dumps(output)
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": content})
+                results.append({"type": "tool_result", "tool_use_id": block.id, "content": tool_result_string(output)})
         messages.append({"role": "user", "content": results})
     else:
         # Not RuntimeError: the app's fallback treats that as LaunchDarkly being unavailable
