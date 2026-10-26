@@ -1,11 +1,11 @@
 ---
 name: launchdarkly-release-autopilot-settings
-description: "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR."
+description: "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, set up release plans), use launchdarkly-release-autopilot-onboarding instead."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.3.0-experimental"
+  version: "1.4.0-experimental"
 ---
 
 # LaunchDarkly Release Autopilot Settings
@@ -73,6 +73,7 @@ After they confirm, apply **only** the fields in the proposal. Then verify (do n
 
 ## Choose a workflow
 
+- **First-time setup** ("set up Release Autopilot", "onboard us", or no capability on and no repo mapped) → [`launchdarkly-release-autopilot-onboarding`](../launchdarkly-release-autopilot-onboarding/SKILL.md). It gathers every decision first and confirms one plan.
 - **"Why didn't Release Autopilot classify / auto-flag my PR?"** (or similar) → [Why didn't my PR get classified?](#why-didnt-my-pr-get-classified) first. Do not write settings in that workflow.
 - Configure / map / turn on / unmap → [Configure settings](#configure-settings).
 
@@ -139,6 +140,6 @@ To unmap: [Confirm before write](#confirm-before-write), then `delete-release-au
 
 - Auto-cleanup
 - Completing GitHub OAuth inside the tool. Hand the user `githubConnectUrl` instead.
-- Vega BYOK
+- Vega inference and bring-your-own-key setup, and environment release plans. The [onboarding skill](../launchdarkly-release-autopilot-onboarding/SKILL.md) guides both.
 - Observability MCP (`github_repositories`) — do not require a second MCP server just to map a repo
 - Changing classification rules, GitHub App permissions, or org install scope via this skill

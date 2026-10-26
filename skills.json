@@ -420,10 +420,28 @@
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
+      "name": "launchdarkly-release-autopilot-onboarding",
+      "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick the capabilities you want (auto-flagging, auto-releasing), connect the GitHub App, map repositories to projects, choose Vega inference (LaunchDarkly managed or bring your own key), set up environment release plans, then verify. Use when the user wants to set up, onboard to, get started with, or turn on Release Autopilot for the first time. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
+      "path": "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
+      "version": "0.1.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "release-autopilot",
+        "onboarding",
+        "github",
+        "auto-flagging",
+        "auto-releasing",
+        "release-plans",
+        "mcp"
+      ]
+    },
+    {
       "name": "launchdarkly-release-autopilot-settings",
-      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR.",
+      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, set up release plans), use launchdarkly-release-autopilot-onboarding instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-settings",
-      "version": "1.3.0-experimental",
+      "version": "1.4.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [

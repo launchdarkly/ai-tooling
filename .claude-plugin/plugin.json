@@ -36,6 +36,7 @@
     "./skills/agentcontrol/online-evals",
     "./skills/agentcontrol/projects",
     "./skills/agentcontrol/tools",
-    "./skills/release-autopilot/launchdarkly-release-autopilot-settings"
+    "./skills/release-autopilot/launchdarkly-release-autopilot-settings",
+    "./skills/release-autopilot/launchdarkly-release-autopilot-onboarding"
   ]
 }

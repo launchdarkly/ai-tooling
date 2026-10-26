@@ -1,0 +1,21 @@
+{
+  "name": "launchdarkly-release-autopilot-onboarding",
+  "description": "Step-by-step Release Autopilot onboarding: pick capabilities, connect GitHub, map repos, choose inference, set up release plans",
+  "version": "0.1.0-experimental",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "release-autopilot",
+    "onboarding",
+    "github",
+    "auto-flagging",
+    "auto-releasing",
+    "release-plans",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}
