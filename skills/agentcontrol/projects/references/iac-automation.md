@@ -166,7 +166,7 @@ jobs:
           PROJECT_KEY: ${{ github.event.inputs.project_key }}
         run: |
           SDK_KEY=$(python scripts/get_sdk_key.py $PROJECT_KEY production)
-          gh secret set LAUNCHDARKLY_SDK_KEY --body "$SDK_KEY"
+          gh secret set LD_SDK_KEY --body "$SDK_KEY"
 ```
 
 ### Automated Project Creation on New Service
@@ -263,7 +263,7 @@ jobs:
           name: Save SDK key
           command: |
             SDK_KEY=$(python scripts/get_sdk_key.py $CIRCLE_PROJECT_REPONAME production)
-            echo "export LAUNCHDARKLY_SDK_KEY='$SDK_KEY'" >> $BASH_ENV
+            echo "export LD_SDK_KEY='$SDK_KEY'" >> $BASH_ENV
 
 workflows:
   setup:
@@ -319,7 +319,7 @@ Manage projects with Ansible:
     - name: Save SDK keys to .env
       copy:
         content: |
-          LAUNCHDARKLY_SDK_KEY={{ item.json.environments.items[0].apiKey }}
+          LD_SDK_KEY={{ item.json.environments.items[0].apiKey }}
         dest: ".env.{{ item.item.key }}"
       loop: "{{ sdk_keys.results }}"
       no_log: true

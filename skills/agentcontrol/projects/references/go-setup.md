@@ -280,7 +280,7 @@ func main() {
     }
     
     // Store SDK key for SDK initialization
-    os.Setenv("LAUNCHDARKLY_SDK_KEY", sdkKey)
+    os.Setenv("LD_SDK_KEY", sdkKey)
     
     log.Printf("✓ LaunchDarkly project ready: %s\n", project.Key)
     

@@ -193,7 +193,7 @@ project = pm.create_project(
     key=LAUNCHDARKLY_PROJECT_KEY
 )
 
-LAUNCHDARKLY_SDK_KEY = pm.get_sdk_key(LAUNCHDARKLY_PROJECT_KEY, "production")
+LD_SDK_KEY = pm.get_sdk_key(LAUNCHDARKLY_PROJECT_KEY, "production")
 ```
 
 ## CLI Tool
