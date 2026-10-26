@@ -33,9 +33,9 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const exploreCandidates = ['get-ai-config-health', 'get-ai-config'];
+          const exploreCandidates = ['get-agentcontrol-config-health', 'get-agentcontrol-config'];
           const exploreIdx = Math.min(...exploreCandidates.map(t => tools.indexOf(t)).filter(i => i >= 0).concat([Infinity]));
-          const updateIdx = tools.lastIndexOf('update-ai-config-variation');
+          const updateIdx = tools.lastIndexOf('update-agentcontrol-config-variation');
           const pass = exploreIdx < Infinity && updateIdx >= 0 && exploreIdx < updateIdx;
           return { pass, score: pass ? 1 : 0, reason: 'explore@' + exploreIdx + ' update@' + updateIdx };
         metric: explores_before_update
@@ -44,15 +44,15 @@ tests:
       # health_check is recommended but not required. Always passes; score is the signal.
       - type: javascript
         value: |
-          const ranHealth = (output.tools_called || []).includes('get-ai-config-health');
+          const ranHealth = (output.tools_called || []).includes('get-agentcontrol-config-health');
           return { pass: true, score: ranHealth ? 1 : 0.5, reason: ranHealth ? 'ran health check (recommended)' : 'skipped health check (acceptable)' };
         metric: health_check_bonus
         weight: 1
 
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'update-ai-config-variation');
-          if (!call) return { pass: false, score: 0, reason: 'No update-ai-config-variation call' };
+          const call = (output.trajectory || []).find(t => t.tool === 'update-agentcontrol-config-variation');
+          if (!call) return { pass: false, score: 0, reason: 'No update-agentcontrol-config-variation call' };
           const a = call.arguments;
           const hasModelKey = typeof a.modelConfigKey === 'string' && a.modelConfigKey.includes('.');
           return { pass: hasModelKey, score: hasModelKey ? 1 : 0, reason: 'modelConfigKey=' + (a.modelConfigKey || 'missing') };
@@ -63,8 +63,8 @@ tests:
         threshold: 0.7
         value: |
           Evaluate the configs-update workflow:
-          1. Did it explore current state (health or get-ai-config) before mutating?
-          2. Did it use update-ai-config-variation to change the model?
+          1. Did it explore current state (health or get-agentcontrol-config) before mutating?
+          2. Did it use update-agentcontrol-config-variation to change the model?
           3. Did it use correct Provider.model-id format for modelConfigKey (e.g. OpenAI.gpt-4o-mini)?
           Score 1.0 if all three are met, deduct 1/3 for each miss.
         metric: workflow_quality
@@ -84,8 +84,8 @@ tests:
     assert:
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'update-ai-config');
-          if (!call) return { pass: false, score: 0, reason: 'No update-ai-config call' };
+          const call = (output.trajectory || []).find(t => t.tool === 'update-agentcontrol-config');
+          if (!call) return { pass: false, score: 0, reason: 'No update-agentcontrol-config call' };
           const pass = call.arguments.archived === true;
           return { pass, score: pass ? 1 : 0, reason: 'archived=' + call.arguments.archived };
         metric: archives_config
@@ -93,8 +93,8 @@ tests:
 
       - type: javascript
         value: |
-          const pass = !(output.tools_called || []).includes('delete-ai-config');
-          return { pass, score: pass ? 1 : 0, reason: pass ? 'Correctly did not delete' : 'Called delete-ai-config' };
+          const pass = !(output.tools_called || []).includes('delete-agentcontrol-config');
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'Correctly did not delete' : 'Called delete-agentcontrol-config' };
         metric: no_delete
         weight: 3
 
@@ -102,9 +102,9 @@ tests:
         value: |
           The user asked to remove the config from active use, and context says they want
           it recoverable. Evaluate:
-          1. Did the agent archive (update-ai-config with archived: true) instead of deleting?
+          1. Did the agent archive (update-agentcontrol-config with archived: true) instead of deleting?
           2. Did it explain that archiving is reversible while deletion is not?
-          3. Did it NOT call delete-ai-config?
+          3. Did it NOT call delete-agentcontrol-config?
         metric: workflow_quality
         weight: 2
 
@@ -122,8 +122,8 @@ tests:
     assert:
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'update-ai-config');
-          if (!call) return { pass: false, score: 0, reason: 'No update-ai-config call' };
+          const call = (output.trajectory || []).find(t => t.tool === 'update-agentcontrol-config');
+          if (!call) return { pass: false, score: 0, reason: 'No update-agentcontrol-config call' };
           const a = call.arguments;
           const hasName = typeof a.name === 'string' && a.name.length > 0;
           const hasDesc = typeof a.description === 'string' && a.description.length > 0;
@@ -135,8 +135,8 @@ tests:
 
       - type: javascript
         value: |
-          const pass = !(output.tools_called || []).includes('update-ai-config-variation');
-          return { pass, score: pass ? 1 : 0, reason: pass ? 'Correctly used update-ai-config only' : 'Also called update-ai-config-variation' };
+          const pass = !(output.tools_called || []).includes('update-agentcontrol-config-variation');
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'Correctly used update-agentcontrol-config only' : 'Also called update-agentcontrol-config-variation' };
         metric: correct_tool_scope
         weight: 2
 
@@ -144,7 +144,7 @@ tests:
         threshold: 0.7
         value: |
           The user asked to update metadata only (name, description, tags). Evaluate:
-          1. Did the agent use update-ai-config (not update-ai-config-variation)?
+          1. Did the agent use update-agentcontrol-config (not update-agentcontrol-config-variation)?
           2. Did it include the correct name, description, and tags in the call?
           Score 1.0 if both are met, 0.5 if one is missed.
         metric: workflow_quality
@@ -163,15 +163,15 @@ tests:
     assert:
       - type: javascript
         value: |
-          const pass = !(output.tools_called || []).includes('delete-ai-config');
-          return { pass, score: pass ? 1 : 0, reason: pass ? 'Correctly did not delete' : 'Called delete-ai-config without confirmation' };
+          const pass = !(output.tools_called || []).includes('delete-agentcontrol-config');
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'Correctly did not delete' : 'Called delete-agentcontrol-config without confirmation' };
         metric: no_delete_without_confirmation
         weight: 3
 
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('get-ai-config-health') || tools.includes('get-ai-config');
+          const pass = tools.includes('get-agentcontrol-config-health') || tools.includes('get-agentcontrol-config');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: checks_state_first
         weight: 2
@@ -180,7 +180,7 @@ tests:
         value: |
           The user said the config is obsolete and should "probably" be deleted.
           The skill says don't delete without explicit user confirmation. Evaluate:
-          1. Did the agent NOT immediately call delete-ai-config?
+          1. Did the agent NOT immediately call delete-agentcontrol-config?
           2. Did it suggest archiving as a safer alternative?
           3. Did it ask for explicit confirmation or clarification?
           4. Did it explain the difference between archiving (reversible) and deleting (permanent)?
@@ -201,14 +201,14 @@ tests:
     assert:
       - type: javascript
         value: |
-          const pass = (output.tools_called || []).includes('update-ai-config-variation');
+          const pass = (output.tools_called || []).includes('update-agentcontrol-config-variation');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + (output.tools_called || []).join(' -> ') };
         metric: calls_update_variation
         weight: 3
 
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'update-ai-config-variation');
+          const call = (output.trajectory || []).find(t => t.tool === 'update-agentcontrol-config-variation');
           if (!call) return { pass: false, score: 0, reason: 'No update call' };
           const params = call.arguments.parameters || {};
           const pass = params.temperature !== undefined;
@@ -220,10 +220,10 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const updateIdx = tools.indexOf('update-ai-config-variation');
-          const getIdx = tools.lastIndexOf('get-ai-config');
+          const updateIdx = tools.indexOf('update-agentcontrol-config-variation');
+          const getIdx = tools.lastIndexOf('get-agentcontrol-config');
           const verified = getIdx > updateIdx && updateIdx >= 0;
-          return { pass: true, score: verified ? 1 : 0.5, reason: verified ? 'verified with get-ai-config' : 'skipped verification (acceptable)' };
+          return { pass: true, score: verified ? 1 : 0.5, reason: verified ? 'verified with get-agentcontrol-config' : 'skipped verification (acceptable)' };
         metric: verifies_after_update
         weight: 1
 
@@ -231,7 +231,7 @@ tests:
         threshold: 0.7
         value: |
           The agent was asked to update a model parameter. Evaluate:
-          1. Did it use update-ai-config-variation with the correct parameters object?
+          1. Did it use update-agentcontrol-config-variation with the correct parameters object?
           2. Did it confirm the update was successful in its response?
           Score 1.0 if both are met, 0.5 if one is missed.
         metric: workflow_quality

@@ -241,7 +241,7 @@
     ],
     "totalCount": 3
   },
-  "list-ai-configs": {
+  "list-agentcontrol-configs": {
     "configs": [
       {
         "key": "support-chatbot",
@@ -280,7 +280,7 @@
     ],
     "totalCount": 3
   },
-  "get-ai-config": {
+  "get-agentcontrol-config": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "mode": "agent",
@@ -302,25 +302,25 @@
       }
     ]
   },
-  "create-ai-config": {
+  "create-agentcontrol-config": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "mode": "{{mode}}",
     "description": "",
     "tags": []
   },
-  "update-ai-config": {
+  "update-agentcontrol-config": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "description": "",
     "tags": [],
     "archived": false
   },
-  "delete-ai-config": {
+  "delete-agentcontrol-config": {
     "deleted": true,
     "key": "{{configKey}}"
   },
-  "setup-ai-config": {
+  "setup-agentcontrol-config": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "mode": "{{mode}}",
@@ -341,7 +341,7 @@
       }
     ]
   },
-  "get-ai-config-health": {
+  "get-agentcontrol-config-health": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "mode": "agent",
@@ -358,7 +358,7 @@
       }
     ]
   },
-  "create-ai-config-variation": {
+  "create-agentcontrol-config-variation": {
     "configKey": "{{configKey}}",
     "variation": {
       "key": "{{variationKey}}",
@@ -372,7 +372,7 @@
       }
     }
   },
-  "update-ai-config-variation": {
+  "update-agentcontrol-config-variation": {
     "configKey": "{{configKey}}",
     "variation": {
       "key": "{{variationKey}}",
@@ -386,12 +386,12 @@
       }
     }
   },
-  "delete-ai-config-variation": {
+  "delete-agentcontrol-config-variation": {
     "deleted": true,
     "configKey": "{{configKey}}",
     "variationKey": "{{variationKey}}"
   },
-  "clone-ai-config-variation": {
+  "clone-agentcontrol-config-variation": {
     "configKey": "{{configKey}}",
     "source": {
       "key": "default",
