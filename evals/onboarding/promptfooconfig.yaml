@@ -4,7 +4,9 @@
 #   promptfoo eval -c shared/defaults.yaml -c onboarding/promptfooconfig.yaml
 #
 # Scores the kickoff plus the early decision points of the onboarding skill,
-# where the reported UX problems live. Lean mode (allow_builtins:false) keeps
+# where the reported UX problems live. Tests 5-7 cover the observability plugin
+# request: an SDK too old for plugins, a stack with no plugin, and a vague
+# follow-up after onboarding finished. Lean mode (allow_builtins:false) keeps
 # runs fast: the agent produces the scripted conversation using the mocked LD
 # tools and ask-question instead of running a real install. max_turns is capped
 # per test so a run stops after the beats being graded.
@@ -193,3 +195,183 @@ tests:
           vague consequence.
         metric: handles_drift
         weight: 2
+
+  # ------------------------------------------------------------------
+  # Test 5: Observability on an SDK too old to accept `plugins`. The
+  # agent must ask before a major upgrade or package swap, naming the
+  # version problem in one line, instead of upgrading silently.
+  # ------------------------------------------------------------------
+  - description: "Observability: old browser SDK without plugins asks before upgrading"
+    vars:
+      user_request: >
+        Run `npx skills add launchdarkly/ai-tooling --skill onboarding -y` and onboard me to LaunchDarkly
+
+        Also add the LaunchDarkly observability plugin for this stack to that client's `plugins` option,
+        reusing its key. For a browser app, that's @launchdarkly/observability and
+        @launchdarkly/session-replay with privacySetting "strict".
+      codebase_context: >
+        Repository scan result (file tools are unavailable this run; treat this as what your scan
+        returned): a single-package browser app in TypeScript built with Vite on npm, src/main.ts
+        entrypoint. LaunchDarkly is already integrated: package.json depends on
+        launchdarkly-js-client-sdk ^2.24.2, and src/main.ts calls LDClient.initialize() with
+        import.meta.env.VITE_LAUNCHDARKLY_CLIENT_SIDE_ID, then waitForInitialization(). .env sets
+        VITE_LAUNCHDARKLY_CLIENT_SIDE_ID and is gitignored. The installed SDK's LDOptions type has no
+        `plugins` option. Git repository on branch main, clean tree. No MCP configuration.
+      max_turns: 6
+      mock_ask_question_answers:
+        - ["Keep the current SDK version"]
+        - ["ld_ui"]
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const flagIdx = traj.findIndex(t => String(t.tool) === 'create-flag');
+          const upgradeIdx = traj.findIndex(t =>
+            String(t.tool).includes('ask-question') &&
+            /upgrad|version|major|2\.x|4\.x|js-client-sdk/i.test(JSON.stringify(t.arguments || {})));
+          const pass = upgradeIdx !== -1 && (flagIdx === -1 || upgradeIdx < flagIdx);
+          return {
+            pass,
+            score: pass ? 1 : 0,
+            reason: 'upgrade question@' + upgradeIdx + ', create-flag@' + flagIdx +
+              ' || tools: ' + (traj.map(t => t.tool).join(' -> ') || '(none)'),
+          };
+        metric: asks_before_upgrade
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The project runs launchdarkly-js-client-sdk 2.x, which cannot load plugins, and the user asked
+          for the observability and session replay plugins. Judge `assistant_turns` together with the
+          prompt and options of the `ask-question` calls in `trajectory`. Score 1.0 if ALL hold, deduct
+          ~0.25 each:
+          1. The agent names the version problem in about one sentence: the installed SDK is too old for
+             plugins, and adding them needs a major upgrade or a move to the newer browser SDK package.
+          2. It asks the user before upgrading or swapping the package, and does not claim it already
+             upgraded the SDK or already added the plugins.
+          3. It does not add a second LaunchDarkly client or ask for a second key for the plugins.
+          4. Plain status-line voice, with no step labels, skill or file names, or workflow jargon.
+        metric: names_version_problem
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Test 6: Observability requested on a stack with no plugin (Java).
+  # One line saying it is not available yet, then onboarding continues
+  # with flags. No OpenTelemetry or other substitute package.
+  # ------------------------------------------------------------------
+  - description: "Observability: unsupported stack says so in one line and continues with flags"
+    vars:
+      user_request: >
+        Run `npx skills add launchdarkly/ai-tooling --skill onboarding -y` and onboard me to LaunchDarkly
+
+        Also add the LaunchDarkly observability plugin for this stack to that client's `plugins` option,
+        reusing its key. For a browser app, that's @launchdarkly/observability and
+        @launchdarkly/session-replay with privacySetting "strict".
+      codebase_context: >
+        Repository scan result (file tools are unavailable this run; treat this as what your scan
+        returned): a single-module Spring Boot 3 service in Java on Maven. pom.xml with
+        spring-boot-starter-web, src/main/java/com/example/demo/DemoApplication.java as the entrypoint,
+        and a GreetingController serving GET /. Git repository on branch main, clean tree. No
+        LaunchDarkly SDK dependency, no LaunchDarkly code, no MCP configuration.
+      max_turns: 8
+      mock_ask_question_answers:
+        - ["yes"]
+        - ["ld_ui"]
+        - ["done"]
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const text = [
+            ...(output.assistant_turns || []),
+            output.response || '',
+            ...traj.map(t => JSON.stringify(t.arguments || {})),
+          ].join('\n');
+          const sub = /io\.opentelemetry|opentelemetry-(javaagent|sdk|api|exporter)|launchdarkly-observability|observability-java|micrometer/i.exec(text);
+          return {
+            pass: !sub,
+            score: sub ? 0 : 1,
+            reason: sub ? 'mentions substitute package: ' + sub[0] : 'no substitute observability package',
+          };
+        metric: no_substitute_package
+        weight: 3
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const continued = traj.some(t => {
+            const tool = String(t.tool);
+            if (tool === 'create-flag' || tool === 'get-environments') return true;
+            return tool.includes('ask-question') &&
+              /key|account|flag|flip/i.test(JSON.stringify(t.arguments || {}));
+          });
+          return {
+            pass: continued,
+            score: continued ? 1 : 0,
+            reason: 'tools: ' + (traj.map(t => t.tool).join(' -> ') || '(none)'),
+          };
+        metric: continues_with_flags
+        weight: 2
+      - type: llm-rubric
+        value: |
+          The project is a Java server, which has no LaunchDarkly observability plugin, and the user asked
+          for the plugin. Judge `assistant_turns` and the `ask-question` calls in `trajectory`. Score 1.0 if
+          ALL hold, deduct ~0.25 each:
+          1. The agent tells the user, in about one sentence, that the observability plugin is not
+             available for this stack yet. It does not dwell on it or apologize at length.
+          2. It continues onboarding with the Java server SDK and feature flags instead of stopping.
+          3. It does not propose OpenTelemetry, a Java agent, or any other package as a substitute.
+          4. It does not claim the plugin was added.
+        metric: unsupported_stack_handling
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Test 7: Vague follow-up after onboarding finished. The plugin goes
+  # on the existing client's `plugins` option with the existing key;
+  # no SDK reinstall, no key prompt, no new first flag.
+  # ------------------------------------------------------------------
+  - description: "Observability: vague follow-up targets the existing client, no reinstall"
+    vars:
+      user_request: "Can you also add the observability plugin?"
+      codebase_context: >
+        Repository scan result (file tools are unavailable this run; treat this as what your scan
+        returned): a single-package React app built with Vite on npm. LaunchDarkly onboarding already
+        finished in this repo: package.json depends on launchdarkly-react-client-sdk ^3.8.0, and
+        src/main.tsx wraps the root render in asyncWithLDProvider({ clientSideID:
+        import.meta.env.VITE_LAUNCHDARKLY_CLIENT_SIDE_ID, context, timeout: 5 }). .env sets
+        VITE_LAUNCHDARKLY_CLIENT_SIDE_ID and is gitignored. src/App.tsx reads the show-test-banner flag
+        with useFlags(). The launchdarkly-onboarding branch is checked out with uncommitted changes. No
+        MCP configuration.
+      max_turns: 4
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const bad = traj.filter(t => {
+            const tool = String(t.tool);
+            if (tool === 'create-flag' || tool === 'get-environments') return true;
+            return tool.includes('ask-question') &&
+              /sdk.?key|client.?side.?id|mobile.?key|secret|account|which package/i.test(JSON.stringify(t.arguments || {}));
+          });
+          return {
+            pass: bad.length === 0,
+            score: bad.length === 0 ? 1 : 0,
+            reason: bad.length
+              ? 'restarted setup: ' + bad.map(t => t.tool).join(', ')
+              : 'tools: ' + (traj.map(t => t.tool).join(' -> ') || '(none)'),
+          };
+        metric: no_setup_restart
+        weight: 3
+      - type: llm-rubric
+        value: |
+          LaunchDarkly is already initialized with asyncWithLDProvider in src/main.tsx, and the user asks
+          for the observability plugin as a short follow-up. Judge `assistant_turns` and any `ask-question`
+          calls in `trajectory`. Score 1.0 if ALL hold, deduct ~0.25 each:
+          1. The agent targets the existing client: it adds @launchdarkly/observability to the `plugins`
+             list in the existing provider's options in src/main.tsx (session replay, if added, goes with
+             privacySetting "strict").
+          2. It reuses the existing client-side ID. It adds no new env var, no second key, and no second
+             LaunchDarkly client.
+          3. It does not restart onboarding: no SDK reinstall, no stack re-detection walkthrough, no new
+             first flag or banner.
+          4. Its reply is short and plain, with no step labels, skill or file names, or workflow jargon.
+        metric: targets_existing_client
+        weight: 3

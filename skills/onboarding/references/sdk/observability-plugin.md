@@ -5,22 +5,26 @@ description: "Add LaunchDarkly observability and session replay to an existing L
 
 # Observability plugin
 
-Load this file when the user asks for any of: observability, session replay, error monitoring, logs, tracing, or "the observability plugin". A typical request, appended to the onboarding prompt:
+Load this file whenever the user mentions observability, session replay, error monitoring, logs, tracing, or "the observability plugin", at any point. A typical request, appended to the onboarding prompt:
 
 > Also add the LaunchDarkly observability plugin for this stack to that client's `plugins` option, reusing its key. For a browser app, that's @launchdarkly/observability and @launchdarkly/session-replay with privacySetting "strict".
 
-Resolve this once, from the user's original message, at kickoff. Treat it as part of the SDK install: the plugin is added in the same pass as the SDK, not offered as a later step.
+The request can arrive at any point:
+
+- **In the first message or during setup:** treat it as part of the SDK install. The plugin is added in the same pass as the SDK, not offered as a later step.
+- **After the client is already initialized** (earlier in this run, in a previous session, or by the project before onboarding), including a short follow-up such as "Can you also add the observability plugin?": add the plugin to that existing init. Do not redo detect, plan, or the SDK install, do not ask for a key, and do not create another first flag. Then confirm in one line.
 
 ## Rules
 
 1. **It is a plugin on the client you already set up, not a second client.** Construct the plugin and add it as an element of the LaunchDarkly client's `plugins` option, in the same init code the SDK install wrote (or the existing init, if LaunchDarkly was already integrated).
 2. **Reuse the client's credential.** The plugin uses the same client-side ID, SDK key, or mobile key as the client. Do not add a second env var, a second key, or a second credential prompt. Where a plugin constructor takes the key as an argument (Android), pass the same variable the client reads.
 3. **The feature-management SDK comes first.** If the project has no LaunchDarkly client yet, run the normal detect, plan, and apply flow first, then add the plugin to the init you just wrote.
-4. **Scope is the dependency and the `plugins` entry.** Do not add custom spans, log forwarding, network recording, error boundaries, sampling, service names, or privacy options the user did not ask for. The one exception is a privacy level the user named (for example `privacySetting: 'strict'`): set exactly that.
-5. **Observability packages are in-scope LaunchDarkly installs** when the user asked for them. They do not need the extra approval that non-LaunchDarkly dependency changes need. If the installed SDK version is below the plugin's minimum (see the table), bumping within the same major version is fine; a major-version jump needs approval per [Apply code changes](../../sdk-install/apply/SKILL.md#permission-before-changing-other-dependencies).
-6. **Do not pin plugin versions.** Let the package manager resolve the current release, except where the ecosystem requires a version (Gradle, CocoaPods); use the latest published release there.
-7. **Session replay goes after observability** in the `plugins` list on every platform that has both.
-8. **Read the package README before writing init code.** The per-package READMEs in [launchdarkly/observability-sdk](https://github.com/launchdarkly/observability-sdk) (under `sdk/@launchdarkly/<package>/`) and the [observability docs](https://launchdarkly.com/docs/home/observability) are authoritative. Take the plugin wiring from them and the client initializer from the recipe for the project's actual SDK. README examples can lag the SDKs, so do not copy a client initializer from a plugin README.
+4. **Scope is the dependency and the `plugins` entry.** Pass only the constructor arguments the plugin requires (such as the key on Android, per rule 2). Do not add custom spans, log forwarding, network recording, error boundaries, sampling, or service names the user did not ask for.
+5. **Session replay privacy.** If the user names a privacy level, set exactly that. If session replay is requested and no level is named, use the strictest setting: `privacySetting: 'strict'` in the browser, all four mask options on React Native (see the table). On iOS and Android, keep the package defaults unless the user names a level.
+6. **Observability packages are in-scope LaunchDarkly installs** when the user asked for them. They do not need the extra approval that non-LaunchDarkly dependency changes need. If the installed SDK version is below the plugin's minimum (see the table), bumping within the same major version is fine. A major-version jump or a move to a different package name needs approval first: ask with the structured question tool, naming the version problem in one line (for example "`launchdarkly-js-client-sdk` 2.x can't load plugins; adding them means moving to `@launchdarkly/js-client-sdk` 4.x."). See [Apply code changes](../../sdk-install/apply/SKILL.md#permission-before-changing-other-dependencies).
+7. **Do not pin plugin versions.** Let the package manager resolve the current release, except where the ecosystem requires a version (Gradle, CocoaPods); use the latest published release there.
+8. **Session replay goes after observability** in the `plugins` list on every platform that has both.
+9. **Read the package README before writing init code.** The per-package READMEs in [launchdarkly/observability-sdk](https://github.com/launchdarkly/observability-sdk) (under `sdk/@launchdarkly/<package>/`) and the [observability docs](https://launchdarkly.com/docs/home/observability) are authoritative. Take the plugin wiring from them and the client initializer from the recipe for the project's actual SDK. README examples can lag the SDKs, so do not copy a client initializer from a plugin README.
 
 ## Packages and wiring
 
@@ -44,7 +48,7 @@ const plugins = [
 ];
 ```
 
-Add only the plugin(s) the user asked for. "Observability" alone means `Observability`; "session replay" means both, since replay builds on observability.
+Add only the plugin(s) the user asked for. "Observability" alone means `Observability`; "session replay" means both, since replay builds on observability. Use `privacySetting: 'strict'` unless the user named another level (rule 5).
 
 | SDK in the project | Where `plugins` goes |
 |---|---|
@@ -54,7 +58,7 @@ Add only the plugin(s) the user asked for. "Observability" alone means `Observab
 | Vue, `launchdarkly-vue-client-sdk` | `app.use(LDPlugin, { clientSideID, context, options: { plugins } })` |
 | Angular, Svelte, Preact, other browser frameworks | Same as JavaScript (`@launchdarkly/js-client-sdk`) |
 
-If the project is on an older browser SDK that does not accept `plugins` (TypeScript rejects the option, or the SDK's changelog does not list plugin support), tell the user in one line and ask before upgrading.
+If the project is on an older browser SDK that does not accept `plugins` (for example `launchdarkly-js-client-sdk` 2.x, TypeScript rejects the option, or the SDK's changelog does not list plugin support), do not upgrade on your own. Ask first, per rule 6, and keep the existing SDK if the user declines. Then continue onboarding with feature flags.
 
 ### Next.js
 
@@ -71,7 +75,7 @@ Wire each client the onboarding installed:
 |---|---|---|---|---|
 | Node.js (server) | `@launchdarkly/observability-node` | `npm install @launchdarkly/observability-node` | `import { Observability } from '@launchdarkly/observability-node'`, then `init(sdkKey, { plugins: [new Observability()] })` | Current `@launchdarkly/node-server-sdk` |
 | React Native | `@launchdarkly/observability-react-native` | `npm install @launchdarkly/observability-react-native` | `import { Observability } from '@launchdarkly/observability-react-native'`, then `new ReactNativeLDClient(mobileKey, AutoEnvAttributes.Enabled, { plugins: [new Observability()] })` | `@launchdarkly/react-native-client-sdk` v10 |
-| React Native session replay | `@launchdarkly/session-replay-react-native` | `npm install @launchdarkly/session-replay-react-native` | `import { createSessionReplayPlugin } from '@launchdarkly/session-replay-react-native'`, then add `createSessionReplayPlugin()` after `Observability` in `plugins`. For "strict" privacy, pass `{ maskTextInputs: true, maskLabels: true, maskImages: true, maskWebViews: true }`. Native module: run `npx pod-install` on bare React Native. | React Native 0.75+ |
+| React Native session replay | `@launchdarkly/session-replay-react-native` | `npm install @launchdarkly/session-replay-react-native` | `import { createSessionReplayPlugin } from '@launchdarkly/session-replay-react-native'`, then add `createSessionReplayPlugin()` after `Observability` in `plugins`. With no privacy level named, or for "strict", pass `{ maskTextInputs: true, maskLabels: true, maskImages: true, maskWebViews: true }`. Native module: run `npx pod-install` on bare React Native. | React Native 0.75+ |
 | Python | `launchdarkly-observability` | `pip install launchdarkly-observability` | `from ldobserve import ObservabilityPlugin`, then `Config(sdk_key, plugins=[ObservabilityPlugin()])` | `launchdarkly-server-sdk` 9.12+ |
 | Ruby | `launchdarkly-observability` | add `gem 'launchdarkly-observability'` to the Gemfile, then `bundle install` | `require 'launchdarkly_observability'`, then `LaunchDarkly::Config.new(plugins: [LaunchDarklyObservability::Plugin.new])` | `launchdarkly-server-sdk` 8.11+ |
 | Go | `github.com/launchdarkly/observability-sdk/go` | `go get github.com/launchdarkly/observability-sdk/go` | `ld.MakeCustomClient(sdkKey, ld.Config{Plugins: []ldplugins.Plugin{ldobserve.NewObservabilityPlugin()}}, timeout)` with `ldobserve` as the import alias | `go-server-sdk/v7` with `ldplugins` |
