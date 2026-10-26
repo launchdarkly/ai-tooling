@@ -173,10 +173,10 @@ async def call_anthropic(ld_config, user_input, tool_handlers, variables, histor
     # Handler packages fill {{name}} placeholders; custom handlers must do it themselves
     rendered = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages") or []]
     system = "\n".join(m["content"] for m in rendered if m["role"] == "system")
-    # anthropic 2.x no longer accepts temperature or top_p; tools come from ld_config["tools"]
+    # anthropic 2.x no longer accepts temperature, top_p, or top_k; tools come from ld_config["tools"]
     params = {
         k: v for k, v in (ld_config["model"].get("parameters") or {}).items()
-        if k not in ("tools", "temperature", "top_p")
+        if k not in ("tools", "temperature", "top_p", "top_k")
     }
     max_tokens = params.pop("max_tokens", 1024)
     # Config turns (few-shot examples), then history, then the new input
