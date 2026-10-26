@@ -88,7 +88,9 @@ Run these reads. Do not write anything.
 2. `list-release-autopilot-repo-settings`: repos that are already mapped.
 3. `list-release-autopilot-github-repos`: repos on the GitHub App install (`owner/name` and `githubRepoId`), plus `installed` and `userAuthorized`. If either is false, the response includes a `githubConnectUrl`.
 
-`list-release-autopilot-repo-settings` returns only `githubRepoId` and `projectKey`, not repo names. Join it to the install list on `githubRepoId` before you show the user which repos are mapped.
+`list-release-autopilot-repo-settings` returns only `githubRepoId` and `projectKey`, not repo names. Join it to the install list on `githubRepoId` before you show the user which repos are mapped. A mapped `githubRepoId` with no match on the install list is a repo the App can no longer see, or one this member cannot see: show it as `repo <githubRepoId>, not on the install` with its project, and do not change it in this flow.
+
+An unmapped repo returns 404 from `get-release-autopilot-repo-settings`. That is the expected answer for a new repo, not an error.
 
 Release Autopilot's agents need generative AI turned on for the organization. There is no MCP tool to read that setting. If a later step fails with a generative AI or Vega eligibility error, tell the user that an Admin or Owner must select **Enable generative AI use cases** in Organization settings > Security, then stop.
 
@@ -167,7 +169,7 @@ You cannot read inference settings, so record the answer as the user's statement
 
 Skip this step if the user did not pick auto-releasing.
 
-Auto-releasing releases each change the way the environment is set up to release. On accounts with **environment release plans**, that is a plan: a reusable recipe for one environment, made of phases, rollout steps, and metrics. On accounts without them, it is the project's **release policies**. Either way, metrics make the release guarded, so a regression on a metric can roll it back. With neither, a release can fall back to defaults, which are often an immediate release.
+Auto-releasing releases each change the way the environment is set up to release. Today that is the project's **release policies**, and auto-releasing requires a complete one for each environment. Accounts that have **environment release plans** use a plan instead: a reusable recipe for one environment, made of phases, rollout steps, and metrics. Release plans replace release policies by general availability. Either way, metrics make the release guarded, so a regression on a metric can roll it back.
 
 For each project from Step 4:
 
@@ -186,14 +188,9 @@ For each project from Step 4:
 
    Record the plan. Do not call `create-release-plan` yet.
 
-If `list-release-plans` returns 403 with `Plan does not allow this operation`, the account's LaunchDarkly plan does not include environment release plans, so this skill cannot create them. Do not retry. Auto-releasing can still be on for such an account, using the project's release policies instead. Call `list-release-policies` for the project and show the user what it returns, including any `warnings`. Record no plan writes.
+If `list-release-plans` returns 403 with `Plan does not allow this operation`, the account's LaunchDarkly plan does not include environment release plans, so this skill cannot create them. The 403 is account-wide: do not retry, and do not call `list-release-plans` for the other environments. Auto-releasing can still be on for such an account, using the project's release policies instead. Call `list-release-policies` for the project and show the user what it returns, including any `warnings`. Record no plan writes.
 
-If the policies have no warnings for the chosen environments, say that auto-releasing in this project uses those policies. If there is any warning, such as `missing_policy` or `incomplete_policy`, a release there can fall back to defaults, which are often immediate. Ask header "Release defaults":
-
-- label: "Keep auto-releasing off here (Recommended)", description: "Map the repo with auto-releasing off until the project has a complete release policy"
-- label: "Accept the fallback", description: "Auto-release with the default behavior, which can be an immediate release to everyone"
-
-For "Keep auto-releasing off here", the repo mapping in Step 8 sends an auto-releasing override that turns it off. Release policies are edited in the project's release settings in the LaunchDarkly UI; this skill does not change them.
+If the policies have no warnings for the chosen environments, say that auto-releasing in this project uses those policies. If there is any warning, such as `missing_policy` or `incomplete_policy`, auto-releasing cannot work there yet. Tell the user to add or complete a release policy in the project's release settings (`/projects/{projectKey}/settings/releases` on their LaunchDarkly instance); this skill does not change policies. Record a repo override that keeps auto-releasing off for that repo, and say in Step 7 that they can turn it on with the settings skill once the policy is complete.
 
 `list-release-plans` hides incomplete plans that were migrated from release policies. If the user expects a plan that is missing, call it again with `includeIncomplete: true`. An incomplete plan cannot start a release, so it needs a new complete plan in that environment.
 
@@ -246,7 +243,7 @@ Report a short checklist with each item marked verified or reported by the user.
 | Repo not on the install list | Same owner as listed repos: the user grants the App access to it. New owner: an org owner installs the App on that organization. Then list again |
 | Repo already mapped to a different project | Do not remap here. The user unmaps it with the settings skill, then maps it in this flow |
 | Auto-releasing picked but no metrics exist | Offer the metric skills. Without metrics, the plan is progressive and nothing rolls back automatically |
-| `list-release-plans` returns 403 `Plan does not allow this operation` | The account's plan lacks environment release plans. Show `list-release-policies` and its warnings, create no plans, and keep auto-releasing off where a policy is missing unless the user accepts the fallback |
+| `list-release-plans` returns 403 `Plan does not allow this operation` | The account's plan lacks environment release plans. Show `list-release-policies` and its warnings, create no plans, and keep auto-releasing off for the repo where a policy is missing or incomplete |
 | Incomplete migrated plan | Cannot start a release. Create a complete plan in that environment |
 | User lacks permission for a write | Report the failed write and the missing permission. Do not retry with other settings |
 | Bring your own key chosen | Browser step only. Record it as reported, never as verified |
