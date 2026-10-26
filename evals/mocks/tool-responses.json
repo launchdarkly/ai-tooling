@@ -61,10 +61,12 @@
     "tags": [],
     "variations": [
       {
+        "_id": "var-true",
         "value": true,
         "name": "true"
       },
       {
+        "_id": "var-false",
         "value": false,
         "name": "false"
       }
@@ -93,10 +95,12 @@
     "tags": [],
     "variations": [
       {
+        "_id": "var-true",
         "value": true,
         "name": "true"
       },
       {
+        "_id": "var-false",
         "value": false,
         "name": "false"
       }
@@ -193,24 +197,30 @@
     ],
     "totalCount": 2
   },
+  "list-projects": {
+    "projects": [
+      { "key": "default", "name": "LaunchDarkly", "tags": [] }
+    ],
+    "totalCount": 1,
+    "pageInfo": { "limit": 25, "offset": 0 }
+  },
   "get-project": {
     "key": "{{projectKey}}",
     "name": "{{projectKey}}",
-    "environments": {
-      "items": [
-        {
-          "key": "test",
-          "name": "Test",
-          "color": "417505"
-        },
-        {
-          "key": "production",
-          "name": "Production",
-          "color": "D43F3A"
-        }
-      ],
-      "totalCount": 2
-    }
+    "environments": [
+      {
+        "key": "test",
+        "name": "Test",
+        "clientSideId": "5f0000000000000000000001",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000001"
+      },
+      {
+        "key": "production",
+        "name": "Production",
+        "clientSideId": "5f0000000000000000000002",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000002"
+      }
+    ]
   },
   "list-feature-flags": {
     "items": [
@@ -531,5 +541,54 @@
     "created": true,
     "config_id": "arc_mock_0001",
     "environments": []
+  },
+  "list-metrics": {
+    "metrics": [
+      { "key": "checkout-completed", "name": "Checkout completed", "kind": "custom", "measureType": "occurrence", "isNumeric": false, "unitAggregationType": "average", "successCriteria": "HigherThanBaseline", "eventKey": "checkout-completed", "tags": ["conversion"] },
+      { "key": "page-load-ms", "name": "Page load time (ms)", "kind": "custom", "measureType": "value", "isNumeric": true, "unitAggregationType": "average", "successCriteria": "LowerThanBaseline", "eventKey": "page-load-ms", "tags": ["performance"] }
+    ],
+    "totalCount": 2
+  },
+  "create-metric": {
+    "key": "{{metricKey}}",
+    "name": "{{metricName}}",
+    "kind": "custom",
+    "measureType": "occurrence",
+    "successCriteria": "HigherThanBaseline",
+    "eventKey": "{{metricKey}}",
+    "_id": "metric-0001",
+    "tags": []
+  },
+  "create-experiment": {
+    "key": "{{experimentKey}}",
+    "name": "{{experimentName}}",
+    "_id": "exp-0001",
+    "environmentKey": "{{environmentKey}}",
+    "currentIteration": {
+      "status": "not_started",
+      "hypothesis": "{{hypothesis}}",
+      "treatments": [
+        { "_id": "treat-control", "name": "Control", "baseline": true, "allocationPercent": 50 },
+        { "_id": "treat-treatment", "name": "Treatment", "baseline": false, "allocationPercent": 50 }
+      ]
+    }
+  },
+  "start-experiment-iteration": {
+    "key": "{{experimentKey}}",
+    "environmentKey": "{{environmentKey}}",
+    "currentIteration": { "status": "running" }
+  },
+  "get-experiment": {
+    "key": "{{experimentKey}}",
+    "name": "{{experimentName}}",
+    "environmentKey": "{{environmentKey}}",
+    "currentIteration": {
+      "status": "not_started",
+      "hypothesis": "{{hypothesis}}",
+      "treatments": [
+        { "_id": "treat-control", "name": "Control", "baseline": true, "allocationPercent": 50 },
+        { "_id": "treat-treatment", "name": "Treatment", "baseline": false, "allocationPercent": 50 }
+      ]
+    }
   }
 }
