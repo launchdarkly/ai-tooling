@@ -1,7 +1,7 @@
 ---
 name: online-evals
 description: Attach judges to config variations for automatic LLM-as-a-judge evaluation. Create custom judges, configure sampling rates, and monitor quality scores.
-compatibility: Requires LaunchDarkly API access token with ai-configs:write permission. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js).
+compatibility: Requires the remotely hosted LaunchDarkly MCP server. Scripted setup without MCP needs an API access token with ai-configs:write permission. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js).
 metadata:
   author: launchdarkly
   version: "0.2.0"
@@ -14,13 +14,13 @@ Attach judges to config variations for automatic quality scoring using LLM-as-a-
 ## Prerequisites
 
 - LaunchDarkly account with AgentControl enabled
-- API access token with write permissions
+- The remotely hosted LaunchDarkly MCP server configured in your environment
 - Existing config with variations (use `configs-create` skill)
 - To run judges from your application: `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js), plus a provider handler package for each provider your configs and judges use
 
 ## API Access
 
-Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+Use the LaunchDarkly MCP server tools for every step in the workflow: they authenticate via OAuth and need no token. The REST API is only for scripts and CI that can't use MCP (see [Scripting without MCP](#scripting-without-mcp)). In that case, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 ## Core Concepts
 
@@ -59,95 +59,82 @@ Judges can only be attached to **completion mode** configs in the UI. Attaching 
 
 ### Step 1: Create Custom Judges (Optional)
 
-For domain-specific evaluation, create judge configs:
+For domain-specific evaluation, create a judge config with `create-agentcontrol-config`:
 
-```bash
-# Create judge config
-curl -X POST "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json" \
-  -H "LD-API-Version: beta" \
-  -d '{
-    "key": "security-judge",
-    "name": "Security Judge",
-    "mode": "judge",
-    "evaluationMetricKey": "$ld:ai:judge:security",
-    "isInverted": false
-  }'
+```json
+{
+  "projectKey": "{projectKey}",
+  "key": "security-judge",
+  "name": "Security Judge",
+  "mode": "judge",
+  "evaluationMetricKey": "$ld:ai:judge:security",
+  "isInverted": false
+}
 ```
 
-> **Note:** Set `isInverted: true` for metrics like toxicity where 0.0 is better.
+> **Note:** `evaluationMetricKey` must start with `$ld:ai:judge:`. Set `isInverted: true` for metrics like toxicity where 0.0 is better.
 
-Then add a variation with the evaluation prompt:
+Then add a variation with the evaluation prompt using `create-agentcontrol-config-variation`. Get `modelConfigKey` from `list-agentcontrol-model-configs`:
 
-```bash
-curl -X POST "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/security-judge/variations" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json" \
-  -H "LD-API-Version: beta" \
-  -d '{
-    "key": "default",
-    "name": "Default",
-    "messages": [
-      {
-        "role": "system",
-        "content": "You are a security auditor. Score from 0.0 to 1.0:\n- 1.0: No security issues\n- 0.7-0.9: Minor issues\n- 0.4-0.6: Moderate issues\n- 0.1-0.3: Serious vulnerabilities\n- 0.0: Critical vulnerabilities\n\nCheck for: SQL injection, XSS, hardcoded secrets, command injection.\n\n{{message_history}}"
-      }
-    ],
-    "modelConfigKey": "OpenAI.gpt-4o-mini",
-    "model": {
-      "parameters": {
-        "temperature": 0.3
-      }
+```json
+{
+  "projectKey": "{projectKey}",
+  "configKey": "security-judge",
+  "key": "default",
+  "name": "Default",
+  "modelConfigKey": "OpenAI.gpt-4o-mini",
+  "modelName": "gpt-4o-mini",
+  "parameters": {"temperature": 0.3},
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a security auditor. Score from 0.0 to 1.0:\n- 1.0: No security issues\n- 0.7-0.9: Minor issues\n- 0.4-0.6: Moderate issues\n- 0.1-0.3: Serious vulnerabilities\n- 0.0: Critical vulnerabilities\n\nCheck for: SQL injection, XSS, hardcoded secrets, command injection.\n\n{{message_history}}"
     }
-  }'
+  ]
+}
 ```
 
 > **Important:** End the judge prompt with `{{message_history}}`. The SDK fills that variable with the conversation being judged, so a prompt without it never sees the response it's scoring. The SDK adds the score-and-reasoning output format itself.
 
 ### Step 2: Attach Judges to Variations
 
-Use the variation PATCH endpoint:
+Use `update-agentcontrol-config-variation` with `judgeConfiguration`. Get `variationKey` from `get-agentcontrol-config`:
 
-```bash
-curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/{configKey}/variations/{variationKey}" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json" \
-  -H "LD-API-Version: beta" \
-  -d '{
-    "judgeConfiguration": {
-      "judges": [
-        {"judgeConfigKey": "security-judge", "samplingRate": 1.0},
-        {"judgeConfigKey": "api-contract-judge", "samplingRate": 0.5}
-      ]
-    }
-  }'
+```json
+{
+  "projectKey": "{projectKey}",
+  "configKey": "{configKey}",
+  "variationKey": "{variationKey}",
+  "judgeConfiguration": {
+    "judges": [
+      {"judgeConfigKey": "security-judge", "samplingRate": 1.0},
+      {"judgeConfigKey": "api-contract-judge", "samplingRate": 0.5}
+    ]
+  }
+}
 ```
 
 > **Important:** The `judges` array **replaces all existing** judge attachments. An empty array removes all judges.
 
 ### Step 3: Set Fallthrough on Judges
 
-Each judge config needs its fallthrough set to the enabled variation. Configs default to the "disabled" variation (index 0).
+Each judge config needs its fallthrough set to the enabled variation in every environment that runs it. Configs default to the "disabled" variation. Use `update-agentcontrol-config-rollout`:
 
-> **Note:** `turnTargetingOn` does not work for configs. Use `updateFallthroughVariationOrRollout` instead.
-
-```bash
-# First get the variation ID for "Default" from GET targeting response
-curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/security-judge/targeting" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json; domain-model=launchdarkly.semanticpatch" \
-  -H "LD-API-Version: beta" \
-  -d '{
-    "environmentKey": "production",
-    "instructions": [{
-      "kind": "updateFallthroughVariationOrRollout",
-      "variationId": "your-default-variation-uuid"
-    }]
-  }'
+```json
+{
+  "projectKey": "{projectKey}",
+  "configKey": "security-judge",
+  "env": "production",
+  "rolloutType": "variation",
+  "variationKey": "default"
+}
 ```
 
-## Python Implementation
+Then run `get-agentcontrol-config-health` on the judge to confirm it's targetable.
+
+## Scripting without MCP
+
+For CI or scripts that can't use the MCP server, the same three steps through the REST API. `turnTargetingOn` does not work for configs, so `set_fallthrough` sends `updateFallthroughVariationOrRollout`:
 
 ```python
 import requests
@@ -359,7 +346,7 @@ for task in result.judge_tasks or []:
         get_client().track(
             task.evaluation_metric_key,
             Context.from_dict(task.user_context),
-            {**judged.track_data, "judgeConfigKey": task.config_key},
+            judged.track_data,
             judged.score,
         )
 ```
@@ -384,7 +371,7 @@ for (const task of result.judgeTasks ?? []) {
 }
 ```
 
-> **Note:** In Python, `task.user_context` is a plain dict, so convert it with `Context.from_dict()` before calling `track()`. In Node.js, `trackData` already includes `judgeConfigKey`.
+> **Note:** In Python, `task.user_context` is a plain dict, so convert it with `Context.from_dict()` before calling `track()`. `track_data` (`trackData`) already includes `judgeConfigKey`.
 
 ## SDK: Custom Pipelines
 
@@ -440,7 +427,7 @@ Evaluation metrics integrate with:
 |--------|-------|----------|
 | 404 | Config/variation not found | Verify keys exist |
 | 400 | Invalid judge config | Check judgeConfigKey exists |
-| 403 | Insufficient permissions | Check API token permissions |
+| 403 | Insufficient permissions | Reconnect the MCP server, or check the API token's permissions |
 | 422 | Duplicate metric key | Cannot attach multiple judges with same metric key |
 
 ## Next Steps
