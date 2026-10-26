@@ -1,7 +1,7 @@
 ---
 name: projects
 description: Guide for setting up LaunchDarkly projects in your codebase. Helps you assess your stack, choose the right approach, and integrate project management that makes sense for your architecture.
-compatibility: Requires LaunchDarkly API access token with projects:write permission or LaunchDarkly MCP server.
+compatibility: Requires the remotely hosted LaunchDarkly MCP server. Code that creates projects itself (scripts, IaC, admin tools) needs an API access token with projects:write permission.
 metadata:
   author: launchdarkly
   version: "0.5.0"
@@ -13,9 +13,8 @@ You're using a skill that will guide you through setting up LaunchDarkly project
 
 ## Prerequisites
 
-**Choose one:**
-- LaunchDarkly API access token with `projects:write` permission
-- LaunchDarkly MCP server configured in your environment
+- The remotely hosted LaunchDarkly MCP server configured in your environment
+- An API access token with `projects:write` permission, only if you're building code that creates projects (scripts, IaC, admin tools)
 
 ## Core Principles
 
@@ -26,9 +25,11 @@ You're using a skill that will guide you through setting up LaunchDarkly project
 
 ## API Access
 
-Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+When you create or inspect a project yourself, use the LaunchDarkly MCP server tools: `create-project`, `get-project`, and `list-projects`. They authenticate via OAuth and need no token.
 
-See [Quick Start](references/quick-start.md) for API usage patterns.
+The MCP tools don't return server-side SDK keys, only client-side IDs and mobile keys. To get the SDK key the app needs, ask the user to copy it from **Project settings → Environments**, or, if they'd rather, to paste an API access token for this session so you can fetch it through the REST API ([Quick Start](references/quick-start.md)). Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+
+The reference guides call the REST API because they build code that runs without the agent.
 
 ## What Are Projects?
 
@@ -72,7 +73,7 @@ Based on your exploration, determine the right approach:
 
 | Scenario | Recommended Path |
 |----------|------------------|
-| New project, no LaunchDarkly integration | **Quick Setup** - Create project and save SDK keys |
+| New project, no LaunchDarkly integration | **Quick Setup** - Create the project with `create-project`, then save its SDK keys |
 | Existing LaunchDarkly usage | **Add to Existing** - Create new project or use existing |
 | Multiple services/microservices | **Multi-Project** - Create projects per service |
 | Multi-region or multi-tenant | **Project Cloning** - Clone template project |
@@ -125,7 +126,7 @@ Follow the chosen reference guide to implement project management. Key considera
 
 After creating the project, verify it works:
 
-1. **Fetch to confirm it exists.** Prefer the MCP `get-project` tool over raw `curl` — it returns a typed object you can inspect directly. If you must call the REST API:
+1. **Fetch to confirm it exists.** Call the `get-project` MCP tool and check that the project has its environments. Code without MCP access can call the REST API instead:
    ```bash
    curl -X GET "https://app.launchdarkly.com/api/v2/projects/{projectKey}?expand=environments" \
      -H "Authorization: {api_token}"
@@ -152,10 +153,11 @@ After creating the project, verify it works:
    Node.js needs `npm install @launchdarkly/ai-node dotenv`:
    ```javascript
    import 'dotenv/config';
-   import { initClient, getClient, shutdown } from '@launchdarkly/ai-node';
+   import { initClient, shutdown } from '@launchdarkly/ai-node';
 
+   // Resolves once connected; throws LDTimeoutError if the key is invalid
    await initClient();
-   console.log('SDK initialized:', getClient().initialized());
+   console.log('SDK initialized: true');
    await shutdown();
    ```
    A valid key prints `SDK initialized: True` (Python) or `true` (Node.js). With an invalid key, Python logs `HTTP error 401 (invalid SDK key)` and prints `False`, and Node.js throws `LDTimeoutError` after 10 seconds. With no key, both raise an error that asks for `LD_SDK_KEY`.

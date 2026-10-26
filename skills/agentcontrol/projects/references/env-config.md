@@ -346,7 +346,11 @@ After saving SDK keys, verify they work:
 
 ```python
 async def verify_sdk_key(sdk_key: str) -> bool:
-    """Verify an SDK key by initializing the AI SDK with it."""
+    """Verify an SDK key by initializing the AI SDK with it.
+
+    Run in a standalone script. Inside an app that already called init_client,
+    sdk_key is ignored and shutdown() closes the app's client.
+    """
     from launchdarkly_ai_server import init_client, get_client, shutdown
 
     await init_client({"sdkKey": sdk_key})
