@@ -16,6 +16,7 @@ Notable behaviors:
 
 - **No log or summary file.** State is detected from the repository, so "continue onboarding" resumes at the first incomplete step.
 - **Drift is redirected, not refused.** When the user asks to skip ahead, the skill acknowledges the request, names the concrete consequence in one sentence, and offers the choice.
+- **Observability on request.** When the prompt asks for observability or session replay, the SDK install also adds the LaunchDarkly observability plugin to the client's `plugins` option, reusing its key. Packages and wiring per stack live in [`references/sdk/observability-plugin.md`](references/sdk/observability-plugin.md).
 - **No internal leakage.** Step labels, skill file names, workflow jargon, and MCP or SDK internals never reach the user.
 
 ## Installation

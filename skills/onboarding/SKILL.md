@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires an MCP-capable coding agent and `npx` on PATH for optional skill installs. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.
 metadata:
   author: launchdarkly
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # LaunchDarkly Onboarding
@@ -200,6 +200,10 @@ When the app was scaffolded by the agent in Step 1, skip the nested skill and us
 
 Rules: the SDK key lives in an environment variable, never hardcoded. One client instance, shared. Wait for initialization before evaluating flags.
 
+### Observability plugin
+
+If the user's original message asks for observability, session replay, error monitoring, logs, or tracing, add the LaunchDarkly observability plugin to the client's `plugins` option in this same step, reusing the client's key. Follow [Observability plugin](references/sdk/observability-plugin.md) for the package and wiring per stack. This applies to the scaffold fast path and to an SDK that was already installed.
+
 ### SDK key
 
 The SDK needs a key. Default to fetching it for the user when MCP is connected; otherwise give them the direct link and let them paste it. Ask only if you cannot determine the path:
@@ -264,7 +268,7 @@ Do not print the page or the banner text in chat. Point the user to their browse
 Keep it to a few lines:
 - The flag is live. See it in LaunchDarkly: `https://app.launchdarkly.com/projects/{projectKey}/flags/{flagKey}/targeting?env={envKey}`
 - Nothing is committed. Your changes are on the `launchdarkly-onboarding` branch, so you can review, keep, or drop them however you like.
-- One choice for what's next:
+- One choice for what's next. Drop the observability option if the plugin was added during setup.
 
 ```json
 {
@@ -309,7 +313,7 @@ Never silently dump code with no tradeoff, and never rigidly refuse. If they ins
 
 ## Edge Cases
 
-- **SDK already installed:** Skip Step 3. Say so in one line that names what you found and where, then go to Step 4. Do not re-explain the SDK or run install commands.
+- **SDK already installed:** Skip Step 3. Say so in one line that names what you found and where, then go to Step 4. Do not re-explain the SDK or run install commands. If the user asked for observability, still add the plugin to the existing client first ([Observability plugin](references/sdk/observability-plugin.md)).
 - **MCP already configured:** Use it. Skip the Step 2 offer. Call `get-project` to store keys and continue.
 - **Deprecated mcp/aiconfigs or mcp/fm found:** Both are deprecated. Ask before migrating to the unified `mcp/launchdarkly` server. Do not auto-migrate.
 - **No supported agent detected:** Ask directly. Provide manual config if needed.
@@ -322,3 +326,4 @@ Never silently dump code with no tradeoff, and never rigidly refuse. If they ins
 - [mcp-configure](mcp-configure/SKILL.md) and [MCP Config Templates](mcp-configure/references/mcp-config-templates.md) — Step 2
 - [sdk-install](sdk-install/SKILL.md) — Step 3 (detect, plan, apply)
 - [SDK recipes](references/sdk/recipes.md) and [SDK snippets](references/sdk/snippets/) — per-SDK install and init detail
+- [Observability plugin](references/sdk/observability-plugin.md) — Step 3, when the user asks for observability or session replay

@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires a supported language/framework in the project. SDK credentials are required by [Apply](apply/SKILL.md), not for [Detect](detect/SKILL.md) / [Plan](plan/SKILL.md) alone (see parent onboarding **Prerequisites**).
 metadata:
   author: launchdarkly
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # LaunchDarkly SDK Install (onboarding)
@@ -39,6 +39,8 @@ Execute **all three** unless the [detect decision tree](detect/SKILL.md#decision
 
 Shared references for all steps: [SDK recipes](../references/sdk/recipes.md), [SDK snippets](../references/sdk/snippets/).
 
+**Observability plugin:** When the user asked for observability, session replay, error monitoring, logs, or tracing, carry that into plan and apply: the plugin package(s) and the `plugins` entry on the client from [Observability plugin](../references/sdk/observability-plugin.md). Same client, same key.
+
 ### After Step 3 completes
 
 Continue with the parent skill:
@@ -53,7 +55,7 @@ Do not add standalone “sample flag” evaluation in this skill unless the user
 - Prefer TypeScript in TypeScript projects.
 - If the project uses a shared config layer, initialize LaunchDarkly there.
 - Add `.env.example` entries when the project uses dotenv.
-- **Dependency scope:** Add only LaunchDarkly SDK package(s) from the recipe unless the user **explicitly approves** upgrading or adding other packages ([Apply — Permission before changing other dependencies](apply/SKILL.md#permission-before-changing-other-dependencies)).
+- **Dependency scope:** Add only LaunchDarkly SDK package(s) from the recipe (plus the observability plugin package(s) when the user asked for them) unless the user **explicitly approves** upgrading or adding other packages ([Apply — Permission before changing other dependencies](apply/SKILL.md#permission-before-changing-other-dependencies)).
 
 ## Edge cases
 
@@ -69,4 +71,5 @@ Do not add standalone “sample flag” evaluation in this skill unless the user
 - [Apply code changes](apply/SKILL.md)
 - [SDK recipes](../references/sdk/recipes.md)
 - [SDK snippets](../references/sdk/snippets/)
+- [Observability plugin](../references/sdk/observability-plugin.md)
 - [LaunchDarkly onboarding (parent)](../SKILL.md)
