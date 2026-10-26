@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires completed or equivalent detect context (see sibling detect skill)
 metadata:
   author: launchdarkly
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Generate integration plan (SDK install)
@@ -97,6 +97,7 @@ For **each SDK** in scope (one or two tracks), describe the specific changes:
 2. **Add SDK import** -- the import statement at the top of that track's entrypoint
 3. **Add SDK initialization** -- the init code for that SDK from that recipe/snippet, placed early in the right lifecycle (server vs client)
 4. **Configure credentials** -- via environment variable, never hardcoded (SDK key vs client-side ID per track)
+5. **Observability plugin (only when the user mentioned observability, session replay, error monitoring, logs, or tracing)** -- the plugin package(s) and the `plugins` entry on that track's client, from [Observability plugin](../../references/sdk/observability-plugin.md). No new env var; the plugin reuses the client's key. For dual-SDK plans, add the matching plugin to each track.
 
 ### 3. Environment variable convention
 
@@ -118,6 +119,8 @@ Before making any changes, summarize the plan to the user.
 4. Add `[env var]` to `.env` (create if missing; real value after user consent)
 5. Ensure `.env` is in `.gitignore`
 6. Add placeholder to `.env.example` if the project uses one
+
+When observability was requested, add one more line: "Add `[plugin package(s)]` to the client's `plugins` option in `[entrypoint file]`."
 
 Only LaunchDarkly SDK packages will be added unless the user explicitly approves other dependency changes.
 
