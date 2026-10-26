@@ -153,11 +153,16 @@ Only write provider-specific tool code when no handler package covers your provi
 The tool functions the SDK passes in are already wrapped to record `$ld:ai:tool_call`, so call them directly. Return the final text and the token usage. Here's a bounded loop against Anthropic:
 
 ```python
+import json
+
 from anthropic import AsyncAnthropic
-from launchdarkly_ai_server import create_handler, parse_template
+from launchdarkly_ai_server import compose_history, create_handler, parse_template
 
 anthropic_client = AsyncAnthropic()
 MAX_STEPS = 5
+
+class ToolLoopLimitError(Exception):
+    pass
 
 async def call_anthropic(ld_config, user_input, tool_handlers, variables, history):
     # Name each tool by its config key, which is also its key in tool_handlers
@@ -166,12 +171,15 @@ async def call_anthropic(ld_config, user_input, tool_handlers, variables, histor
         for key, t in (ld_config.get("tools") or {}).items()
     ]
     # Handler packages fill {{name}} placeholders; custom handlers must do it themselves
-    system = "\n".join(
-        parse_template(m["content"], variables) for m in ld_config.get("messages") or [] if m["role"] == "system"
-    )
+    rendered = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages") or []]
+    system = "\n".join(m["content"] for m in rendered if m["role"] == "system")
     max_tokens = (ld_config["model"].get("parameters") or {}).get("max_tokens", 1024)
-    prior = [{"role": m["role"], "content": m["content"]} for m in history or [] if m["role"] in ("user", "assistant")]
-    messages = [*prior, {"role": "user", "content": user_input}]
+    # Config turns (few-shot examples), then history, then the new input
+    messages = compose_history(
+        history=history or [],
+        user_input=user_input,
+        config_messages=[m for m in rendered if m["role"] != "system"],
+    )
     usage = {"input": 0, "output": 0}
     for _ in range(MAX_STEPS):
         response = await anthropic_client.messages.create(
@@ -187,8 +195,12 @@ async def call_anthropic(ld_config, user_input, tool_handlers, variables, histor
         for block in response.content:
             if block.type == "tool_use":
                 output = await tool_handlers[block.name](block.input)
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(output)})
+                content = output if isinstance(output, str) else "" if output is None else json.dumps(output)
+                results.append({"type": "tool_result", "tool_use_id": block.id, "content": content})
         messages.append({"role": "user", "content": results})
+    else:
+        # Not RuntimeError: the app's fallback treats that as LaunchDarkly being unavailable
+        raise ToolLoopLimitError(f"model still requesting tools after {MAX_STEPS} steps")
     text = "".join(b.text for b in response.content if b.type == "text")
     return {"output": text, "usage": usage}
 
