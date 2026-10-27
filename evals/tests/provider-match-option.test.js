@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 // matchOption resolves a scripted ask-question answer to an option id, so a
 // test can steer by label when the agent invents the ids.
-const { matchOption } = require("../providers/claude-skill-agent-sdk");
+const { matchOption, pickAnswer } = require("../providers/claude-skill-agent-sdk");
 
 const options = [
   { id: "af", label: "Auto-flagging (Recommended)" },
@@ -24,4 +24,20 @@ test("passes an unmatched answer through", () => {
 
 test("tolerates missing options", () => {
   assert.equal(matchOption("x", undefined), "x");
+});
+
+test("order mode takes the answer at the call index", () => {
+  assert.deepEqual(pickAnswer([["x"], ["Auto-releasing"]], 1, options, false, new Set()), ["ar"]);
+});
+
+test("match mode skips answers that fit no option, and uses each once", () => {
+  const used = new Set();
+  const answers = [["Looks good"], ["Auto-flagging"], ["Auto-flagging"]];
+  assert.deepEqual(pickAnswer(answers, 0, options, true, used), ["af"]);
+  assert.deepEqual(pickAnswer(answers, 1, options, true, used), ["af"]);
+  assert.equal(pickAnswer(answers, 2, options, true, used), undefined);
+});
+
+test("match mode returns undefined when nothing fits", () => {
+  assert.equal(pickAnswer([["Looks good"]], 0, options, true, new Set()), undefined);
 });

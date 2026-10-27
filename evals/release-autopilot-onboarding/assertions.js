@@ -127,6 +127,7 @@ module.exports.noRawNames = (output) => {
     .map((t) => [t.arguments.prompt, ...((t.arguments.options || []).map((o) => o.label))].join(" "));
   const text = [finalText(output), ...turns, ...asks].join("\n");
   const hits = RAW_NAMES.filter((n) => text.includes(n));
+  if (/\b(401|403|404)\b/.test(text)) hits.push("HTTP status code");
   return result(hits.length === 0, hits.length ? `user-facing text shows: ${hits.join(", ")}` : "no raw names");
 };
 
@@ -134,4 +135,27 @@ module.exports.previewNamesTheMapping = (output) => {
   const text = finalText(output).toLowerCase();
   const pass = text.includes("acme/demo") && text.includes("default") && /auto-releasing/.test(text);
   return result(pass, pass ? "names the repo, project, and auto-releasing" : "final message does not describe the mapping");
+};
+
+const allText = (output) =>
+  [finalText(output), ...(((output && output.assistant_turns) || []).map((x) => (typeof x === "string" ? x : JSON.stringify(x))))].join("\n");
+
+module.exports.saysOrgOwnerInstall = (output) => {
+  const text = allText(output).toLowerCase();
+  const pass = text.includes("other-org") && /owner/.test(text) && /install/.test(text);
+  return result(pass, pass ? "tells the user an other-org owner must install the App" : "does not explain the org install");
+};
+
+module.exports.noIntro = (output) => {
+  const text = allText(output);
+  const pass = !text.includes("Release Autopilot Setup") && !/in a few short steps/i.test(text);
+  return result(pass, pass ? "no intro" : "showed the Setup intro on resume");
+};
+
+module.exports.noPickQuestions = (output) => {
+  const asked = traj(output)
+    .filter((t) => t.tool === "ask-question")
+    .map((t) => ((t.arguments && t.arguments.options) || []).map((o) => String(o.label || "").toLowerCase()).join("|"));
+  const repeats = asked.filter((l) => l.includes("auto-releasing") || l.includes("require approval") || l.includes("bring your own key"));
+  return result(repeats.length === 0, repeats.length ? `re-asked: ${repeats.join(" ; ")}` : "no picks re-asked");
 };

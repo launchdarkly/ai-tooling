@@ -25,9 +25,20 @@ providers:
     label: mcp
     config:
       skill_slug: launchdarkly-release-autopilot-onboarding
+      tool_scopes: [release-autopilot]
       allow_builtins: false
       expose_ask_question: true
       force_skill_invocation: true
+  # Same provider without a forced /slash invocation, for cases where the
+  # skill must trigger from the user's words (a forced bare invocation would
+  # correctly show the Setup intro before the user's message arrives).
+  - id: file://../providers/claude-skill-agent-sdk.js
+    label: mcp-auto
+    config:
+      skill_slug: launchdarkly-release-autopilot-onboarding
+      tool_scopes: [release-autopilot]
+      allow_builtins: true
+      expose_ask_question: true
 
 tests:
   # ------------------------------------------------------------------
@@ -35,7 +46,8 @@ tests:
   # auto-releasing off for the repo, the account write comes after the
   # repo write, and no write happens before the confirm question.
   # ------------------------------------------------------------------
-  - description: "Fresh account, auto-flagging only: confirm first, repo override off, account write last"
+  - providers: ["mcp"]
+    description: "Fresh account, auto-flagging only: confirm first, repo override off, account write last"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 25
@@ -85,7 +97,8 @@ tests:
   # account-wide), no plans are created, the repo keeps auto-releasing
   # off, and the account settings are not rewritten.
   # ------------------------------------------------------------------
-  - description: "Policy mode, missing policy: one plans call, no plans, auto-releasing off for the repo, no account write"
+  - providers: ["mcp"]
+    description: "Policy mode, missing policy: one plans call, no plans, auto-releasing off for the repo, no account write"
     vars:
       user_request: "Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default."
       max_turns: 25
@@ -135,7 +148,8 @@ tests:
   # Reader: Preview mode is forced, so nothing is written even after
   # every question is answered.
   # ------------------------------------------------------------------
-  - description: "Reader role: forced Preview, zero writes"
+  - providers: ["mcp"]
+    description: "Reader role: forced Preview, zero writes"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 20
@@ -163,7 +177,8 @@ tests:
   # Explicit preview request from an admin: zero writes, and the final
   # message is a checklist of changes.
   # ------------------------------------------------------------------
-  - description: "Explicit preview: zero writes, ends with the planned changes"
+  - providers: ["mcp"]
+    description: "Explicit preview: zero writes, ends with the planned changes"
     vars:
       user_request: "Do a dry run: preview what you'd change to set up Release Autopilot auto-flagging for acme/demo in project default. Don't change anything."
       max_turns: 20
@@ -192,7 +207,8 @@ tests:
   # GitHub App not installed, and the user needs an org owner: hand the
   # user the link, write nothing, and stop.
   # ------------------------------------------------------------------
-  - description: "App not installed, org owner needed: link given, zero writes"
+  - providers: ["mcp"]
+    description: "App not installed, org owner needed: link given, zero writes"
     vars:
       user_request: "Set up Release Autopilot for my repos."
       max_turns: 15
@@ -230,7 +246,8 @@ tests:
   # Writer role on a fresh account: account settings need an admin, so
   # the account write is never attempted. The repo write may run.
   # ------------------------------------------------------------------
-  - description: "Writer role: account write left for an admin"
+  - providers: ["mcp"]
+    description: "Writer role: account write left for an admin"
     vars:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 25
@@ -266,7 +283,8 @@ tests:
   # ------------------------------------------------------------------
   # "Change something" at the confirm step is not approval: no writes.
   # ------------------------------------------------------------------
-  - description: "Change something at confirm: zero writes"
+  - providers: ["mcp"]
+    description: "Change something at confirm: zero writes"
     vars:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 20
@@ -293,7 +311,8 @@ tests:
   # auto-releasing from the account. The user picks auto-flagging only,
   # so the only write is an override that turns auto-releasing off.
   # ------------------------------------------------------------------
-  - description: "Already mapped with an unpicked capability: override write only"
+  - providers: ["mcp"]
+    description: "Already mapped with an unpicked capability: override write only"
     vars:
       user_request: "Set up Release Autopilot auto-flagging for acme/storefront in project default. I don't want auto-releasing."
       max_turns: 25
@@ -325,7 +344,8 @@ tests:
   # acme/storefront is mapped to default; the user asks for project web.
   # The skill must not remap; it points to the settings skill instead.
   # ------------------------------------------------------------------
-  - description: "Mapped to another project: no remap"
+  - providers: ["mcp"]
+    description: "Mapped to another project: no remap"
     vars:
       user_request: "Set up Release Autopilot auto-flagging for acme/storefront in project web."
       max_turns: 20
@@ -345,7 +365,8 @@ tests:
   # Plan mode: release plans are available and empty. The plan is
   # created before the repo write, and every phase has a clause.
   # ------------------------------------------------------------------
-  - description: "Plan mode: release plan created first, valid phases"
+  - providers: ["mcp"]
+    description: "Plan mode: release plan created first, valid phases"
     vars:
       user_request: >
         Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default.
@@ -379,4 +400,100 @@ tests:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # The user wants a repo whose GitHub organization has no App install.
+  # No githubConnectUrl appears (the account is installed elsewhere), so
+  # the skill must say an org owner installs the App, and write nothing.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Repo in an uninstalled GitHub org: org owner install, zero writes"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for other-org/app in project default."
+      max_turns: 15
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 5
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:saysOrgOwnerInstall
+        metric: org_owner_install
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # An older MCP server flags itself as deprecated. The skill gives the
+  # install link and stops before asking anything or writing.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Deprecated MCP server: install link, zero writes"
+    vars:
+      user_request: "Set up Release Autopilot for acme/demo in project default."
+      max_turns: 10
+      mock_tool_overrides:
+        get-member-self:
+          id: "member-1"
+          email: "admin@acme.example"
+          role: "admin"
+          teams: []
+          latestMcp:
+            deprecated: true
+            installUrl: "https://mcp.launchdarkly.com/mcp/launchdarkly/install"
+            serverUrl: "https://mcp.launchdarkly.com/mcp/launchdarkly"
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 5
+      - type: javascript
+        value: |
+          const text = String(output.response || '') + (output.assistant_turns || []).join('\n');
+          const pass = text.includes('mcp.launchdarkly.com/mcp/launchdarkly/install');
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'gave the install link' : 'did not give latestMcp.installUrl' };
+        metric: gave_install_link
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Resume after the GitHub pause. The earlier picks are in the request;
+  # the App is now installed. No intro, no re-asked capability or
+  # approval questions, and the confirmed plan maps the repo.
+  # ------------------------------------------------------------------
+  - providers: ["mcp-auto"]
+    description: "Resume after GitHub pause: no intro, no re-asked picks, maps after confirm"
+    vars:
+      user_request: >
+        Continue Release Autopilot setup. Earlier you recorded my picks: auto-flagging only, approval
+        required, repo acme/demo in project default, LaunchDarkly managed inference. We paused while
+        our GitHub org owner installed the App, and that is done now.
+      max_turns: 20
+      mock_tool_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: false }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noIntro
+        metric: no_intro
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noPickQuestions
+        metric: no_repeated_picks
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
+        metric: repo_override_unpicked
         weight: 3

@@ -126,6 +126,9 @@ function createMockState() {
   return {
     configs: {},      // configKey -> config object
     flags: {},        // flagKey -> flag object
+    raSettings: null, // Release Autopilot account settings written this run
+    raRepos: {},      // owner/name -> Release Autopilot repo settings written this run
+    raPlans: {},      // environmentKey -> release plans created this run
   };
 }
 
@@ -134,8 +137,52 @@ function createMockState() {
  * `state` is the per-invocation map from `createMockState()`.
  * `templates` is the full parsed mocks/tool-responses.json.
  */
+function mergeDeep(base, patch) {
+  const out = { ...(base || {}) };
+  for (const [k, v] of Object.entries(patch || {})) {
+    out[k] = v && typeof v === "object" && !Array.isArray(v) ? mergeDeep(out[k], v) : v;
+  }
+  return out;
+}
+
+// Release Autopilot settings and release plans: writes are recorded so that
+// later reads (the skill's verify step) reflect them instead of the template.
+function renderReleaseAutopilot(template, input, toolName, state, replacements) {
+  const args = input || {};
+  if (toolName === "update-release-autopilot-settings") {
+    state.raSettings = mergeDeep(state.raSettings, args);
+    return { ...state.raSettings };
+  }
+  if (toolName === "get-release-autopilot-settings" && state.raSettings) {
+    return mergeDeep(walk(template, replacements), state.raSettings);
+  }
+  if (toolName === "update-release-autopilot-repo-settings" && args.repo) {
+    const { repo, githubRepoId, ...rest } = args;
+    state.raRepos[repo] = mergeDeep(state.raRepos[repo] || { repo }, rest);
+    return { ...state.raRepos[repo] };
+  }
+  if (toolName === "get-release-autopilot-repo-settings" && args.repo && state.raRepos[args.repo]) {
+    return { ...state.raRepos[args.repo] };
+  }
+  if (toolName === "create-release-plan" && args.environmentKey) {
+    const plan = { key: args.key, name: args.name, environmentKey: args.environmentKey, progressiveRelease: args.progressiveRelease };
+    (state.raPlans[args.environmentKey] = state.raPlans[args.environmentKey] || []).push(plan);
+    return plan;
+  }
+  if (toolName === "list-release-plans" && state.raPlans[args.environmentKey]) {
+    const items = state.raPlans[args.environmentKey];
+    return { items, totalCount: items.length };
+  }
+  return undefined;
+}
+
 function renderMockResponse(template, input, toolName, state) {
   const replacements = buildReplacements(input);
+
+  if (state && state.raRepos) {
+    const ra = renderReleaseAutopilot(template, input, toolName, state, replacements);
+    if (ra !== undefined) return ra;
+  }
 
   // ---------- stateful reads ----------
   if (toolName === "get-ai-config") {

@@ -18,6 +18,14 @@
 | Bring your own key chosen | Browser step only. Record it as reported, never as verified |
 | No writes needed | Say so, list follow-ups, and stop |
 
+## Existing mappings
+
+| Current mapping | Action |
+|-----------------|--------|
+| Mapped to the chosen project, effective capabilities match the user's picks | Tell the user it is already set up. Write nothing |
+| Mapped to the chosen project, a capability the user did not pick is effectively on | Record a repo override that turns it off, as its own line in Step 7 |
+| Mapped to a different project | Do not remap. Remapping changes where its flags are created. The user unmaps it with [`launchdarkly-release-autopilot-settings`](../../launchdarkly-release-autopilot-settings/SKILL.md), then maps it in this flow |
+
 ## Example flows
 
 **Fresh account: auto-flagging only, managed inference.**

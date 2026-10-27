@@ -27,6 +27,9 @@
  *                            `/<skill_slug>` to explicitly invoke the skill via
  *                            slash command. Use for routing/advisory skills whose
  *                            description-based activation is unreliable in eval.
+ *   tool_scopes            - Optional list of tool scopes to expose. Definitions in
+ *                            tools/definitions.json that carry a `scope` are hidden
+ *                            from suites that do not list it.
  *   expose_ask_question    - Default false. When true, expose a second in-process
  *                            MCP server with an `ask-question` tool that records
  *                            calls into the trajectory and returns a canned answer.
@@ -100,6 +103,30 @@ function matchOption(want, options) {
   const needle = String(want).toLowerCase();
   const hit = list.find((o) => String(o.label || "").toLowerCase().includes(needle));
   return hit ? hit.id : want;
+}
+
+/**
+ * Choose the scripted answer for the `idx`-th ask-question call. In order
+ * mode, take answers[idx]. In match mode, take the first unused answer whose
+ * entries all resolve to the call's options, and mark it used. Returns the
+ * selected option ids, or undefined when no scripted answer applies.
+ */
+function pickAnswer(answers, idx, options, matchMode, used) {
+  const resolves = (ans) =>
+    Array.isArray(ans) &&
+    ans.length > 0 &&
+    ans.every((want) => (options || []).some((o) => o.id === matchOption(want, options)));
+  let chosen;
+  if (matchMode) {
+    const hit = answers.findIndex((ans, i) => !used.has(i) && resolves(ans));
+    if (hit === -1) return undefined;
+    used.add(hit);
+    chosen = answers[hit];
+  } else {
+    chosen = answers[idx];
+    if (!Array.isArray(chosen) || chosen.length === 0) return undefined;
+  }
+  return chosen.map((want) => matchOption(want, options));
 }
 
 const mockTemplates = JSON.parse(
@@ -219,6 +246,10 @@ class ClaudeSkillAgentSdk {
     this.exposeMcpTools = config.expose_mcp_tools !== false;
     this.forceSkillInvocation = Boolean(config.force_skill_invocation);
     this.exposeAskQuestion = Boolean(config.expose_ask_question);
+    // Tool definitions with a `scope` are exposed only to suites that list
+    // that scope, so adding a domain's tools does not change other suites.
+    const scopes = new Set(Array.isArray(config.tool_scopes) ? config.tool_scopes : []);
+    this.toolDefs = toolDefs.filter((def) => !def.scope || scopes.has(def.scope));
 
     const source = resolveSkillSource(this.skillSlug);
     if (!source) {
@@ -291,7 +322,7 @@ class ClaudeSkillAgentSdk {
     const mockState = createMockState();
 
     const mcpTools = exposeMcpTools
-      ? toolDefs.map((def) =>
+      ? this.toolDefs.map((def) =>
           tool(
             def.name,
             def.description,
@@ -350,25 +381,11 @@ class ClaudeSkillAgentSdk {
             },
             async (args) => {
               const idx = askQuestionCallCount++;
-              let override = askQuestionAnswers[idx];
-              let scripted = Array.isArray(override) && override.length > 0;
-              if (matchAnswers) {
-                const hit = askQuestionAnswers.findIndex(
-                  (ans, i) =>
-                    !usedAnswers.has(i) &&
-                    Array.isArray(ans) &&
-                    ans.length > 0 &&
-                    ans.every((want) =>
-                      (args.options || []).some((o) => o.id === matchOption(want, args.options)),
-                    ),
-                );
-                scripted = hit !== -1;
-                override = scripted ? askQuestionAnswers[hit] : undefined;
-                if (scripted) usedAnswers.add(hit);
-              }
+              const picked = pickAnswer(askQuestionAnswers, idx, args.options, matchAnswers, usedAnswers);
+              const scripted = picked !== undefined;
               let selected;
               if (scripted) {
-                selected = override.map((want) => matchOption(want, args.options));
+                selected = picked;
               } else if (Array.isArray(args.options) && args.options.length > 0) {
                 selected = [args.options[0].id];
               } else {
@@ -399,7 +416,7 @@ class ClaudeSkillAgentSdk {
 
     const allowedMcpToolNames = [];
     if (exposeMcpTools) {
-      for (const def of toolDefs) {
+      for (const def of this.toolDefs) {
         allowedMcpToolNames.push(`mcp__launchdarkly-mocks__${def.name}`);
       }
     }
@@ -645,3 +662,4 @@ module.exports = ClaudeSkillAgentSdk;
 module.exports.stripRawWrapper = stripRawWrapper;
 module.exports.resolveExposeMcpTools = resolveExposeMcpTools;
 module.exports.matchOption = matchOption;
+module.exports.pickAnswer = pickAnswer;

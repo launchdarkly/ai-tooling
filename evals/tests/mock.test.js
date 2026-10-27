@@ -12,7 +12,7 @@ const TEMPLATES = require("../mocks/tool-responses.json");
 test("createMockState returns fresh empty state each call", () => {
   const a = createMockState();
   const b = createMockState();
-  assert.deepEqual(a, { configs: {}, flags: {} });
+  assert.deepEqual(a, { configs: {}, flags: {}, raSettings: null, raRepos: {}, raPlans: {} });
   a.configs["x"] = {};
   assert.deepEqual(b.configs, {}); // independent
 });
@@ -421,4 +421,34 @@ test("update-ai-config uses template substitution", () => {
   }, "update-ai-config", state);
   assert.equal(result.key, "bot");
   assert.equal(result.name, "Bot");
+});
+
+// ---------------------------------------------------------------------------
+// Release Autopilot stateful reads
+// ---------------------------------------------------------------------------
+
+test("repo settings read reflects an earlier repo write", () => {
+  const state = createMockState();
+  const tpl = TEMPLATES["get-release-autopilot-repo-settings"];
+  assert.ok(renderMockResponse(tpl, { repo: "acme/demo" }, "get-release-autopilot-repo-settings", state).error);
+  renderMockResponse(TEMPLATES["update-release-autopilot-repo-settings"], { repo: "acme/demo", projectKey: "default", autoReleasing: { enabled: false } }, "update-release-autopilot-repo-settings", state);
+  const got = renderMockResponse(tpl, { repo: "acme/demo" }, "get-release-autopilot-repo-settings", state);
+  assert.equal(got.projectKey, "default");
+  assert.equal(got.autoReleasing.enabled, false);
+});
+
+test("account settings read merges an earlier account write", () => {
+  const state = createMockState();
+  renderMockResponse(TEMPLATES["update-release-autopilot-settings"], { autoFlagging: { enabled: false } }, "update-release-autopilot-settings", state);
+  const got = renderMockResponse(TEMPLATES["get-release-autopilot-settings"], {}, "get-release-autopilot-settings", state);
+  assert.equal(got.autoFlagging.enabled, false);
+  assert.equal(got.autoFlagging.approvalRequired, true);
+});
+
+test("release plans list reflects a created plan", () => {
+  const state = createMockState();
+  renderMockResponse(TEMPLATES["create-release-plan"], { projectKey: "default", environmentKey: "production", key: "p", name: "P", progressiveRelease: { phases: [] } }, "create-release-plan", state);
+  const got = renderMockResponse(TEMPLATES["list-release-plans"], { projectKey: "default", environmentKey: "production" }, "list-release-plans", state);
+  assert.equal(got.totalCount, 1);
+  assert.equal(got.items[0].key, "p");
 });

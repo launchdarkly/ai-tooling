@@ -28,10 +28,9 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 
 **Required for auto-releasing:**
 - `list-release-policies`
-- `list-metrics`
 
 **Used when available:**
-- `list-release-plans` / `create-release-plan`: environment release plans (see [Detect the release mode](#detect-the-release-mode))
+- `list-release-plans` / `create-release-plan` / `list-metrics`: environment release plans (see [Detect the release mode](#detect-the-release-mode))
 - `list-projects` / `get-project`: offer project and environment keys as options instead of asking for free text
 
 If a required tool is missing, stop and tell the user which one. Do not invent REST calls. If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
@@ -46,7 +45,7 @@ Pick the mode from the user's request before Step 0:
 |------|---------|--------------|
 | **Setup** | "set up", "onboard", "turn on" | The full flow |
 | **Preview** | "preview", "what would you change", "dry run", or a member who cannot write (see Step 1) | Run Steps 1–7, show the plan, and stop. Make no writes. End with the plan as a checklist the user can hand to an admin |
-| **Resume** | "continue", "pick up where we left off", or a return after a browser step | Keep the earlier mode: a resumed Preview stays Preview. Re-read live state in Step 1 and say in one sentence what is already done. Use the earlier picks if they are still in the conversation; if not, ask them again with live state as the default. Writes that landed before a Step 8 failure show as already set up, so the new plan lists only what is left |
+| **Resume** | "continue", "pick up where we left off", or a return after a browser step | Keep the earlier mode: a resumed Preview stays Preview. Re-read live state in Step 1 and say in one sentence what is already done. Use the earlier picks if they are still in the conversation; if not, ask them again with live state as the default. Writes that landed before a Step 8 failure show as already set up, so the new plan lists only what is left. Resume still stops at Step 7 and waits for "Looks good" |
 
 Every mode is safe to run again. A re-run reads live state and proposes only the writes that are still needed.
 
@@ -54,18 +53,16 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 
 1. **Only set up what they picked.** Release setup matters only for auto-releasing. If the user picks auto-flagging only, skip Step 6.
 2. **Least privilege by default.** Recommend auto-flagging with approval required. Auto-releasing is opt-in and you must say it can ship code.
-3. **Gather, confirm, then write.** No write happens before [Step 7](#step-7-confirm-the-plan). The confirmation lists every write with its current and proposed state.
+3. **Gather, confirm, then write.** No write happens before [Step 7](#step-7-confirm-the-plan). The confirmation lists every write with its current and proposed state. This holds in every mode, including Resume and requests that already state every answer: a restated pick is an answer, never approval. Step 1's reads, including the role check, always run first.
 4. **Don't ask what the account already answers.** If live state already settles a question, state the answer and move on.
 5. **Never act in the user's browser.** GitHub install, GitHub authorization, release policy edits, and bring-your-own-key setup are browser steps. Give the exact link and wait for the user to say they finished.
 6. **Only touch what the user named.** Never map every repo on the install. Never create release plans in environments the user did not pick.
 
 ## Speaking to the user
 
-- Use product words: "auto-flagging", "auto-releasing", "repository", "project", "release policy", "release plan", "approval".
-- Never show tool names or field names such as `update-release-autopilot-repo-settings`, `githubRepoId`, `enabledOverride`, or `autoReleasing.enabled`. Say "repository ID", "turned off for this repository", or "auto-releasing is on". This applies to every message, including questions, the admin checklist, and the final summary: describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value.
-- "Policy mode" and "plan mode" are names for this skill only. Tell the user "your account uses release policies" or "your account uses release plans".
-- If a verification read disagrees with a write, name the change that could not be confirmed and where to check it in the LaunchDarkly UI. Do not name the tools involved.
-- Keep each message to the current step. Do not narrate tool calls.
+- Use product words ("auto-flagging", "release policy", "approval") in every message, including questions, checklists, and the final summary. Never show tool names, field names (`githubRepoId`, `autoReleasing.enabled`), HTTP status codes, step numbers, or this skill's mode names ("policy mode"); say "your account uses release policies" and "Verification", not "Step 9".
+- Describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value. If a check after a write disagrees with it, name the change that could not be confirmed and where to check it in the LaunchDarkly UI.
+- Keep each message to the current step, and do not narrate tool calls.
 
 ## Workflow
 
@@ -79,7 +76,7 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 
 ### Step 0: Welcome the user
 
-In Setup mode, present this intro (you may lightly adapt the wording, but keep the structure). In Preview mode, replace the last line with "I'll show you every change and make none of them." In Resume mode, skip the intro.
+Decide the mode from the user's first message before you write anything. **In Resume mode, skip this step entirely**: do not show the intro or any part of it, and go straight to Step 1. In Setup mode, present this intro (you may lightly adapt the wording, but keep the structure). In Preview mode, replace the last line with "I'll show you every change and make none of them."
 
 > **Release Autopilot Setup**
 >
@@ -160,10 +157,7 @@ On "Done", call `list-release-autopilot-github-repos` again. If it still returns
 
    If a repo the user wants is not on the list, its owner decides the fix: a listed owner means the App needs access to that repo, and a new owner means an org owner must install the App there (no `githubConnectUrl` appears for this case). See [references/edge-cases.md](references/edge-cases.md). Wait for "Done" and list again.
 2. **Choose a project for each repo.** Each repo maps to one LaunchDarkly project, which is where Release Autopilot creates flags and metrics for that repo. If `list-projects` is available, offer the projects as options. Otherwise ask for the project key.
-3. **Check existing mappings** with the join from Step 1. An unmapped repo returns 404 from `get-release-autopilot-repo-settings`; that is the expected answer for a new repo, not an error.
-   - Mapped to the chosen project, and its effective capabilities match the user's picks: tell the user it is already set up, and write nothing.
-   - Mapped to the chosen project, but a capability the user did not pick is effectively on: record a repo override that turns it off, as its own line in Step 7.
-   - Mapped to a different project: do not remap it in this flow. Remapping changes where its flags are created. Tell the user to use [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md) to unmap it first, then run this step again.
+3. **Check existing mappings** with the join from Step 1 (an unmapped repo returns 404, which is expected). Already mapped to the chosen project with matching capabilities: write nothing. Mapped to the chosen project with an unpicked capability on: record an override that turns it off. Mapped to a different project: never remap here; send the user to the settings skill to unmap first. Details: [references/edge-cases.md](references/edge-cases.md#existing-mappings).
 4. **Say what starts when.** If the account already has a capability on, mapping a repo starts that automation in the repo as soon as Step 8 maps it.
 
 ### Step 5: Choose inference
@@ -230,7 +224,7 @@ List every write in the order you will make it. For each write, state the curren
 
 If there are no writes, say so, list the follow-ups, and stop.
 
-**Preview mode:** present the list as a checklist under the heading "Changes an admin would make", then stop. Do not ask for confirmation.
+**Preview mode:** present the list as a checklist under the heading "Changes an admin would make", one line per change, then stop. Do not ask for confirmation.
 
 **Setup mode:** use `AskUserQuestion` with header "Confirm":
 
