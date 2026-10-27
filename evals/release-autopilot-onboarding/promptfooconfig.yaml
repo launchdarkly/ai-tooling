@@ -1,0 +1,238 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# Run with shared defaults:
+#   promptfoo eval -c shared/defaults.yaml -c release-autopilot-onboarding/promptfooconfig.yaml
+#
+# The onboarding wizard for Release Autopilot. These cases lock in the write
+# rules found in dry runs against catamorphic: nothing is written before the
+# user confirms, Preview and reader runs never write, a repo never inherits a
+# capability the user did not pick, the release-plans 403 is treated as
+# account-wide policy mode, and account settings stay untouched when they
+# already match. Default mocks match a catamorphic-like account: both
+# capabilities on, the GitHub App installed, release plans forbidden by the
+# account's plan. Tests change state with mock_tool_overrides, and steer
+# ask-question by option label.
+description: "Evaluation of the Release Autopilot onboarding skill"
+
+prompts:
+  - file://../../skills/release-autopilot/launchdarkly-release-autopilot-onboarding/SKILL.md
+
+providers:
+  - id: file://../providers/claude-skill-agent-sdk.js
+    label: mcp
+    config:
+      skill_slug: launchdarkly-release-autopilot-onboarding
+      allow_builtins: false
+      expose_ask_question: true
+      force_skill_invocation: true
+
+tests:
+  # ------------------------------------------------------------------
+  # Fresh account, auto-flagging only. The repo mapping must turn
+  # auto-releasing off for the repo, the account write comes after the
+  # repo write, and no write happens before the confirm question.
+  # ------------------------------------------------------------------
+  - description: "Fresh account, auto-flagging only: confirm first, repo override off, account write last"
+    vars:
+      user_request: "Set up Release Autopilot for acme/demo in project default."
+      max_turns: 25
+      mock_tool_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: false }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+      mock_ask_question_answers:
+        - ["Auto-flagging"]
+        - ["Require approval"]
+        - ["acme/demo"]
+        - ["default"]
+        - ["managed"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 4
+      - type: javascript
+        value: file://assertions.js:repoTurnsAutoReleasingOff
+        metric: repo_override_unpicked
+        weight: 4
+      - type: javascript
+        value: file://assertions.js:accountWriteLast
+        metric: account_write_last
+        weight: 2
+      - type: javascript
+        value: file://assertions.js:neverAutoReleasingOn
+        metric: no_auto_releasing
+        weight: 3
+      - type: javascript
+        value: file://assertions.js:noAutoCleanup
+        metric: no_auto_cleanup
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Account already on, both capabilities picked, policy mode with no
+  # release policy. list-release-plans is called once (the 403 is
+  # account-wide), no plans are created, the repo keeps auto-releasing
+  # off, and the account settings are not rewritten.
+  # ------------------------------------------------------------------
+  - description: "Policy mode, missing policy: one plans call, no plans, auto-releasing off for the repo, no account write"
+    vars:
+      user_request: "Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default."
+      max_turns: 25
+      mock_tool_overrides:
+        list-release-policies:
+          policies: []
+          count: 0
+          warnings:
+            - code: missing_policy
+              message: "No release policy matches."
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["acme/demo"]
+        - ["default"]
+        - ["managed"]
+        - ["Test", "Production"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://assertions.js:releasePlansCalledAtMostOnce
+        metric: plans_403_account_wide
+        weight: 3
+      - type: javascript
+        value: file://assertions.js:noReleasePlanCreated
+        metric: no_plans_created
+        weight: 3
+      - type: javascript
+        value: file://assertions.js:repoTurnsAutoReleasingOff
+        metric: auto_releasing_off_without_policy
+        weight: 4
+      - type: javascript
+        value: file://assertions.js:noAccountWrite
+        metric: no_redundant_account_write
+        weight: 3
+      - type: javascript
+        value: file://assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Reader: Preview mode is forced, so nothing is written even after
+  # every question is answered.
+  # ------------------------------------------------------------------
+  - description: "Reader role: forced Preview, zero writes"
+    vars:
+      user_request: "Set up Release Autopilot for acme/demo in project default."
+      max_turns: 20
+      mock_tool_overrides:
+        get-member-self: { id: "member-2", email: "reader@acme.example", role: "reader", teams: [] }
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+        - ["acme/demo"]
+        - ["default"]
+        - ["managed"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://assertions.js:noWrites
+        metric: no_writes
+        weight: 5
+
+  # ------------------------------------------------------------------
+  # Explicit preview request from an admin: zero writes, and the final
+  # message is a checklist of changes.
+  # ------------------------------------------------------------------
+  - description: "Explicit preview: zero writes, ends with the planned changes"
+    vars:
+      user_request: "Do a dry run: preview what you'd change to set up Release Autopilot auto-flagging for acme/demo in project default. Don't change anything."
+      max_turns: 20
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+        - ["acme/demo"]
+        - ["default"]
+        - ["managed"]
+    assert:
+      - type: javascript
+        value: file://assertions.js:noWrites
+        metric: no_writes
+        weight: 5
+      - type: llm-rubric
+        value: |
+          The final message lists the change that would be made: mapping acme/demo to project default,
+          with auto-releasing turned off for that repository. It says nothing was changed. It does not
+          show raw field names such as githubRepoId, enabledOverride, or autoReleasing.enabled.
+        metric: preview_plan
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # GitHub App not installed, and the user needs an org owner: hand the
+  # user the link, write nothing, and stop.
+  # ------------------------------------------------------------------
+  - description: "App not installed, org owner needed: link given, zero writes"
+    vars:
+      user_request: "Set up Release Autopilot for my repos."
+      max_turns: 15
+      mock_tool_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: false }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        list-release-autopilot-github-repos:
+          installed: false
+          userAuthorized: false
+          repositories: []
+          totalCount: 0
+          githubConnectUrl: "https://app.launchdarkly.com/integrations/github/connect?flow=install"
+      mock_ask_question_answers:
+        - ["Auto-flagging"]
+        - ["Require approval"]
+        - ["Need an org owner"]
+    assert:
+      - type: javascript
+        value: file://assertions.js:noWrites
+        metric: no_writes
+        weight: 5
+      - type: javascript
+        value: |
+          const text = String(output.response || '') + (output.assistant_turns || []).join('\n');
+          const pass = text.includes('flow=install');
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'gave the connect link' : 'did not give the githubConnectUrl' };
+        metric: gave_connect_link
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Writer role on a fresh account: account settings need an admin, so
+  # the account write is never attempted. The repo write may run.
+  # ------------------------------------------------------------------
+  - description: "Writer role: account write left for an admin"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
+      max_turns: 25
+      mock_tool_overrides:
+        get-member-self: { id: "member-3", email: "writer@acme.example", role: "writer", teams: [] }
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: false }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+      mock_ask_question_answers:
+        - ["Auto-flagging"]
+        - ["Require approval"]
+        - ["acme/demo"]
+        - ["default"]
+        - ["managed"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://assertions.js:noAccountWrite
+        metric: no_account_write
+        weight: 5
+      - type: javascript
+        value: file://assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 2

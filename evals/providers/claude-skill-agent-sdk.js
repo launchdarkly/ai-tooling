@@ -45,7 +45,13 @@
  *                                 (true/false), e.g. to run one test with no
  *                                 LaunchDarkly tools
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
- *                                 successive `ask-question` calls
+ *                                 successive `ask-question` calls. An entry that is
+ *                                 not one of the call's option ids is matched
+ *                                 against option labels (case-insensitive substring),
+ *                                 so tests can steer by label when the agent picks ids
+ *   mock_tool_overrides         - optional object mapping tool name to a mock template
+ *                                 that replaces mocks/tool-responses.json for this test,
+ *                                 e.g. to return a 403 or a different account state
  *   mock_files                  - optional object mapping relative file paths to
  *                                 string content, written into the isolated cwd
  *                                 before the agent runs
@@ -74,6 +80,19 @@ const SKILLS_ROOT = path.join(REPO_ROOT, "skills");
 const toolDefs = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../tools/definitions.json"), "utf-8"),
 );
+
+/**
+ * Resolve a scripted answer to an option id. Exact id wins; otherwise the
+ * first option whose label contains the answer (case-insensitive). Unmatched
+ * answers pass through unchanged.
+ */
+function matchOption(want, options) {
+  const list = Array.isArray(options) ? options : [];
+  if (list.some((o) => o.id === want)) return want;
+  const needle = String(want).toLowerCase();
+  const hit = list.find((o) => String(o.label || "").toLowerCase().includes(needle));
+  return hit ? hit.id : want;
+}
 
 const mockTemplates = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../mocks/tool-responses.json"), "utf-8"),
@@ -233,6 +252,7 @@ class ClaudeSkillAgentSdk {
       ? context.vars.mock_ask_question_answers
       : [];
     const mockFiles = context?.vars?.mock_files || {};
+    const mockToolOverrides = context?.vars?.mock_tool_overrides || {};
 
     let userMessage = userRequest;
     if (codebaseContext) {
@@ -262,7 +282,12 @@ class ClaudeSkillAgentSdk {
             def.description,
             inputSchemaToZodShape(def.input_schema),
             async (args) => {
-              const template = mockTemplates[def.name];
+              const template = Object.prototype.hasOwnProperty.call(
+                mockToolOverrides,
+                def.name,
+              )
+                ? mockToolOverrides[def.name]
+                : mockTemplates[def.name];
               const mock = template
                 ? renderMockResponse(template, args, def.name, mockState)
                 : { error: `No mock configured for tool: ${def.name}` };
@@ -313,7 +338,7 @@ class ClaudeSkillAgentSdk {
               const override = askQuestionAnswers[idx];
               let selected;
               if (Array.isArray(override) && override.length > 0) {
-                selected = override;
+                selected = override.map((want) => matchOption(want, args.options));
               } else if (Array.isArray(args.options) && args.options.length > 0) {
                 selected = [args.options[0].id];
               } else {
@@ -587,3 +612,4 @@ module.exports = ClaudeSkillAgentSdk;
 // Exposed for unit tests; the promptfoo loader uses the class default export.
 module.exports.stripRawWrapper = stripRawWrapper;
 module.exports.resolveExposeMcpTools = resolveExposeMcpTools;
+module.exports.matchOption = matchOption;
