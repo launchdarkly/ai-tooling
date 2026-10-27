@@ -245,7 +245,7 @@ For custom context kinds (device, organization, etc.):
 
 ```json
 {
-  "kind": "addContextTargets",
+  "kind": "addTargets",
   "contextKind": "organization",
   "variationId": "<variation-id>",
   "values": ["org-123", "org-456"]
@@ -254,7 +254,7 @@ For custom context kinds (device, organization, etc.):
 
 ```json
 {
-  "kind": "removeContextTargets",
+  "kind": "removeTargets",
   "contextKind": "organization",
   "variationId": "<variation-id>",
   "values": ["org-123"]
