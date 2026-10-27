@@ -30,18 +30,25 @@ module.exports.confirmsBeforeWriting = (output) => {
   const steps = traj(output);
   const firstWrite = steps.findIndex((t) => WRITE_TOOLS.has(t.tool));
   if (firstWrite === -1) return result(false, "never wrote, so the confirmed plan was not applied");
-  const confirm = steps.findIndex(isConfirmQuestion);
-  return result(
-    confirm !== -1 && confirm < firstWrite,
-    confirm === -1 ? "wrote without a confirm question" : `confirm at ${confirm}, first write at ${firstWrite}`,
-  );
+  let confirm = -1;
+  for (let i = 0; i < firstWrite; i++) if (isConfirmQuestion(steps[i])) confirm = i;
+  if (confirm === -1) return result(false, "wrote without a confirm question");
+  const step = steps[confirm];
+  const ok = ((step.arguments && step.arguments.options) || [])
+    .filter((o) => String(o.label || "").toLowerCase().includes("looks good"))
+    .map((o) => o.id);
+  const approved = (step.selected || []).some((id) => ok.includes(id));
+  return result(approved, approved ? `approved at ${confirm}, first write at ${firstWrite}` : `wrote after confirm answer ${JSON.stringify(step.selected)}`);
 };
 
-const repoOverridesUnpicked = (caps) => (output) => {
+// Every repo write targets `repo` in `project` and sends enabled:false for each cap.
+const mapsRepoWithOverrides = (repo, project, caps) => (output) => {
   const maps = traj(output).filter((t) => t.tool === "update-release-autopilot-repo-settings");
-  if (!maps.length) return result(false, "never mapped a repo");
-  const bad = maps.filter((m) => caps.some((c) => !(m.arguments && m.arguments[c] && m.arguments[c].enabled === false)));
-  return result(bad.length === 0, bad.length ? `missing ${caps.join("/")} enabled:false on ${bad.length} mapping(s)` : "overrides sent");
+  if (!maps.length) return result(false, "never wrote a repo mapping");
+  const wrong = maps.filter((m) => (m.arguments || {}).repo !== repo || (project && (m.arguments || {}).projectKey && m.arguments.projectKey !== project));
+  if (wrong.length) return result(false, `wrote ${wrong.map((m) => `${m.arguments.repo}@${m.arguments.projectKey}`).join(", ")}; want only ${repo}@${project}`);
+  const bad = maps.filter((m) => caps.some((c) => !(m.arguments[c] && m.arguments[c].enabled === false)));
+  return result(bad.length === 0, bad.length ? `missing ${caps.join("/")} enabled:false` : `${repo} written with ${caps.join("/")} off`);
 };
 
 module.exports.accountWriteLast = (output) => {
@@ -72,7 +79,35 @@ module.exports.releasePlansCalledAtMostOnce = (output) => {
   return result(n <= 1, `list-release-plans called ${n} time(s)`);
 };
 
-module.exports.repoTurnsAutoReleasingOff = repoOverridesUnpicked(["autoReleasing"]);
+module.exports.repoTurnsAutoReleasingOff = mapsRepoWithOverrides("acme/demo", "default", ["autoReleasing"]);
+module.exports.storefrontAutoReleasingOff = mapsRepoWithOverrides("acme/storefront", null, ["autoReleasing"]);
+module.exports.noRepoWrite = noneOf(["update-release-autopilot-repo-settings", "delete-release-autopilot-repo-settings"]);
+
+module.exports.planBeforeRepoWrite = (output) => {
+  const steps = traj(output);
+  const plan = steps.findIndex((t) => t.tool === "create-release-plan");
+  const repo = steps.findIndex((t) => t.tool === "update-release-autopilot-repo-settings");
+  if (plan === -1) return result(false, "never created a release plan");
+  return result(repo === -1 || plan < repo, `plan at ${plan}, repo write at ${repo}`);
+};
+
+module.exports.plansHaveClauses = (output) => {
+  const plans = traj(output).filter((t) => t.tool === "create-release-plan");
+  if (!plans.length) return result(false, "no release plan created");
+  const okClause = (c) => c && typeof c.attribute === "string" && typeof c.op === "string" && Array.isArray(c.values);
+  const okStep = (s) => s && typeof s.allocation === "number" && typeof s.durationMillis === "number";
+  for (const p of plans) {
+    const phases = (((p.arguments || {}).progressiveRelease || {}).phases) || [];
+    if (!phases.length) return result(false, "plan has no phases");
+    for (const ph of phases) {
+      if (!Array.isArray(ph.clauses) || !ph.clauses.length || !ph.clauses.every(okClause))
+        return result(false, `bad clauses: ${JSON.stringify(ph.clauses).slice(0, 120)}`);
+      if (!Array.isArray(ph.steps) || !ph.steps.length || !ph.steps.every(okStep))
+        return result(false, `bad steps: ${JSON.stringify(ph.steps).slice(0, 120)}`);
+    }
+  }
+  return result(true, "every phase has valid clauses and steps");
+};
 module.exports.noReleasePlanCreated = noneOf(["create-release-plan"]);
 module.exports.noAccountWrite = noneOf(["update-release-autopilot-settings"]);
 
@@ -82,12 +117,17 @@ const finalText = (output) => String((output && output.response) || "");
 const RAW_NAMES = [
   "update-release-autopilot", "get-release-autopilot", "list-release-autopilot",
   "githubRepoId", "enabledOverride", "autoReleasing", "autoFlagging", "approvalRequired",
+  "create-release-plan", "list-release-plans", "list-release-policies",
 ];
 
 module.exports.noRawNames = (output) => {
-  const text = finalText(output);
+  const turns = ((output && output.assistant_turns) || []).map((x) => (typeof x === "string" ? x : JSON.stringify(x)));
+  const asks = traj(output)
+    .filter((t) => t.tool === "ask-question")
+    .map((t) => [t.arguments.prompt, ...((t.arguments.options || []).map((o) => o.label))].join(" "));
+  const text = [finalText(output), ...turns, ...asks].join("\n");
   const hits = RAW_NAMES.filter((n) => text.includes(n));
-  return result(hits.length === 0, hits.length ? `final message shows: ${hits.join(", ")}` : "no raw names");
+  return result(hits.length === 0, hits.length ? `user-facing text shows: ${hits.join(", ")}` : "no raw names");
 };
 
 module.exports.previewNamesTheMapping = (output) => {

@@ -10,7 +10,9 @@
 # account-wide policy mode, and account settings stay untouched when they
 # already match. Default mocks match a catamorphic-like account: both
 # capabilities on, the GitHub App installed, release plans forbidden by the
-# account's plan. Mocks are stateless, so read-backs after a write return the
+# account's plan. Scripted answers are matched to each question by option
+# label (mock_ask_question_match), so a skipped question cannot shift them.
+# Mocks are stateless, so read-backs after a write return the
 # default state; assertions grade the writes, not the verification reads. Tests change state with mock_tool_overrides, and steer
 # ask-question by option label.
 description: "Evaluation of the Release Autopilot onboarding skill"
@@ -43,6 +45,7 @@ tests:
           autoReleasing: { enabled: false }
           version: 1
         list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+      mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
         - ["Require approval"]
@@ -71,6 +74,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:noAutoCleanup
         metric: no_auto_cleanup
         weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2
 
   # ------------------------------------------------------------------
   # Account already on, both capabilities picked, policy mode with no
@@ -89,6 +96,7 @@ tests:
           warnings:
             - code: missing_policy
               message: "No release policy matches."
+      mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Add more"]
         - ["Auto-flagging", "Auto-releasing"]
@@ -102,6 +110,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:releasePlansCalledAtMostOnce
         metric: plans_403_account_wide
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noReleasePlanCreated
         metric: no_plans_created
@@ -129,6 +141,7 @@ tests:
       max_turns: 20
       mock_tool_overrides:
         get-member-self: { id: "member-2", email: "reader@acme.example", role: "reader", teams: [] }
+      mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Add more"]
         - ["Auto-flagging"]
@@ -154,6 +167,7 @@ tests:
     vars:
       user_request: "Do a dry run: preview what you'd change to set up Release Autopilot auto-flagging for acme/demo in project default. Don't change anything."
       max_turns: 20
+      mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Add more"]
         - ["Auto-flagging"]
@@ -194,6 +208,7 @@ tests:
           repositories: []
           totalCount: 0
           githubConnectUrl: "https://app.launchdarkly.com/integrations/github/connect?flow=install"
+      mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
         - ["Require approval"]
@@ -226,6 +241,7 @@ tests:
           autoReleasing: { enabled: false }
           version: 1
         list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+      mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
         - ["Require approval"]
@@ -246,3 +262,121 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 2
+
+  # ------------------------------------------------------------------
+  # "Change something" at the confirm step is not approval: no writes.
+  # ------------------------------------------------------------------
+  - description: "Change something at confirm: zero writes"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
+      max_turns: 20
+      mock_tool_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: false }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-flagging"]
+        - ["Require approval"]
+        - ["managed"]
+        - ["Change something"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 5
+
+  # ------------------------------------------------------------------
+  # acme/storefront is already mapped to default and inherits
+  # auto-releasing from the account. The user picks auto-flagging only,
+  # so the only write is an override that turns auto-releasing off.
+  # ------------------------------------------------------------------
+  - description: "Already mapped with an unpicked capability: override write only"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/storefront in project default. I don't want auto-releasing."
+      max_turns: 25
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+        - ["managed"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:storefrontAutoReleasingOff
+        metric: override_unpicked_on_mapped_repo
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noAccountWrite
+        metric: no_redundant_account_write
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # acme/storefront is mapped to default; the user asks for project web.
+  # The skill must not remap; it points to the settings skill instead.
+  # ------------------------------------------------------------------
+  - description: "Mapped to another project: no remap"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/storefront in project web."
+      max_turns: 20
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+        - ["managed"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRepoWrite
+        metric: no_remap
+        weight: 5
+
+  # ------------------------------------------------------------------
+  # Plan mode: release plans are available and empty. The plan is
+  # created before the repo write, and every phase has a clause.
+  # ------------------------------------------------------------------
+  - description: "Plan mode: release plan created first, valid phases"
+    vars:
+      user_request: >
+        Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default.
+        For production only, create a release plan: randomize by user, 1% then 10% then 50% then 100%
+        with 4h holds, automatic advancement, no metrics, and leave rules in place.
+      max_turns: 30
+      mock_tool_overrides:
+        list-release-plans: { items: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["managed"]
+        - ["Production"]
+        - ["Automatic"]
+        - ["Leave rules"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:planBeforeRepoWrite
+        metric: plan_before_repo_write
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:plansHaveClauses
+        metric: plan_phases_have_clauses
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3

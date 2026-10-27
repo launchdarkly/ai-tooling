@@ -49,6 +49,12 @@
  *                                 not one of the call's option ids is matched
  *                                 against option labels (case-insensitive substring),
  *                                 so tests can steer by label when the agent picks ids
+ *   mock_ask_question_match     - when true, each `ask-question` call takes the first
+ *                                 unused scripted answer whose entries all match its
+ *                                 options (by id or label), instead of the next one in
+ *                                 order. Use for flows that may skip questions. A call
+ *                                 with no match gets its first option and is recorded
+ *                                 with `scripted: false`
  *   mock_tool_overrides         - optional object mapping tool name to a mock template
  *                                 that replaces mocks/tool-responses.json for this test,
  *                                 e.g. to return a 403 or a different account state
@@ -260,6 +266,8 @@ class ClaudeSkillAgentSdk {
       : [];
     const mockFiles = context?.vars?.mock_files || {};
     const mockToolOverrides = context?.vars?.mock_tool_overrides || {};
+    const matchAnswers = context?.vars?.mock_ask_question_match === true;
+    const usedAnswers = new Set();
 
     let userMessage = userRequest;
     if (codebaseContext) {
@@ -342,9 +350,24 @@ class ClaudeSkillAgentSdk {
             },
             async (args) => {
               const idx = askQuestionCallCount++;
-              const override = askQuestionAnswers[idx];
+              let override = askQuestionAnswers[idx];
+              let scripted = Array.isArray(override) && override.length > 0;
+              if (matchAnswers) {
+                const hit = askQuestionAnswers.findIndex(
+                  (ans, i) =>
+                    !usedAnswers.has(i) &&
+                    Array.isArray(ans) &&
+                    ans.length > 0 &&
+                    ans.every((want) =>
+                      (args.options || []).some((o) => o.id === matchOption(want, args.options)),
+                    ),
+                );
+                scripted = hit !== -1;
+                override = scripted ? askQuestionAnswers[hit] : undefined;
+                if (scripted) usedAnswers.add(hit);
+              }
               let selected;
-              if (Array.isArray(override) && override.length > 0) {
+              if (scripted) {
                 selected = override.map((want) => matchOption(want, args.options));
               } else if (Array.isArray(args.options) && args.options.length > 0) {
                 selected = [args.options[0].id];
@@ -357,6 +380,8 @@ class ClaudeSkillAgentSdk {
                 tool: "ask-question",
                 arguments: args,
                 turn: currentTurn,
+                scripted,
+                selected,
                 mock_response_preview: previewMock(response),
               });
 

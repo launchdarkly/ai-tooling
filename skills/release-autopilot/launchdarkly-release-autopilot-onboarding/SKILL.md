@@ -62,7 +62,9 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 ## Speaking to the user
 
 - Use product words: "auto-flagging", "auto-releasing", "repository", "project", "release policy", "release plan", "approval".
-- Never show tool names or field names such as `update-release-autopilot-repo-settings`, `githubRepoId`, `enabledOverride`, or `autoReleasing.enabled`. Say "repository ID", "turned off for this repository", or "auto-releasing is on". This applies to every message, including the admin checklist and the final summary: describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value.
+- Never show tool names or field names such as `update-release-autopilot-repo-settings`, `githubRepoId`, `enabledOverride`, or `autoReleasing.enabled`. Say "repository ID", "turned off for this repository", or "auto-releasing is on". This applies to every message, including questions, the admin checklist, and the final summary: describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value.
+- "Policy mode" and "plan mode" are names for this skill only. Tell the user "your account uses release policies" or "your account uses release plans".
+- If a verification read disagrees with a write, name the change that could not be confirmed and where to check it in the LaunchDarkly UI. Do not name the tools involved.
 - Keep each message to the current step. Do not narrate tool calls.
 
 ## Workflow
@@ -71,7 +73,7 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 
 **Response scoping:** During this flow, treat user messages as answers to the current question. Do not take unrelated actions until the flow is finished.
 
-**Asking questions:** When a question has options, use `AskUserQuestion` with the labels and descriptions given below. Ask free-text questions as a normal message.
+**Asking questions:** When a question has options, use `AskUserQuestion` with the labels and descriptions given below. Ask free-text questions as a normal message. If the user's request already answers a question explicitly, such as naming the repo, the project, or the capabilities, use that answer and say so instead of asking. Never infer the answer to the Step 7 confirmation.
 
 **State tracking:** Track every decision. Step 7 re-states all of them.
 
@@ -108,7 +110,7 @@ Run these reads. Do not write anything.
 3. `list-release-autopilot-repo-settings`: repos that are already mapped.
 4. `list-release-autopilot-github-repos`: repos on the GitHub App install (`owner/name` and `githubRepoId`), plus `installed` and `userAuthorized`. If either is false, the response includes a `githubConnectUrl`.
 
-`list-release-autopilot-repo-settings` returns only `githubRepoId` and `projectKey`, not repo names. Join it to the install list on `githubRepoId` before you show the user which repos are mapped. A mapped `githubRepoId` with no match on the install list is a repo the App can no longer see, or one this member cannot see: show it as "repository ID <id>, not on the GitHub install" with its project, and do not change it in this flow.
+`list-release-autopilot-repo-settings` returns only `githubRepoId` and `projectKey`, not repo names. Join it to the install list on `githubRepoId` before you show the user which repos are mapped. A mapped `githubRepoId` with no match on the install list is a repo the App can no longer see, or one this member cannot see: tell the user, for example, "One more repository (ID 999) is mapped to project default but is no longer on the GitHub install; I'll leave it alone." Do not write the field name. Do not change that repo in this flow.
 
 Release Autopilot's agents need generative AI turned on for the organization. There is no MCP tool to read that setting. If a later step fails with a generative AI or Vega eligibility error, tell the user that an Admin or Owner must select **Enable generative AI use cases** in Organization settings > Security, then stop.
 
@@ -235,7 +237,7 @@ If there are no writes, say so, list the follow-ups, and stop.
 - label: "Looks good", description: "Make every change in this plan"
 - label: "Change something", description: "Adjust the plan before you start"
 
-On "Change something", make the change and show the full plan again. Do not go to Step 8 until the user selects "Looks good".
+Only "Looks good" approves the plan. On "Change something", ask what to change, make the change, and show the full plan again. Any other answer, including one that does not match an option, is not approval: ask the confirmation again. Do not go to Step 8 until the user selects "Looks good".
 
 ### Step 8: Apply
 
@@ -256,7 +258,7 @@ If a write fails with 403, the member lacks that permission. Report which write 
 2. `get-release-autopilot-repo-settings` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan.
 3. Plan mode: `list-release-plans` for each environment lists the new plans. Policy mode: report the policy state from Step 6.
 
-Report a short checklist with each item marked verified or reported by the user, then the follow-ups. Then tell the user how to see it work:
+Report a short checklist with each item marked verified, reported by the user, or already set up (for a step the flow skipped because it was already done), then the follow-ups. Then tell the user how to see it work:
 
 - Open a pull request in a mapped repo. Release Autopilot reads it within a few minutes. With approval required, the auto-flagging PR waits for approval.
 - If a PR is not classified, use [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md#why-didnt-my-pr-get-classified) to diagnose it.
