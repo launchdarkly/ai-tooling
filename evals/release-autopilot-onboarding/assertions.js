@@ -75,3 +75,23 @@ module.exports.releasePlansCalledAtMostOnce = (output) => {
 module.exports.repoTurnsAutoReleasingOff = repoOverridesUnpicked(["autoReleasing"]);
 module.exports.noReleasePlanCreated = noneOf(["create-release-plan"]);
 module.exports.noAccountWrite = noneOf(["update-release-autopilot-settings"]);
+
+const finalText = (output) => String((output && output.response) || "");
+
+// Raw tool and field names the skill's voice rules ban from user-facing text.
+const RAW_NAMES = [
+  "update-release-autopilot", "get-release-autopilot", "list-release-autopilot",
+  "githubRepoId", "enabledOverride", "autoReleasing", "autoFlagging", "approvalRequired",
+];
+
+module.exports.noRawNames = (output) => {
+  const text = finalText(output);
+  const hits = RAW_NAMES.filter((n) => text.includes(n));
+  return result(hits.length === 0, hits.length ? `final message shows: ${hits.join(", ")}` : "no raw names");
+};
+
+module.exports.previewNamesTheMapping = (output) => {
+  const text = finalText(output).toLowerCase();
+  const pass = text.includes("acme/demo") && text.includes("default") && /auto-releasing/.test(text);
+  return result(pass, pass ? "names the repo, project, and auto-releasing" : "final message does not describe the mapping");
+};

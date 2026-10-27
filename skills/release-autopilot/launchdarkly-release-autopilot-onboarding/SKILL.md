@@ -62,7 +62,7 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 ## Speaking to the user
 
 - Use product words: "auto-flagging", "auto-releasing", "repository", "project", "release policy", "release plan", "approval".
-- Never show tool names or field names such as `githubRepoId`, `enabledOverride`, or `autoReleasing.enabled`. Say "repository ID", "turned off for this repository", or "auto-releasing is on".
+- Never show tool names or field names such as `update-release-autopilot-repo-settings`, `githubRepoId`, `enabledOverride`, or `autoReleasing.enabled`. Say "repository ID", "turned off for this repository", or "auto-releasing is on". This applies to every message, including the admin checklist and the final summary: describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value.
 - Keep each message to the current step. Do not narrate tool calls.
 
 ## Workflow

@@ -10,7 +10,8 @@
 # account-wide policy mode, and account settings stay untouched when they
 # already match. Default mocks match a catamorphic-like account: both
 # capabilities on, the GitHub App installed, release plans forbidden by the
-# account's plan. Tests change state with mock_tool_overrides, and steer
+# account's plan. Mocks are stateless, so read-backs after a write return the
+# default state; assertions grade the writes, not the verification reads. Tests change state with mock_tool_overrides, and steer
 # ask-question by option label.
 description: "Evaluation of the Release Autopilot onboarding skill"
 
@@ -51,23 +52,23 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
-        value: file://assertions.js:confirmsBeforeWriting
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 4
       - type: javascript
-        value: file://assertions.js:repoTurnsAutoReleasingOff
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
         metric: repo_override_unpicked
         weight: 4
       - type: javascript
-        value: file://assertions.js:accountWriteLast
+        value: file://../release-autopilot-onboarding/assertions.js:accountWriteLast
         metric: account_write_last
         weight: 2
       - type: javascript
-        value: file://assertions.js:neverAutoReleasingOn
+        value: file://../release-autopilot-onboarding/assertions.js:neverAutoReleasingOn
         metric: no_auto_releasing
         weight: 3
       - type: javascript
-        value: file://assertions.js:noAutoCleanup
+        value: file://../release-autopilot-onboarding/assertions.js:noAutoCleanup
         metric: no_auto_cleanup
         weight: 2
 
@@ -98,23 +99,23 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
-        value: file://assertions.js:releasePlansCalledAtMostOnce
+        value: file://../release-autopilot-onboarding/assertions.js:releasePlansCalledAtMostOnce
         metric: plans_403_account_wide
         weight: 3
       - type: javascript
-        value: file://assertions.js:noReleasePlanCreated
+        value: file://../release-autopilot-onboarding/assertions.js:noReleasePlanCreated
         metric: no_plans_created
         weight: 3
       - type: javascript
-        value: file://assertions.js:repoTurnsAutoReleasingOff
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
         metric: auto_releasing_off_without_policy
         weight: 4
       - type: javascript
-        value: file://assertions.js:noAccountWrite
+        value: file://../release-autopilot-onboarding/assertions.js:noAccountWrite
         metric: no_redundant_account_write
         weight: 3
       - type: javascript
-        value: file://assertions.js:confirmsBeforeWriting
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
 
@@ -137,9 +138,13 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
-        value: file://assertions.js:noWrites
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
         metric: no_writes
         weight: 5
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2
 
   # ------------------------------------------------------------------
   # Explicit preview request from an admin: zero writes, and the final
@@ -157,16 +162,17 @@ tests:
         - ["managed"]
     assert:
       - type: javascript
-        value: file://assertions.js:noWrites
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
         metric: no_writes
         weight: 5
-      - type: llm-rubric
-        value: |
-          The final message lists the change that would be made: mapping acme/demo to project default,
-          with auto-releasing turned off for that repository. It says nothing was changed. It does not
-          show raw field names such as githubRepoId, enabledOverride, or autoReleasing.enabled.
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:previewNamesTheMapping
         metric: preview_plan
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2
 
   # ------------------------------------------------------------------
   # GitHub App not installed, and the user needs an org owner: hand the
@@ -194,7 +200,7 @@ tests:
         - ["Need an org owner"]
     assert:
       - type: javascript
-        value: file://assertions.js:noWrites
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
         metric: no_writes
         weight: 5
       - type: javascript
@@ -229,10 +235,14 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
-        value: file://assertions.js:noAccountWrite
+        value: file://../release-autopilot-onboarding/assertions.js:noAccountWrite
         metric: no_account_write
         weight: 5
       - type: javascript
-        value: file://assertions.js:confirmsBeforeWriting
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 2
