@@ -179,7 +179,11 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
 function renderMockResponse(template, input, toolName, state) {
   const replacements = buildReplacements(input);
 
-  if (state && state.raRepos) {
+  // An error template on a write (for example a 403 override) wins over
+  // stateful handling, so the failed write is not recorded. Reads still use
+  // state: the unmapped-repo read template is itself a 404 error.
+  const failedWrite = /^(update|create|delete)-/.test(toolName) && template && template.error;
+  if (state && state.raRepos && !failedWrite) {
     const ra = renderReleaseAutopilot(template, input, toolName, state, replacements);
     if (ra !== undefined) return ra;
   }

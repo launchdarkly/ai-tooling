@@ -452,3 +452,10 @@ test("release plans list reflects a created plan", () => {
   assert.equal(got.totalCount, 1);
   assert.equal(got.items[0].key, "p");
 });
+
+test("an error template wins over the stateful write and is not recorded", () => {
+  const state = createMockState();
+  const err = { error: "403: denied" };
+  assert.equal(renderMockResponse(err, { autoFlagging: { enabled: true } }, "update-release-autopilot-settings", state).error, "403: denied");
+  assert.equal(state.raSettings, null);
+});

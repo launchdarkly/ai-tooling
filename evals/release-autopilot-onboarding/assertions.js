@@ -118,6 +118,7 @@ const RAW_NAMES = [
   "update-release-autopilot", "get-release-autopilot", "list-release-autopilot",
   "githubRepoId", "enabledOverride", "autoReleasing", "autoFlagging", "approvalRequired",
   "create-release-plan", "list-release-plans", "list-release-policies",
+  "preview mode", "policy mode", "plan mode",
 ];
 
 module.exports.noRawNames = (output) => {
@@ -158,4 +159,45 @@ module.exports.noPickQuestions = (output) => {
     .map((t) => ((t.arguments && t.arguments.options) || []).map((o) => String(o.label || "").toLowerCase()).join("|"));
   const repeats = asked.filter((l) => l.includes("auto-releasing") || l.includes("require approval") || l.includes("bring your own key"));
   return result(repeats.length === 0, repeats.length ? `re-asked: ${repeats.join(" ; ")}` : "no picks re-asked");
+};
+
+module.exports.notCalledComplete = (output) => {
+  const text = finalText(output);
+  const hit = /setup complete|setup is complete|you're all set|is (now )?live/i.exec(text);
+  return result(!hit, hit ? `final message says "${hit[0]}"` : "does not claim completion");
+};
+
+// The preview section (from the "Changes an admin would make" heading on) is a
+// short checklist; any state summary before it belongs to Step 1.
+module.exports.previewIsShortChecklist = (output) => {
+  const text = finalText(output);
+  const at = text.search(/changes an admin would make/i);
+  if (at === -1) return result(false, "no 'Changes an admin would make' section");
+  const section = text.slice(at);
+  const words = section.split(/\s+/).filter(Boolean).length;
+  const items = section.split("\n").filter((l) => /^\s*- \[ \]/.test(l));
+  const pass = words <= 150 && items.length > 0;
+  return result(pass, `preview section: ${words} words, ${items.length} checklist line(s)`);
+};
+
+module.exports.skippedGithubNotReported = (output) => {
+  const hit = /github[^\n]{0,100}reported/i.exec(allText(output));
+  return result(!hit, hit ? `labels skipped GitHub step: "${hit[0].slice(0, 80)}"` : "skipped GitHub step not labeled reported");
+};
+
+module.exports.stopsAfterFailedWrite = (output) => {
+  const steps = traj(output);
+  const acct = steps.findIndex((t) => t.tool === "update-release-autopilot-settings");
+  const repo = steps.findIndex((t) => t.tool === "update-release-autopilot-repo-settings");
+  if (acct === -1) return result(false, "never attempted the account write");
+  const after = steps.slice(acct + 1).filter((t) => WRITE_TOOLS.has(t.tool));
+  const pass = repo !== -1 && repo < acct && after.length === 0;
+  return result(pass, `repo write at ${repo}, account write at ${acct}, ${after.length} write(s) after`);
+};
+
+// The link must be in the final pause summary, which is what the user forwards
+// to their GitHub org owner.
+module.exports.pauseSummaryHasConnectLink = (output) => {
+  const pass = finalText(output).includes("flow=install");
+  return result(pass, pass ? "pause summary repeats the connect link" : "pause summary lacks the githubConnectUrl");
 };

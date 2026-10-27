@@ -5,16 +5,18 @@
 #
 # The onboarding wizard for Release Autopilot. These cases lock in the write
 # rules found in dry runs against catamorphic: nothing is written before the
-# user confirms, Preview and reader runs never write, a repo never inherits a
+# user approves, Preview and reader runs never write, a repo never inherits a
 # capability the user did not pick, the release-plans 403 is treated as
 # account-wide policy mode, and account settings stay untouched when they
-# already match. Default mocks match a catamorphic-like account: both
-# capabilities on, the GitHub App installed, release plans forbidden by the
-# account's plan. Scripted answers are matched to each question by option
-# label (mock_ask_question_match), so a skipped question cannot shift them.
-# Mocks are stateless, so read-backs after a write return the
-# default state; assertions grade the writes, not the verification reads. Tests change state with mock_tool_overrides, and steer
-# ask-question by option label.
+# already match.
+#
+# Default mocks match a catamorphic-like account with both capabilities on,
+# the GitHub App installed, and release plans available but empty (the GA
+# shape). The policy-mode case overrides release plans to the 403 accounts
+# return today. Mocks record Release Autopilot writes, so verification reads
+# reflect them. Tests change state with mock_tool_overrides, and scripted
+# answers are matched to each question by option label
+# (mock_ask_question_match), so a skipped question cannot shift them.
 description: "Evaluation of the Release Autopilot onboarding skill"
 
 prompts:
@@ -101,8 +103,10 @@ tests:
     description: "Policy mode, missing policy: one plans call, no plans, auto-releasing off for the repo, no account write"
     vars:
       user_request: "Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default."
-      max_turns: 25
+      max_turns: 20
       mock_tool_overrides:
+        list-release-plans:
+          error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Plan does not allow this operation\"}"
         list-release-policies:
           policies: []
           count: 0
@@ -123,6 +127,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:releasePlansCalledAtMostOnce
         metric: plans_403_account_wide
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:skippedGithubNotReported
+        metric: skipped_step_label
+        weight: 1
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names
@@ -177,7 +185,7 @@ tests:
   # Explicit preview request from an admin: zero writes, and the final
   # message is a checklist of changes.
   # ------------------------------------------------------------------
-  - providers: ["mcp"]
+  - providers: ["mcp-auto"]
     description: "Explicit preview: zero writes, ends with the planned changes"
     vars:
       user_request: "Do a dry run: preview what you'd change to set up Release Autopilot auto-flagging for acme/demo in project default. Don't change anything."
@@ -198,6 +206,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:previewNamesTheMapping
         metric: preview_plan
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:previewIsShortChecklist
+        metric: preview_format
+        weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names
@@ -235,10 +247,7 @@ tests:
         metric: no_writes
         weight: 5
       - type: javascript
-        value: |
-          const text = String(output.response || '') + (output.assistant_turns || []).join('\n');
-          const pass = text.includes('flow=install');
-          return { pass, score: pass ? 1 : 0, reason: pass ? 'gave the connect link' : 'did not give the githubConnectUrl' };
+        value: file://../release-autopilot-onboarding/assertions.js:pauseSummaryHasConnectLink
         metric: gave_connect_link
         weight: 3
 
@@ -271,6 +280,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:noAccountWrite
         metric: no_account_write
         weight: 5
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:notCalledComplete
+        metric: partly_set_up
+        weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names
@@ -372,9 +385,7 @@ tests:
         Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default.
         For production only, create a release plan: randomize by user, 1% then 10% then 50% then 100%
         with 4h holds, automatic advancement, no metrics, and leave rules in place.
-      max_turns: 30
-      mock_tool_overrides:
-        list-release-plans: { items: [], totalCount: 0 }
+      max_turns: 22
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Add more"]
@@ -497,3 +508,41 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
         metric: repo_override_unpicked
         weight: 3
+
+  # ------------------------------------------------------------------
+  # The account write fails with 403 for an admin. The repo write comes
+  # first, nothing is written after the failure, and the account change
+  # is handed to an admin instead of being called complete.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Account write fails with 403: stop, hand off to an admin"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
+      max_turns: 20
+      mock_tool_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: false }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        update-release-autopilot-settings:
+          error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Access to the requested resource was denied\"}"
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-flagging"]
+        - ["Require approval"]
+        - ["managed"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:stopsAfterFailedWrite
+        metric: stops_after_failure
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:notCalledComplete
+        metric: partly_set_up
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2

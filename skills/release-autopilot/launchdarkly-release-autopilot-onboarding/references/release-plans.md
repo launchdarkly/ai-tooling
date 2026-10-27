@@ -1,4 +1,4 @@
-# Create an environment release plan (plan mode)
+# Create an environment release plan
 
 Use this from Step 6 of the onboarding skill when the account has environment release plans. A release plan is a reusable recipe for one environment, made of phases, rollout steps, and metrics. A plan with metrics makes a release guarded, so a regression on a metric can roll it back. A plan without metrics is progressive: say so.
 

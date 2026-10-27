@@ -599,6 +599,6 @@
   "get-release-autopilot-repo-settings": {"error": "LaunchDarkly API error: 404: Factory settings for this repository were not found"},
   "update-release-autopilot-repo-settings": {"projectKey": "{{projectKey}}", "autoFlagging": {"enabled": true, "approvalRequired": true}, "autoReleasing": {"enabled": false, "enabledOverride": true}, "version": 1},
   "delete-release-autopilot-repo-settings": {"deleted": true},
-  "list-release-plans": {"error": "LaunchDarkly API error on GET /projects/{{projectKey}}/environments/{{environmentKey}}/release-plans: 403: {\"code\":\"forbidden\",\"message\":\"Plan does not allow this operation\"}"},
+  "list-release-plans": {"items": [], "totalCount": 0},
   "create-release-plan": {"key": "new-plan", "environmentKey": "{{environmentKey}}", "created": true}
 }

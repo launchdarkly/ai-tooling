@@ -12,8 +12,8 @@
 | Repo not on the install list | Same owner as listed repos: the user grants the App access to it. New owner: an org owner installs the App on that organization. Then list again |
 | Mapped repo ID not on the install list | Mapped-repo reads return only repository IDs, so join them to the install list. An ID with no match is a repo the App can no longer see, or one this member cannot see. Show it by ID with its project. Do not change it |
 | Repo already mapped to a different project | Do not remap here. The user unmaps it with the settings skill, then maps it in this flow |
-| `list-release-plans` returns 403 `Plan does not allow this operation` | Policy mode. Show release policies and their warnings, create no plans, and keep auto-releasing off for the repo where a policy is missing or incomplete |
-| Auto-releasing picked but no metrics exist (plan mode) | Offer the metric skills. Without metrics, the plan is progressive and nothing rolls back automatically |
+| `list-release-plans` returns 403 `Plan does not allow this operation` | Use release policies. Show them and their warnings, create no plans, and keep auto-releasing off for the repo where a policy is missing or incomplete |
+| Auto-releasing picked but no metrics exist (release plans) | Offer the metric skills. Without metrics, the plan is progressive and nothing rolls back automatically |
 | Incomplete migrated plan | Cannot start a release. Create a complete plan in that environment |
 | Generative AI or Vega eligibility error | Release Autopilot's agents need generative AI turned on, and no MCP tool reads that setting. An Admin or Owner selects **Enable generative AI use cases** in Organization settings > Security. Stop |
 | Bring your own key chosen | Browser step only. Record it as reported, never as verified |

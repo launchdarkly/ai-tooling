@@ -60,8 +60,9 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 
 ## Speaking to the user
 
-- Use product words ("auto-flagging", "release policy", "approval") in every message, including questions, checklists, and the final summary. Never show tool names, field names (`githubRepoId`, `autoReleasing.enabled`), HTTP status codes, step numbers, or this skill's mode names ("policy mode"); say "your account uses release policies" and "Verification", not "Step 9".
-- Describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value. If a check after a write disagrees with it, name the change that could not be confirmed and where to check it in the LaunchDarkly UI.
+- Use product words ("auto-flagging", "release policy", "approval") in every message, including questions, checklists, and the final summary. Never show tool names, field names (`githubRepoId`, `autoReleasing.enabled`), HTTP status codes, step numbers, or this skill's mode names ("preview mode", "policy mode", "plan mode"); say "Here's what would change", "your account uses release policies", and "Verification", not "Step 9".
+- Describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value, not even in parentheses for an admin. If a check after a write disagrees with it, name the change that could not be confirmed and where to check it in the LaunchDarkly UI.
+- State only what the reads show. Do not guess at causes (such as "installs can take a few minutes to propagate").
 - Keep each message to the current step, and do not narrate tool calls.
 
 ## Workflow
@@ -72,7 +73,7 @@ When a step is complete, go to the next one unless it says to ask or wait. Treat
 
 ### Step 0: Welcome the user
 
-Decide the mode from the user's first message before you write anything. **In Resume mode, skip this step entirely**: do not show the intro or any part of it, and go straight to Step 1. In Setup mode, present this intro (you may lightly adapt the wording, but keep the structure). In Preview mode, replace the last line with "I'll show you every change and make none of them."
+Decide the mode from the user's first message before you write anything. Never announce the mode by name; for a preview request, say "I'll show what would change and make no changes." **In Resume mode, skip this step entirely**: do not show the intro or any part of it, and go straight to Step 1. In Setup mode, present this intro (you may lightly adapt the wording, but keep the structure). In Preview mode, replace the last line with "I'll show you every change and make none of them."
 
 > **Release Autopilot Setup**
 >
@@ -87,7 +88,7 @@ Then go to Step 1. Skip any step that the account state already completes, and s
 Run these reads. Do not write anything.
 
 1. `get-member-self`: the member's `role`.
-   - `reader` or `no_access`: switch to Preview mode and say why.
+   - `reader` or `no_access`: switch to Preview. Tell the user: "You have read-only access, so I'll show what would change and make no changes."
    - `admin` or `owner`: can make every write in this flow.
    - Any other role, including `writer` and custom roles: may map repos in projects they can edit, but account settings need an admin or owner. In Step 7, mark account writes as "needs an admin" and leave them out of Step 8.
 2. `get-release-autopilot-settings`: the account gates.
@@ -132,7 +133,7 @@ Give the user the exact URL. Tell them to open it in a browser where they are lo
 - label: "Done", description: "I finished the GitHub step"
 - label: "Need an org owner", description: "I can't install the App myself. Pause setup here"
 
-On "Done", call `list-release-autopilot-github-repos` again. If it still returns `githubConnectUrl`, say so and repeat this step. On "Need an org owner", summarize the decisions so far, tell the user to say "continue Release Autopilot setup" after the App is installed, and stop.
+On "Done", call `list-release-autopilot-github-repos` again. If it still returns `githubConnectUrl`, say so and repeat this step. On "Need an org owner", summarize the decisions so far, repeat the exact URL for the org owner, tell the user to say "continue Release Autopilot setup" after the App is installed, and stop.
 
 ### Step 4: Map repositories
 
@@ -167,17 +168,17 @@ For each project from Step 4, choose environments: use `AskUserQuestion` with he
 
 Call `list-release-plans` for the first chosen environment.
 
-- **Policy mode** if the call returns 403 `Plan does not allow this operation`, or if `list-release-plans` is not available. The 403 is account-wide, so do not call it for other environments. This is the mode for every account today: auto-releasing requires a complete release policy for each environment.
-- **Plan mode** if the call succeeds. Environment release plans replace release policies by general availability.
+- **Release policies** if the call returns 403 `Plan does not allow this operation`, or if `list-release-plans` is not available. The 403 is account-wide, so do not call it for other environments. This is the mode for every account today: auto-releasing requires a complete release policy for each environment.
+- **Release plans** if the call succeeds. Environment release plans replace release policies by general availability.
 
-#### Policy mode
+#### Release policies (today)
 
 Call `list-release-policies` for the project and show the user what it returns, including any `warnings`. Record no plan writes. This skill does not change policies.
 
 - No warnings for the chosen environments: say that auto-releasing in this project uses those policies.
 - Any warning, such as `missing_policy` or `incomplete_policy`: auto-releasing cannot work there yet. Tell the user to add or complete a release policy in the project's release settings (`/projects/{projectKey}/settings/releases` on their LaunchDarkly instance). Record a repo override that keeps auto-releasing off for each repo in that project, and say in Step 7 that they can turn it on with the settings skill once the policy is complete.
 
-#### Plan mode
+#### Release plans (by GA)
 
 For each chosen environment, call `list-release-plans`. If a complete plan exists, show its name, phases, and metrics, and ask header "Plan":
 
@@ -192,7 +193,7 @@ To create a plan, follow [references/release-plans.md](references/release-plans.
 
 List every write in the order you will make it. For each write, state the current and the proposed state and the blast radius, using the wording rules from the settings skill's [Confirm before write](../launchdarkly-release-autopilot-settings/SKILL.md#confirm-before-write):
 
-1. **Metrics and release plans** (plan mode only): one line per metric to create and per environment, with the plan name, steps, advancement, and metrics.
+1. **Metrics and release plans** (release plans only): one line per metric to create and per environment, with the plan name, steps, advancement, and metrics.
 2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; this project has no release policy yet)."
 3. **Account settings**: only fields that change. If auto-releasing turns on, say it can ship code.
    For a member who is not an admin or owner, list account writes under "Needs an admin" instead.
@@ -201,7 +202,12 @@ List every write in the order you will make it. For each write, state the curren
 
 If there are no writes, say so, list the follow-ups, and stop.
 
-**Preview mode:** present the list as a checklist under the heading "Changes an admin would make", one line per change, then stop. Do not ask for confirmation.
+**Preview mode:** the final message contains only the heading "Changes an admin would make", the checklist (one line per change), and any follow-ups. Do not repeat the account state, and do not ask for confirmation. For example:
+
+```
+- [ ] Map acme/demo to project default, with auto-releasing off for this repository
+- [ ] Turn on auto-flagging for the account, with approval required
+```
 
 **Setup mode:** use `AskUserQuestion` with header "Confirm":
 
@@ -214,8 +220,8 @@ Only "Looks good" approves the plan. On "Change something", ask what to change, 
 
 Make only the writes in the confirmed plan, in this order. Stop at the first failure, report it, and do not continue.
 
-1. Plan mode only: metrics recorded in Step 6, created in LaunchDarkly with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md). Skip its instrumentation steps.
-2. Plan mode only: `create-release-plan` for each new plan.
+1. Release plans only: metrics recorded in Step 6, created in LaunchDarkly with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md). Skip its instrumentation steps.
+2. Release plans only: `create-release-plan` for each new plan.
 3. `update-release-autopilot-repo-settings` for each repo, with `repo: "owner/name"` and `projectKey`. For each capability the user did not pick, or that cannot work yet, send `{ "enabled": false }` for it, so the repo does not inherit it from the account.
 4. `update-release-autopilot-settings` with only the confirmed fields. Never send `autoCleanup`.
 
@@ -227,9 +233,9 @@ If a write fails with 403, the member lacks that permission. Report which write 
 
 1. `get-release-autopilot-settings`: the account gates match the plan.
 2. `get-release-autopilot-repo-settings` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan.
-3. Plan mode: `list-release-plans` for each environment lists the new plans. Policy mode: report the policy state from Step 6.
+3. With release plans: `list-release-plans` for each environment lists the new plans. With release policies: report the policy state from Step 6.
 
-Report a short checklist with each item marked verified, reported by the user, or already set up (for a step the flow skipped because it was already done), then the follow-ups. Then tell the user how to see it work:
+If any change was left for an admin or failed, lead with "Partly set up: waiting on an admin" and the admin checklist, and never call the setup complete. Then report a short checklist with each item marked verified, reported by the user (browser steps the user did in this flow), or already set up (steps the flow skipped because they were already done), then the follow-ups. Then tell the user how to see it work:
 
 - Open a pull request in a mapped repo. Release Autopilot reads it within a few minutes. With approval required, the auto-flagging PR waits for approval.
 - If a PR is not classified, use [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md#why-didnt-my-pr-get-classified) to diagnose it.
@@ -240,7 +246,7 @@ Report a short checklist with each item marked verified, reported by the user, o
 |-----------|--------|
 | Every Release Autopilot tool returns 404 | The account is not in the alpha. Stop and tell the user |
 | Member role is `reader` or `no_access` | Preview mode. End with a checklist for an admin |
-| Release plans return 403 | Policy mode. Create no plans |
+| Release plans return 403 | Use release policies. Create no plans |
 | Repo not on the install list | Explain the GitHub fix by owner, then list again |
 
 More cases: [references/edge-cases.md](references/edge-cases.md).
@@ -254,7 +260,7 @@ More cases: [references/edge-cases.md](references/edge-cases.md).
 
 ## References
 
-- [references/release-plans.md](references/release-plans.md): creating environment release plans (plan mode)
+- [references/release-plans.md](references/release-plans.md): creating environment release plans
 - [references/modes.md](references/modes.md): Preview and Resume details
 - [references/byok.md](references/byok.md): bring-your-own-key setup
 - [references/edge-cases.md](references/edge-cases.md): edge cases and existing mappings
