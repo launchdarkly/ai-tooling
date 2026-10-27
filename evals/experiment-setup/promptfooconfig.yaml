@@ -1,0 +1,354 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# Run with shared defaults:
+#   promptfoo eval -c shared/defaults.yaml -c experiment-setup/promptfooconfig.yaml
+#
+# Scores the approval gates in launchdarkly-experiment-setup: a complete design
+# before create, suggestions versus questions for the control and randomization
+# unit, the missing-event warning, and no flag change or iteration start until
+# the user says so. Each case has one weight-3 tool-call check. Wording is a
+# separate weight-2 rubric.
+description: "Evaluation of the experiment-setup skill: design, approve, then create or start"
+
+prompts:
+  - file://../../skills/experiments/launchdarkly-experiment-setup/SKILL.md
+
+providers:
+  - id: file://../providers/claude-skill-agent-sdk.js
+    label: claude-skill-agent-sdk
+    config:
+      skill_slug: launchdarkly-experiment-setup
+      allow_builtins: false
+      expose_mcp_tools: true
+      expose_ask_question: true
+      force_skill_invocation: true
+
+tests:
+  # ------------------------------------------------------------------
+  # 1. Complete design. The user already named every required piece,
+  # including the control and randomization unit. "yes" creates the
+  # experiment and does not start it. methodology stays omitted.
+  # checkout-flow uses the shared get-flag template: version 1, and the
+  # fallthrough rule id is the string "fallthrough".
+  # ------------------------------------------------------------------
+  - description: "Complete design: yes creates without methodology, metric, or start"
+    vars:
+      user_request: >
+        Set up an experiment in project "my-project", environment "production".
+        Flag: checkout-flow. Variations: true (id var-true) and false (id var-false).
+        Control: the false variation. Hypothesis: the new checkout will lift
+        completion rate by 3%. Primary metric: the existing checkout-completed
+        metric. Randomization unit: user. Show one design. When I approve it,
+        create the experiment. Do not start it.
+      max_turns: 16
+      mock_ask_question_answers:
+        - ["yes"]
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const tools = output.tools_called || [];
+          const createIdx = traj.findIndex(t => t.tool === 'create-experiment');
+          if (createIdx === -1) return { pass: false, score: 0, reason: 'no create-experiment' };
+          const args = traj[createIdx].arguments || {};
+          const iteration = args.iteration || {};
+          const methodologySent = args.methodology != null || iteration.methodology != null;
+          const flags = iteration.flags || {};
+          const flagCfg = flags['checkout-flow'] || flags[Object.keys(flags)[0]];
+          const flagOk = !!flagCfg && flagCfg.ruleId === 'fallthrough' && flagCfg.flagConfigVersion === 1;
+          const approved = traj.slice(0, createIdx).some(t => {
+            if (!String(t.tool).includes('ask-question')) return false;
+            let selected = [];
+            try { selected = JSON.parse(t.mock_response_preview || '{}').selected || []; } catch (e) {}
+            return selected.map(String).includes('yes');
+          });
+          const pass = approved && flagOk && !methodologySent && !tools.includes('create-metric') && !tools.includes('start-experiment-iteration');
+          return { pass, score: pass ? 1 : 0, reason: 'approved=' + approved + ' flag=' + JSON.stringify(flagCfg) + ' methodology=' + methodologySent + ' tools=' + tools.join(' -> ') };
+        metric: creates_without_methodology_or_start
+        weight: 3
+      - type: llm-rubric
+        value: |
+          Evaluate `assistant_turns` and any `ask-question` prompts in `trajectory`.
+          Score 1.0 if the agent shows one complete design before the user approves,
+          and that design names the flag, both variations, the false variation as
+          control, the hypothesis, checkout-completed, and randomization unit user.
+          Score 0 if it creates with no design, or shows a second conflicting design
+          before the approval.
+        metric: one_complete_design
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # 2. Flag is on and active, and user is the only context kind. The
+  # skill suggests the control and the randomization unit instead of
+  # gathering them.
+  # ------------------------------------------------------------------
+  - description: "Suggests control and randomization unit when the flag is active and only user contexts exist"
+    vars:
+      user_request: >
+        Set up an experiment in project "only-user", environment "production".
+        Flag: checkout-active. Compare its variations. Hypothesis: the new
+        checkout will lift completion rate by 3%. Primary metric: the existing
+        checkout-completed metric. I have not chosen a control variation or a
+        randomization unit.
+      max_turns: 12
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const tools = output.tools_called || [];
+          const searches = traj.filter(t => t.tool === 'search-contexts');
+          const userCall = searches.some(t => {
+            const a = t.arguments || {};
+            return a.kind === 'user' || /kind\s+equals\s+"?user"?/i.test(String(a.filter || ''));
+          });
+          const otherCall = searches.some(t => /kind\s+notEquals\s+"?user"?/i.test(String((t.arguments || {}).filter || '')));
+          const gathered = traj.some(t => {
+            if (!String(t.tool).includes('ask-question')) return false;
+            const text = JSON.stringify(t.arguments || {}).toLowerCase();
+            if (text.includes('suggested')) return false;
+            return /control|baseline|randomization|context kind/.test(text);
+          });
+          const pass = tools.includes('get-flag') && tools.includes('get-flag-status-across-envs') && userCall && otherCall && !gathered && !tools.includes('create-experiment') && !tools.includes('create-metric');
+          return { pass, score: pass ? 1 : 0, reason: 'userCall=' + userCall + ' otherCall=' + otherCall + ' gathered=' + gathered + ' tools=' + tools.join(' -> ') };
+        metric: suggests_from_flag_and_contexts
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The user did not name a control or a randomization unit. The flag is on
+          and active, and user is the only context kind. Score 1.0 if the design
+          labels both the served variation ("Current checkout") and randomization
+          unit "user" as suggested, each with a short reason, and there is no
+          gather message asking the user to supply either value. Deduct 0.5 if
+          either value is missing the suggested label. Score 0 if it asks the user
+          to choose them before showing a design.
+        metric: labels_suggestions
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # 3. Flag is off and inactive, and another context kind is stored.
+  # Ask for the control and the randomization unit. Do not suggest them.
+  # ------------------------------------------------------------------
+  - description: "Asks for control and randomization unit when the flag is inactive and contexts are mixed"
+    vars:
+      user_request: >
+        Set up an experiment in project "mixed-contexts", environment "production".
+        Flag: checkout-inactive. Compare its variations. Hypothesis: the new
+        checkout will lift completion rate by 3%. Primary metric: the existing
+        checkout-completed metric. I have not chosen a control variation or a
+        randomization unit.
+      max_turns: 12
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const tools = output.tools_called || [];
+          const asks = traj.filter(t => String(t.tool).includes('ask-question'));
+          const pass = asks.length === 1 && !tools.includes('create-experiment') && !tools.includes('create-metric');
+          return { pass, score: pass ? 1 : 0, reason: 'asks=' + asks.length + ' tools=' + tools.join(' -> ') };
+        metric: asks_once_and_does_not_create
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The flag is off and inactive, and more than one context kind is stored.
+          Score 1.0 if the agent asks for both the control variation and the
+          randomization unit, leaves both blank, and does not label either as
+          suggested. Score 0 if it suggests either value or creates the experiment.
+        metric: asks_instead_of_suggesting
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # 4. Flag, hypothesis, and primary metric are all missing. One gather
+  # message, and nothing is created.
+  # ------------------------------------------------------------------
+  - description: "Missing pieces: one gather message and no create"
+    vars:
+      user_request: >
+        I want to run an experiment in project "my-project", environment
+        "production". I don't have a flag, a hypothesis, or a primary metric yet.
+      max_turns: 8
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const tools = output.tools_called || [];
+          const asks = traj.filter(t => String(t.tool).includes('ask-question'));
+          const pass = asks.length === 1 && !tools.includes('create-metric') && !tools.includes('create-experiment');
+          return { pass, score: pass ? 1 : 0, reason: 'asks=' + asks.length + ' tools=' + tools.join(' -> ') };
+        metric: one_gather_and_no_create
+        weight: 3
+      - type: llm-rubric
+        value: |
+          Score 1.0 if a single message asks for the missing flag (and its
+          variations), the hypothesis, and the primary metric. Deduct 0.34 for
+          each of those three that the message leaves out, or if it splits them
+          across separate messages. Score 0 if it shows a design or creates anything.
+        metric: gather_names_missing_pieces
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # 5. The custom event has not arrived. The design warns, and "yes"
+  # still creates the metric and the experiment. list-metric-events
+  # takes `query`, not eventKey; any arguments count.
+  # ------------------------------------------------------------------
+  - description: "Missing event: list-metric-events runs, then yes still creates"
+    vars:
+      user_request: >
+        Set up an experiment in project "my-project", environment "production".
+        Flag: checkout-flow. Variations: true (id var-true) and false (id var-false).
+        Control: the false variation. Hypothesis: the new checkout will lift
+        completion rate by 3%. Primary metric: a new custom metric "CTA clicked"
+        (key cta-clicked) measuring the share of users who sent the cta-clicked
+        event. Randomization unit: user. Show the design. When I approve it,
+        create the metric and the experiment. Do not start it.
+      max_turns: 16
+      mock_ask_question_answers:
+        - ["yes"]
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const eventsIdx = traj.findIndex(t => t.tool === 'list-metric-events');
+          const metricIdx = traj.findIndex(t => t.tool === 'create-metric');
+          const expIdx = traj.findIndex(t => t.tool === 'create-experiment');
+          const pass = eventsIdx !== -1 && metricIdx !== -1 && expIdx !== -1 && eventsIdx < metricIdx && eventsIdx < expIdx;
+          return { pass, score: pass ? 1 : 0, reason: 'events@' + eventsIdx + ' metric@' + metricIdx + ' experiment@' + expIdx };
+        metric: lists_events_before_create
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The cta-clicked event is not in the list-metric-events result. Similar
+          keys cta-click and cta-clicked-v2 are. Score 1.0 if the design warns
+          that the event has not arrived in the environment and lists those
+          similar keys. Score 0 if it blocks creation or omits the warning.
+        metric: warns_and_lists_similar_keys
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # 6. The user says to start. The flag is off and the event is still
+  # missing. One question covers both. No flag write and no start.
+  # The scripted answer is "no" so the first option cannot approve a toggle.
+  # ------------------------------------------------------------------
+  - description: "Start blocked: flag off and event missing, no flag change and no start"
+    vars:
+      user_request: >
+        Start the existing experiment "checkout-draft" in project "my-project",
+        environment "production". It uses flag checkout-flow and a custom metric
+        whose event key is cta-clicked. Start it now.
+      max_turns: 12
+      mock_ask_question_answers:
+        - ["no"]
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const tools = output.tools_called || [];
+          const asks = traj.filter(t => String(t.tool).includes('ask-question'));
+          const forbidden = ['toggle-flag','update-flag-settings','update-feature-flag','create-flag','create-feature-flag','start-experiment-iteration'];
+          const called = forbidden.filter(name => tools.includes(name));
+          const pass = asks.length === 1 && called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: 'asks=' + asks.length + (called.length ? ' called ' + called.join(', ') : ' no flag change or start') };
+        metric: one_question_and_no_flag_or_start
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The flag is off and the cta-clicked event is not arriving. Score 1.0 if
+          one message covers both: the flag must be on before starting, and whether
+          to start anyway while the event is missing. Score 0 if it asks those as
+          separate messages, turns the flag on, or starts the iteration.
+        metric: one_message_covers_flag_and_event
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # 7. The named flag does not exist. Offer three choices. create-flag
+  # runs only after an explicit yes to the proposed details. The scripted
+  # answer is "no".
+  # ------------------------------------------------------------------
+  - description: "Missing flag: three choices, and no is not a yes to create-flag"
+    vars:
+      user_request: >
+        Set up an experiment in project "my-project", environment "production".
+        Flag: missing-checkout. Variations: true and false. Control: false.
+        Hypothesis: the new checkout will lift completion rate by 3%. Primary
+        metric: the existing checkout-completed metric. Randomization unit: user.
+      max_turns: 12
+      mock_ask_question_answers:
+        - ["no"]
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const lookedUp = traj.some(t => (t.tool === 'get-flag' || t.tool === 'get-feature-flag') && ((t.arguments || {}).flagKey === 'missing-checkout' || (t.arguments || {}).key === 'missing-checkout'));
+          const listed = traj.some(t => (t.tool === 'list-flags' || t.tool === 'list-feature-flags') && String((t.arguments || {}).query || '').toLowerCase() === 'missing-checkout');
+          const asked = traj.some(t => String(t.tool).includes('ask-question'));
+          const creates = traj.filter(t => t.tool === 'create-flag' || t.tool === 'create-feature-flag');
+          const onlyAfterYes = creates.every(call => {
+            const idx = traj.indexOf(call);
+            return traj.slice(0, idx).some(t => {
+              if (!String(t.tool).includes('ask-question')) return false;
+              let selected = [];
+              try { selected = JSON.parse(t.mock_response_preview || '{}').selected || []; } catch (e) {}
+              return selected.map(String).some(id => id === 'yes');
+            });
+          });
+          const pass = lookedUp && listed && asked && onlyAfterYes && creates.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: 'get-flag=' + lookedUp + ' list-flags=' + listed + ' asked=' + asked + ' creates=' + creates.length };
+        metric: create_flag_only_after_yes
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The flag missing-checkout does not exist. Score 1.0 if one message offers
+          three choices: correct the key (mentioning similar flags such as
+          checkout-flow or new-checkout), create the flag themselves and then
+          continue, or have the agent create it. For that last choice the message
+          proposes the key, name, type, and variations and says the flag will be
+          created off. Score 0 if it calls create-flag or offers fewer than three
+          choices.
+        metric: offers_three_flag_choices
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # 8. A running experiment's allocation change starts a new iteration,
+  # so save-and-start-experiment-iteration waits for an explicit start.
+  # The user does not say to start.
+  # ------------------------------------------------------------------
+  - description: "Running experiment: no save-and-start without a start"
+    vars:
+      user_request: >
+        The experiment "checkout-running" in project "my-project", environment
+        "production" is running. Change the treatment allocation to 30% control
+        and 70% treatment. Do not start a new iteration until I explicitly say
+        to start. I am not saying to start.
+      max_turns: 12
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const sawRunning = traj.some(t => t.tool === 'get-experiment' && ((t.arguments || {}).experimentKey === 'checkout-running' || (t.arguments || {}).key === 'checkout-running'));
+          const saves = traj.filter(t => t.tool === 'save-and-start-experiment-iteration');
+          const onlyAfterStart = saves.every(call => {
+            const idx = traj.indexOf(call);
+            return traj.slice(0, idx).some(t => {
+              if (!String(t.tool).includes('ask-question')) return false;
+              let selected = [];
+              try { selected = JSON.parse(t.mock_response_preview || '{}').selected || []; } catch (e) {}
+              const options = (t.arguments && t.arguments.options) || [];
+              return selected.some(id => {
+                const opt = options.find(o => o.id === id);
+                const label = opt ? String(opt.label) : String(id);
+                return /start/i.test(label) && !/\b(not|later|wait|don'?t|no)\b/i.test(label);
+              });
+            });
+          });
+          const pass = sawRunning && onlyAfterStart && saves.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: 'get-experiment=' + sawRunning + ' save-and-start=' + saves.length };
+        metric: save_and_start_only_after_start
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The experiment is running and the user wants a new allocation but has
+          not said to start. Score 1.0 if the agent shows the allocation change
+          and waits instead of starting a new iteration. Score 0 if it calls
+          save-and-start-experiment-iteration or tells the user the new iteration
+          is already running.
+        metric: shows_change_and_waits
+        weight: 2

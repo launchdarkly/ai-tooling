@@ -85,6 +85,12 @@ const SUITES = [
     skillDir: "skills/experiments/launchdarkly-experiment-guide",
     readme: "skills/experiments/launchdarkly-experiment-guide/README.md",
   },
+  {
+    suite: "experiment-setup",
+    skillKey: "experiments/launchdarkly-experiment-setup",
+    skillDir: "skills/experiments/launchdarkly-experiment-setup",
+    readme: "skills/experiments/launchdarkly-experiment-setup/README.md",
+  },
 ];
 
 /**

@@ -590,5 +590,38 @@
         { "_id": "treat-treatment", "name": "Treatment", "baseline": false, "allocationPercent": 50 }
       ]
     }
+  },
+  "get-flag-status-across-envs": {
+    "flagKey": "{{flagKey}}",
+    "environments": [
+      { "key": "test", "status": "active" },
+      { "key": "production", "status": "active" }
+    ],
+    "summary": {
+      "active": ["test", "production"],
+      "inactive": [],
+      "new": [],
+      "launched": []
+    }
+  },
+  "search-contexts": {
+    "items": [
+      { "kind": "user", "key": "user-1", "lastSeen": "2026-10-20T00:00:00.000Z" }
+    ],
+    "totalCount": 1
+  },
+  "list-metric-events": {
+    "events": [
+      { "key": "checkout-completed", "lastSeen": "2026-10-20T00:00:00.000Z" },
+      { "key": "page-load-ms", "lastSeen": "2026-10-20T00:00:00.000Z" },
+      { "key": "cta-click", "lastSeen": "2026-10-18T00:00:00.000Z" },
+      { "key": "cta-clicked-v2", "lastSeen": "2026-10-18T00:00:00.000Z" }
+    ],
+    "totalCount": 4
+  },
+  "save-and-start-experiment-iteration": {
+    "key": "{{experimentKey}}",
+    "environmentKey": "{{environmentKey}}",
+    "currentIteration": { "status": "running" }
   }
 }
