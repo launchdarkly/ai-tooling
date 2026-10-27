@@ -59,6 +59,8 @@
  * Environment variables:
  *   AGENT_MODEL          - SUT model (default claude-sonnet-4-6).
  *   ANTHROPIC_API_KEY    - Auth for the SDK's child Claude Code process.
+ *   CLAUDE_CODE_OAUTH_TOKEN - Alternative auth from `claude setup-token`, for
+ *                          running evals on a Claude subscription without an API key.
  *   SKILL_EVAL_DEBUG=1   - Dump every SDK message to a temp file for inspection.
  */
 
@@ -226,9 +228,14 @@ class ClaudeSkillAgentSdk {
   }
 
   async callApi(_prompt, context) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return { error: "ANTHROPIC_API_KEY environment variable is not set" };
+    // Either an API key or a Claude subscription token (`claude setup-token`)
+    // authenticates the SDK's child Claude Code process. The isolated config
+    // dir hides the interactive /login, so one of these must be in the env.
+    if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+      return {
+        error:
+          "Set ANTHROPIC_API_KEY, or CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`",
+      };
     }
 
     const userRequest =
