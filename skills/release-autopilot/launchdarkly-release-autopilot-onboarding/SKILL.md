@@ -1,6 +1,6 @@
 ---
 name: launchdarkly-release-autopilot-onboarding
-description: "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick the capabilities you want (auto-flagging, auto-releasing), connect the GitHub App, map repositories to projects, choose Vega inference (LaunchDarkly managed by default, or bring your own key), review how each environment releases (release policies today, environment release plans by GA), then verify. Also previews the changes without making them, and resumes a setup that paused. Use when the user wants to set up, onboard to, get started with, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead."
+description: "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing), connect the GitHub App, map repositories to projects, choose Vega inference (managed by default, or bring your own key), and review release policies (release plans by GA). Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
@@ -14,7 +14,7 @@ You're using a skill that walks a user through setting up Release Autopilot. The
 
 **This is a step-by-step wizard.** Ask one question at a time and wait for each answer. Gather every decision first, confirm one plan, and only then write. Release Autopilot opens and changes pull requests, and auto-releasing can ship code, so every write is production automation.
 
-This skill reuses the rules of [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md) for every settings read and write: least privilege, `owner/name` only, never `autoCleanup`, and the current → proposed wording with blast radius. One difference is deliberate: the settings skill confirms each write on its own, and this skill confirms every write in one itemized plan at [Step 7](#step-7-confirm-the-plan). That itemized confirmation satisfies the settings skill's confirm-before-write rule. For anything else, the settings skill wins.
+Follow the write rules of [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md) (least privilege, `owner/name` only, never `autoCleanup`, current → proposed with blast radius). Its one-at-a-time confirmations are replaced by the single itemized confirmation at [Step 7](#step-7-confirm-the-plan).
 
 ## Prerequisites
 
@@ -44,8 +44,8 @@ Pick the mode from the user's request before Step 0:
 | Mode | Trigger | What changes |
 |------|---------|--------------|
 | **Setup** | "set up", "onboard", "turn on" | The full flow |
-| **Preview** | "preview", "what would you change", "dry run", or a member who cannot write (see Step 1) | Run Steps 1–7, show the plan, and stop. Make no writes. End with the plan as a checklist the user can hand to an admin |
-| **Resume** | "continue", "pick up where we left off", or a return after a browser step | Keep the earlier mode: a resumed Preview stays Preview. Re-read live state in Step 1 and say in one sentence what is already done. Use the earlier picks if they are still in the conversation; if not, ask them again with live state as the default. Writes that landed before a Step 8 failure show as already set up, so the new plan lists only what is left. Resume still stops at Step 7 and waits for "Looks good" |
+| **Preview** | "preview", "what would you change", "dry run", or a reader (see Step 1) | Run Steps 1–7 and end with the plan as a checklist for an admin. Make no writes |
+| **Resume** | "continue", "pick up where we left off", or a return after a browser step | Skip the intro, re-read live state, and continue at the first unfinished step. Still stops at Step 7 and waits for "Looks good". Details: [references/modes.md](references/modes.md) |
 
 Every mode is safe to run again. A re-run reads live state and proposes only the writes that are still needed.
 
@@ -66,13 +66,9 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 
 ## Workflow
 
-**Progression rule:** When a step is complete, go to the next step. Do not stop between steps unless the step tells you to ask or wait.
-
-**Response scoping:** During this flow, treat user messages as answers to the current question. Do not take unrelated actions until the flow is finished.
+When a step is complete, go to the next one unless it says to ask or wait. Treat user messages as answers to the current question, and track every decision for Step 7.
 
 **Asking questions:** When a question has options, use `AskUserQuestion` with the labels and descriptions given below. Ask free-text questions as a normal message. If the user's request already answers a question explicitly, such as naming the repo, the project, or the capabilities, use that answer and say so instead of asking. Never infer the answer to the Step 7 confirmation.
-
-**State tracking:** Track every decision. Step 7 re-states all of them.
 
 ### Step 0: Welcome the user
 
@@ -80,18 +76,9 @@ Decide the mode from the user's first message before you write anything. **In Re
 
 > **Release Autopilot Setup**
 >
-> I'll set up Release Autopilot in a few short steps:
+> I'll set up Release Autopilot in a few short steps: check your account, pick capabilities, connect GitHub, map repositories, choose inference, and review release setup if you want auto-releasing.
 >
-> 1. **Check your account**: I'll read your current Release Autopilot settings.
-> 2. **Pick capabilities**: choose auto-flagging, auto-releasing, or both.
-> 3. **Connect GitHub**: install or authorize the LaunchDarkly GitHub App.
-> 4. **Map repositories**: choose which repos Release Autopilot watches, and which LaunchDarkly project each one uses.
-> 5. **Choose inference**: run the agents on LaunchDarkly managed inference or on your own model provider key.
-> 6. **Review release setup** (auto-releasing only): check how each environment rolls out a change.
-> 7. **Confirm the plan**: I'll show every change before I make it.
-> 8. **Apply and verify**: I'll make the changes and check the result.
->
-> Nothing changes until you approve the plan in step 7.
+> Nothing changes until you approve the full plan.
 
 Then go to Step 1. Skip any step that the account state already completes, and say why in one line.
 
@@ -107,9 +94,7 @@ Run these reads. Do not write anything.
 3. `list-release-autopilot-repo-settings`: repos that are already mapped.
 4. `list-release-autopilot-github-repos`: repos on the GitHub App install (`owner/name` and `githubRepoId`), plus `installed` and `userAuthorized`. If either is false, the response includes a `githubConnectUrl`.
 
-`list-release-autopilot-repo-settings` returns only `githubRepoId` and `projectKey`, not repo names. Join it to the install list on `githubRepoId` before you show the user which repos are mapped. A mapped `githubRepoId` with no match on the install list is a repo the App can no longer see, or one this member cannot see: tell the user, for example, "One more repository (ID 999) is mapped to project default but is no longer on the GitHub install; I'll leave it alone." Do not write the field name. Do not change that repo in this flow.
-
-Release Autopilot's agents need generative AI turned on for the organization. There is no MCP tool to read that setting. If a later step fails with a generative AI or Vega eligibility error, tell the user that an Admin or Owner must select **Enable generative AI use cases** in Organization settings > Security, then stop.
+Join mapped repos to the install list by repository ID to get their names. For a mapped ID that is not on the install, tell the user, for example, "One more repository (ID 999) is mapped to project default but is no longer on the GitHub install; I'll leave it alone." Do not write the field name or change that repo. If a later step fails with a generative AI eligibility error, see [references/edge-cases.md](references/edge-cases.md).
 
 Summarize what is already set up in two or three sentences. If the account already has a capability on or any repo mapped, ask:
 
@@ -130,8 +115,6 @@ Ask about approval only if the user picked auto-flagging **and** the account doe
 
 - label: "Require approval (Recommended)", description: "A person approves each auto-flagging PR before Release Autopilot changes code. This is an account setting, so it applies to every mapped repo"
 - label: "No approval", description: "Release Autopilot changes PRs without an approval step, in every mapped repo"
-
-Do not offer auto-cleanup. It is not part of the Release Autopilot settings API yet.
 
 If the user picks neither capability, stop and tell them there is nothing to set up.
 
@@ -167,18 +150,12 @@ Release Autopilot runs its agents on Vega. Bring your own key is optional: a pro
 - label: "LaunchDarkly managed", description: "The default if you choose nothing. The agents run on Vega inference that LaunchDarkly hosts. No setup"
 - label: "Bring your own key", description: "The agents run on your own Anthropic or OpenAI account. Your provider bills you for usage"
 
-For "Bring your own key", there is no MCP tool for inference settings yet, so this is a browser step. For each project from Step 4, give the user `/projects/{projectKey}/settings/vega` on their LaunchDarkly instance (for example `https://app.launchdarkly.com`, or their EU or federal URL). On that page they:
-
-1. Select bring your own key. If the account has no Anthropic or OpenAI key yet, the page links to the integration form to add one. Keys are account-wide, so later projects can reuse them.
-2. Keep or change the suggested default and small models.
-3. Save. LaunchDarkly checks the key with the provider before it stores the settings, and shows the cause if the check fails.
-
-Then ask header "Inference":
+For "Bring your own key", this is a browser step (no MCP tool reads or writes inference settings). For each project, follow [references/byok.md](references/byok.md), then ask header "Inference":
 
 - label: "Done", description: "I saved the inference settings for every project"
 - label: "Use managed for now", description: "Skip this. I'll switch to my own key later"
 
-You cannot read inference settings, so record the answer as the user's statement, not as verified.
+Record the answer as reported by the user, not as verified.
 
 ### Step 6: Review release setup (auto-releasing only)
 
@@ -217,7 +194,7 @@ List every write in the order you will make it. For each write, state the curren
 
 1. **Metrics and release plans** (plan mode only): one line per metric to create and per environment, with the plan name, steps, advancement, and metrics.
 2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; this project has no release policy yet)."
-3. **Account settings**: only fields that change. For example, "Auto-flagging: off → on, approval required. Mapped repos that inherit this setting can start getting auto-flagging PRs." If auto-releasing turns on, say: "Auto-releasing: off → on. This can ship code."
+3. **Account settings**: only fields that change. If auto-releasing turns on, say it can ship code.
    For a member who is not an admin or owner, list account writes under "Needs an admin" instead.
 4. **Browser steps the user reported done**: GitHub and inference, marked as reported, not verified.
 5. **Follow-ups for the user**: release policies to add, metric events to instrument.
@@ -257,20 +234,30 @@ Report a short checklist with each item marked verified, reported by the user, o
 - Open a pull request in a mapped repo. Release Autopilot reads it within a few minutes. With approval required, the auto-flagging PR waits for approval.
 - If a PR is not classified, use [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md#why-didnt-my-pr-get-classified) to diagnose it.
 
+## Edge Cases
+
+| Situation | Action |
+|-----------|--------|
+| Every Release Autopilot tool returns 404 | The account is not in the alpha. Stop and tell the user |
+| Member role is `reader` or `no_access` | Preview mode. End with a checklist for an admin |
+| Release plans return 403 | Policy mode. Create no plans |
+| Repo not on the install list | Explain the GitHub fix by owner, then list again |
+
+More cases: [references/edge-cases.md](references/edge-cases.md).
+
 ## What NOT to Do
 
-- Don't write before Step 7's "Looks good", and never write in Preview mode.
-- Don't turn on auto-releasing unless the user picked it.
-- Don't turn off approval for auto-flagging unless the user picked "No approval".
-- Don't map repos the user did not pick, iterate over the install list, or remap a repo to another project.
-- Don't install or authorize GitHub, change release policies, or set up a provider key on the user's behalf.
-- Don't send `autoCleanup`.
-- Don't report a browser step as verified.
+- Don't write before Step 7's "Looks good", or at all in Preview mode.
+- Don't turn on auto-releasing, or turn off approval, unless the user picked it.
+- Don't map unpicked repos, iterate over the install list, or remap a repo to another project.
+- Don't act in the user's browser, change release policies, or report a browser step as verified.
 
 ## References
 
 - [references/release-plans.md](references/release-plans.md): creating environment release plans (plan mode)
-- [references/edge-cases.md](references/edge-cases.md): edge cases and example flows
+- [references/modes.md](references/modes.md): Preview and Resume details
+- [references/byok.md](references/byok.md): bring-your-own-key setup
+- [references/edge-cases.md](references/edge-cases.md): edge cases and existing mappings
 - [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md): settings rules, write confirmations, and PR diagnosis
 - [Vega inference settings](https://launchdarkly.com/docs/home/getting-started/vega#vega-inference-settings)
 - [Guarded rollouts](https://launchdarkly.com/docs/home/releases/guarded-rollouts)
