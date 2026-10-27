@@ -26,8 +26,8 @@ test("tolerates missing options", () => {
   assert.equal(matchOption("x", undefined), "x");
 });
 
-test("order mode takes the answer at the call index", () => {
-  assert.deepEqual(pickAnswer([["x"], ["Auto-releasing"]], 1, options, false, new Set()), ["ar"]);
+test("order mode returns the answer at the call index as written", () => {
+  assert.deepEqual(pickAnswer([["x"], ["Auto-releasing"]], 1, options, false, new Set()), ["Auto-releasing"]);
 });
 
 test("match mode skips answers that fit no option, and uses each once", () => {

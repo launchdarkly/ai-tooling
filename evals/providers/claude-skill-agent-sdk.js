@@ -48,14 +48,14 @@
  *                                 (true/false), e.g. to run one test with no
  *                                 LaunchDarkly tools
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
- *                                 successive `ask-question` calls. An entry that is
- *                                 not one of the call's option ids is matched
- *                                 against option labels (case-insensitive substring),
- *                                 so tests can steer by label when the agent picks ids
+ *                                 successive `ask-question` calls
  *   mock_ask_question_match     - when true, each `ask-question` call takes the first
  *                                 unused scripted answer whose entries all match its
  *                                 options (by id or label), instead of the next one in
- *                                 order. Use for flows that may skip questions. A call
+ *                                 order. Entries match an option by id, or else by
+ *                                 label (case-insensitive substring), so tests can
+ *                                 steer by label when the agent picks the ids. Use
+ *                                 for flows that may skip questions. A call
  *                                 with no match gets its first option and is recorded
  *                                 with `scripted: false`
  *   mock_tool_overrides         - optional object mapping tool name to a mock template
@@ -107,9 +107,10 @@ function matchOption(want, options) {
 
 /**
  * Choose the scripted answer for the `idx`-th ask-question call. In order
- * mode, take answers[idx]. In match mode, take the first unused answer whose
- * entries all resolve to the call's options, and mark it used. Returns the
- * selected option ids, or undefined when no scripted answer applies.
+ * mode, take answers[idx] as written. In match mode, take the first unused
+ * answer whose entries all resolve to the call's options (by id or label),
+ * mark it used, and return the matched ids. Returns undefined when no
+ * scripted answer applies.
  */
 function pickAnswer(answers, idx, options, matchMode, used) {
   const resolves = (ans) =>
@@ -122,11 +123,12 @@ function pickAnswer(answers, idx, options, matchMode, used) {
     if (hit === -1) return undefined;
     used.add(hit);
     chosen = answers[hit];
-  } else {
-    chosen = answers[idx];
-    if (!Array.isArray(chosen) || chosen.length === 0) return undefined;
+    return chosen.map((want) => matchOption(want, options));
   }
-  return chosen.map((want) => matchOption(want, options));
+  // Order mode is unchanged: the scripted answer is returned as written.
+  chosen = answers[idx];
+  if (!Array.isArray(chosen) || chosen.length === 0) return undefined;
+  return chosen;
 }
 
 const mockTemplates = JSON.parse(

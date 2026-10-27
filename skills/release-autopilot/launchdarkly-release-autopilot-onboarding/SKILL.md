@@ -30,7 +30,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 - `list-release-policies`
 
 **Used when available:**
-- `list-release-plans` / `create-release-plan` / `list-metrics`: environment release plans (see [Detect the release mode](#detect-the-release-mode))
+- `list-release-plans` / `create-release-plan` / `list-metrics`: environment release plans (see [Check whether the account uses release plans](#check-whether-the-account-uses-release-plans))
 - `list-projects` / `get-project`: offer project and environment keys as options instead of asking for free text
 
 If a required tool is missing, stop and tell the user which one. Do not invent REST calls. If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
@@ -61,6 +61,7 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 ## Speaking to the user
 
 - Use product words ("auto-flagging", "release policy", "approval") in every message, including questions, checklists, and the final summary. Never show tool names, field names (`githubRepoId`, `autoReleasing.enabled`), HTTP status codes, step numbers, or this skill's mode names ("preview mode", "policy mode", "plan mode"); say "Here's what would change", "your account uses release policies", and "Verification", not "Step 9".
+- Name repos as `owner/name`. Show a repository ID only for a mapped repo with no name.
 - Describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value, not even in parentheses for an admin. If a check after a write disagrees with it, name the change that could not be confirmed and where to check it in the LaunchDarkly UI.
 - State only what the reads show. Do not guess at causes (such as "installs can take a few minutes to propagate").
 - Keep each message to the current step, and do not narrate tool calls.
@@ -162,9 +163,9 @@ Record the answer as reported by the user, not as verified.
 
 Skip this step if the user did not pick auto-releasing.
 
-For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-project`, or ask). Then detect the release mode once per account and follow that mode.
+For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-project`, or ask). Then check once per account whether it uses release plans or release policies.
 
-#### Detect the release mode
+#### Check whether the account uses release plans
 
 Call `list-release-plans` for the first chosen environment.
 
