@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.4.0-experimental"
+  version: "1.5.0-experimental"
 ---
 
 # LaunchDarkly Metric Create
@@ -24,6 +24,8 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 **Optional MCP tools (enhance workflow):**
 - `list-metrics` — check for existing metrics with the same event key and understand naming conventions
 - `list-metric-events` — discover which event keys have recent activity before committing to one (custom metrics only)
+- `list-metric-data-sources` — find the warehouse data source key for a warehouse metric or a ratio metric
+- `update-metric` — change an existing metric's analysis units
 
 ## Two Different "Projects" — Never Confuse Them
 
@@ -185,11 +187,11 @@ Before calling any API, surface a proposed configuration in plain language for t
 
 Tie the question to their context:
 - **Experiments** — occurrence is common for conversion goals (did the treatment cause more users to do X?); count is better for engagement or volume goals (did the treatment cause more total actions?)
-- **Guarded rollouts / release policies** — occurrence is typical for error rate guardrails (what fraction of users hit an error?); count suits absolute volume guardrails (total error events)
-- **If the user explicitly says "percent of users" or "conversion rate"** → `occurrence`
-- **If the user explicitly says "number of times" or "total events"** → `count`
+- **Guarded rollouts / release policies** — use `occurrence` for error rate guardrails (what fraction of users hit an error at least once?). This matches the error-rate metrics LaunchDarkly generates itself. Use `count` only when the user asks for total error volume.
+- **If the user explicitly says "percent of users", "conversion rate", or "error rate"** → `occurrence`
+- **If the user explicitly says "number of times", "total events", or "error count"** → `count`
 
-Only skip asking if the intent is unambiguous from context (e.g. "API latency" → `value`, "error rate" → `count`, "signup conversion" → `occurrence`).
+Only skip asking if the intent is unambiguous from context (e.g. "API latency" → `value`, "error rate" → `occurrence`, "signup conversion" → `occurrence`).
 
 | What the user wants to measure | Measure type | Means |
 |-------------------------------|-------------|-------|
@@ -202,6 +204,22 @@ Only skip asking if the intent is unambiguous from context (e.g. "API latency" �
 - **Higher is better** → `HigherThanBaseline` (conversion rate, revenue, engagement)
 - **Lower is better** → `LowerThanBaseline` (latency, error rate, bounce rate)
 
+**Determine analysis units.** `analysisUnits` lists the context kinds the metric can be analyzed by, such as `user` or `account`. An experiment or guarded rollout can use the metric only with a unit in this list. If you omit it, LaunchDarkly uses `["user"]`.
+- Ask which context kind the experiment or rollout randomizes by when the user mentions anything other than users (accounts, organizations, devices, requests).
+- LaunchDarkly accepts a context kind only if the project marks it available for experiments and guarded rollouts. If the create call rejects a unit, tell the user to enable that context kind in the project's experimentation settings.
+
+**Add options only when the user asks for them:**
+
+| User wants | Field | Rules |
+|------------|-------|-------|
+| Count only some events, e.g. one plan or one country | `filters` | Custom metrics only. Clauses match a context attribute or an event property; a group joins clauses with `and` / `or`. Warehouse metrics, including every ratio metric, accept only event property clauses, and only on warehouses where LaunchDarkly has filters turned on |
+| p95 or p99 instead of the mean | `percentile` (integer, 1–99) | Value or count metrics, not occurrence. Requires `excludeUnitsWithoutEvents: true`. LaunchDarkly may reject percentile on a warehouse metric |
+| Leave out users who sent no event, instead of counting them as 0 | `excludeUnitsWithoutEvents: true` | Value metrics, or count metrics with `percentile`. LaunchDarkly rejects it on other count and occurrence metrics |
+| Read events from a warehouse | `dataSourceKey`, `valueColumn` | Custom metrics only. Get the key from `list-metric-data-sources` |
+| A ratio of two events, e.g. orders per session | `denominator` | See below |
+
+**Ratio metrics.** The metric's own `eventKey`, `measureType`, `valueAggregation`, `valueColumn`, and `filters` form the numerator term. `denominator` holds the second term: `eventName` and `measureType` are required, and `valueAggregation`, `dataSourceKey`, `valueColumn`, and `filters` are optional. Ratio metrics must be `custom` and need a warehouse `dataSourceKey` on the metric, not `launchdarkly-hosted`. Always set `denominator.dataSourceKey` explicitly, even when it is the metric's own source. If you omit it, `get-metric` cannot show which source the denominator reads.
+
 **Use common templates as defaults** when the user's intent is clear:
 
 | User intent | kind | measure type | success criteria | unit |
@@ -210,7 +228,8 @@ Only skip asking if the intent is unambiguous from context (e.g. "API latency" �
 | Button / link click rate | `click` | `occurrence` | `HigherThanBaseline` | — |
 | API latency / page load time | `custom` | `value` (average) | `LowerThanBaseline` | `ms` |
 | Signup / conversion rate | `custom` | `occurrence` | `HigherThanBaseline` | — |
-| Error count / rate | `custom` | `count` | `LowerThanBaseline` | — |
+| Error rate (share of users who hit an error) | `custom` | `occurrence` | `LowerThanBaseline` | — |
+| Error count (total error events) | `custom` | `count` | `LowerThanBaseline` | — |
 | Revenue per user | `custom` | `value` (sum) | `HigherThanBaseline` | `USD` |
 
 **Present the proposed config** before creating — don't silently fire the API:
@@ -223,6 +242,7 @@ Proposed metric:
   URLs:             substring match on "/checkout"
   Measure type:     occurrence (did each user visit the page?)
   Success criteria: HigherThanBaseline
+  Analysis units:   user
 
 Proceed, or would you like to change anything?
 ```
@@ -249,9 +269,21 @@ create-metric(
   valueAggregation?, // only for measureType="value": "average" (default) or "sum"
   unit?,             // display label: "ms", "USD", etc.
   description?,
-  tags?
+  tags?,
+  analysisUnits?,    // context kinds, e.g. ["user"] (default) or ["user", "account"]
+  dataSourceKey?,    // warehouse data source key; custom metrics only
+  valueColumn?,      // warehouse column holding the value; value metrics on a warehouse source
+  filters?,          // custom metrics only: a clause or an and/or group of clauses, e.g.
+                     //   { type: "eventProperty", attribute: "plan", op: "in", values: ["pro"], negate: false }
+                     //   { type: "contextAttribute", contextKind: "user", attribute: "country", op: "in", values: ["US"], negate: false }
+                     //   { type: "group", op: "and", negate: false, values: [ <clauses> ] }
+  percentile?,       // integer 1–99; requires excludeUnitsWithoutEvents: true
+  excludeUnitsWithoutEvents?, // true leaves units with no event out instead of counting them as 0
+  denominator?       // ratio metrics only: { eventName, measureType, valueAggregation?, dataSourceKey?, valueColumn?, filters? }
 )
 ```
+
+`create-metric` reads the metric back after creating it. If `filters`, `percentile`, `excludeUnitsWithoutEvents`, or `denominator` did not stick, it returns an error that says the metric was created. Do not call `create-metric` again for that key; inspect it with `get-metric` and tell the user what differs.
 
 ### Step 6: Verify
 
@@ -262,6 +294,8 @@ Use `get-metric` to confirm the metric was created with the right configuration:
 3. **measureType is correct** — double-check by reading back the `measureType` field, not just `isNumeric`.
 4. **eventKey / urls / selector** are set to the intended values.
 5. **successCriteria** is correct.
+6. **analysisUnits** lists every context kind the user asked for (`["user"]` if none).
+7. **Options you set** read back: `filters`, `analysisType: "percentile"` with `percentileValue`, `eventDefault.disabled: true` for `excludeUnitsWithoutEvents`, and `denominator`.
 
 Surface a summary to the user:
 
@@ -283,12 +317,18 @@ The `create-metric` tool translates `measureType` to the LD API fields internall
 
 | measureType | isNumeric | unitAggregationType | Use for |
 |-------------|-----------|---------------------|---------|
-| `count` | false | sum | Raw event counts — error rate, click count |
-| `occurrence` | false | average | Conversion — did the user do the thing? |
+| `count` | false | sum | Raw event counts — error count, click count |
+| `occurrence` | false | average | Conversion or error rate — did the user do the thing, or hit the error? |
 | `value` (average) | true | average | Per-user mean — average latency, average session length |
 | `value` (sum) | true | sum | Per-user total — total revenue, total items purchased |
 
 For `value` metrics, `valueAggregation` defaults to `"average"`. Pass `valueAggregation: "sum"` for revenue or cumulative totals.
+
+## Changing an Existing Metric
+
+`update-metric(projectKey, metricKey, analysisUnits)` changes only the analysis units. It replaces the whole list, so read the current list with `get-metric` and send every context kind the metric should keep. Show the user the old and new lists and wait for confirmation before calling it.
+
+No tool changes any other field or deletes a metric. Send the user to the metric's page in the LaunchDarkly UI for those changes, and do not recreate the metric under the same key.
 
 ## Important Context
 
