@@ -6,7 +6,7 @@ compatibility: "Advisory and read-only. Needs a git checkout with the change com
 metadata:
   author: launchdarkly
   version: "0.1.0"
-  graph: "7a619f03dce0"
+  graph: "42955182bc04"
 ---
 
 # Should This Change Be Behind a Flag?
