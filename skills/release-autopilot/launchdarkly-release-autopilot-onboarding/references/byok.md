@@ -1,6 +1,6 @@
 # Bring your own key
 
-Bring your own key is optional. A project that does not set it up uses LaunchDarkly managed Vega inference. No MCP tool reads or writes inference settings, so this is a browser step.
+Release Autopilot's agents use an AI model to read pull requests. Bring your own key is optional: a project that does not set it up uses LaunchDarkly's model account (the product calls this "LaunchDarkly managed inference"). No MCP tool reads or writes inference settings, so this is a browser step.
 
 For each project, give the user `/projects/{projectKey}/settings/vega` on their LaunchDarkly instance (for example `https://app.launchdarkly.com`, or their EU or federal URL). On that page they:
 

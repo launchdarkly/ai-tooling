@@ -1,6 +1,6 @@
 ---
 name: launchdarkly-release-autopilot-onboarding
-description: "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing), connect the GitHub App, map repositories to projects, choose Vega inference (managed by default, or bring your own key), and review release policies (release plans by GA). Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead."
+description: "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), and review release policies (release plans by GA). Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
@@ -77,7 +77,7 @@ Decide the mode from the user's first message before you write anything. Never a
 
 > **Release Autopilot Setup**
 >
-> I'll set up Release Autopilot in a few short steps: check your account, pick capabilities, connect GitHub, map repositories, choose inference, and review release setup if you want auto-releasing.
+> I'll set up Release Autopilot in a few short steps: check your account, pick capabilities, connect GitHub, map repositories, choose whose AI model account runs the agents, and review release setup if you want auto-releasing.
 >
 > Nothing changes until you approve the full plan.
 
@@ -144,17 +144,17 @@ On "Done", call `list-release-autopilot-github-repos` again. If it still returns
 3. **Check existing mappings** with the join from Step 1 (an unmapped repo returns 404, which is expected). Already mapped to the chosen project with matching capabilities: write nothing. Mapped to the chosen project with an unpicked capability on: record an override that turns it off. Mapped to a different project: never remap here; send the user to the settings skill to unmap first. Details: [references/edge-cases.md](references/edge-cases.md#existing-mappings).
 4. **Say what starts when.** If the account already has a capability on, mapping a repo starts that automation in the repo as soon as Step 8 maps it.
 
-### Step 5: Choose inference
+### Step 5: Choose the AI model account
 
-Release Autopilot runs its agents on Vega. Bring your own key is optional: a project that does not set it up uses LaunchDarkly managed Vega inference. Use `AskUserQuestion` with header "Inference":
+Release Autopilot's agents (Vega) use an AI model to read pull requests and write flag changes. This step decides whose model account they use; the product calls it "inference". Most users keep the default. Before asking, tell the user in one sentence what the choice means, for example: "Release Autopilot's agents use an AI model to read your pull requests. By default they run on LaunchDarkly's model account; you can use your own Anthropic or OpenAI key instead." Then use `AskUserQuestion` with header "AI model":
 
-- label: "LaunchDarkly managed", description: "The default if you choose nothing. The agents run on Vega inference that LaunchDarkly hosts. No setup"
-- label: "Bring your own key", description: "The agents run on your own Anthropic or OpenAI account. Your provider bills you for usage"
+- label: "LaunchDarkly's (default)", description: "The agents use an AI model that LaunchDarkly provides and pays for. No setup"
+- label: "Bring your own key", description: "The agents use your own Anthropic or OpenAI API key, for example to keep usage on your provider contract. Your provider bills you for usage"
 
-For "Bring your own key", this is a browser step (no MCP tool reads or writes inference settings). For each project, follow [references/byok.md](references/byok.md), then ask header "Inference":
+For "Bring your own key", this is a browser step (no MCP tool reads or writes these settings). For each project, follow [references/byok.md](references/byok.md), then ask header "AI model":
 
-- label: "Done", description: "I saved the inference settings for every project"
-- label: "Use managed for now", description: "Skip this. I'll switch to my own key later"
+- label: "Done", description: "I saved my key in the Vega settings for every project"
+- label: "Use LaunchDarkly's for now", description: "Skip this. I'll switch to my own key later"
 
 Record the answer as reported by the user, not as verified.
 
@@ -197,7 +197,7 @@ List every write in the order you will make it. For each write, state the curren
 2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; this project has no release policy yet)."
 3. **Account settings**: only fields that change. If auto-releasing turns on, say it can ship code.
    For a member who is not an admin or owner, list account writes under "Needs an admin" instead.
-4. **Browser steps the user reported done**: GitHub and inference, marked as reported, not verified.
+4. **Browser steps the user reported done**: GitHub and the AI model choice, marked as reported, not verified.
 5. **Follow-ups for the user**: release policies to add, metric events to instrument.
 
 If there are no writes, say so, list the follow-ups, and stop.

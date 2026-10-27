@@ -65,7 +65,7 @@ tests:
         - ["Require approval"]
         - ["acme/demo"]
         - ["default"]
-        - ["managed"]
+        - ["LaunchDarkly's"]
         - ["Looks good"]
     assert:
       - type: javascript
@@ -119,7 +119,7 @@ tests:
         - ["Auto-flagging", "Auto-releasing"]
         - ["acme/demo"]
         - ["default"]
-        - ["managed"]
+        - ["LaunchDarkly's"]
         - ["Test", "Production"]
         - ["Looks good"]
     assert:
@@ -169,7 +169,7 @@ tests:
         - ["Auto-flagging"]
         - ["acme/demo"]
         - ["default"]
-        - ["managed"]
+        - ["LaunchDarkly's"]
         - ["Looks good"]
     assert:
       - type: javascript
@@ -196,7 +196,7 @@ tests:
         - ["Auto-flagging"]
         - ["acme/demo"]
         - ["default"]
-        - ["managed"]
+        - ["LaunchDarkly's"]
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noWrites
@@ -273,7 +273,7 @@ tests:
         - ["Require approval"]
         - ["acme/demo"]
         - ["default"]
-        - ["managed"]
+        - ["LaunchDarkly's"]
         - ["Looks good"]
     assert:
       - type: javascript
@@ -311,7 +311,7 @@ tests:
       mock_ask_question_answers:
         - ["Auto-flagging"]
         - ["Require approval"]
-        - ["managed"]
+        - ["LaunchDarkly's"]
         - ["Change something"]
     assert:
       - type: javascript
@@ -333,7 +333,7 @@ tests:
       mock_ask_question_answers:
         - ["Add more"]
         - ["Auto-flagging"]
-        - ["managed"]
+        - ["LaunchDarkly's"]
         - ["Looks good"]
     assert:
       - type: javascript
@@ -366,7 +366,7 @@ tests:
       mock_ask_question_answers:
         - ["Add more"]
         - ["Auto-flagging"]
-        - ["managed"]
+        - ["LaunchDarkly's"]
         - ["Looks good"]
     assert:
       - type: javascript
@@ -390,7 +390,7 @@ tests:
       mock_ask_question_answers:
         - ["Add more"]
         - ["Auto-flagging", "Auto-releasing"]
-        - ["managed"]
+        - ["LaunchDarkly's"]
         - ["Production"]
         - ["Automatic"]
         - ["Leave rules"]
@@ -531,7 +531,7 @@ tests:
       mock_ask_question_answers:
         - ["Auto-flagging"]
         - ["Require approval"]
-        - ["managed"]
+        - ["LaunchDarkly's"]
         - ["Looks good"]
     assert:
       - type: javascript

@@ -9,7 +9,7 @@ This skill teaches agents how to:
 - Ask which capabilities the user wants (auto-flagging, auto-releasing) and set up only what those need
 - Hand the user the GitHub App install or authorize link, and continue after they finish
 - Map chosen `owner/name` repos to LaunchDarkly projects
-- Guide LaunchDarkly managed inference or bring-your-own-key setup
+- Explain whose AI model account runs the agents (LaunchDarkly's by default, or the user's own Anthropic or OpenAI key) and guide bring-your-own-key setup
 - Review or create environment release plans for auto-releasing, or show release policies where plans are not available
 - Confirm one plan that lists every write before making any change, then verify
 
