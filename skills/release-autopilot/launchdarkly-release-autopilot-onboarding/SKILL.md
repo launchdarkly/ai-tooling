@@ -46,7 +46,7 @@ Pick the mode from the user's request before Step 0:
 |------|---------|--------------|
 | **Setup** | "set up", "onboard", "turn on" | The full flow |
 | **Preview** | "preview", "what would you change", "dry run", or a member who cannot write (see Step 1) | Run Steps 1–7, show the plan, and stop. Make no writes. End with the plan as a checklist the user can hand to an admin |
-| **Resume** | "continue", "pick up where we left off", or a return after a browser step | Re-read live state in Step 1, say in one sentence what is already done, and continue at the first step that is not done. Never re-ask a decision the live state already answers |
+| **Resume** | "continue", "pick up where we left off", or a return after a browser step | Keep the earlier mode: a resumed Preview stays Preview. Re-read live state in Step 1 and say in one sentence what is already done. Use the earlier picks if they are still in the conversation; if not, ask them again with live state as the default. Writes that landed before a Step 8 failure show as already set up, so the new plan lists only what is left |
 
 Every mode is safe to run again. A re-run reads live state and proposes only the writes that are still needed.
 
@@ -100,7 +100,10 @@ Then go to Step 1. Skip any step that the account state already completes, and s
 
 Run these reads. Do not write anything.
 
-1. `get-member-self`: the member's `role`. If it is `reader` or `no_access`, switch to Preview mode and say why. Any other role may still lack a specific permission; Step 8 reports that if it happens.
+1. `get-member-self`: the member's `role`.
+   - `reader` or `no_access`: switch to Preview mode and say why.
+   - `admin` or `owner`: can make every write in this flow.
+   - Any other role, including `writer` and custom roles: may map repos in projects they can edit, but account settings need an admin or owner. In Step 7, mark account writes as "needs an admin" and leave them out of Step 8.
 2. `get-release-autopilot-settings`: the account gates.
 3. `list-release-autopilot-repo-settings`: repos that are already mapped.
 4. `list-release-autopilot-github-repos`: repos on the GitHub App install (`owner/name` and `githubRepoId`), plus `installed` and `userAuthorized`. If either is false, the response includes a `githubConnectUrl`.
@@ -115,16 +118,16 @@ Summarize what is already set up in two or three sentences. If the account alrea
 - label: "Change one setting", description: "Hand off to the settings skill for a single change"
 - label: "Diagnose a PR", description: "A PR was not classified or auto-flagged. Hand off to the settings skill"
 
-For "Change one setting" or "Diagnose a PR", stop this skill and follow [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md).
+In Preview mode, leave out "Change one setting", because that hand-off writes. For "Change one setting" or "Diagnose a PR", stop this skill and follow [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md).
 
 ### Step 2: Pick capabilities
 
 Use `AskUserQuestion` with header "Capabilities", `multiSelect: true`:
 
 - label: "Auto-flagging (Recommended)", description: "Release Autopilot reads each pull request and, when a change should ship behind a flag, opens a PR that adds the flag"
-- label: "Auto-releasing", description: "After a flagged change deploys, Release Autopilot releases it with the environment's release policy. This can ship code to users"
+- label: "Auto-releasing", description: "After a flagged change deploys, Release Autopilot releases it with the environment's release policy or release plan. This can ship code to users"
 
-Ask about approval only if the user picked auto-flagging **and** the account does not already have auto-flagging on with approval required. If it already does, say "Auto-flagging already requires approval for every mapped repo" and move on. Otherwise ask header "Approval":
+Ask about approval only if the user picked auto-flagging **and** the account does not already have auto-flagging on with approval required. If it already does, say "Auto-flagging already requires approval for every mapped repo. Say 'change approval' if you want to turn it off," and move on unless they say so. Otherwise, or if they ask to change it, ask header "Approval":
 
 - label: "Require approval (Recommended)", description: "A person approves each auto-flagging PR before Release Autopilot changes code. This is an account setting, so it applies to every mapped repo"
 - label: "No approval", description: "Release Autopilot changes PRs without an approval step, in every mapped repo"
@@ -153,7 +156,7 @@ On "Done", call `list-release-autopilot-github-repos` again. If it still returns
 
 1. **Choose repos.** If the current workspace has a `git remote` on the install list, offer it first. Use `AskUserQuestion` with header "Repos", `multiSelect: true`, and up to four repos from the install list, as `owner/name`. If the install has more than four repos, say the user can type any other `owner/name` from the list in Other. Use only repos that came back from `list-release-autopilot-github-repos`.
 
-   If a repo the user wants is not on the list, compare its owner to the owners on the list. Same owner: the App lacks access to that repo, so the user adds it to the App's repository access in GitHub. New owner: the App is not installed on that GitHub organization, and no `githubConnectUrl` appears because the account already has an install elsewhere, so an owner of that organization must install the LaunchDarkly GitHub App on it. Either way, wait for "Done" and list again.
+   If a repo the user wants is not on the list, its owner decides the fix: a listed owner means the App needs access to that repo, and a new owner means an org owner must install the App there (no `githubConnectUrl` appears for this case). See [references/edge-cases.md](references/edge-cases.md). Wait for "Done" and list again.
 2. **Choose a project for each repo.** Each repo maps to one LaunchDarkly project, which is where Release Autopilot creates flags and metrics for that repo. If `list-projects` is available, offer the projects as options. Otherwise ask for the project key.
 3. **Check existing mappings** with the join from Step 1. An unmapped repo returns 404 from `get-release-autopilot-repo-settings`; that is the expected answer for a new repo, not an error.
    - Mapped to the chosen project, and its effective capabilities match the user's picks: tell the user it is already set up, and write nothing.
@@ -219,6 +222,7 @@ List every write in the order you will make it. For each write, state the curren
 1. **Metrics and release plans** (plan mode only): one line per metric to create and per environment, with the plan name, steps, advancement, and metrics.
 2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; this project has no release policy yet)."
 3. **Account settings**: only fields that change. For example, "Auto-flagging: off → on, approval required. Mapped repos that inherit this setting can start getting auto-flagging PRs." If auto-releasing turns on, say: "Auto-releasing: off → on. This can ship code."
+   For a member who is not an admin or owner, list account writes under "Needs an admin" instead.
 4. **Browser steps the user reported done**: GitHub and inference, marked as reported, not verified.
 5. **Follow-ups for the user**: release policies to add, metric events to instrument.
 
@@ -242,7 +246,7 @@ Make only the writes in the confirmed plan, in this order. Stop at the first fai
 3. `update-release-autopilot-repo-settings` for each repo, with `repo: "owner/name"` and `projectKey`. For each capability the user did not pick, or that cannot work yet, send `{ "enabled": false }` for it, so the repo does not inherit it from the account.
 4. `update-release-autopilot-settings` with only the confirmed fields. Never send `autoCleanup`.
 
-The order matters. Release plans come first so that no release can start without the plan the user chose. The account gates come last because turning a capability on starts automation in every mapped repo that inherits it.
+The order matters. When the plan creates release plans, they come first, so that no release can start without the plan the user chose. The account gates come last because turning a capability on starts automation in every mapped repo that inherits it.
 
 If a write fails with 403, the member lacks that permission. Report which write failed, list the remaining writes as a checklist for an admin, and stop.
 
