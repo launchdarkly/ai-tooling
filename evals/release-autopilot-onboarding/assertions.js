@@ -163,7 +163,12 @@ module.exports.noPickQuestions = (output) => {
 
 module.exports.notCalledComplete = (output) => {
   const text = finalText(output);
-  const hit = /setup complete|setup is complete|you're all set|is (now )?live/i.exec(text);
+  let hit = /setup complete|setup is complete|you're all set|is (now )?live/i.exec(text);
+  // "Open a pull request" is fine only when tied to the pending admin change.
+  const unconditional = text
+    .split(/(?<=[.!?\n])/)
+    .find((s) => /open a pull request/i.test(s) && !/\b(once|after|when)\b/i.test(s));
+  if (!hit && unconditional) hit = [unconditional.trim().slice(0, 80)];
   return result(!hit, hit ? `final message says "${hit[0]}"` : "does not claim completion");
 };
 
