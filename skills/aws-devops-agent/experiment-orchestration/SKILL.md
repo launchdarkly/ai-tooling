@@ -20,7 +20,7 @@ Use this skill when you have a goal you want to move through experimentation (e.
 
 **GitHub:** Steps 2–5 use GitHub when it is connected to the agent space. Before Step 2, check whether you have GitHub access to the target repository. If you don't, read no code: ask the user where the change belongs, and in Step 3 give them the flag key and the change to make, then wait until they confirm the change is reviewed, merged, and deployed, and skip to Step 6. Triggering workflows and proposing fixes need the GitHub connection's Read and write permissions; with Read-only, hand those steps to the user.
 
-**The final report (Step 8) is mandatory, not optional.** The moment an experiment or rollout reaches a terminal outcome — winner, loser, inconclusive, or rollback — produce the full report in the same turn you announce the outcome. Don't let a casual "it worked!" substitute for the structured report.
+**Always produce the Step 8 report on every terminal outcome.** The moment an experiment or rollout reaches a terminal outcome — winner, loser, inconclusive, or rollback — produce the full report in the same turn you announce the outcome. Don't let a casual "it worked!" substitute for the structured report.
 
 ## Step 1: Goal Clarification
 
@@ -52,7 +52,7 @@ Explore the target repository/codebase to find a plausible change:
 ## Step 3: Implementation
 
 1. Create a boolean feature flag, OFF by default in all environments, with `defaults` of `{"onVariation": 1, "offVariation": 1}` so that it serves false even when it is on, and `clientSideAvailability` of `{"usingEnvironmentId": true, "usingMobileKey": true}` so that every SDK can read it. Name it with a clear pattern like `exp-<metric>-<short-description>` (e.g. `exp-checkout-conversion-cta-color`), lowercase with hyphens, ~50 chars max. If the project has its own flag naming conventions (for example, a required prefix or case), follow them instead.
-2. Hand off implementation to your coding agent/tool of choice, with clear instructions to gate the change behind the exact flag key from step 1. Without a coding agent or GitHub write access, give the user the flag key and the change instead, and wait for their PR (with GitHub connected) or their confirmation that it is deployed (without GitHub).
+2. If a coding agent is available, hand off the implementation to it, with instructions to gate the change behind the exact flag key from step 1. Without a coding agent or GitHub write access, give the user the flag key and the change instead, and wait for their PR (with GitHub connected) or their confirmation that it is deployed (without GitHub).
 3. This step is asynchronous — check status periodically rather than looping tightly on it.
 4. Once implementation completes, move to Step 4 with the resulting branch/PR. If it fails, report the error and stop.
 
@@ -67,7 +67,7 @@ Never skip the review. Without GitHub, ask the user to have the PR reviewed and 
 
 ## Step 5: Deployment
 
-Deployment typically won't fire automatically on merge if your workflow is manually-triggered (`workflow_dispatch`-only) — you'll need to trigger it explicitly.
+The flagged code must be running in the environment the experiment uses before Step 6 turns the flag on; otherwise the experiment measures nothing. Confirm the merged change is deployed there. If the deploy workflow runs only when triggered (for example, `workflow_dispatch`), trigger it as below.
 
 1. Trigger the deploy workflow on the merge target branch (this needs Read and write GitHub access; otherwise ask the user to deploy and confirm when it's done). Treat "already an in-progress deployment for this ref" as expected de-duplication, not an error — don't re-trigger.
 2. Check the workflow run's status periodically rather than looping tightly.
@@ -79,7 +79,7 @@ Deployment typically won't fire automatically on merge if your workflow is manua
 
 ## Step 6: Experiment Phase (fixed 10%)
 
-Prove the change on a small, fixed slice of traffic. Do **not** start a guarded rollout here — that's Step 7, and only after this proves out.
+Prove the change on a small, fixed slice of traffic. The experiment and the rollout never run at the same time: a guarded rollout can't start while an experiment is running on the flag, so Step 7 stops the experiment iteration before Phase 2 starts any rollout.
 
 1. Turn the flag ON.
 2. Configure a fixed 50/50 split across 10% of traffic (a flat allocation, not a staged ramp) on your chosen randomization unit (typically "user"). The remaining 90% of traffic is excluded from the experiment entirely.
@@ -183,4 +183,4 @@ Runs automatically the instant Step 7 reaches a terminal outcome (winner, with t
 - Every guarded rollout metric should be configured to both notify AND auto-rollback on regression — don't rely on notification alone. A regular rollout has no automatic rollback, so watch its guardrail metrics after rolling out.
 - **Keep guarded rollout stages below 50%** and let the rollout move to 100% after the final stage — don't add an explicit 100% stage.
 - Distinguish a metric-driven rollback (don't retry) from an external-cause rollback (safe to retry once fixed) before restarting a rolled-back rollout.
-- The final report is automatic and mandatory on every terminal outcome — never defer it to a follow-up ask.
+- Produce the Step 8 report on every terminal outcome — never defer it to a follow-up ask.
