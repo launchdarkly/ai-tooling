@@ -159,32 +159,22 @@ Print this checklist verbatim to the user after Step 4, then wait for confirmati
 
 #### Direct shortcut if the user wants to flip targeting without invoking the sibling skill
 
-`configs-targeting` is the canonical path — it handles percentage rollouts, targeted rules, and variation-ID lookups. But for the simplest case ("promote the new variation to fallthrough in one environment"), you can run the underlying semantic PATCH yourself once you know the new variation's `_id`.
+`configs-targeting` is the canonical path — it handles percentage rollouts, targeted rules, and individual targets. For the simplest case ("promote the new variation to fallthrough in one environment"), call `update-agent-config-rollout` after the user agrees:
 
-Get the variation ID (use `get-agent-configs` MCP, or):
-```bash
-curl -s "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
-  -H "Authorization: {api_token}" -H "LD-API-Version: beta" \
-  | jq '.variations[] | {key, _id}'
+```json
+{
+  "projectKey": "{projectKey}",
+  "configKey": "{configKey}",
+  "env": "{envKey}",
+  "rolloutType": "variation",
+  "variationKey": "{variationKey}",
+  "confirm": true
+}
 ```
 
-Flip the fallthrough to point at it:
-```bash
-curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json; domain-model=launchdarkly.semanticpatch" \
-  -H "LD-API-Version: beta" \
-  -d '{"instructions":[{"kind":"updateFallthroughVariationOrRollout","variationId":"<id-from-step-above>"}]}'
-```
+Then call `get-agent-configs` with `configKey`, `section: "targeting"`, and `env` to confirm the default rule serves that variation.
 
-Or the same thing via the LD CLI if it's installed locally:
-```bash
-ldcli resources ai-configs update-ai-config-targeting \
-  --projectKey $PROJECT --configKey $CONFIG_KEY --envKey $ENV \
-  --data '{"instructions":[{"kind":"updateFallthroughVariationOrRollout","variationId":"<id>"}]}'
-```
-
-Do not use `turnTargetingOn` — that semantic-patch instruction does **not** work for configs. `updateFallthroughVariationOrRollout` is the only instruction that actually flips the fallthrough.
+Do not use `turnTargetingOn` — that semantic-patch instruction does **not** work for configs. Setting the fallthrough is what makes the config serve the new variation.
 
 ## modelConfigKey Format
 
