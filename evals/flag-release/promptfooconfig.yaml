@@ -6,8 +6,8 @@
 # flag-release records an automated rollout for an EXISTING flag guarding a PR.
 # It operates entirely through the LaunchDarkly MCP tools (no code exploration):
 # it previews each environment's policy with match-release-policies, captures the
-# human's release intent, and records the rollout with create-automated-rollout-
-# config — honoring a "hold" / notBefore by NOT recording a releasing plan for the
+# human's release intent, and records the rollout with
+# create-automated-rollout-config — honoring a "hold" / notBefore by NOT recording a releasing plan for the
 # held environments. It never creates flags or edits code.
 #
 # Single MCP-only provider (no builtins). The mocks return the guarding flag as

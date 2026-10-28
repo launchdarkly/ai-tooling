@@ -88,7 +88,7 @@ evals/
     _mock.js                         # Template renderer + stateful write/read overlay
     _jsonschema-to-zod.js            # JSON Schema -> Zod shape converter
   tools/
-    definitions.json                 # Anthropic-format tool definitions for all LD MCP tools
+    definitions.json                 # Anthropic-format definitions for the LD MCP tools the evals use
   mocks/
     tool-responses.json              # Canned responses for mocked tool calls
   scripts/
@@ -282,7 +282,7 @@ Add an entry to `scripts/_manifest.js`:
 | Edge case | Specific inputs (tags, descriptions) are passed correctly |
 | Safety | Agent avoids tools the skill warns against |
 
-**Important:** mock data for `list-*` tools must NOT contain items whose key/name matches what the test asks to create. If `get-flags` returns a flag named `new-checkout` and the test asks to create a checkout flag, the agent will skip creation.
+**Important:** mock data for list calls (a `get-*` tool called without an item key) must NOT contain items whose key/name matches what the test asks to create. If `get-flags` returns a flag named `new-checkout` and the test asks to create a checkout flag, the agent will skip creation.
 
 ### Step 6: Write assertions
 

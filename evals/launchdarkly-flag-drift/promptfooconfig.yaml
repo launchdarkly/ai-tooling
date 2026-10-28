@@ -63,7 +63,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','update-flag-targeting','update-flag','update-prerequisites','copy-flag-config','create-flag'];
+          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','update-flag-targeting','update-flag','copy-flag-config','create-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'No LD mutations' : 'Called: ' + called.join(', ') };
@@ -262,7 +262,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','update-flag-targeting','update-flag','update-prerequisites','copy-flag-config','create-flag'];
+          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','update-flag-targeting','update-flag','copy-flag-config','create-flag'];
           const called = forbidden.filter((f) => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'No LD mutations' : 'Called: ' + called.join(', ') };

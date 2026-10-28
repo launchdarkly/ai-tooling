@@ -62,7 +62,7 @@ tests:
     assert:
       - type: llm-rubric
         value: "The response calls get-metrics (or explicitly states it would) to inventory the project's available metrics before making any recommendation. A response that names specific metrics to use without first checking what exists does NOT satisfy this."
-        metric: calls-list-metrics
+        metric: calls-get-metrics
 
   - description: "Context disambiguation — must ask experiment vs rollout vs policy"
     vars:
@@ -207,7 +207,7 @@ tests:
         value: "The response must NOT contain a create-metric() tool call anywhere. If the text 'create-metric(' appears in the response — in any code block, inline, or described as being executed — the response fails this check unconditionally. The skill is advisory only."
         metric: advisory-only
 
-  # [NEG] 5 — mirrors positive test 5 (calls-list-metrics)
+  # [NEG] 5 — mirrors positive test 5 (calls-get-metrics)
   - description: "[NEG] Specific metrics recommended without inventory lookup"
     provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
@@ -230,7 +230,7 @@ tests:
     assert:
       - type: llm-rubric
         value: "The response calls get-metrics (or explicitly states it would) to inventory the project's available metrics before making any recommendation. A response that names specific metrics to use without first checking what exists does NOT satisfy this."
-        metric: calls-list-metrics
+        metric: calls-get-metrics
 
   # [NEG] 6 — mirrors positive test 6 (asks-for-context)
   - description: "[NEG] Context assumed without asking experiment vs rollout vs policy"

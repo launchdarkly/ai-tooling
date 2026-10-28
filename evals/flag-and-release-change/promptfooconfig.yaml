@@ -123,7 +123,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const tried = tools.includes('create-flag') || tools.includes('create-flag');
+          const tried = tools.includes('create-flag');
           return { pass: tried, score: tried ? 1 : 0, reason: tried ? 'attempted flag creation' : 'never attempted create-flag' };
         metric: attempted_create
         weight: 1
@@ -235,7 +235,7 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const creates = traj.filter(t => t.tool === 'create-flag' || t.tool === 'create-flag');
+          const creates = traj.filter(t => t.tool === 'create-flag');
           if (creates.length === 0) return { pass: false, score: 0, reason: 'never created the guarding flag' };
           const multivariate = creates.some(c => (c.arguments && c.arguments.kind) === 'multivariate');
           const pass = creates.length === 1 && !multivariate;
@@ -248,7 +248,7 @@ tests:
           const traj = output.trajectory || [];
           const turnedOn = traj.some(t =>
             (t.tool === 'toggle-flag' && t.arguments && t.arguments.on === true) ||
-            ((t.tool === 'update-flag' || t.tool === 'update-flag' || t.tool === 'update-flag') && t.arguments && t.arguments.on === true));
+            (t.arguments && Array.isArray(t.arguments.instructions) && t.arguments.instructions.some(i => i && i.kind === 'turnFlagOn')));
           const pass = !turnedOn;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'left the flag OFF (release owns turning it on)' : 'turned the flag on by hand' };
         metric: created_off
