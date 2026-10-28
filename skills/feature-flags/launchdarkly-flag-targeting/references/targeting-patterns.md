@@ -241,7 +241,7 @@ Individual targets are the highest priority: they override all rules.
 
 ### Context-kind targets (non-user)
 
-For custom context kinds (device, organization, etc.):
+For custom context kinds (device, organization, etc.), pass `contextKind` on `addTargets` / `removeTargets`:
 
 ```json
 {

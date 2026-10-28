@@ -62,12 +62,12 @@ tests:
         value: "The response shows a proposed metric configuration but does NOT call create-metric in the same reply. It must ask the user to confirm before any creation happens. A response that shows a proposal and then immediately calls create-metric — even if it announces doing so — fails this check."
         metric: shows-proposal-step
 
-  - description: "Duplicate check — must call list-metrics before proposing"
+  - description: "Duplicate check — must call get-metrics before proposing"
     vars:
       user_message: "Create a metric called checkout-value in project my-app"
     assert:
       - type: llm-rubric
-        value: "The response performs some kind of discovery or lookup before proposing the metric — for example calling list-metric-events, list-metrics, or asking about existing metrics. A response that jumps directly from the user's request to a proposed configuration with no lookup or verification step whatsoever does not satisfy this."
+        value: "The response performs some kind of discovery or lookup before proposing the metric — for example calling get-metric-events, get-metrics, or asking about existing metrics. A response that jumps directly from the user's request to a proposed configuration with no lookup or verification step whatsoever does not satisfy this."
         metric: checks-for-duplicates
 
   - description: "Measure type ambiguity — must ask count vs occurrence"
@@ -151,7 +151,7 @@ tests:
 
         Step 2: Check for existing metrics
         ```
-        list-metrics(projectKey="my-app")
+        get-metrics(projectKey="my-app")
         ```
 
         Proposed metric:
@@ -186,7 +186,7 @@ tests:
 
         Step 2: Check for existing metrics
         ```
-        list-metrics(projectKey="my-app")
+        get-metrics(projectKey="my-app")
         ```
 
         Proposed metric:
@@ -235,7 +235,7 @@ tests:
         The metric has been created. Here is the verification:
 
         ```
-        get-metric(projectKey="my-app", key="signup-rate")
+        get-metrics(projectKey="my-app", key="signup-rate")
         ```
     assert:
       - type: llm-rubric
@@ -259,7 +259,7 @@ tests:
         Shall I go ahead and create this?
     assert:
       - type: llm-rubric
-        value: "The response performs some kind of discovery or lookup before proposing the metric — for example calling list-metric-events, list-metrics, or asking about existing metrics. A response that jumps directly from the user's request to a proposed configuration with no lookup or verification step whatsoever does not satisfy this."
+        value: "The response performs some kind of discovery or lookup before proposing the metric — for example calling get-metric-events, get-metrics, or asking about existing metrics. A response that jumps directly from the user's request to a proposed configuration with no lookup or verification step whatsoever does not satisfy this."
         metric: checks-for-duplicates
 
   # [NEG] 6 — mirrors positive test 6 (measure type ambiguity)
@@ -272,7 +272,7 @@ tests:
         First, let's check if the `cart-add` event is flowing:
 
         ```
-        list-metric-events(projectKey="my-app")
+        get-metric-events(projectKey="my-app")
         ```
 
         Proposed metric:
@@ -298,13 +298,13 @@ tests:
         First, let's see what events are currently flowing in checkout_proj:
 
         ```
-        list-metric-events(projectKey="checkout_proj")
+        get-metric-events(projectKey="checkout_proj")
         ```
 
         Now let's check for any existing metrics:
 
         ```
-        list-metrics(projectKey="checkout_proj")
+        get-metrics(projectKey="checkout_proj")
         ```
 
         What kind of metric would you like to create?

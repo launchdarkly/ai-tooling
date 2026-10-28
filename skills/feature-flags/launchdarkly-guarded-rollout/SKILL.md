@@ -18,8 +18,8 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Required MCP tools:**
 - `start-guarded-rollout` -- start a progressive rollout with monitoring
-- `get-flag` -- inspect the flag and its variations
-- `list-metrics` -- find metrics to monitor during the rollout
+- `get-flags` -- inspect the flag and its variations
+- `get-metrics` -- find metrics to monitor during the rollout
 
 **Optional MCP tools:**
 - `stop-guarded-rollout` -- halt an active rollout immediately
@@ -72,8 +72,8 @@ The monitoring window is specified in milliseconds:
 
 Before starting a guarded rollout:
 
-1. Use `get-flag` to inspect the flag — note the variation IDs for test and control
-2. Use `list-metrics` to find metrics suitable for monitoring
+1. Use `get-flags` to inspect the flag — note the variation IDs for test and control
+2. Use `get-metrics` to find metrics suitable for monitoring
 3. Ensure the flag is **on** in the target environment (use `toggle-flag` if needed)
 4. Confirm there's no active guarded rollout on this flag already
 
@@ -133,7 +133,7 @@ Use `start-guarded-rollout`:
 
 ### Step 5: Verify
 
-1. Use `get-flag` to confirm the guarded rollout is active
+1. Use `get-flags` to confirm the guarded rollout is active
 2. Check that the flag shows the rollout configuration in the environment
 3. Monitor for any immediate regression notifications
 

@@ -29,12 +29,12 @@ tests:
         value: "The response must ask the user a direct question about the experiment's success hypothesis before listing any specific metric recommendations. If the response contains a labelled metric recommendation (e.g. 'Primary metric:', 'Guardrail:', 'Recommended metrics:') without first containing such a question, it fails this check."
         metric: asks-for-hypothesis
 
-  - description: "Guarded rollout path — must call list-release-policies"
+  - description: "Guarded rollout path — must call get-release-policies"
     vars:
       user_message: "I'm doing a guarded rollout of my new auth service. Which metrics should I use? Project is my-app."
     assert:
       - type: llm-rubric
-        value: "The response calls list-release-policies (or explicitly states it would) to surface which metrics auto-attach from the project's release policies before recommending additional ones. A response that jumps straight to metric recommendations without checking release policies does NOT satisfy this."
+        value: "The response calls get-release-policies (or explicitly states it would) to surface which metrics auto-attach from the project's release policies before recommending additional ones. A response that jumps straight to metric recommendations without checking release policies does NOT satisfy this."
         metric: checks-release-policies
 
   - description: "At-risk metric warning — must check event health before recommending"
@@ -42,7 +42,7 @@ tests:
       user_message: "I want to use page-load-time as the primary metric for my experiment. My hypothesis is: if this change succeeds, page-load-time will decrease. Project is my-app, flag key is checkout-v2."
     assert:
       - type: llm-rubric
-        value: "The response calls list-metric-events (or explicitly states it would call list-metric-events as part of its workflow) to check whether the page-load-time event key has recent activity before endorsing it as a primary metric."
+        value: "The response calls get-metric-events (or explicitly states it would call get-metric-events as part of its workflow) to check whether the page-load-time event key has recent activity before endorsing it as a primary metric."
         metric: checks-event-health
       - type: llm-rubric
         value: "The response explicitly warns that if the metric's event key is not flowing it is at-risk, OR it says it will check event health and flag any metric whose events are not flowing. It does NOT silently endorse page-load-time as the primary metric without any mention of event health."
@@ -56,12 +56,12 @@ tests:
         value: "The response must NOT contain a create-metric() tool call anywhere. If the text 'create-metric(' appears in the response — in any code block, inline, or described as being executed — the response fails this check unconditionally. The skill is advisory only."
         metric: advisory-only
 
-  - description: "Inventory step — must call list-metrics before recommending"
+  - description: "Inventory step — must call get-metrics before recommending"
     vars:
       user_message: "What metrics should I use for my experiment? Project key is my-app."
     assert:
       - type: llm-rubric
-        value: "The response calls list-metrics (or explicitly states it would) to inventory the project's available metrics before making any recommendation. A response that names specific metrics to use without first checking what exists does NOT satisfy this."
+        value: "The response calls get-metrics (or explicitly states it would) to inventory the project's available metrics before making any recommendation. A response that names specific metrics to use without first checking what exists does NOT satisfy this."
         metric: calls-list-metrics
 
   - description: "Context disambiguation — must ask experiment vs rollout vs policy"
@@ -91,7 +91,7 @@ tests:
         First, let me check what metrics are available:
 
         ```
-        list-metrics(projectKey="my-app")
+        get-metrics(projectKey="my-app")
         ```
 
         Based on the available metrics, here is what I recommend:
@@ -121,7 +121,7 @@ tests:
         Let me check what metrics are available:
 
         ```
-        list-metrics(projectKey="my-app")
+        get-metrics(projectKey="my-app")
         ```
 
         Recommended rollout metrics:
@@ -134,7 +134,7 @@ tests:
         Would you like to proceed with these?
     assert:
       - type: llm-rubric
-        value: "The response calls list-release-policies (or explicitly states it would) to surface which metrics auto-attach from the project's release policies before recommending additional ones. A response that jumps straight to metric recommendations without checking release policies does NOT satisfy this."
+        value: "The response calls get-release-policies (or explicitly states it would) to surface which metrics auto-attach from the project's release policies before recommending additional ones. A response that jumps straight to metric recommendations without checking release policies does NOT satisfy this."
         metric: checks-release-policies
 
   # [NEG] 3 — mirrors positive test 3 (checks-event-health + warns-at-risk)
@@ -147,7 +147,7 @@ tests:
         Let me check what's in the project:
 
         ```
-        list-metrics(projectKey="my-app")
+        get-metrics(projectKey="my-app")
         ```
 
         Here is my recommendation:
@@ -164,7 +164,7 @@ tests:
         Would you like to proceed with this configuration?
     assert:
       - type: llm-rubric
-        value: "The response calls list-metric-events (or explicitly states it would) to check whether the page-load-time event key has recent activity before endorsing it as a primary metric."
+        value: "The response calls get-metric-events (or explicitly states it would) to check whether the page-load-time event key has recent activity before endorsing it as a primary metric."
         metric: checks-event-health
       - type: llm-rubric
         value: "The response explicitly warns that if the metric's event key is not flowing, the metric is at-risk and should not be used as the primary metric for an experiment — it does NOT silently recommend a metric without addressing event health."
@@ -180,7 +180,7 @@ tests:
         First, let me check existing metrics:
 
         ```
-        list-metrics(projectKey="my-app")
+        get-metrics(projectKey="my-app")
         ```
 
         I don't see a recommendation-clicks metric, so I'll create it now:
@@ -229,7 +229,7 @@ tests:
         Does this look right for your experiment?
     assert:
       - type: llm-rubric
-        value: "The response calls list-metrics (or explicitly states it would) to inventory the project's available metrics before making any recommendation. A response that names specific metrics to use without first checking what exists does NOT satisfy this."
+        value: "The response calls get-metrics (or explicitly states it would) to inventory the project's available metrics before making any recommendation. A response that names specific metrics to use without first checking what exists does NOT satisfy this."
         metric: calls-list-metrics
 
   # [NEG] 6 — mirrors positive test 6 (asks-for-context)
@@ -243,13 +243,13 @@ tests:
         First, let me check your project's metrics:
 
         ```
-        list-metrics(projectKey="my-app")
+        get-metrics(projectKey="my-app")
         ```
 
         And check release policies:
 
         ```
-        list-release-policies(projectKey="my-app")
+        get-release-policies(projectKey="my-app")
         ```
 
         Recommended rollout metrics:

@@ -1,5 +1,5 @@
 {
-  "list-flags": {
+  "get-flags": {
     "flags": [
       {
         "key": "enable-notifications",
@@ -52,7 +52,7 @@
       "offset": 0
     }
   },
-  "get-flag": {
+  "get-flags#flagKey": {
     "key": "{{flagKey}}",
     "name": "{{flagName}}",
     "kind": "boolean",
@@ -120,39 +120,7 @@
       }
     }
   },
-  "create-feature-flag": {
-    "key": "{{flagKey}}",
-    "name": "{{flagName}}",
-    "kind": "boolean",
-    "description": "",
-    "temporary": true,
-    "tags": [],
-    "variations": [
-      {
-        "value": true,
-        "name": "true"
-      },
-      {
-        "value": false,
-        "name": "false"
-      }
-    ],
-    "defaults": {
-      "onVariation": 0,
-      "offVariation": 1
-    },
-    "environments": {
-      "production": {
-        "on": false,
-        "version": 1
-      },
-      "staging": {
-        "on": false,
-        "version": 1
-      }
-    }
-  },
-  "update-flag-settings": {
+  "update-flag": {
     "key": "{{flagKey}}",
     "name": "{{flagName}}",
     "description": "",
@@ -166,45 +134,21 @@
     "newState": true,
     "environment": "production"
   },
-  "update-feature-flag": {
-    "key": "{{flagKey}}",
-    "environmentKey": "production",
-    "previous": {
-      "on": false
-    },
-    "current": {
-      "on": true
-    }
-  },
-  "get-environments": {
-    "items": [
+  "get-projects": {
+    "projects": [
       {
-        "key": "test",
-        "name": "Test",
-        "color": "417505",
-        "apiKey": "sdk-test-abcdef12-3456-7890-abcd-ef1234567890",
-        "mobileKey": "mob-test-abcdef12-3456-7890-abcd-ef1234567890",
-        "_id": "clientside-test-abcdef12"
-      },
-      {
-        "key": "production",
-        "name": "Production",
-        "color": "D43F3A",
-        "apiKey": "sdk-prod-abcdef12-3456-7890-abcd-ef1234567890",
-        "mobileKey": "mob-prod-abcdef12-3456-7890-abcd-ef1234567890",
-        "_id": "clientside-prod-abcdef12"
+        "key": "default",
+        "name": "LaunchDarkly",
+        "tags": []
       }
     ],
-    "totalCount": 2
-  },
-  "list-projects": {
-    "projects": [
-      { "key": "default", "name": "LaunchDarkly", "tags": [] }
-    ],
     "totalCount": 1,
-    "pageInfo": { "limit": 25, "offset": 0 }
+    "pageInfo": {
+      "limit": 25,
+      "offset": 0
+    }
   },
-  "get-project": {
+  "get-projects#projectKey": {
     "key": "{{projectKey}}",
     "name": "{{projectKey}}",
     "environments": [
@@ -222,36 +166,7 @@
       }
     ]
   },
-  "list-feature-flags": {
-    "items": [
-      {
-        "key": "enable-notifications",
-        "name": "Enable Notifications",
-        "kind": "boolean",
-        "temporary": true,
-        "tags": ["backend", "notifications"],
-        "on": true
-      },
-      {
-        "key": "dark-mode",
-        "name": "Dark Mode",
-        "kind": "boolean",
-        "temporary": true,
-        "tags": ["frontend", "ui"],
-        "on": false
-      },
-      {
-        "key": "search-v2",
-        "name": "Search V2",
-        "kind": "boolean",
-        "temporary": true,
-        "tags": ["backend", "search"],
-        "on": true
-      }
-    ],
-    "totalCount": 3
-  },
-  "list-ai-configs": {
+  "get-agent-configs": {
     "configs": [
       {
         "key": "support-chatbot",
@@ -290,7 +205,7 @@
     ],
     "totalCount": 3
   },
-  "get-ai-config": {
+  "get-agent-configs#configKey": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "mode": "agent",
@@ -312,25 +227,25 @@
       }
     ]
   },
-  "create-ai-config": {
+  "create-agent-config": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "mode": "{{mode}}",
     "description": "",
     "tags": []
   },
-  "update-ai-config": {
+  "update-agent-config": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "description": "",
     "tags": [],
     "archived": false
   },
-  "delete-ai-config": {
+  "delete-agent-config": {
     "deleted": true,
     "key": "{{configKey}}"
   },
-  "setup-ai-config": {
+  "setup-agent-config": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "mode": "{{mode}}",
@@ -351,7 +266,7 @@
       }
     ]
   },
-  "get-ai-config-health": {
+  "get-agent-configs#health": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "mode": "agent",
@@ -368,7 +283,7 @@
       }
     ]
   },
-  "create-ai-config-variation": {
+  "create-agent-config-variation": {
     "configKey": "{{configKey}}",
     "variation": {
       "key": "{{variationKey}}",
@@ -382,7 +297,7 @@
       }
     }
   },
-  "update-ai-config-variation": {
+  "update-agent-config-variation": {
     "configKey": "{{configKey}}",
     "variation": {
       "key": "{{variationKey}}",
@@ -396,12 +311,12 @@
       }
     }
   },
-  "delete-ai-config-variation": {
+  "delete-agent-config-variation": {
     "deleted": true,
     "configKey": "{{configKey}}",
     "variationKey": "{{variationKey}}"
   },
-  "clone-ai-config-variation": {
+  "create-agent-config-variation#clone": {
     "configKey": "{{configKey}}",
     "source": {
       "key": "default",
@@ -448,7 +363,7 @@
       ]
     }
   },
-  "list-ai-tools": {
+  "get-ai-tools": {
     "tools": [
       {
         "key": "search-docs",
@@ -478,7 +393,7 @@
     ],
     "totalCount": 2
   },
-  "get-ai-tool": {
+  "get-ai-tools#toolKey": {
     "key": "{{toolKey}}",
     "description": "Search internal documentation",
     "schema": {
@@ -519,20 +434,34 @@
   "match-release-policies": {
     "environmentKey": "{{environmentKey}}",
     "flagKey": "{{flagKey}}",
-    "winningPolicy": { "key": "guarded-default", "name": "Guarded rollout" },
+    "winningPolicy": {
+      "key": "guarded-default",
+      "name": "Guarded rollout"
+    },
     "winningReleaseMethod": "guarded",
-    "autoAttachedMetricKeys": ["error-rate", "latency-p95"],
+    "autoAttachedMetricKeys": [
+      "error-rate",
+      "latency-p95"
+    ],
     "autoAttachedMetricGroupKeys": []
   },
-  "list-release-policies": {
+  "get-release-policies": {
     "policies": [
       {
         "key": "guarded-default",
         "name": "Guarded rollout",
         "rank": 1,
         "releaseMethod": "guarded",
-        "scope": { "environmentKeys": ["production"], "flagTagKeys": [] },
-        "guardrailMetricKeys": ["error-rate", "latency-p95"]
+        "scope": {
+          "environmentKeys": [
+            "production"
+          ],
+          "flagTagKeys": []
+        },
+        "guardrailMetricKeys": [
+          "error-rate",
+          "latency-p95"
+        ]
       }
     ],
     "totalCount": 1
@@ -542,10 +471,34 @@
     "config_id": "arc_mock_0001",
     "environments": []
   },
-  "list-metrics": {
+  "get-metrics": {
     "metrics": [
-      { "key": "checkout-completed", "name": "Checkout completed", "kind": "custom", "measureType": "occurrence", "isNumeric": false, "unitAggregationType": "average", "successCriteria": "HigherThanBaseline", "eventKey": "checkout-completed", "tags": ["conversion"] },
-      { "key": "page-load-ms", "name": "Page load time (ms)", "kind": "custom", "measureType": "value", "isNumeric": true, "unitAggregationType": "average", "successCriteria": "LowerThanBaseline", "eventKey": "page-load-ms", "tags": ["performance"] }
+      {
+        "key": "checkout-completed",
+        "name": "Checkout completed",
+        "kind": "custom",
+        "measureType": "occurrence",
+        "isNumeric": false,
+        "unitAggregationType": "average",
+        "successCriteria": "HigherThanBaseline",
+        "eventKey": "checkout-completed",
+        "tags": [
+          "conversion"
+        ]
+      },
+      {
+        "key": "page-load-ms",
+        "name": "Page load time (ms)",
+        "kind": "custom",
+        "measureType": "value",
+        "isNumeric": true,
+        "unitAggregationType": "average",
+        "successCriteria": "LowerThanBaseline",
+        "eventKey": "page-load-ms",
+        "tags": [
+          "performance"
+        ]
+      }
     ],
     "totalCount": 2
   },
@@ -568,17 +521,29 @@
       "status": "not_started",
       "hypothesis": "{{hypothesis}}",
       "treatments": [
-        { "_id": "treat-control", "name": "Control", "baseline": true, "allocationPercent": 50 },
-        { "_id": "treat-treatment", "name": "Treatment", "baseline": false, "allocationPercent": 50 }
+        {
+          "_id": "treat-control",
+          "name": "Control",
+          "baseline": true,
+          "allocationPercent": 50
+        },
+        {
+          "_id": "treat-treatment",
+          "name": "Treatment",
+          "baseline": false,
+          "allocationPercent": 50
+        }
       ]
     }
   },
   "start-experiment-iteration": {
     "key": "{{experimentKey}}",
     "environmentKey": "{{environmentKey}}",
-    "currentIteration": { "status": "running" }
+    "currentIteration": {
+      "status": "running"
+    }
   },
-  "get-experiment": {
+  "get-experiments#experimentKey": {
     "key": "{{experimentKey}}",
     "name": "{{experimentName}}",
     "environmentKey": "{{environmentKey}}",
@@ -586,9 +551,60 @@
       "status": "not_started",
       "hypothesis": "{{hypothesis}}",
       "treatments": [
-        { "_id": "treat-control", "name": "Control", "baseline": true, "allocationPercent": 50 },
-        { "_id": "treat-treatment", "name": "Treatment", "baseline": false, "allocationPercent": 50 }
+        {
+          "_id": "treat-control",
+          "name": "Control",
+          "baseline": true,
+          "allocationPercent": 50
+        },
+        {
+          "_id": "treat-treatment",
+          "name": "Treatment",
+          "baseline": false,
+          "allocationPercent": 50
+        }
       ]
     }
+  },
+  "get-environment": {
+    "key": "{{environmentKey}}",
+    "name": "Production",
+    "clientSideId": "clientside-prod-abcdef12",
+    "mobileKey": "mob-prod-abcdef12-3456-7890-abcd-ef1234567890",
+    "approvalSettings": {
+      "required": false
+    }
+  },
+  "get-sdk-key": {
+    "environmentKey": "{{environmentKey}}",
+    "sdkKey": "sdk-prod-abcdef12-3456-7890-abcd-ef1234567890"
+  },
+  "get-experiments": {
+    "items": [
+      {
+        "key": "{{experimentKey}}",
+        "name": "{{experimentName}}",
+        "environmentKey": "{{environmentKey}}",
+        "currentIteration": {
+          "status": "not_started",
+          "hypothesis": "{{hypothesis}}",
+          "treatments": [
+            {
+              "_id": "treat-control",
+              "name": "Control",
+              "baseline": true,
+              "allocationPercent": 50
+            },
+            {
+              "_id": "treat-treatment",
+              "name": "Treatment",
+              "baseline": false,
+              "allocationPercent": 50
+            }
+          ]
+        }
+      }
+    ],
+    "totalCount": 1
   }
 }

@@ -92,7 +92,7 @@ Restart is no longer required for Cursor or Claude Code after enabling an MCP se
 
 1. **Tell the user to enable and authorize the server.** In Cursor: toggle on the LaunchDarkly server in MCP settings and click **Connect**. In Claude Code: the OAuth prompt appears on first tool call. Do **not** tell them to restart yet.
 
-2. **Probe immediately.** After the user confirms the server is enabled, call a lightweight MCP tool (e.g. `list-feature-flags` with the user's project key). Do not ask the user whether MCP is working — just try it.
+2. **Probe immediately.** After the user confirms the server is enabled, call a lightweight MCP tool (e.g. `get-flags` with the user's project key). Do not ask the user whether MCP is working — just try it.
    - **Success** (normal response, even an empty flag list): MCP is live. Continue.
    - **Auth error** (401, 403, "unauthorized", "forbidden", or OAuth-related message): the server was found but authorization failed. Go to step 3a.
    - **Tool not found or timeout** (tool not recognized, connection refused, no response): the editor hasn't picked up the server yet. Go to step 3b.

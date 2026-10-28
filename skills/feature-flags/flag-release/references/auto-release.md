@@ -29,7 +29,7 @@ Always call `match-release-policies` before recommending a `policy` environment,
 - **Before the flag exists** — pass `projectKey`, `environmentKey`, and the proposed `flagTags`. This does client-side matching against the project's policies and previews the winner.
 - **After the flag exists** — pass `projectKey`, `environmentKey`, and `flagKey`. This hits the server-side release-settings endpoint and returns the authoritative resolved policy.
 
-It returns the `winningPolicy`, the `winningReleaseMethod` (immediate / progressive / guarded), and any `autoAttachedMetricKeys` / `autoAttachedMetricGroupKeys`. Use `list-release-policies` to see every policy in the project and what each attaches.
+It returns the `winningPolicy`, the `winningReleaseMethod` (immediate / progressive / guarded), and any `autoAttachedMetricKeys` / `autoAttachedMetricGroupKeys`. Use `get-release-policies` to see every policy in the project and what each attaches.
 
 **If nothing matches**, `policy` falls back to project defaults (often an immediate release). Tell the user — they may want to pick `simple` instead, or set up a release policy first.
 

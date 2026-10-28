@@ -14,10 +14,10 @@ Log alerts arrive with at minimum:
 
 ## Investigation shape
 
-1. **Reconstruct the matching logs.** Use the `query-logs` tool with the alert's `query` and `timeRange`. Start with a small `limit` (10–20) to sample.
+1. **Reconstruct the matching logs.** Use the `search-logs` tool with the alert's `query`, and `startDate`/`endDate` covering its `timeRange`. Start with a small `limit` (10–20) to sample.
 2. **Identify the pattern.** Are these repeated occurrences of the same error, or heterogeneous failures that share an attribute (service, endpoint)?
 3. **Correlate with traces.** If the logs carry trace IDs, pull those traces — the span hierarchy often reveals which downstream dependency failed.
-4. **Correlate with errors.** If the log messages match a specific exception, check `query-error-groups` for onset timestamps.
+4. **Correlate with errors.** If the log messages match a specific exception, check `search-error-groups` for onset timestamps.
 5. **Check for an external trigger.** Did a deploy happen in the thresholdWindow? A flag flip? A traffic surge?
 
 ## What goes in the diagnosis

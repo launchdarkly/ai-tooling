@@ -28,7 +28,7 @@ temperature = ai_config.model.get_parameter("temperature")
 max_search_results = ai_config.model.get_custom("max_search_results") or 10
 ```
 
-**MCP caveat — two paths, pick one.** The LaunchDarkly MCP `update-ai-config-variation` tool does not currently expose the top-level `custom` field on a variation. You have two options:
+**MCP caveat — two paths, pick one.** The LaunchDarkly MCP `update-agent-config-variation` tool does not currently expose the top-level `custom` field on a variation. You have two options:
 
 *Option A — PATCH via REST API.* Cleanest shape (value lands at `model.custom` where the Python/Node SDKs expose it via `get_custom(...)` / `custom` accessors) but requires an API access token with write scope (ask the user for it; do not read it from env vars or config files):
 

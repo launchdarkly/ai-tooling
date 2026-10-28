@@ -26,7 +26,7 @@ This skill is **read-only and advisory**. You produce a recommendation; you neve
 **Hard constraints — you MUST NOT:**
 
 - Create, toggle, update, archive, or delete any feature flag.
-- Call any flag-mutating MCP tool (`create-flag`, `create-feature-flag`, `update-flag`, `update-feature-flag`, `toggle-flag`, `delete-flag`, or similar).
+- Call any flag-mutating MCP tool (`create-flag`, `update-flag`, `update-flag-targeting`, `update-targeting-rules`, `update-rollout`, `toggle-flag`, `archive-flag`, `delete-flag`, or similar).
 - Modify, stage, or commit code. You read; you do not write.
 - Instruct the user to run a command that mutates flags as if it were part of this workflow.
 

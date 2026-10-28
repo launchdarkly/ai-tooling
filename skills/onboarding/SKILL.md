@@ -176,7 +176,7 @@ If they choose **Set it up**: follow [mcp-configure](mcp-configure/SKILL.md). Wh
 npx skills add launchdarkly/ai-tooling --skill mcp-configure -y --agent <detected-agent>
 ```
 
-If that fails, check `~/.agents/skills/` and `~/.cursor/skills/` for a cached copy, or configure the server inline using [MCP Config Templates](mcp-configure/references/mcp-config-templates.md). After it succeeds, call `get-project` once (`projectKey: "default"`) and store `projectKey` and `envKey` (`test`).
+If that fails, check `~/.agents/skills/` and `~/.cursor/skills/` for a cached copy, or configure the server inline using [MCP Config Templates](mcp-configure/references/mcp-config-templates.md). After it succeeds, call `get-projects` once (`projectKey: "default"`) and store `projectKey` and `envKey` (`test`).
 
 ---
 
@@ -229,7 +229,7 @@ The SDK needs a key. Default to fetching it for the user when MCP is connected; 
 }
 ```
 
-- Account, MCP connected: fetch the key via `get-environments`, write it to `.env`, and ensure `.env` is gitignored. Never print key values.
+- Account, MCP connected: fetch the key via `get-sdk-key` (server-side) or `get-environment` (client-side ID, mobile key), write it to `.env`, and ensure `.env` is gitignored. Never print key values.
 - Account, no MCP: give the direct link and have them paste it. `https://app.launchdarkly.com/projects/{projectKey}/settings/environments/{envKey}/keys`
 - No account: share the resolved signup link. Write placeholder env vars so the code compiles, and continue.
 
@@ -243,7 +243,7 @@ Do not proceed until initialization is verified.
 
 Create the flag, wire it into the app, and let the user watch it turn on.
 
-- **Create the flag.** If MCP is connected, call `create-flag` (on a duplicate-key conflict, call `get-flag` and adopt the existing flag; do not `list-flags` first). If MCP is not connected, give them a dashboard link that opens the create form with the key prefilled and have them create it: `https://app.launchdarkly.com/projects/{projectKey}/flags/new?key={flagKey}`
+- **Create the flag.** If MCP is connected, call `create-flag` (on a duplicate-key conflict, call `get-flags` with that `flagKey` and adopt the existing flag; do not look it up first). If MCP is not connected, give them a dashboard link that opens the create form with the key prefilled and have them create it: `https://app.launchdarkly.com/projects/{projectKey}/flags/new?key={flagKey}`
 - **Add a flag-gated banner.** Insert a small, clean banner at the top of the app's main page, gated on the flag. Off state: a neutral banner reading "LaunchDarkly test banner (flag is off)" with a link to view the flag in LaunchDarkly. On state: the banner switches to a clearly different look (for example a green background) reading "LaunchDarkly test banner (flag is on)". Style it so it looks intentional, not like debug output. Add to the existing app, do not rewrite it. For an app with no rendered page, add one equivalent visible output (an endpoint or a startup line) that changes with the flag.
 - **Start the dev server on a free port** (check `lsof -ti :3000,4000,5173` first). **Keep it running until the user has seen the flag turn on. Do not stop the server before then.**
 - **Hand off the reveal to the user.** Give them the local URL and one choice for turning it on:
@@ -320,7 +320,7 @@ Never silently dump code with no tradeoff, and never rigidly refuse. If they ins
 ## Edge Cases
 
 - **SDK already installed:** Skip Step 3. Say so in one line that names what you found and where, then go to Step 4. Do not re-explain the SDK or run install commands. If the user asked for observability, still add the plugin to the existing client first ([Observability plugin](references/sdk/observability-plugin.md)).
-- **MCP already configured:** Use it. Skip the Step 2 offer. Call `get-project` to store keys and continue.
+- **MCP already configured:** Use it. Skip the Step 2 offer. Call `get-projects` to store keys and continue.
 - **Deprecated mcp/aiconfigs or mcp/fm found:** Both are deprecated. Ask before migrating to the unified `mcp/launchdarkly` server. Do not auto-migrate.
 - **No supported agent detected:** Ask directly. Provide manual config if needed.
 - **npx not available:** Provide manual skill installation (clone repo, copy skill directories).

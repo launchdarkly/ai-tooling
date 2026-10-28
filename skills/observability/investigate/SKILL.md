@@ -17,20 +17,20 @@ You are conducting a cross-product investigation. Real investigations almost alw
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `query-logs` — fetch paginated log entries
-- `query-traces` — fetch paginated trace/span entries
-- `query-error-groups` — fetch error groups with stack traces and frequency
-- `query-sessions` — fetch session replays with user details
-- `query-aggregations` — bucketed aggregations across a product type for trends and counts
-- `query-timeline-events` — pull the chronological event timeline within a session
+- `search-logs` — fetch paginated log entries
+- `search-traces` — fetch paginated trace/span entries
+- `search-error-groups` — fetch error groups with stack traces and frequency
+- `search-sessions` — fetch session replays with user details
+- `search-aggregations` — bucketed aggregations across a product type for trends and counts
+- `search-timeline-events` — pull the chronological event timeline within a session
 - `get-keys` — discover valid attribute/grouping keys for a product type
 
 ## Workflow
 
 1. **Plan first.** Before the first tool call, present a concise numbered plan of what you intend to query and why. Then execute it. Skip this only for trivial lookups.
 2. **Start narrow.** Pick a focused time window (default 24h if the user didn't specify) and the most-specific identifier you have — trace ID, session ID, error group ID, flag key. Broad queries return noise.
-3. **Let each result inform the next.** Do not rely on one tool call. Run multiple invocations of `query-logs`, `query-aggregations`, `query-traces`, `query-error-groups`, and `query-sessions`, using the findings of each to sharpen the next.
-4. **Respect the 50-entry limit.** `query-logs`, `query-traces`, `query-error-groups`, and `query-sessions` tools return at most 50 entries per call. For larger datasets, run a `query-aggregations` query first to aggregate, then narrow with targeted fetches.
+3. **Let each result inform the next.** Do not rely on one tool call. Run multiple invocations of `search-logs`, `search-aggregations`, `search-traces`, `search-error-groups`, and `search-sessions`, using the findings of each to sharpen the next.
+4. **Respect the 50-entry limit.** `search-logs`, `search-traces`, `search-error-groups`, and `search-sessions` tools return at most 50 entries per call. For larger datasets, run a `search-aggregations` query first to aggregate, then narrow with targeted fetches.
 5. **Cross-reference aggressively.** Trace IDs in logs, session IDs in errors, error messages in session replays — the point where products connect is usually where the root cause sits.
 6. **Maintain a running checklist.** Periodically summarize what you've confirmed vs. what you still need to test. Keeps investigations from drifting.
 7. **End with actionable output.** Clear insights that answer the original question, direct references the user can click through (log excerpts, trace IDs, session IDs, error group IDs), a severity assessment, and at least one concrete remediation — a config change, a flag flip, a code-level fix with file and line, or a specific diagnostic step with the exact query to run.
@@ -46,7 +46,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 ## Universal guidance
 
-- **Prefer aggregation over pagination.** If you want to list unique users, count distinct values, or summarize, use `query-aggregations` with `group_by` — don't paginate through individual records. Use `get-keys` to discover the right grouping dimension first.
+- **Prefer aggregation over pagination.** If you want to list unique users, count distinct values, or summarize, use `search-aggregations` with `groupBy` — don't paginate through individual records. Use `get-keys` to discover the right grouping dimension first.
 - **Call `get-keys` before attribute filters.** Attribute names vary across product types and services (`spanName` vs `span_name`, `hasErrors` vs `has_errors`). One `get-keys` call upfront prevents wasted queries with wrong field names.
 - **Cite specific identifiers.** Every recommendation should reference the exact flag key, service name, session ID, trace ID, or file path you pulled from the data. The user should be able to act on your summary without redoing your investigation.
 - **Handle large tool outputs.** When a tool result is persisted to a file (you'll see "Output too large ... Full output saved to: <path>"), do NOT use Read — it has the same token limit. Use Bash with `python3` or `jq` to extract the specific slice you need.

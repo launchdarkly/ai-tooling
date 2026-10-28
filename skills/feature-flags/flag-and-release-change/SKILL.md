@@ -34,7 +34,7 @@ You work in two phases — **plan**, then **implement** — and you check in wit
 - A `git` CLI that can read and push to the PR's repository.
 - The composed skills available: [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md) (flag creation + code wiring) and [`flag-release`](../flag-release/SKILL.md) (recording the rollout). [`should-flag-change`](../should-flag-change/SKILL.md) is used if the flag decision hasn't been made.
 
-MCP tools are used *via the composed skills* — `create-flag`/`get-flag` through flag-create, `match-release-policies`/`create-automated-rollout-config` through flag-release. This skill calls none directly.
+MCP tools are used *via the composed skills* — `create-flag`/`get-flags` through flag-create, `match-release-policies`/`create-automated-rollout-config` through flag-release. This skill calls none directly.
 
 ## Working With the Pull Request
 

@@ -21,7 +21,7 @@ Full lifecycle management of custom business metrics: create metric definitions 
 
 ## API Access
 
-Use the LaunchDarkly MCP server tools wherever one exists: they authenticate via OAuth and need no token. Create metrics with `create-metric`, check that events are arriving with `list-metric-events`, and read definitions with `get-metric` and `list-metrics`. The MCP server can't update or delete metrics, so those steps use the REST API. For them, or for scripts that can't use MCP, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+Use the LaunchDarkly MCP server tools wherever one exists: they authenticate via OAuth and need no token. Create metrics with `create-metric`, check that events are arriving with `get-metric-events`, read definitions with `get-metrics`, and change or remove them with `update-metric` and `delete-metric`. For scripts that can't use MCP, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 ## Metrics Lifecycle Overview
 
@@ -29,7 +29,7 @@ Use the LaunchDarkly MCP server tools wherever one exists: they authenticate via
 |------|--------|---------|
 | 1. Create | MCP `create-metric` | Define metric in LaunchDarkly |
 | 2. Track | SDK | Send events to the metric |
-| 3. Get | MCP `get-metric`, `list-metrics` | Retrieve metric definition/data |
+| 3. Get | MCP `get-metrics` (with `metricKey` for one) | Retrieve metric definition/data |
 | 4. Update | API | Modify metric properties |
 | 5. Delete | API | Remove metric |
 
@@ -52,7 +52,7 @@ Call `create-metric`. `eventKey` must match the key your code passes to `track()
 }
 ```
 
-`measureType` is `count` (how many times the event fired), `occurrence` (whether each user fired it at all), or `value` (a number sent with the event). Then confirm with `get-metric`.
+`measureType` is `count` (how many times the event fired), `occurrence` (whether each user fired it at all), or `value` (a number sent with the event). Then confirm with `get-metrics`.
 
 ### Scripts without MCP
 
@@ -248,7 +248,7 @@ def track_revenue(ld_client, user_id: str, revenue: float, source: str):
 
 ## 3. Get Metrics
 
-Use `get-metric` for one metric and `list-metrics` for all of them. After you start tracking, `list-metric-events` shows which event keys have arrived and when, which is the fastest way to catch an `eventKey` that doesn't match `track()`. The REST equivalents for scripts:
+Use `get-metrics` with `metricKey` for one metric, or without it for all of them. After you start tracking, `get-metric-events` shows which event keys have arrived and when, which is the fastest way to catch an `eventKey` that doesn't match `track()`. The REST equivalents for scripts:
 
 ### Get Single Metric
 
@@ -512,7 +512,7 @@ class SessionMetricsTracker:
 Custom metrics appear in:
 - **Metrics** page in LaunchDarkly UI
 - **Monitoring tab** of your config
-- From the agent with the `get-metric`, `list-metrics`, and `list-metric-events` MCP tools
+- From the agent with the `get-metrics` and `get-metric-events` MCP tools
 - From scripts with `get_metric()` or `list_metrics()`
 
 ## Related Skills
