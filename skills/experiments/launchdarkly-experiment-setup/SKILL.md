@@ -204,7 +204,8 @@ Creating the experiment leaves the iteration in `not_started`. Call `start-exper
 {
   "projectKey": "my-project",
   "environmentKey": "production",
-  "experimentKey": "checkout-flow-v2-experiment"
+  "experimentKey": "checkout-flow-v2-experiment",
+  "confirm": true
 }
 ```
 
@@ -262,7 +263,8 @@ Example: swap the treatment allocation and add a metric in a single call.
     { "key": "checkout-completed" },
     { "key": "checkout-time-seconds" },
     { "key": "checkout-error-rate" }
-  ]
+  ],
+  "confirm": true
 }
 ```
 
@@ -278,7 +280,8 @@ If the experiment was inconclusive or no variation beat the control, declare the
   "environmentKey": "production",
   "experimentKey": "checkout-flow-v2-experiment",
   "winningTreatmentId": "treat-002",
-  "winningReason": "Two weeks of data, +4.1% lift on the primary metric."
+  "winningReason": "Two weeks of data, +4.1% lift on the primary metric.",
+  "confirm": true
 }
 ```
 

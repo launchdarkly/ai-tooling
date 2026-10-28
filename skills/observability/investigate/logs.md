@@ -41,4 +41,4 @@ The `search-logs` tool returns paginated log entries with timestamp, level, mess
 - Asking for 100+ entries. Max is 50. Use `search-aggregations` for aggregates.
 - Forgetting to specify `startDate`. It's required.
 - Wildcarding too broadly (`message="*"`) — returns everything, wastes token budget.
-- Assuming attribute names. Call `get-keys(productType="Logs")` if you're unsure which field to filter on.
+- Assuming attribute names. Call `get-keys` with `projectKey`, `productType="logs"`, and `startDate` if you're unsure which field to filter on.

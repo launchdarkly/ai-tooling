@@ -91,7 +91,7 @@ Before applying changes, especially in production, run through the [Safety Check
 
 ### Step 4: Apply Changes
 
-Use the appropriate tool for the change. Key notes:
+Use the appropriate tool for the change. Every tool below, and `copy-flag-config`, requires `confirm: true`; pass it only after the user has agreed to the change. Key notes:
 
 - **`toggle-flag`**: Specify `on: true` or `on: false`, the `env`, and a `comment`.
 - **`update-rollout`**: Use `rolloutType: "percentage"` with human-friendly weights (e.g., 80 for 80%) that sum to 100, or `rolloutType: "variation"` with a `variationIndex`.

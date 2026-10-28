@@ -939,6 +939,7 @@
       },
       "required": [
         "recommend",
+        "verdict",
         "confidence",
         "reasons"
       ]

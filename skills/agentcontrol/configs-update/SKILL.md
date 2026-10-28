@@ -60,7 +60,7 @@ Then use `get-agent-configs` to review the full detail:
 - Switch model (provide new `modelConfigKey` and `modelName`)
 - Change instructions or messages
 - Tune parameters (temperature, max_tokens, etc.)
-- Attach or detach tools via the parameters object
+- Attach or detach tools with the top-level `tools` array
 
 **Archive a config** -- Use `update-agent-config` with `archived: true`. Archiving is the **preferred** way to retire a config:
 - It is reversible (unarchive with `archived: false`)

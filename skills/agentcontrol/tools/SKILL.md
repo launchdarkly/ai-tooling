@@ -78,7 +78,8 @@ Use `update-agent-config-variation` to attach tools. **Pass only the `tools` fie
   "variationKey": "default",
   "tools": [
     {"key": "search-knowledge-base", "version": 1}
-  ]
+  ],
+  "confirm": true
 }
 ```
 

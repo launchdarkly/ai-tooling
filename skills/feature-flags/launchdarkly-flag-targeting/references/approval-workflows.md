@@ -90,6 +90,7 @@ Input:
   projectKey: "my-project"
   id: "<approval-request-id>"
   comment: "Applying approved production rollout"
+  confirm: true
 ```
 
 After applying, verify the change with `get-flags`.

@@ -110,10 +110,10 @@ tests:
         weight: 3
 
   # ==================================================================
-  # RELEASE ON MERGE (happy path) — staging simple, production policy.
+  # RELEASE ON MERGE (happy path) — staging immediate, production policy.
   # The skill should preview the policy, then record BOTH environments.
   # ==================================================================
-  - description: "Release on merge: previews the policy and records both staging (simple) and production (policy)"
+  - description: "Release on merge: previews the policy and records both staging (immediate) and production (policy)"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -158,8 +158,8 @@ tests:
           staging and production, releasing on merge, choosing each environment's
           setup based on what its release policy would do.
           Evaluate the response:
-          1. Did it record both environments with a sensible release type (simple or
-             policy) for each?
+          1. Did it record both environments with a sensible release for each
+             (immediate, or releaseType "policy")?
           2. Does it explain what happens on merge for each environment, grounded in
              the previewed release policy (e.g. production follows a guarded rollout)?
           3. Did it avoid turning the flag on by hand?

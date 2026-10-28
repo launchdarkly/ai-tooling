@@ -110,7 +110,8 @@ Use `update-agent-config-variation` with `judgeConfiguration`. Get `variationKey
       {"judgeConfigKey": "security-judge", "samplingRate": 1.0},
       {"judgeConfigKey": "api-contract-judge", "samplingRate": 0.5}
     ]
-  }
+  },
+  "confirm": true
 }
 ```
 
@@ -126,7 +127,8 @@ Each judge config needs its fallthrough set to the enabled variation in every en
   "configKey": "security-judge",
   "env": "production",
   "rolloutType": "variation",
-  "variationKey": "default"
+  "variationKey": "default",
+  "confirm": true
 }
 ```
 

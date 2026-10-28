@@ -235,7 +235,7 @@ tests:
         The metric has been created. Here is the verification:
 
         ```
-        get-metrics(projectKey="my-app", key="signup-rate")
+        get-metrics(projectKey="my-app", metricKey="signup-rate")
         ```
     assert:
       - type: llm-rubric

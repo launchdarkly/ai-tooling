@@ -264,7 +264,7 @@ Create the flag, wire it into the app, and let the user watch it turn on.
 ```
 
 - If **I'll flip it in LaunchDarkly**: give them the direct link to the flag and wait. `https://app.launchdarkly.com/projects/{projectKey}/flags/{flagKey}/targeting?env={envKey}`
-- If **Flip it for me**: turn it on via `toggle-flag` (MCP) or the REST API, whichever is configured. If neither is, fall back to the dashboard link.
+- If **Flip it for me**: turn it on via `toggle-flag` (MCP, with `on: true` and `confirm: true`) or the REST API, whichever is configured. If neither is, fall back to the dashboard link.
 - Only offer **Flip it for me** when MCP or an API token is actually configured. Otherwise show just the LaunchDarkly option.
 
 Do not print the page or the banner text in chat. Point the user to their browser: the banner at `<url>` flips live with the server still running. That is the flag working.
