@@ -4,7 +4,7 @@
 
 | Situation | Action |
 |-----------|--------|
-| Every Release Autopilot tool returns 404 | The account is not in the alpha. Stop and tell the user |
+| Every Release Autopilot tool returns 404 | The account does not have the Release Autopilot add-on enabled. Tell the user and stop |
 | Member role is `reader` or `no_access` | Preview mode. End with the plan as a checklist for an admin |
 | Member role is `writer` or a custom role | Account writes are marked "needs an admin" and left out of Step 8; repo writes still run |
 | A write returns 403 | Report which write failed, list the remaining writes for an admin, and stop |

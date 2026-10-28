@@ -225,12 +225,12 @@ module.exports.cleanupQuestionHasLifecycleLink = (output) => {
 };
 
 // "Release Autopilot" belongs only in the welcome, the resume phrase, and the
-// settings skill's name.
+// settings skill's name, and the add-on name.
 module.exports.noProductNameAfterIntro = (output) => {
   const turns = ((output && output.assistant_turns) || []).map((x) => (typeof x === "string" ? x : (x && x.text) || ""));
   const texts = [...turns, finalText(output), ...askPrompts(output)]
     .filter((s) => !/Release Autopilot Setup|in a few short steps/i.test(s))
-    .map((s) => s.replace(/continue Release Autopilot setup|Release Autopilot settings skill|release-autopilot-settings/gi, ""));
+    .map((s) => s.replace(/continue Release Autopilot setup|Release Autopilot settings skill|release-autopilot-settings|Release Autopilot add-on/gi, ""));
   const hits = texts.filter((s) => /Release Autopilot/.test(s));
   return result(hits.length === 0, hits.length ? `said "Release Autopilot" after the welcome: "${hits[0].slice(Math.max(0, hits[0].indexOf("Release Autopilot") - 40), hits[0].indexOf("Release Autopilot") + 40)}"` : "uses capability names");
 };
@@ -252,4 +252,10 @@ module.exports.relistsAfterDone = (output) => {
 module.exports.asksWhichBrowserAccount = (output) => {
   const pass = askPrompts(output).some((p) => p.includes("admin@acme.example") && !p.includes("flow=install"));
   return result(pass, pass ? "asked which account the browser uses, naming this connection's member" : "did not ask about the browser account with the member's email");
+};
+
+module.exports.saysAddOnNotEnabled = (output) => {
+  const text = allText(output);
+  const pass = /Release Autopilot add-on enabled/i.test(text) && !/\balpha\b/i.test(text);
+  return result(pass, pass ? "says the add-on is not enabled" : "did not use the add-on wording (or mentioned the alpha)");
 };

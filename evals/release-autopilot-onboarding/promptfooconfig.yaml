@@ -650,3 +650,27 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:asksWhichBrowserAccount
         metric: diagnoses_browser_account
         weight: 4
+
+  # ------------------------------------------------------------------
+  # Every Release Autopilot tool returns 404: the account does not have
+  # the add-on. The skill says so in those words and stops.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Add-on not enabled: every settings tool 404s, says so, zero writes"
+    vars:
+      user_request: "Set up Release Autopilot for acme/demo in project default."
+      max_turns: 10
+      mock_tool_overrides:
+        get-release-autopilot-settings: { error: "LaunchDarkly API error: 404 Not Found" }
+        list-release-autopilot-repo-settings: { error: "LaunchDarkly API error: 404 Not Found" }
+        list-release-autopilot-github-repos: { error: "LaunchDarkly API error: 404 Not Found" }
+        get-release-autopilot-repo-settings: { error: "LaunchDarkly API error: 404 Not Found" }
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:saysAddOnNotEnabled
+        metric: add_on_wording
+        weight: 4

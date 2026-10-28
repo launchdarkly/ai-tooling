@@ -24,7 +24,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 
 If these tools are missing, stop. Do not invent REST calls, numeric GitHub ids, or "fixes" by guessing settings.
 
-Release Autopilot settings are in alpha: the underlying endpoints are gated by an alpha feature flag. If every Release Autopilot tool returns 404, the account is not in the alpha — tell the user rather than retrying or falling back to REST.
+The underlying endpoints require the Release Autopilot add-on. If every Release Autopilot tool returns 404, the account does not have the Release Autopilot add-on enabled — tell the user "Your account does not have the Release Autopilot add-on enabled," rather than retrying or falling back to REST.
 
 ## Core Principles
 
@@ -94,7 +94,7 @@ Identify the GitHub repo (`owner/name`) from the PR URL, `git remote`, or the na
 If all three look fine (account on, repo mapped, repo auto-flagging effective on):
 
 - Do **not** flip settings to "try something."
-- Point them at the Release Autopilot runbooks. These are internal LaunchDarkly Confluence pages (PD space) while Release Autopilot is in alpha; there is no public docs URL yet. Classification can still fail for reasons this MCP surface cannot see (GitHub App install on the wrong org, PR not in an installed repo, workflow/app permissions, classifier skip rules).
+- Point them at the Release Autopilot runbooks. These are internal LaunchDarkly Confluence pages (PD space); there is no public docs URL yet. Classification can still fail for reasons this MCP surface cannot see (GitHub App install on the wrong org, PR not in an installed repo, workflow/app permissions, classifier skip rules).
   - [Flag Classification (ODD) Runbook](https://launchdarkly.atlassian.net/wiki/spaces/PD/pages/5377097848/WIP+Flag+Classification+ODD+Runbook) — the classifier itself: verdicts (`not-suited`, `already-flagged`), escalations, and the per-PR ledger that records why a PR got the verdict it did.
   - [GitHub App Runbook](https://launchdarkly.atlassian.net/wiki/spaces/PD/pages/5157388373/GitHub+App+Runbook) — the PR event never reaching Release Autopilot: install scope, permissions, webhooks.
 - Optional reads: `list-release-autopilot-github-repos` to confirm the repo is on the install list; `autoFlagging.approvalRequired` if they expected a PR and one exists but is waiting on approval.

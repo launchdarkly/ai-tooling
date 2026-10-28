@@ -20,7 +20,7 @@ This skill teaches agents how to:
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot settings tools, and `list-release-policies` and `list-metrics` for auto-releasing (`list-release-plans` and `create-release-plan` when the account has environment release plans). Release Autopilot is in alpha, so accounts outside the alpha get 404s.
+The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot settings tools, and `list-release-policies` and `list-metrics` for auto-releasing (`list-release-plans` and `create-release-plan` when the account has environment release plans). Accounts without the Release Autopilot add-on enabled get 404s.
 
 ## Usage
 

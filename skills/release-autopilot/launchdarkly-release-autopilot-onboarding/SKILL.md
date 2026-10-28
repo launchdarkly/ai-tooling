@@ -35,7 +35,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 
 If a required tool is missing, stop and tell the user which one. Do not invent REST calls. If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
 
-Release Autopilot is in alpha. If every Release Autopilot tool returns 404, the account is not in the alpha. Tell the user and stop.
+If every Release Autopilot tool returns 404, the account does not have the Release Autopilot add-on enabled. Tell the user "Your account does not have the Release Autopilot add-on enabled," and stop.
 
 ## Modes
 
@@ -61,7 +61,7 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 ## Speaking to the user
 
 - Use product words ("auto-flagging", "release policy", "approval") in every message, including questions, checklists, and the final summary. Never show tool names, field names (`githubRepoId`, `autoReleasing.enabled`), HTTP status codes, step numbers, or this skill's mode names ("preview mode", "policy mode", "plan mode"); say "Here's what would change", "your account uses release policies", and "Verification", not "Step 9".
-- Say "Release Autopilot" only in the welcome. After that, name the capability ("auto-flagging", "auto-releasing", "auto-cleanup"), or say "these capabilities". The exceptions are the resume phrase "continue Release Autopilot setup" and the name of the settings skill.
+- Say "Release Autopilot" only in the welcome. After that, name the capability ("auto-flagging", "auto-releasing", "auto-cleanup"), or say "these capabilities". The exceptions are the resume phrase "continue Release Autopilot setup", the name of the settings skill, and "the Release Autopilot add-on".
 - Name repos as `owner/name`. Show a repository ID only for a mapped repo with no name.
 - Describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value, not even in parentheses for an admin. If a check after a write disagrees with it, name the change that could not be confirmed and where to check it in the LaunchDarkly UI.
 - Every browser step (GitHub, bring your own key, Lifecycle or release settings) must be done while signed in as the member from Step 1. Say so when you give the link.
@@ -265,7 +265,7 @@ If any change was left for an admin or failed, lead with "Partly set up: waiting
 
 | Situation | Action |
 |-----------|--------|
-| Every settings tool returns 404 | The account is not in the alpha. Stop and tell the user |
+| Every settings tool returns 404 | The account does not have the Release Autopilot add-on enabled. Tell the user and stop |
 | Member role is `reader` or `no_access` | Preview mode. End with a checklist for an admin |
 | Release plans return 403 | Use release policies. Create no plans |
 | Repo not on the install list | Explain the GitHub fix by owner, then list again |
