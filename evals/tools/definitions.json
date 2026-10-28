@@ -1146,7 +1146,7 @@
   },
   {
     "name": "create-automated-rollout-config",
-    "description": "Record an automated rollout config for a feature-flagged change. Use it only for AutomatedRollout requests. The guarding flag must already exist. repoFullName, prNumber, and prUrl are optional: pass the PR the user names or one you just filed, and omit them when there is none. Each environment either pins an override rollout or follows its release policy after the merge. releaseType is only override or policy; immediate, progressive, and guarded are override.releaseMethod values. An immediate release passes only environmentKey, with no releaseType or override. Stages have exactly allocation and durationMillis; allocation is thousandths of a percent, so 10% over one hour is {\"allocation\":10000,\"durationMillis\":3600000}. The context kind field is override.rolloutContextKindKey. For policy environments the response can include warnings about a missing or incomplete policy: surface them in generated comments, do not describe the release as a clean policy rollout, and do not add tags to make a policy match. Returns created, config_id, flag_key, the normalized environments, and warnings.",
+    "description": "Record an automated rollout config for a feature-flagged change. Use it only for AutomatedRollout requests. The guarding flag must already exist. repoFullName, prNumber, and prUrl are optional: pass the PR the user names or one you just filed, and omit them when there is none. Each environment either pins an override rollout or follows its release policy after the merge. Every listed environment releases on merge; to hold one, leave it out (no hold or date field exists). releaseType is only override or policy; immediate, progressive, and guarded are override.releaseMethod values. An immediate release passes only environmentKey, with no releaseType or override. Stages have exactly allocation and durationMillis; allocation is thousandths of a percent, so 10% over one hour is {\"allocation\":10000,\"durationMillis\":3600000}. The context kind field is override.rolloutContextKindKey. For policy environments the response can include warnings about a missing or incomplete policy: surface them in generated comments, do not describe the release as a clean policy rollout, and do not add tags to make a policy match. Returns created, config_id, flag_key, the normalized environments, and warnings.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -1231,7 +1231,7 @@
               },
               "releaseType": {
                 "type": "string",
-                "description": "Only override or policy. override (default) pins the rollout in override; policy waits for the PR merge and the flag's first evaluation, then applies the environment's release policy. Do not pass override with policy. immediate, progressive, and guarded are override.releaseMethod values.",
+                "description": "Only override or policy. override (default) pins the rollout in override; policy waits for the PR merge and the flag's first evaluation, then applies the environment's release policy; it releases on merge and never holds. Do not pass override with policy. immediate, progressive, and guarded are override.releaseMethod values.",
                 "enum": [
                   "override",
                   "policy"
