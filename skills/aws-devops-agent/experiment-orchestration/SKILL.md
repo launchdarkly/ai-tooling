@@ -87,6 +87,7 @@ Prove the change on a small, fixed slice of traffic. The experiment and the roll
    - Exactly one primary metric: the success metric from Step 1.
    - Guardrail metric(s): always include your error-rate metric; add a performance metric (e.g. p95 page load time) too if this is a performance-focused change.
    - Treatments: control (off) at 50%, treatment (on) at 50%, allocated to 10% of total traffic.
+   - An analysis that stays valid when results are checked repeatedly: `methodology: "frequentist"` with `analysisConfig.sequentialTestingEnabled: true`, or `methodology: "bayesian"`. Step 7 checks results many times, and a fixed-horizon frequentist test checked that way declares false winners.
 4. Start the experiment/data collection.
 5. Move to Step 7 to monitor toward a decision.
 
@@ -102,7 +103,7 @@ Watch for statistical significance on the primary metric:
 - **Significant + negative lift** → declare a loser, stop the iteration with control as the winner, turn the flag off (do not archive it while the code still evaluates it), skip Phase 2, go straight to the Step 8 report.
 - **No significance after a reasonable ceiling (e.g. 4 weeks)** → report "inconclusive, need more traffic", stop the iteration with control as the winner, and stop; don't proceed to Phase 2.
 
-Never declare a winner off a single data point or before your stats engine confirms significance.
+Never declare a winner off a single data point or before your stats engine confirms significance. Also require at least 100 exposures in each variation before acting on a significant result; with fewer, keep collecting data.
 
 **Phase 2 — Guarded rollout ramp (only after Phase 1 proves the change):**
 
