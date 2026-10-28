@@ -52,9 +52,9 @@ Explore the target repository/codebase to find a plausible change:
 ## Step 3: Implementation
 
 1. Create a boolean feature flag, OFF by default in all environments, with `defaults` of `{"onVariation": 1, "offVariation": 1}` so that it serves false even when it is on, and `clientSideAvailability` of `{"usingEnvironmentId": true, "usingMobileKey": true}` so that every SDK can read it. Name it with a clear pattern like `exp-<metric>-<short-description>` (e.g. `exp-checkout-conversion-cta-color`), lowercase with hyphens, ~50 chars max. If the project has its own flag naming conventions (for example, a required prefix or case), follow them instead.
-2. If a coding agent is available, hand off the implementation to it, with instructions to gate the change behind the exact flag key from step 1. Without a coding agent or GitHub write access, give the user the flag key and the change instead, and wait for their PR (with GitHub connected) or their confirmation that it is deployed (without GitHub).
+2. If a coding agent is available, hand off the implementation to it, with instructions to gate the change behind the exact flag key from item 1 above. Without a coding agent or GitHub write access, give the user the flag key and the change instead, and wait for their PR (with GitHub connected) or their confirmation that it is deployed (without GitHub).
 3. This step is asynchronous — check status periodically rather than looping tightly on it.
-4. Once implementation completes, move to Step 4 with the resulting branch/PR. If it fails, report the error and stop.
+4. Once implementation completes, move to Step 4: Release Readiness with the resulting branch/PR. If it fails, report the error and stop.
 
 ## Step 4: Release Readiness
 
@@ -75,7 +75,7 @@ The flagged code must be running in the environment the experiment uses before S
 4. **Trigger a deployment at most once per attempt.** If you're unsure whether a previous trigger succeeded, check status first — never re-trigger just because you're unsure.
 5. On timeout: stop, check the CI run directly, report the situation, ask how to proceed.
 6. On explicit failure: stop and report — do not proceed to the experiment.
-7. On success: proceed immediately to Step 6.
+7. On success: proceed immediately to Step 6: Experiment Phase.
 
 ## Step 6: Experiment Phase (fixed 10%)
 
@@ -83,15 +83,15 @@ Prove the change on a small, fixed slice of traffic. The experiment and the roll
 
 The flag from Step 3 is boolean: the control is its `false` variation (current behavior) and the treatment is its `true` variation (the change).
 
-1. Turn the flag ON; starting an experiment fails while the flag is off. It still serves the control to everyone, because Step 3 set its defaults to `false`.
+1. Turn the flag ON; starting an experiment fails while the flag is off. It still serves the control to everyone, because Step 3: Implementation set its defaults to `false`.
 2. Read the flag to get its current version (required by `create-experiment`) and the IDs of the control and treatment variations.
 3. Create an experiment with:
-   - `flags`: `{"<flag-key>": {"ruleId": "fallthrough", "flagConfigVersion": <version from step 2>, "notInExperimentVariationId": "<control variation ID>"}}`. The experiment runs on the default rule, the only rule the Step 7 rollouts act on, and every context outside the experiment keeps getting the control.
-   - `hypothesis`: the hypothesis from Step 2.
+   - `flags`: `{"<flag-key>": {"ruleId": "fallthrough", "flagConfigVersion": <version from item 2 above>, "notInExperimentVariationId": "<control variation ID>"}}`. The experiment runs on the default rule, the only rule the Step 7 rollouts act on, and every context outside the experiment keeps getting the control.
+   - `hypothesis`: the hypothesis from Step 2: Hypothesis Generation.
    - `treatments`: the control, `{"name": "Control", "baseline": true, "allocationPercent": 5, "parameters": [{"flagKey": "<flag-key>", "variationId": "<control variation ID>"}]}`, and the treatment, the same with `"name": "Treatment"`, `"baseline": false`, and the treatment variation ID. Each treatment's `allocationPercent` is its share of all traffic on the rule, so 5 + 5 puts 10% of contexts in the experiment, split 50/50. Never use 50 and 50: that puts 100% of traffic in the experiment.
    - `canReshuffleTraffic: false`, so contexts keep their variation if the traffic changes.
    - `randomizationUnit`: your chosen randomization unit (typically "user").
-   - `metrics`: the success metric from Step 1 and the guardrail metrics, each as `{"key": "<metric-key>"}`. Always include your error-rate metric as a guardrail; add a performance metric (e.g. p95 page load time) too if this is a performance-focused change.
+   - `metrics`: the success metric from Step 1: Goal Clarification and the guardrail metrics, each as `{"key": "<metric-key>"}`. Always include your error-rate metric as a guardrail; add a performance metric (e.g. p95 page load time) too if this is a performance-focused change.
    - `primarySingleMetricKey`: the success metric's key. It is the only primary metric.
    - `methodology: "frequentist"` with `analysisConfig.sequentialTestingEnabled: true`. Step 7 checks results many times; sequential testing keeps significance valid under repeated checks, where a fixed-horizon test would declare false winners. Don't use the Bayesian methodology: it reports a probability of being best, not the significance Step 7 decides on.
 4. Start the experiment iteration. Starting it writes the split onto the default rule: 5% control and 5% treatment in the experiment, and the other 90% control, not analyzed.
