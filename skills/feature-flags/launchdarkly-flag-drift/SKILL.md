@@ -17,12 +17,12 @@ You're using a skill that will guide you through checking whether a feature flag
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `get-flag`: fetch the flag's configuration **in a specific environment** (fallthrough, variations, offVariation). Fallthrough is environment-specific, so call this **once per critical environment**.
+- `get-flags`: fetch the flag's configuration **in a specific environment** (fallthrough, variations, offVariation). Fallthrough is environment-specific, so call this **once per critical environment**.
 
 **Optional MCP tools:**
-- `list-flags`: find the flag key if the user only described the flag by name
-- `get-environments`: enumerate the project's environments to determine which are critical
-- `get-flag-status-across-envs`: quick snapshot of a flag's state across environments (a fast way to spot cross-environment differences before pulling each `get-flag`)
+- `get-flags`: find the flag key if the user only described the flag by name
+- `get-projects` (with projectKey): enumerate the project's environments to determine which are critical
+- `get-flag-status-across-envs`: quick snapshot of a flag's state across environments (a fast way to spot cross-environment differences before pulling each `get-flags`)
 
 ## Core Concept: The SDK Fallback Default Is Not the Off Variation
 
@@ -45,15 +45,15 @@ Some teams intentionally keep the fallback as a conservative/off value instead. 
 
 ### Step 1: Identify the Flag and the Critical Environments
 
-1. **Get the flag key.** If the user described the flag by name, use `list-flags` to resolve the key. Confirm before proceeding.
+1. **Get the flag key.** If the user described the flag by name, use `get-flags` to resolve the key. Confirm before proceeding.
 2. **Establish the critical environments.** The fallthrough is environment-specific, and the same in-code default has to stand in for every environment the deployed code serves. Determine that full set before comparing:
    - If one build serves **multiple** production-grade environments (e.g. `production`, `eu-production`, `federal`), **all** of them are critical.
    - If the build is scoped to **one** environment (a region- or tenant-specific deployment, e.g. a Federal-only build), that single environment is the only critical one.
-   - Look for signals in the repo (deploy config, environment names in CI, SDK key wiring) and confirm with the user. Use `get-environments` to enumerate what exists if the set is unclear. Do not assume a single `production`.
+   - Look for signals in the repo (deploy config, environment names in CI, SDK key wiring) and confirm with the user. Use `get-projects` with the project key to enumerate what exists if the set is unclear. Do not assume a single `production`.
 
 ### Step 2: Determine the Expected Default from LaunchDarkly
 
-Call `get-flag` **once per critical environment**. For each environment, read:
+Call `get-flags` **once per critical environment**. For each environment, read:
 - `fallthrough`: the default rule. If it points to a single `variation` (an index), that's the resolved value. If it's a percentage `rollout`, there is **no single default value**, so stop and handle as an edge case.
 - `variations`: map `fallthrough.variation` (the index) to `variations[index].value`. This resolved value is that environment's expected default.
 - `offVariation` and flag type: useful context for the comparison and for spotting type mismatches.
@@ -65,9 +65,9 @@ Then reconcile across environments:
 | All resolve to the **same** value | That shared value is the expected default. Continue to Step 3. |
 | They resolve to **different** values | **Cross-environment divergence.** One in-code default cannot satisfy all of them. Do **not** auto-pick. Report the per-environment values and confirm which environment is authoritative for this build (or that the divergence should be resolved in LaunchDarkly first). See Edge Cases. |
 
-(`get-flag-status-across-envs` can give a fast heads-up on whether environments differ, but always resolve the actual fallthrough value with `get-flag` before editing.)
+(`get-flag-status-across-envs` can give a fast heads-up on whether environments differ, but always resolve the actual fallthrough value with `get-flags` before editing.)
 
-Never guess the fallthrough value. Always resolve it from `get-flag`.
+Never guess the fallthrough value. Always resolve it from `get-flags`.
 
 ### Step 3: Locate Every In-Code Default
 
@@ -162,7 +162,7 @@ notes:                 <anything the reviewer should know, incl. any cross-envir
 - Don't reconcile to one environment's fallthrough when critical environments disagree — a single default can't satisfy divergent environments, so surface the divergence and confirm the authoritative environment first.
 - Don't hand-edit generated files; regenerate from the source of truth.
 - Don't open a PR when there is no drift.
-- Don't guess the fallthrough value; resolve it from `get-flag`.
+- Don't guess the fallthrough value; resolve it from `get-flags`.
 - Don't ship code that fails format, lint, type-check, build, or tests.
 
 ## References

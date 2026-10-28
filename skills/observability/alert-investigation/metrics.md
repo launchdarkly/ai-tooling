@@ -14,8 +14,8 @@ Metric alerts carry:
 
 ## Investigation shape
 
-1. **Replay the alert's metric query** using the `query-aggregations` tool, same `product_type`, `query`, and time window as the alert. Confirm you see the same value that breached.
-2. **Expand the time window just enough** to see onset — if the threshold was crossed at T, pull `query-aggregations` from `T - 2 * thresholdWindow` to `T` to see the rise.
+1. **Replay the alert's metric query** using the `search-aggregations` tool, same `productType`, `query`, and time window as the alert. Confirm you see the same value that breached.
+2. **Expand the time window just enough** to see onset — if the threshold was crossed at T, pull `search-aggregations` from `T - 2 * thresholdWindow` to `T` to see the rise.
 3. **Drill into the underlying records.** A metric alert on `errors` points to specific error groups; on `sessions` to specific sessions; on `traces` to specific traces. Pull the relevant record-level data for the top contributing dimension.
 4. **Check external triggers.** Deploy correlation, flag flip, traffic surge, dependency issue.
 

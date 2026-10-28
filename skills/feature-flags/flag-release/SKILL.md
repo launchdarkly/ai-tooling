@@ -35,8 +35,8 @@ By the time this skill runs, the flag exists (OFF) and the guarding code is wire
 **MCP tools this skill uses:**
 - `create-automated-rollout-config` — record the rollout for the flag against the PR *(the deliverable)*
 - `match-release-policies` — resolve which release policy governs each environment (call before proposing the plan)
-- `list-release-policies` — see the project's release policies and the metrics they auto-attach
-- `get-flag` — confirm the flag exists and is OFF before recording
+- `get-release-policies` — see the project's release policies and the metrics they auto-attach
+- `get-flags` — confirm the flag exists and is OFF before recording
 
 Full release model — `simple` vs `policy`, precedence, previewing, prerequisites, metric adequacy: [references/auto-release.md](references/auto-release.md).
 
@@ -44,7 +44,7 @@ Full release model — `simple` vs `policy`, precedence, previewing, prerequisit
 
 **Record nothing in this phase.**
 
-1. **Confirm the flag.** `get-flag` to verify the guarding flag exists and is OFF. If it doesn't exist yet, stop — creation is [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md)'s job, and recording a rollout for a missing flag fails confusingly.
+1. **Confirm the flag.** `get-flags` to verify the guarding flag exists and is OFF. If it doesn't exist yet, stop — creation is [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md)'s job, and recording a rollout for a missing flag fails confusingly.
 2. **Pick the target environments.** Use the environments named by the user or harness. Don't hardcode a set — a given change can't always release to every environment. If none are named, enumerate the project's real keys and confirm the set rather than assuming.
 3. **Preview each environment's policy.** Call `match-release-policies` (by `flagKey` + `environmentKey`) to resolve, deterministically, what a `policy` release will do per environment — `winningReleaseMethod` (immediate / progressive / guarded / none). Don't reason about policy scope by hand. For a **guarded** winner, check the auto-attached metrics can actually compare this change (see the metric-adequacy note in [references/auto-release.md](references/auto-release.md)).
 4. **Capture the human's release intent.** Ask (briefly, only if not already stated): release **on merge**, **hold** (recorded but not released yet), or wait until a **`notBefore`** date? A **cohort/segment** to target first? A **prerequisite** parent flag this must not precede? Intent sits above the policy in precedence and is **honored or explicitly held — never silently dropped**.

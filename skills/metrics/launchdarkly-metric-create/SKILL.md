@@ -18,12 +18,12 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Required MCP tools:**
 - `create-metric` — create the metric
-- `get-metric` — verify it after creation
+- `get-metrics` — verify it after creation
 - `get-environment` — fetch the client-side SDK key when instrumenting
 
 **Optional MCP tools (enhance workflow):**
-- `list-metrics` — check for existing metrics with the same event key and understand naming conventions
-- `list-metric-events` — discover which event keys have recent activity before committing to one (custom metrics only)
+- `get-metrics` — check for existing metrics with the same event key and understand naming conventions
+- `get-metric-events` — discover which event keys have recent activity before committing to one (custom metrics only)
 
 ## Two Different "Projects" — Never Confuse Them
 
@@ -71,22 +71,22 @@ When `pageview` or `click` would work, suggest it over `custom` — it requires 
   - `canonical` — matches the canonical URL
   - `regex` — full regex pattern
 - For `click` metrics, also ask for the CSS selector (e.g. `.checkout-btn`, `#submit`).
-- Skip `list-metric-events` — these metrics don't use event keys.
+- Skip `get-metric-events` — these metrics don't use event keys.
 - Skip to Step 3.
 
 **For `custom` metrics — check events first, instrument if needed:**
 
-Call `list-metric-events` immediately to see which event keys are already flowing:
+Call `get-metric-events` immediately to see which event keys are already flowing:
 
 ```
-list-metric-events(projectKey, environmentKey?)
+get-metric-events(projectKey, environmentKey?)
 ```
 
 **Case A — the event key is already in the list:** Confirm the key with the user and proceed to Step 3. No instrumentation needed.
 
 **Case B — the event key is NOT in the list:** The metric can't measure anything without events. **Instrument the event now before creating the metric.** Do not simply warn and ask whether to proceed — treat instrumentation as the default next action.
 
-Follow the instrumentation sub-workflow below, then re-check `list-metric-events` to confirm events are flowing before moving to Step 3. Only skip instrumentation if the user explicitly says they want to create the metric first and wire the event up later — in that case, remind them at the end that the metric will produce no data until the event is tracked.
+Follow the instrumentation sub-workflow below, then re-check `get-metric-events` to confirm events are flowing before moving to Step 3. Only skip instrumentation if the user explicitly says they want to create the metric first and wire the event up later — in that case, remind them at the end that the metric will produce no data until the event is tracked.
 
 ### Step 2b: Instrument the Event (when events aren't flowing)
 
@@ -165,11 +165,11 @@ In the location identified in step 1, add the call immediately before or after t
 Use optional chaining (`ldClient?.track(...)`) in client-side code where the client may not yet be initialized.
 
 **7. Verify events are flowing.**
-After the instrumentation changes are made, remind the user to run the app and trigger the event at least once. Then call `list-metric-events` again to confirm the key appears before proceeding to metric creation.
+After the instrumentation changes are made, remind the user to run the app and trigger the event at least once. Then call `get-metric-events` again to confirm the key appears before proceeding to metric creation.
 
 ### Step 3: Check for Existing Metrics
 
-Before creating anything, use `list-metrics` to scan the project:
+Before creating anything, use `get-metrics` to scan the project:
 
 1. **Check for duplicates.** Search for metrics with the same event key, URL pattern, or similar names. Avoid creating a second metric that measures the same thing — instead, flag the existing metric and ask the user if they want to reuse it.
 2. **Learn the naming convention.** Are metric keys `kebab-case` or `snake_case`? Are there common tag patterns? Match what already exists.
@@ -255,7 +255,7 @@ create-metric(
 
 ### Step 6: Verify
 
-Use `get-metric` to confirm the metric was created with the right configuration:
+Use `get-metrics` to confirm the metric was created with the right configuration:
 
 1. **Key and name match** what was requested.
 2. **kind is correct** — `custom`, `pageview`, or `click`.

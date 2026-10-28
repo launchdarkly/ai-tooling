@@ -88,7 +88,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -145,7 +145,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -209,7 +209,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -273,7 +273,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -335,7 +335,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };

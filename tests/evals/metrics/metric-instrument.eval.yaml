@@ -37,12 +37,12 @@ tests:
         value: "The response must pass an explicit numeric variable (e.g. responseTimeMs, latencyMs) as the metricValue argument. LaunchDarkly does NOT measure latency automatically — the number must be passed. A response that says latency will be aggregated automatically without an explicit value in the call fails."
         metric: uses-metric-value
 
-  - description: "Verify events flow — must instruct list-metric-events after instrumentation"
+  - description: "Verify events flow — must instruct get-metric-events after instrumentation"
     vars:
       user_message: "The LD client is already initialized in my React app. Help me add a track() call for login-success. Project is my-app."
     assert:
       - type: llm-rubric
-        value: "The response instructs the user to verify the event is flowing after adding the track() call — specifically by calling list-metric-events (or mentioning that list-metric-events should be used) to confirm the event key appears in LaunchDarkly."
+        value: "The response instructs the user to verify the event is flowing after adding the track() call — specifically by calling get-metric-events (or mentioning that get-metric-events should be used) to confirm the event key appears in LaunchDarkly."
         metric: verifies-events-flow
 
   - description: "Confirm placement — must show candidate location before writing code"
@@ -53,12 +53,12 @@ tests:
         value: "The response must either ask the user where the track() call should go, OR name a specific candidate file or function and ask the user to confirm it. A response that writes track() code with no mention of placement — no question about location, no candidate location named — does NOT satisfy this."
         metric: confirms-placement
 
-  - description: "SDK setup — must call get-project or get-environment for SDK key"
+  - description: "SDK setup — must call get-projects or get-environment for SDK key"
     vars:
       user_message: "I need to set up the LaunchDarkly SDK from scratch and add a track() call for signup-completed in my Node.js app. Project is my-app."
     assert:
       - type: llm-rubric
-        value: "The response calls get-project or get-environment to retrieve the SDK key for the correct environment, rather than instructing the user to find and copy the SDK key manually from the LaunchDarkly dashboard."
+        value: "The response calls get-projects or get-environment to retrieve the SDK key for the correct environment, rather than instructing the user to find and copy the SDK key manually from the LaunchDarkly dashboard."
         metric: calls-get-project-or-env
 
   - description: "Detect existing SDK patterns before writing new code"
@@ -147,7 +147,7 @@ tests:
         LaunchDarkly UI.
     assert:
       - type: llm-rubric
-        value: "The response instructs the user to verify the event is flowing after adding the track() call — specifically by calling list-metric-events (or mentioning that list-metric-events should be used) to confirm the event key appears in LaunchDarkly."
+        value: "The response instructs the user to verify the event is flowing after adding the track() call — specifically by calling get-metric-events (or mentioning that get-metric-events should be used) to confirm the event key appears in LaunchDarkly."
         metric: verifies-events-flow
 
   # [NEG] 4 — mirrors positive test 4 (confirms-placement)
@@ -167,7 +167,7 @@ tests:
         the purchase-completed event key.
 
         After adding this, trigger a test purchase and verify the event appears in LaunchDarkly
-        using list-metric-events.
+        using get-metric-events.
     assert:
       - type: llm-rubric
         value: "The response must either ask the user where the track() call should go, OR name a specific candidate file or function and ask the user to confirm it. A response that writes track() code with no mention of placement — no question about location, no candidate location named — does NOT satisfy this."
@@ -205,7 +205,7 @@ tests:
         After deploying, verify the event appears in LaunchDarkly.
     assert:
       - type: llm-rubric
-        value: "The response calls get-project or get-environment to retrieve the SDK key for the correct environment, rather than instructing the user to find and copy the SDK key manually from the LaunchDarkly dashboard."
+        value: "The response calls get-projects or get-environment to retrieve the SDK key for the correct environment, rather than instructing the user to find and copy the SDK key manually from the LaunchDarkly dashboard."
         metric: calls-get-project-or-env
 
   # [NEG] 6 — mirrors positive test 6 (checks-existing-patterns)
@@ -229,7 +229,7 @@ tests:
         ```
 
         After adding this, click the button and verify the event appears in LaunchDarkly
-        using list-metric-events.
+        using get-metric-events.
     assert:
       - type: llm-rubric
         value: "The response must search for or ask about existing LaunchDarkly SDK setup or track() calls BEFORE writing the final track() implementation. A note like 'make sure the SDK is set up' that appears AFTER showing the implementation code does NOT satisfy this — the detection or question must come first."

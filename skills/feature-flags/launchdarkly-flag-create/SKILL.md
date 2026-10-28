@@ -18,11 +18,11 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Required MCP tools:**
 - `create-flag`: create a new feature flag in a project
-- `get-flag`: verify the flag was created correctly
+- `get-flags`: verify the flag was created correctly
 
 **Optional MCP tools (enhance workflow):**
-- `list-flags`: browse existing flags to understand naming conventions and tags
-- `update-flag-settings`: update flag metadata (name, description, tags, temporary/permanent status)
+- `get-flags`: browse existing flags to understand naming conventions and tags
+- `update-flag`: update flag metadata (name, description, tags, temporary/permanent status)
 
 ## Workflow
 
@@ -47,7 +47,7 @@ Before creating anything, understand how this codebase uses feature flags.
    - **Default values**: What defaults do existing evaluations use?
    - **Context/user construction**: How does this codebase build the user/context object passed to the SDK? This determines which context kinds and attributes any future targeting can use — and it differs by surface (server vs client vs anonymous). See [Context Availability](../launchdarkly-flag-targeting/references/context-availability.md) before planning a rule, individual target, or rollout.
 
-4. **Check LaunchDarkly project conventions.** Optionally use `list-flags` to see existing flags:
+4. **Check LaunchDarkly project conventions.** Optionally use `get-flags` to see existing flags:
    - What tags are commonly used?
    - Are flags marked as temporary or permanent?
    - What naming patterns exist in the project?
@@ -96,13 +96,13 @@ See [SDK Evaluation Patterns](references/sdk-evaluation-patterns.md) for impleme
 Confirm the flag is properly set up:
 
 1. **Code compiles/passes linting.** Run the project's build or lint step.
-2. **Flag exists in LaunchDarkly.** Use `get-flag` to confirm it was created with the right configuration.
+2. **Flag exists in LaunchDarkly.** Use `get-flags` to confirm it was created with the right configuration.
 3. **Both code paths work.** The flag-off path preserves existing behavior; the flag-on path enables the new feature.
 4. **Default value is safe.** If LaunchDarkly is unreachable, the code falls back to the default: make sure that's the existing/safe behavior.
 
 ## Updating Flag Settings
 
-If the user wants to change flag metadata (not targeting), use `update-flag-settings`. Supported changes:
+If the user wants to change flag metadata (not targeting), use `update-flag`. Supported changes:
 
 | Change | Instruction |
 |--------|-------------|

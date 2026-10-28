@@ -17,10 +17,10 @@ You're using a skill that will guide you through adding a `track()` call to a co
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `list-metric-events` — verify events are flowing after instrumentation
+- `get-metric-events` — verify events are flowing after instrumentation
 
 **Optional MCP tools (enhance workflow):**
-- `get-project` — retrieve the SDK key for the right environment when SDK initialization is needed
+- `get-sdk-key` — retrieve the server-side SDK key for the right environment when SDK initialization is needed (`get-environment` for a client-side ID or mobile key)
 
 ## Workflow
 
@@ -54,7 +54,7 @@ Skip this step if the SDK is already in the codebase.
 
 2. **Install the appropriate SDK** using the detected package manager. See [SDK Track Patterns](references/sdk-track-patterns.md) for the right package name per language.
 
-3. **Get the SDK key** using `get-project` — fetch the project and choose the key for the environment the user wants to instrument (typically `production` or `staging` for initial testing).
+3. **Get the SDK key** using `get-sdk-key` (server-side) or `get-environment` (client-side ID, mobile key) — pick the environment the user wants to instrument (typically `production` or `staging` for initial testing).
 
 4. **Add SDK initialization** following the patterns already in this codebase. If there's a central config or service layer, add the LD client there. See [SDK Track Patterns](references/sdk-track-patterns.md) for initialization examples.
 
@@ -110,10 +110,10 @@ See [SDK Track Patterns](references/sdk-track-patterns.md) for full per-language
 
 ### Step 5: Verify
 
-**Guide the user to trigger the action** in their local or staging environment. Then use `list-metric-events` to confirm the event key appears:
+**Guide the user to trigger the action** in their local or staging environment. Then use `get-metric-events` to confirm the event key appears:
 
 ```
-list-metric-events(projectKey, environmentKey)
+get-metric-events(projectKey, environmentKey)
 ```
 
 **If the event key appears:** confirm success and show a summary.
@@ -126,8 +126,8 @@ list-metric-events(projectKey, environmentKey)
 | SDK not initialized | Is `ldClient` initialized before the `track()` call runs? |
 | Server-side: wrong context | Is the context passed to `track()` the same context used for `variation()` calls? |
 | Client-side: no flag evaluation first | Has the SDK initialized and identified the user before `track()` is called? |
-| Wrong environment | Is `list-metric-events` querying the same environment where the action was triggered? |
-| Data delay | `list-metric-events` shows the last 90 days with up to ~5 min delay — try again in a moment |
+| Wrong environment | Is `get-metric-events` querying the same environment where the action was triggered? |
+| Data delay | `get-metric-events` shows the last 90 days with up to ~5 min delay — try again in a moment |
 
 Surface a summary once verified:
 

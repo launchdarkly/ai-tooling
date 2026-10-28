@@ -14,8 +14,8 @@ Session alerts carry:
 
 ## Investigation shape
 
-1. **Pull matching sessions** via `query-sessions` with the alert's query + window. Start small — 5–10 sessions sampled from the window.
-2. **For each session, walk the timeline** via `query-timeline-events`. Find the last successful interaction and the first failing one. The transition is the key moment.
+1. **Pull matching sessions** via `search-sessions` with the alert's query + window. Start small — 5–10 sessions sampled from the window.
+2. **For each session, walk the timeline** via `search-timeline-events`. Find the last successful interaction and the first failing one. The transition is the key moment.
 3. **Cross-reference errors.** If sessions have `has_errors=true`, pull the error group for each. If sessions share an error group, that's the common root.
 4. **Correlate backend and frontend.** Session events often carry trace IDs — follow them to backend traces and logs for the full picture.
 5. **Check for a common trigger.** Is it a specific browser? Geography? Time of day? Shared identifier attribute?

@@ -25,7 +25,7 @@ You're using a skill that will guide you through setting up LaunchDarkly project
 
 ## API Access
 
-When you create or inspect a project yourself, use the LaunchDarkly MCP server tools: `create-project`, `get-project`, and `list-projects`. They authenticate via OAuth and need no token.
+When you create or inspect a project yourself, use the LaunchDarkly MCP server tools: `create-project` and `get-projects` (with `projectKey` for one project and its environments). They authenticate via OAuth and need no token.
 
 The MCP tools don't return server-side SDK keys, only client-side IDs and mobile keys. To get the SDK key the app needs, ask the user to copy it from **Project settings → Environments**, or, if they'd rather, to paste an API access token for this session so you can fetch it through the REST API ([Quick Start](references/quick-start.md)). Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
@@ -126,7 +126,7 @@ Follow the chosen reference guide to implement project management. Key considera
 
 After creating the project, verify it works:
 
-1. **Fetch to confirm it exists.** Call the `get-project` MCP tool and check that the project has its environments. Code without MCP access can call the REST API instead:
+1. **Fetch to confirm it exists.** Call the `get-projects` MCP tool and check that the project has its environments. Code without MCP access can call the REST API instead:
    ```bash
    curl -X GET "https://app.launchdarkly.com/api/v2/projects/{projectKey}?expand=environments" \
      -H "Authorization: {api_token}"

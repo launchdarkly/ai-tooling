@@ -14,7 +14,7 @@ which checks for the *specific* create tools — a flags-only MCP does not quali
    present these calls for them to run later and stop.
 
 You need these values, gathered in earlier steps:
-- `projectKey`, `environmentKey` (from `get-project`, or `get-environment` for one environment).
+- `projectKey`, `environmentKey` (from `get-projects`, or `get-environment` for one environment).
 - Primary metric key (reused or newly created).
 - Flag key, the variation IDs for control/treatment, the targeting `ruleId`
   (fallthrough rule id is the string `"fallthrough"`), and current
@@ -61,7 +61,7 @@ You need these values, gathered in earlier steps:
 }
 ```
 
-3. **Verify** — `get-experiment`; confirm the experiment exists with a
+3. **Verify** — `get-experiments`; confirm the experiment exists with a
    `not_started` iteration.
 
 Create the experiment as a draft. Start it only after the flag and tracking

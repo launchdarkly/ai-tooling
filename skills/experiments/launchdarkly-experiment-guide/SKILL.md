@@ -76,7 +76,7 @@ discover a missing tool only at the create step:
 Resolve a path, in precedence order:
 
 1. **An LD MCP that exposes the experiment + metric tools** (`create-experiment`,
-   `start-experiment-iteration`, `create-metric`, `list-metrics`, …) → full
+   `start-experiment-iteration`, `create-metric`, `get-metrics`, …) → full
    **MCP path**. Preferred.
 2. **Else a LaunchDarkly API token** (`LD_API_KEY` / `LAUNCHDARKLY_ACCESS_TOKEN`)
    → full path via the **REST API**.
@@ -157,19 +157,19 @@ suggestions match their conventions. (Requires the Step 0 connection — in
 draft-only mode, skip this scan and tell the user you're proposing without
 visibility into their existing flags and metrics.)
 
-- **Flags** — list existing flags (MCP `list-flags` / REST
+- **Flags** — list existing flags (MCP `get-flags` / REST
   `GET /api/v2/flags/{projectKey}`). Note naming conventions, tags, and whether
   any flag already gates the feature you're thinking about testing.
-- **Metrics** — list existing metrics (MCP `list-metrics` / REST
+- **Metrics** — list existing metrics (MCP `get-metrics` / REST
   `GET /api/v2/metrics/{projectKey}`). If a relevant metric already exists (e.g.
   `checkout-completed`), prefer it as the experiment's primary metric.
-- **Environments** — list the project's environments (MCP `get-project`, or
+- **Environments** — list the project's environments (MCP `get-projects`, or
   `get-environment` for one environment's details) so you target the right one
   and know the environment key.
 - **Project and environment** — if the account has more than one project, ask
   the user which one this app uses instead of guessing. Run the experiment in
   the environment the app connects to: match the app's client-side ID to the
-  environments `get-project` returns, and ask when there's no match or the app
+  environments `get-projects` returns, and ask when there's no match or the app
   uses a server SDK key.
 
 Summarize what you found that's relevant: "You already have a
@@ -281,7 +281,7 @@ code are deployed and the user says yes again. Starting needs the flag on; if
 the environment requires approval to change it, start only after the approval
 request is approved.
 
-After creating, verify (MCP `get-experiment` / REST `GET …/experiments/{key}`)
+After creating, verify (MCP `get-experiments` / REST `GET …/experiments/{key}`)
 and report: what was created, that it's a draft that isn't collecting data yet,
 the flag/metric it's wired to, and the one thing they should do next (deploy the
 code, then tell you to start it).

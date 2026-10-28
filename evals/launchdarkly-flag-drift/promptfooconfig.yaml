@@ -8,7 +8,7 @@
 # when it has, reconciles the in-code default — without removing the flag or
 # changing its evaluation logic.
 #
-# Mock note: the shared get-flag mock returns an environment whose
+# Mock note: the shared get-flags mock returns an environment whose
 # fallthrough.variation is 1, and variations[1].value is `false`. So the
 # "expected default" the agent should resolve for every flag here is `false`.
 # Drift cases seed an in-code default of `true`; the no-drift case seeds `false`.
@@ -55,7 +55,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('get-flag');
+          const pass = tools.includes('get-flags');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: resolves_fallthrough_via_get_flag
         weight: 3
@@ -63,7 +63,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','update-individual-targets','update-flag-settings','update-prerequisites','copy-flag-config','create-flag','create-feature-flag'];
+          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','update-flag-targeting','update-flag','update-prerequisites','copy-flag-config','create-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'No LD mutations' : 'Called: ' + called.join(', ') };
@@ -92,7 +92,7 @@ tests:
           default rule (fallthrough) resolves to `false`, but the in-code fallback default
           was `true`.
           Score 1.0 if ALL of the following hold:
-          1. The agent resolved the flag's fallthrough value from LaunchDarkly (get-flag)
+          1. The agent resolved the flag's fallthrough value from LaunchDarkly (get-flags)
              rather than guessing.
           2. The agent identified drift: in-code default `true` vs fallthrough `false`.
           3. The agent changed ONLY the fallback default argument to `false`
@@ -124,7 +124,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('get-flag');
+          const pass = tools.includes('get-flags');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: resolves_fallthrough_via_get_flag
         weight: 3
@@ -153,7 +153,7 @@ tests:
           The in-code fallback default (`false`) already matches the flag's fallthrough
           value (`false`).
           Score 1.0 if ALL of the following hold:
-          1. The agent resolved the fallthrough value from LaunchDarkly (get-flag).
+          1. The agent resolved the fallthrough value from LaunchDarkly (get-flags).
           2. The agent concluded there is NO drift (drift_detected: false).
           3. The agent made no code changes and did NOT open a pull request.
           Deduct 0.34 for each criterion missed.
@@ -182,7 +182,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('get-flag');
+          const pass = tools.includes('get-flags');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: resolves_fallthrough_via_get_flag
         weight: 3
@@ -210,7 +210,7 @@ tests:
           The in-code default for `checkout-redirect` is declared in the registry
           src/flags/defaults.ts as `true`, but the flag's fallthrough resolves to `false`.
           Score 1.0 if ALL of the following hold:
-          1. The agent resolved the fallthrough value from LaunchDarkly (get-flag).
+          1. The agent resolved the fallthrough value from LaunchDarkly (get-flags).
           2. The agent located the default in the registry declaration (src/flags/defaults.ts)
              rather than only inspecting the call site.
           3. The agent reconciled the registry default from `true` to `false`, and did not
@@ -250,19 +250,19 @@ tests:
           const traj = output.trajectory || [];
           const envs = new Set(
             traj
-              .filter((t) => t.tool === 'get-flag')
+              .filter((t) => t.tool === 'get-flags')
               .map((t) => (t.arguments || {}).environmentKey || (t.arguments || {}).env)
               .filter(Boolean)
           );
           const pass = envs.size >= 2;
-          return { pass, score: pass ? 1 : 0, reason: 'get-flag environments: ' + [...envs].join(', ') };
+          return { pass, score: pass ? 1 : 0, reason: 'get-flags environments: ' + [...envs].join(', ') };
         metric: checks_each_critical_environment
         weight: 3
 
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','update-individual-targets','update-flag-settings','update-prerequisites','copy-flag-config','create-flag','create-feature-flag'];
+          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','update-flag-targeting','update-flag','update-prerequisites','copy-flag-config','create-flag'];
           const called = forbidden.filter((f) => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'No LD mutations' : 'Called: ' + called.join(', ') };
@@ -283,7 +283,7 @@ tests:
           default rule: `production` resolves the fallthrough to `false`, while `federal`
           resolves it to `true`. The in-code fallback default is `false`.
           Score 1.0 if ALL of the following hold:
-          1. The agent resolved the fallthrough from LaunchDarkly (get-flag) in BOTH the
+          1. The agent resolved the fallthrough from LaunchDarkly (get-flags) in BOTH the
              `production` and `federal` environments, rather than checking only one.
           2. The agent identified the cross-environment divergence (production `false` vs
              federal `true`) and recognized that a single in-code default cannot satisfy both.

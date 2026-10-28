@@ -1,6 +1,6 @@
 # Approval Workflows
 
-Some LaunchDarkly environments require approval before changes take effect. This is an Enterprise feature configured per environment. When this happens, mutation tools like `toggle-flag`, `update-rollout`, `update-targeting-rules`, `update-individual-targets`, and `copy-flag-config` return `requiresApproval: true` instead of making the change directly.
+Some LaunchDarkly environments require approval before changes take effect. This is an Enterprise feature configured per environment. When this happens, mutation tools like `toggle-flag`, `update-rollout`, `update-targeting-rules`, `update-flag-targeting`, and `copy-flag-config` return `requiresApproval: true` instead of making the change directly.
 
 ## Detecting Approval Requirements
 
@@ -63,10 +63,10 @@ Input:
 
 ## Checking Approval Status
 
-Use `list-approval-requests` to see pending requests for a flag:
+Use `get-approval-requests` to see pending requests for a flag:
 
 ```
-Tool: list-approval-requests
+Tool: get-approval-requests
 Input:
   projectKey: "my-project"
   flagKey: "new-checkout"
@@ -92,7 +92,7 @@ Input:
   comment: "Applying approved production rollout"
 ```
 
-After applying, verify the change with `get-flag`.
+After applying, verify the change with `get-flags`.
 
 **Important:** The agent can apply already-approved requests but must NEVER approve requests itself. Approval is a human decision.
 
@@ -113,4 +113,4 @@ After applying, verify the change with `get-flag`.
 6. Agent shares the approval request details (ID, approval URL if available)
 7. A human reviewer approves or declines the request (outside the agent)
 8. If approved, the user or agent can apply it with `apply-approval-request`
-9. Agent verifies the change with `get-flag`
+9. Agent verifies the change with `get-flags`
