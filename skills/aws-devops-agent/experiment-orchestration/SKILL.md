@@ -35,6 +35,14 @@ Before doing anything, get answers to:
 
 Questions 1–2 are required before proceeding; infer 3–6 where possible and confirm your assumptions with the user before implementing.
 
+**Find the metrics.** The experiment needs the success metric. LaunchDarkly requires at least one metric to start a guarded rollout, and this skill requires an error-rate metric as a guardrail in both the experiment and the rollout. Find them before Step 2:
+
+1. Choose the randomization unit (typically "user"). Every metric must list it in its randomization units, or the guarded rollout rejects the metric.
+2. Call `list-metrics` with a `query` for the success metric. For errors, look first for LaunchDarkly's built-in error-rate metric (key ending in `telemetry-default-error-rate`, event `$ld:telemetry:error`), then `query: "error"`. Check that each metric's randomization units include the unit from item 1.
+3. For the success metric, call `list-metric-events` with `query` set to its event key, in the environment the experiment will use. It returns at most 50 keys, so always pass the query. Don't run this check for the error-rate metric: no recent error events may just mean no errors.
+4. Call `list-release-policies`. A metric that a policy already attaches to guarded rollouts here doesn't need adding to the rollout a second time, but still pass the error-rate metric to the experiment, which gets no policy metrics.
+5. Confirm the metric keys with the user. If a metric doesn't exist, plan to create it in Step 3: Implementation. If the success metric exists but its event isn't arriving, plan to add its `track()` call in Step 3: Implementation instead of creating a second metric.
+
 ## Step 2: Hypothesis Generation
 
 Explore the target repository/codebase to find a plausible change:
@@ -52,9 +60,10 @@ Explore the target repository/codebase to find a plausible change:
 ## Step 3: Implementation
 
 1. Create a boolean feature flag, OFF by default in all environments, with `defaults` of `{"onVariation": 1, "offVariation": 1}` so that it serves false even when it is on, and `clientSideAvailability` of `{"usingEnvironmentId": true, "usingMobileKey": true}` so that every SDK can read it. Name it with a clear pattern like `exp-<metric>-<short-description>` (e.g. `exp-checkout-conversion-cta-color`), lowercase with hyphens, ~50 chars max. If the project has its own flag naming conventions (for example, a required prefix or case), follow them instead.
-2. If a coding agent is available, hand off the implementation to it, with instructions to gate the change behind the exact flag key from item 1 above. Without a coding agent or GitHub write access, give the user the flag key and the change instead, and wait for their PR (with GitHub connected) or their confirmation that it is deployed (without GitHub).
-3. This step is asynchronous — check status periodically rather than looping tightly on it.
-4. Once implementation completes, move to Step 4: Release Readiness with the resulting branch/PR. If it fails, report the error and stop.
+2. If Step 1: Goal Clarification found no success or error-rate metric, create it now with `create-metric`, with `randomizationUnits` set to the unit from Step 1: Goal Clarification. For an error-rate metric, use `kind: "custom"`, `measureType: "occurrence"` (the share of contexts that hit an error), and `successCriteria: "LowerThanBaseline"`. Include the `track()` call for each new or silent metric's event key in the code change below.
+3. If a coding agent is available, hand off the implementation to it, with instructions to gate the change behind the exact flag key from item 1 above. Without a coding agent or GitHub write access, give the user the flag key and the change instead, and wait for their PR (with GitHub connected) or their confirmation that it is deployed (without GitHub).
+4. This step is asynchronous — check status periodically rather than looping tightly on it.
+5. Once implementation completes, move to Step 4: Release Readiness with the resulting branch/PR. If it fails, report the error and stop.
 
 ## Step 4: Release Readiness
 
@@ -90,7 +99,7 @@ The flag from Step 3 is boolean: the control is its `false` variation (current b
    - `hypothesis`: the hypothesis from Step 2: Hypothesis Generation.
    - `treatments`: the control, `{"name": "Control", "baseline": true, "allocationPercent": 5, "parameters": [{"flagKey": "<flag-key>", "variationId": "<control variation ID>"}]}`, and the treatment, the same with `"name": "Treatment"`, `"baseline": false`, and the treatment variation ID. Each treatment's `allocationPercent` is its share of all traffic on the rule, so 5 + 5 puts 10% of contexts in the experiment, split 50/50. Never use 50 and 50: that puts 100% of traffic in the experiment.
    - `canReshuffleTraffic: false`, so contexts keep their variation if the traffic changes.
-   - `randomizationUnit`: your chosen randomization unit (typically "user").
+   - `randomizationUnit`: the randomization unit from Step 1: Goal Clarification.
    - `metrics`: the success metric from Step 1: Goal Clarification and the guardrail metrics, each as `{"key": "<metric-key>"}`. Always include your error-rate metric as a guardrail; add a performance metric (e.g. p95 page load time) too if this is a performance-focused change.
    - `primarySingleMetricKey`: the success metric's key. It is the only primary metric.
    - `methodology: "frequentist"` with `analysisConfig.sequentialTestingEnabled: true`. Step 7 checks results many times; sequential testing keeps significance valid under repeated checks, where a fixed-horizon test would declare false winners. Don't use the Bayesian methodology: it reports a probability of being best, not the significance Step 7 decides on.
@@ -103,7 +112,10 @@ Check status periodically — don't tight-loop. In an interactive session, check
 
 **Phase 1 — Prove the experiment at 10% (gate before any rollout):**
 
-Watch for statistical significance on the primary metric:
+Watch for statistical significance on the primary metric. For each metric, call `get-experiment-metric-results`: it returns per treatment `analyzedUnitCount` (contexts in the experiment), `conversionCount` (contexts that sent the metric's event), and `isSignificant`. Decide on `isSignificant`, not on the `isBest` that `get-experiment-results` reports; `isBest` marks the leading treatment even when nothing is significant.
+
+**Check the instrumentation after the first day.** If the success metric, or any guardrail other than the error-rate metric, has a `conversionCount` of 0 in every treatment, stop and report an instrumentation problem instead of waiting for significance. Zero error events is fine: it means no errors.
+
 
 - **Significant + positive lift** → experiment proven. Stop the experiment iteration with control as the winner, then move to Phase 2. Stopping serves the winner to the experiment's targeting rule (everyone, when the experiment is on the default rule), so a treatment winner would skip the guarded rollout. If the plan has no guarded rollouts, still stop with control as the winner and use the regular rollout in Phase 2.
 - **Significant + negative lift** → declare a loser, stop the iteration with control as the winner, turn the flag off (do not archive it while the code still evaluates it), skip Phase 2, go straight to the Step 8 report.
@@ -111,7 +123,7 @@ Watch for statistical significance on the primary metric:
 
 To stop the iteration, pass `stop-experiment-iteration` the `_id` of the winning treatment from `get-experiment` as `winningTreatmentId`; it takes a treatment ID, not a variation ID.
 
-Never declare a winner off a single data point or before your stats engine confirms significance. Also require at least 100 exposures in each variation before acting on a significant result; with fewer, keep collecting data.
+Never declare a winner off a single data point or before your stats engine confirms significance. Also require an `analyzedUnitCount` of at least 100 in each variation before acting on a significant result; with fewer, keep collecting data.
 
 **Phase 2 — Guarded rollout ramp (only after Phase 1 proves the change):**
 
@@ -175,14 +187,14 @@ Runs automatically the instant Step 7 reaches a terminal outcome (winner, with t
 - If rolled back and retried: [root cause, outcome of retry]
 
 ### Safety Metrics
-- error-rate: [baseline] → [final] ([no regression / regression detected])
+- [error-rate metric key]: [baseline] → [final] ([no regression / regression detected])
 - [other guardrails]: [baseline] → [final] ([status])
 
 ### Next Steps
 [What to do next based on the outcome]
 ```
 
-## Safety Rules (the non-negotiables)
+## Safety Rules
 
 - Always present the hypothesis before implementing.
 - Always have the PR reviewed before merging: the release readiness review with GitHub, or the user's review without it. Never skip it.
