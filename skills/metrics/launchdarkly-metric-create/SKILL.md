@@ -19,7 +19,8 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 **Required MCP tools:**
 - `create-metric` — create the metric
 - `get-metrics` — verify it after creation
-- `get-environment` — fetch the client-side SDK key when instrumenting
+- `get-environment` — fetch the client-side ID when instrumenting browser or mobile code
+- `get-sdk-key` — fetch the server-side SDK key when instrumenting server code
 
 **Optional MCP tools (enhance workflow):**
 - `get-metrics` — check for existing metrics with the same event key and understand naming conventions
@@ -98,25 +99,22 @@ Locate the function or handler where the event naturally occurs (e.g. a checkout
 **2. Determine the event key.**
 If the user hasn't specified one, propose a descriptive kebab-case key that matches what the code is doing (e.g. `checkout-completed`, `signup-submitted`). Confirm with the user before using it.
 
-**3. Fetch the client-side SDK key.**
-Ask the user which environment they want to connect to (e.g. "test", "production", "staging") — just the environment name. Then call:
+**3. Fetch the SDK credential.**
+Ask the user which environment they want to connect to (e.g. "test", "production", "staging") — just the environment name. Then fetch the credential that matches where the code runs:
 
-```
-get-environment(projectKey, environmentKey)
-```
-
-Use the `clientSideId` from the response.
+- Browser code (React, Vue, plain JS): call `get-environment(projectKey, environmentKey)` and use the `clientSideId` from the response.
+- Server code (Node.js and other server SDKs): call `get-sdk-key(projectKey, environmentKey)` and use the SDK key it returns. Never put a server-side SDK key in browser code.
 
 **4. Write the environment file.**
 Check whether a `.env` file (or equivalent — `.env.local`, `.env.development`, etc.) already exists.
 
 - If the file **does not exist**, create it.
-- If the file **exists and already contains the key** (e.g. `VITE_LD_CLIENT_SIDE_ID`), compare the stored value to the `clientSideId` returned by `get-environment`. If they differ, surface the discrepancy to the user:
+- If the file **exists and already contains the key** (e.g. `VITE_LD_CLIENT_SIDE_ID`), compare the stored value to the one fetched in step 3. If they differ, surface the discrepancy to the user:
   > "Your `.env` already has `VITE_LD_CLIENT_SIDE_ID=<old>`, but `get-environment` returned `<new>` for the `<env>` environment. Should I update it?"
   Do not silently keep the old value — a mismatched client-side ID means events will be sent to the wrong project or environment.
 - If the file exists but the key is absent, add it without touching other values.
 
-Use the variable name appropriate to the project's build tool (e.g. `VITE_LD_CLIENT_SIDE_ID` for Vite, `REACT_APP_LD_CLIENT_SIDE_ID` for CRA, `NEXT_PUBLIC_LD_CLIENT_SIDE_ID` for Next.js).
+Use the variable name appropriate to the project's build tool (e.g. `VITE_LD_CLIENT_SIDE_ID` for Vite, `REACT_APP_LD_CLIENT_SIDE_ID` for CRA, `NEXT_PUBLIC_LD_CLIENT_SIDE_ID` for Next.js). For a server SDK key, use a server-only name such as `LAUNCHDARKLY_SDK_KEY`.
 
 **4b. Set the SDK base URL if the user is not on app.launchdarkly.com.**
 The SDK defaults to `app.launchdarkly.com` for all traffic. If the user is on a different LaunchDarkly deployment (e.g. an internal staging environment like catamorphic, or a dedicated instance), events and flag evaluations will silently go to the wrong host.
@@ -154,7 +152,7 @@ Check `package.json` (or the equivalent dependency file) for an existing LD SDK.
 - Browser JS → `launchdarkly-js-client-sdk`
 - Node.js server → `@launchdarkly/node-server-sdk`
 
-Initialize the SDK at the app's entry point (e.g. wrap the React root with `LDProvider`, configure `LDClient.init()` in the server entry, etc.). Pass the client-side ID from the env file. Use an anonymous user/context as the default unless the app already manages user context.
+Initialize the SDK at the app's entry point (e.g. wrap the React root with `LDProvider`, configure `LDClient.init()` in the server entry, etc.). Pass the credential from the env file: the client-side ID for a browser SDK, the SDK key for a server SDK. Use an anonymous user/context as the default unless the app already manages user context.
 
 **6. Add the `track()` call.**
 In the location identified in step 1, add the call immediately before or after the action completes:

@@ -27,7 +27,7 @@ You're using a skill that will guide you through setting up LaunchDarkly project
 
 When you create or inspect a project yourself, use the LaunchDarkly MCP server tools: `create-project` and `get-projects` (with `projectKey` for one project and its environments). They authenticate via OAuth and need no token.
 
-The MCP tools don't return server-side SDK keys, only client-side IDs and mobile keys. To get the SDK key the app needs, ask the user to copy it from **Project settings → Environments**, or, if they'd rather, to paste an API access token for this session so you can fetch it through the REST API ([Quick Start](references/quick-start.md)). Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+To get the server-side SDK key the app needs, call `get-sdk-key` with `projectKey` and `environmentKey`. `get-environment` returns only the client-side ID and mobile key. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 The reference guides call the REST API because they build code that runs without the agent.
 

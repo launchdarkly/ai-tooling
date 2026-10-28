@@ -53,13 +53,13 @@ tests:
         value: "The response must either ask the user where the track() call should go, OR name a specific candidate file or function and ask the user to confirm it. A response that writes track() code with no mention of placement — no question about location, no candidate location named — does NOT satisfy this."
         metric: confirms-placement
 
-  - description: "SDK setup — must call get-projects or get-environment for SDK key"
+  - description: "SDK setup — must call get-sdk-key for the server-side SDK key"
     vars:
       user_message: "I need to set up the LaunchDarkly SDK from scratch and add a track() call for signup-completed in my Node.js app. Project is my-app."
     assert:
       - type: llm-rubric
-        value: "The response calls get-projects or get-environment to retrieve the SDK key for the correct environment, rather than instructing the user to find and copy the SDK key manually from the LaunchDarkly dashboard."
-        metric: calls-get-project-or-env
+        value: "The response calls get-sdk-key to retrieve the server-side SDK key for the correct environment, rather than instructing the user to find and copy the SDK key manually from the LaunchDarkly dashboard."
+        metric: calls-get-sdk-key
 
   - description: "Detect existing SDK patterns before writing new code"
     vars:
@@ -173,7 +173,7 @@ tests:
         value: "The response must either ask the user where the track() call should go, OR name a specific candidate file or function and ask the user to confirm it. A response that writes track() code with no mention of placement — no question about location, no candidate location named — does NOT satisfy this."
         metric: confirms-placement
 
-  # [NEG] 5 — mirrors positive test 5 (calls-get-project-or-env)
+  # [NEG] 5 — mirrors positive test 5 (calls-get-sdk-key)
   - description: "[NEG] User told to find SDK key manually instead of fetching it via tool"
     provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
@@ -205,8 +205,8 @@ tests:
         After deploying, verify the event appears in LaunchDarkly.
     assert:
       - type: llm-rubric
-        value: "The response calls get-projects or get-environment to retrieve the SDK key for the correct environment, rather than instructing the user to find and copy the SDK key manually from the LaunchDarkly dashboard."
-        metric: calls-get-project-or-env
+        value: "The response calls get-sdk-key to retrieve the server-side SDK key for the correct environment, rather than instructing the user to find and copy the SDK key manually from the LaunchDarkly dashboard."
+        metric: calls-get-sdk-key
 
   # [NEG] 6 — mirrors positive test 6 (checks-existing-patterns)
   - description: "[NEG] New track() code written without checking existing SDK patterns"
