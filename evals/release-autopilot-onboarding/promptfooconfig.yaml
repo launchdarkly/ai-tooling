@@ -89,6 +89,10 @@ tests:
         metric: no_auto_cleanup
         weight: 2
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noProductNameAfterIntro
+        metric: capability_names
+        weight: 1
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names
         weight: 2
@@ -211,6 +215,10 @@ tests:
         metric: preview_format
         weight: 2
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noProductNameAfterIntro
+        metric: capability_names
+        weight: 1
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names
         weight: 2
@@ -250,6 +258,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:pauseSummaryHasConnectLink
         metric: gave_connect_link
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:githubQuestionHasLink
+        metric: link_in_question
+        weight: 3
 
   # ------------------------------------------------------------------
   # Writer role on a fresh account: account settings need an admin, so
@@ -284,6 +296,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:notCalledComplete
         metric: partly_set_up
         weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noProductNameAfterIntro
+        metric: capability_names
+        weight: 1
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names
@@ -370,7 +386,7 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:noRepoWrite
+        value: file://../release-autopilot-onboarding/assertions.js:noStorefrontRemap
         metric: no_remap
         weight: 5
 
@@ -546,3 +562,48 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names
         weight: 2
+
+  # ------------------------------------------------------------------
+  # Auto-cleanup picked with auto-flagging. Auto-cleanup is a browser
+  # step on the project's Lifecycle settings page: the link is in the
+  # question, autoCleanup is never sent, and the repo write is confirmed.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Auto-cleanup: lifecycle settings link in the question, never sends autoCleanup"
+    vars:
+      user_request: "Set up Release Autopilot for acme/demo in project default."
+      max_turns: 22
+      mock_tool_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: false }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-flagging", "Auto-cleanup"]
+        - ["Require approval"]
+        - ["LaunchDarkly's"]
+        - ["Done"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noAutoCleanup
+        metric: no_auto_cleanup
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:cleanupQuestionHasLifecycleLink
+        metric: lifecycle_link_in_question
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
+        metric: repo_override_unpicked
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noProductNameAfterIntro
+        metric: capability_names
+        weight: 1

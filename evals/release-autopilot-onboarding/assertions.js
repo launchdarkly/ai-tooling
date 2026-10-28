@@ -164,10 +164,13 @@ module.exports.noPickQuestions = (output) => {
 module.exports.notCalledComplete = (output) => {
   const text = finalText(output);
   let hit = /setup complete|setup is complete|you're all set|is (now )?live/i.exec(text);
-  // "Open a pull request" is fine only when tied to the pending admin change.
-  const unconditional = text
-    .split(/(?<=[.!?\n])/)
-    .find((s) => /open a pull request/i.test(s) && !/\b(once|after|when)\b/i.test(s));
+  // "Open a pull request" is fine only when tied to the pending admin change,
+  // e.g. under a "Once an admin turns on auto-flagging:" lead-in.
+  let unconditional;
+  for (const m of text.matchAll(/open a pull request/gi)) {
+    const before = text.slice(Math.max(0, m.index - 250), m.index);
+    if (!/\b(once|after|when)\b/i.test(before)) { unconditional = text.slice(m.index, m.index + 80); break; }
+  }
   if (!hit && unconditional) hit = [unconditional.trim().slice(0, 80)];
   return result(!hit, hit ? `final message says "${hit[0]}"` : "does not claim completion");
 };
@@ -205,4 +208,36 @@ module.exports.stopsAfterFailedWrite = (output) => {
 module.exports.pauseSummaryHasConnectLink = (output) => {
   const pass = finalText(output).includes("flow=install");
   return result(pass, pass ? "pause summary repeats the connect link" : "pause summary lacks the githubConnectUrl");
+};
+
+const askPrompts = (output) =>
+  traj(output).filter((t) => t.tool === "ask-question").map((t) => String((t.arguments && t.arguments.prompt) || ""));
+
+// The question dialog hides earlier text, so links belong in the question.
+module.exports.githubQuestionHasLink = (output) => {
+  const pass = askPrompts(output).some((p) => p.includes("flow=install"));
+  return result(pass, pass ? "GitHub question contains the connect link" : "no question contains the githubConnectUrl");
+};
+
+module.exports.cleanupQuestionHasLifecycleLink = (output) => {
+  const pass = askPrompts(output).some((p) => p.includes("/settings/lifecycle"));
+  return result(pass, pass ? "auto-cleanup question contains the lifecycle settings link" : "no question contains /settings/lifecycle");
+};
+
+// "Release Autopilot" belongs only in the welcome, the resume phrase, and the
+// settings skill's name.
+module.exports.noProductNameAfterIntro = (output) => {
+  const turns = ((output && output.assistant_turns) || []).map((x) => (typeof x === "string" ? x : (x && x.text) || ""));
+  const texts = [...turns, finalText(output), ...askPrompts(output)]
+    .filter((s) => !/Release Autopilot Setup|in a few short steps/i.test(s))
+    .map((s) => s.replace(/continue Release Autopilot setup|Release Autopilot settings skill|release-autopilot-settings/gi, ""));
+  const hits = texts.filter((s) => /Release Autopilot/.test(s));
+  return result(hits.length === 0, hits.length ? `said "Release Autopilot" after the welcome: "${hits[0].slice(Math.max(0, hits[0].indexOf("Release Autopilot") - 40), hits[0].indexOf("Release Autopilot") + 40)}"` : "uses capability names");
+};
+
+// The remap case must leave acme/storefront alone; other repo writes come
+// from unscripted questions the harness answers with their first option.
+module.exports.noStorefrontRemap = (output) => {
+  const hit = traj(output).filter((t) => t.tool.endsWith("-repo-settings") && /^(update|delete)/.test(t.tool) && (t.arguments || {}).repo === "acme/storefront");
+  return result(hit.length === 0, hit.length ? `wrote acme/storefront: ${JSON.stringify(hit[0].arguments)}` : "acme/storefront left alone");
 };
