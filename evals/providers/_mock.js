@@ -36,6 +36,8 @@ function buildReplacements(input) {
     mode: safe.mode || "completion",
     toolDescription: safe.description || "A tool",
     projectKey: safe.projectKey || "my-project",
+    newProjectKey: safe.key || "new-project",
+    newProjectName: safe.name || "New Project",
     environmentKey: safe.environmentKey || safe.env || "production",
     metricKey: safe.metricKey || safe.key || "unknown-metric",
     metricName: safe.metricName || safe.name || "Unknown Metric",

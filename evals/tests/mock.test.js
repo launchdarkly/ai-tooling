@@ -452,3 +452,15 @@ test("every templateKey mode has a template", () => {
     assert.ok(TEMPLATES[templateKey(tool, input)], `${tool} ${JSON.stringify(input)}`);
   }
 });
+
+test("every tool definition has a mock template", () => {
+  for (const def of require("../tools/definitions.json")) {
+    assert.ok(TEMPLATES[def.name], def.name);
+  }
+});
+
+test("create-project echoes the new project's key and name", () => {
+  const result = renderMockResponse(TEMPLATES["create-project"], { key: "agents", name: "Agents" }, "create-project", createMockState());
+  assert.equal(result.key, "agents");
+  assert.equal(result.name, "Agents");
+});

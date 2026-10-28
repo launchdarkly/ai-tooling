@@ -134,6 +134,37 @@
     "newState": true,
     "environment": "production"
   },
+  "get-flag-health": {
+    "key": "{{flagKey}}",
+    "name": "Search V2",
+    "env": "{{environmentKey}}",
+    "status": "active",
+    "lastRequested": "2026-10-27T18:04:11Z",
+    "temporary": true,
+    "ageDays": 41,
+    "targeting": {
+      "on": true,
+      "rules": 1,
+      "targets": 2
+    }
+  },
+  "get-flag-status-across-envs": {
+    "key": "{{flagKey}}",
+    "environments": {
+      "production": {
+        "name": "active",
+        "lastRequested": "2026-10-27T18:04:11Z"
+      },
+      "staging": {
+        "name": "active",
+        "lastRequested": "2026-10-28T09:12:40Z"
+      },
+      "test": {
+        "name": "inactive",
+        "lastRequested": "2026-09-30T14:00:00Z"
+      }
+    }
+  },
   "get-projects": {
     "projects": [
       {
@@ -163,6 +194,23 @@
         "name": "Production",
         "clientSideId": "5f0000000000000000000002",
         "mobileKey": "mob-00000000-0000-0000-0000-000000000002"
+      }
+    ]
+  },
+  "create-project": {
+    "key": "{{newProjectKey}}",
+    "name": "{{newProjectName}}",
+    "tags": [],
+    "environments": [
+      {
+        "key": "production",
+        "name": "Production",
+        "clientSideId": "clientside-prod-abcdef12"
+      },
+      {
+        "key": "test",
+        "name": "Test",
+        "clientSideId": "clientside-test-abcdef12"
       }
     ]
   },
@@ -315,6 +363,16 @@
     "deleted": true,
     "configKey": "{{configKey}}",
     "variationKey": "{{variationKey}}"
+  },
+  "update-agent-config-rollout": {
+    "configKey": "{{configKey}}",
+    "env": "{{environmentKey}}",
+    "fallthrough": {
+      "variationKey": "{{variationKey}}"
+    },
+    "previousFallthrough": {
+      "variationKey": "disabled"
+    }
   },
   "create-agent-config-variation#clone": {
     "configKey": "{{configKey}}",

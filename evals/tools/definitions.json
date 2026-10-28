@@ -286,6 +286,62 @@
     }
   },
   {
+    "name": "get-flag-health",
+    "description": "Get a combined flag health view with lifecycle status, last request time, targeting summary, age, and temporary state.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "the project key"
+        },
+        "flagKey": {
+          "type": "string",
+          "description": "the feature flag key"
+        },
+        "env": {
+          "type": "string",
+          "description": "the environment key"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagKey",
+        "env"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get-flag-status-across-envs",
+    "description": "Check a flag's lifecycle status across all environments. Use before cleanup to verify the flag is inactive everywhere.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "env": {
+          "type": "string",
+          "description": "Optional environment filter",
+          "format": "string"
+        },
+        "flagKey": {
+          "type": "string",
+          "description": "The feature flag key",
+          "format": "string"
+        },
+        "projectKey": {
+          "type": "string",
+          "description": "The project key",
+          "format": "string"
+        }
+      },
+      "required": [
+        "flagKey",
+        "projectKey"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "get-agent-configs",
     "description": "Without configKey: search and browse AgentControl Configs (query, tags, view, sort, limit, offset). With configKey: get one config; section is config (default, with variations), health (missing variations, models, prompts, tool references), status (lifecycle across every environment; no env needed), or targeting (one environment; requires env).",
     "input_schema": {
@@ -733,6 +789,75 @@
     }
   },
   {
+    "name": "update-agent-config-rollout",
+    "description": "Update an AgentControl Config fallthrough variation or rollout.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "bucketBy": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        },
+        "configKey": {
+          "type": "string"
+        },
+        "confirm": {
+          "type": "boolean",
+          "description": "Confirm this destructive operation."
+        },
+        "contextKind": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string",
+          "description": "Environment key. If the user hasn't named one, ask; don't guess."
+        },
+        "projectKey": {
+          "type": "string",
+          "description": "Project key. If the user hasn't named one, ask; don't guess."
+        },
+        "rolloutType": {
+          "type": "string",
+          "enum": [
+            "variation",
+            "percentage"
+          ]
+        },
+        "variationKey": {
+          "type": "string"
+        },
+        "weights": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "percent": {
+                "type": "number"
+              },
+              "variationKey": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "variationKey",
+              "percent"
+            ]
+          }
+        }
+      },
+      "required": [
+        "projectKey",
+        "configKey",
+        "env",
+        "rolloutType",
+        "confirm"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "get-ai-tools",
     "description": "Without toolKey: list AI tool definitions in a project (limit). With toolKey: get one AI tool definition including its schema. With toolKey and section versions: list that tool's versions newest first, paged by limit and offset; when hasMore is true, pass nextOffset as offset. To attach a tool, put its key and version in a variation's tools array ({key, version}).",
     "input_schema": {
@@ -884,6 +1009,32 @@
           }
         }
       },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "create-project",
+    "description": "Create a new LaunchDarkly project. Returns the project with its environments, including each environment's client-side ID and mobile key. Does not return server-side SDK keys; use get-sdk-key. Project keys must be lowercase with hyphens, starting with a letter. Production and Test environments are created by default.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "key"
+      ],
       "additionalProperties": false
     }
   },
