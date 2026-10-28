@@ -81,14 +81,20 @@ The flagged code must be running in the environment the experiment uses before S
 
 Prove the change on a small, fixed slice of traffic. The experiment and the rollout never run at the same time: a guarded rollout can't start while an experiment is running on the flag, so Step 7 stops the experiment iteration before Phase 2 starts any rollout.
 
-1. Turn the flag ON.
-2. Configure a fixed 50/50 split across 10% of traffic (a flat allocation, not a staged ramp) on your chosen randomization unit (typically "user"). The remaining 90% of traffic is excluded from the experiment entirely.
+The flag from Step 3 is boolean: the control is its `false` variation (current behavior) and the treatment is its `true` variation (the change).
+
+1. Turn the flag ON; starting an experiment fails while the flag is off. It still serves the control to everyone, because Step 3 set its defaults to `false`.
+2. Read the flag to get its current version (required by `create-experiment`) and the IDs of the control and treatment variations.
 3. Create an experiment with:
-   - Exactly one primary metric: the success metric from Step 1.
-   - Guardrail metric(s): always include your error-rate metric; add a performance metric (e.g. p95 page load time) too if this is a performance-focused change.
-   - Treatments: control (off) at 50%, treatment (on) at 50%, allocated to 10% of total traffic.
-   - An analysis that stays valid when results are checked repeatedly: `methodology: "frequentist"` with `analysisConfig.sequentialTestingEnabled: true`, or `methodology: "bayesian"`. Step 7 checks results many times, and a fixed-horizon frequentist test checked that way declares false winners.
-4. Start the experiment/data collection.
+   - `flags`: `{"<flag-key>": {"ruleId": "fallthrough", "flagConfigVersion": <version from step 2>, "notInExperimentVariationId": "<control variation ID>"}}`. The experiment runs on the default rule, the only rule the Step 7 rollouts act on, and every context outside the experiment keeps getting the control.
+   - `hypothesis`: the hypothesis from Step 2.
+   - `treatments`: the control, `{"name": "Control", "baseline": true, "allocationPercent": 5, "parameters": [{"flagKey": "<flag-key>", "variationId": "<control variation ID>"}]}`, and the treatment, the same with `"name": "Treatment"`, `"baseline": false`, and the treatment variation ID. Each treatment's `allocationPercent` is its share of all traffic on the rule, so 5 + 5 puts 10% of contexts in the experiment, split 50/50. Never use 50 and 50: that puts 100% of traffic in the experiment.
+   - `canReshuffleTraffic: false`, so contexts keep their variation if the traffic changes.
+   - `randomizationUnit`: your chosen randomization unit (typically "user").
+   - `metrics`: the success metric from Step 1 and the guardrail metrics, each as `{"key": "<metric-key>"}`. Always include your error-rate metric as a guardrail; add a performance metric (e.g. p95 page load time) too if this is a performance-focused change.
+   - `primarySingleMetricKey`: the success metric's key. It is the only primary metric.
+   - `methodology: "frequentist"` with `analysisConfig.sequentialTestingEnabled: true`. Step 7 checks results many times; sequential testing keeps significance valid under repeated checks, where a fixed-horizon test would declare false winners. Don't use the Bayesian methodology: it reports a probability of being best, not the significance Step 7 decides on.
+4. Start the experiment iteration. Starting it writes the split onto the default rule: 5% control and 5% treatment in the experiment, and the other 90% control, not analyzed.
 5. Move to Step 7 to monitor toward a decision.
 
 ## Step 7: Monitoring & Outcome
@@ -103,12 +109,14 @@ Watch for statistical significance on the primary metric:
 - **Significant + negative lift** → declare a loser, stop the iteration with control as the winner, turn the flag off (do not archive it while the code still evaluates it), skip Phase 2, go straight to the Step 8 report.
 - **No significance after a reasonable ceiling (e.g. 4 weeks)** → report "inconclusive, need more traffic", stop the iteration with control as the winner, and stop; don't proceed to Phase 2.
 
+To stop the iteration, pass `stop-experiment-iteration` the `_id` of the winning treatment from `get-experiment` as `winningTreatmentId`; it takes a treatment ID, not a variation ID.
+
 Never declare a winner off a single data point or before your stats engine confirms significance. Also require at least 100 exposures in each variation before acting on a significant result; with fewer, keep collecting data.
 
 **Phase 2 — Guarded rollout ramp (only after Phase 1 proves the change):**
 
 Start a guarded rollout with:
-- The winning ("on") variation as the test, the original as control.
+- `testVariationId`: the treatment variation ID; `controlVariationId`: the control variation ID (both from Step 6).
 - Same randomization unit as the experiment.
 - **Exactly 3 monitored stages, each below 50%** — e.g. 20% → 30% → 40%, ~60 minutes monitoring each. `rolloutWeight` is in thousandths of a percent (20% is `20000`) and `monitoringWindowMilliseconds` is in milliseconds (60 minutes is `3600000`). Don't add a 100% stage.
 - `updateDefaultRuleOnCompletion: true`, so the rollout moves the default rule to the winning variation once the final stage completes cleanly.
