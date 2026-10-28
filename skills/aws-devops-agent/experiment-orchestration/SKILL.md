@@ -12,11 +12,13 @@ metadata:
 
 Use this skill when you have a goal you want to move through experimentation (e.g., "increase checkout conversion by 15%", "decrease page load time by 20%").
 
-**Core principle: experiment first, then guarded rollout.** Always prove a change on a small, fixed slice of traffic via an A/B experiment before ramping it up through a guarded rollout. Never start a guarded rollout blind — it exists only to scale a change the experiment has already shown to work.
+**Core principle: experiment first, then a guarded rollout, or a regular rollout if the plan has no guarded rollouts.** Always prove a change on a small, fixed slice of traffic via an A/B experiment before rolling it out. Never roll out blind — the rollout exists only to scale a change the experiment has already shown to work.
 
 **Execution mode:** once the goal is confirmed (Step 1), run Steps 2–8 end-to-end. Async operations (code implementation, release review, deployment, experiment monitoring, rollout monitoring) should be checked periodically, not tight-polled — see the waiting note in each step. Only stop and ask the user something if a step fails unrecoverably (repeated failed release reviews, deployment failure, or an inconclusive/losing experiment result).
 
-**Approvals:** if the LaunchDarkly environment requires approval for a change (for example, to turn a flag on or off, start or stop an experiment, or start a guarded rollout), create an approval request instead of the direct change. Tell the person who must review it. Continue only after `list-approval-requests` shows it approved, then apply it with `apply-approval-request` and go to the next step. If a reviewer rejects it, stop and report.
+**Approvals:** if the LaunchDarkly environment requires approval for a change (for example, to turn a flag on or off, start or stop an experiment, or start a guarded rollout), create an approval request instead of the direct change. Call the change tool directly; if the response has `requiresApproval: true`, pass the returned instructions to `create-approval-request`. Don't guess beforehand whether the environment requires approval. Tell the person who must review it. Continue only after `list-approval-requests` shows it approved, then apply it with `apply-approval-request` and go to the next step. If a reviewer rejects it, stop and report.
+
+**GitHub:** Steps 2–5 use GitHub when it is connected to the agent space. Before Step 2, check whether you have GitHub access to the target repository. If you don't, read no code: ask the user where the change belongs, and in Steps 3–5 give them the flag key and the change to make, then wait until they confirm the change is merged and deployed. Triggering workflows and proposing fixes need the GitHub connection's Read and write permissions; with Read-only, hand those steps to the user.
 
 **The final report (Step 8) is mandatory, not optional.** The moment an experiment or rollout reaches a terminal outcome — winner, loser, inconclusive, or rollback — produce the full report in the same turn you announce the outcome. Don't let a casual "it worked!" substitute for the structured report.
 
@@ -49,26 +51,26 @@ Explore the target repository/codebase to find a plausible change:
 ## Step 3: Implementation
 
 1. Create a boolean feature flag, OFF by default in all environments, with `defaults` of `{"onVariation": 1, "offVariation": 1}` so that it serves false even when it is on, and `clientSideAvailability` of `{"usingEnvironmentId": true, "usingMobileKey": true}` so that every SDK can read it. Name it with a clear pattern like `exp-<metric>-<short-description>` (e.g. `exp-checkout-conversion-cta-color`), lowercase with hyphens, ~50 chars max. If the project has its own flag naming conventions (for example, a required prefix or case), follow them instead.
-2. Hand off implementation to your coding agent/tool of choice, with clear instructions to gate the change behind the exact flag key from step 1.
+2. Hand off implementation to your coding agent/tool of choice, with clear instructions to gate the change behind the exact flag key from step 1. Without a coding agent or GitHub write access, give the user the flag key and the change instead, and wait for their PR.
 3. This step is asynchronous — check status periodically rather than looping tightly on it.
 4. Once implementation completes, move to Step 4 with the resulting branch/PR. If it fails, report the error and stop.
 
 ## Step 4: Release Readiness
 
-Run your standard release/risk review on the PR before merging.
+Run an AWS DevOps Agent release readiness code review on the PR before it merges. It runs automatically on connected repositories with **Auto trigger change review** enabled; otherwise request one.
 
-- If it passes: merge the PR.
+- If it passes: ask the user to merge the PR, and wait until they confirm it is merged.
 - If it fails: feed the review's specific feedback back into implementation and retry. Cap retries at a small fixed number (e.g. 3 attempts total) — if it still hasn't passed, stop and report the last failure to the user rather than retrying indefinitely.
 
-*(If your environment genuinely has no review capability available — e.g., a fully unattended automation context — you can skip straight to merge, but treat that as a deliberate, narrow exception you call out explicitly, not a default. Skipping review removes your only gate against shipping broken code.)*
+Never skip the review. Without GitHub, ask the user to have the PR reviewed and merged.
 
 ## Step 5: Deployment
 
 Deployment typically won't fire automatically on merge if your workflow is manually-triggered (`workflow_dispatch`-only) — you'll need to trigger it explicitly.
 
 1. Trigger the deploy workflow on the merge target branch. Treat "already an in-progress deployment for this ref" as expected de-duplication, not an error — don't re-trigger.
-2. Poll for status, but let your polling tool's own internal long-poll do the waiting rather than looping tightly yourself.
-3. Watch for a "stale" status specifically: if a deployment reports "running" for far longer than normal, cross-check the actual CI run history by commit SHA/timing before assuming it's still in progress — a background poll process may have died without updating the record.
+2. Check the workflow run's status periodically rather than looping tightly.
+3. If a run reports "running" for far longer than normal, check the workflow run history for that commit before assuming it's still in progress.
 4. **Trigger a deployment at most once per attempt.** If you're unsure whether a previous trigger succeeded, check status first — never re-trigger just because you're unsure.
 5. On timeout: stop, check the CI run directly, report the situation, ask how to proceed.
 6. On explicit failure: stop and report — do not proceed to the experiment.
@@ -89,13 +91,13 @@ Prove the change on a small, fixed slice of traffic. Do **not** start a guarded 
 
 ## Step 7: Monitoring & Outcome
 
-Check status periodically — don't tight-loop. In an interactive session, check once and report progress, then pick back up later. In an unattended/scheduled context, check once per invocation and persist your progress somewhere durable between runs.
+Check status periodically — don't tight-loop. In an interactive session, check once and report progress, then pick back up later. Every MCP write needs a person to approve it, so an unattended run stops at its first write: run checks that may lead to a write in a session where someone can approve, and report progress so the next session can pick it up.
 
 **Phase 1 — Prove the experiment at 10% (gate before any rollout):**
 
 Watch for statistical significance on the primary metric:
 
-- **Significant + positive lift** → experiment proven. Stop the experiment iteration with control as the winner, then move to Phase 2. Stopping serves the winner to everyone, so a treatment winner would skip the guarded rollout.
+- **Significant + positive lift** → experiment proven. Stop the experiment iteration with control as the winner, then move to Phase 2. Stopping serves the winner to the experiment's targeting rule (everyone, when the experiment is on the default rule), so a treatment winner would skip the guarded rollout. If the plan has no guarded rollouts, still stop with control as the winner and use the regular rollout in Phase 2.
 - **Significant + negative lift** → declare a loser, stop the iteration with control as the winner, turn the flag off (do not archive it while the code still evaluates it), skip Phase 2, go straight to the Step 8 report.
 - **No significance after a reasonable ceiling (e.g. 4 weeks)** → report "inconclusive, need more traffic", stop the iteration with control as the winner, and stop; don't proceed to Phase 2.
 
@@ -106,12 +108,18 @@ Never declare a winner off a single data point or before your stats engine confi
 Start a guarded rollout with:
 - The winning ("on") variation as the test, the original as control.
 - Same randomization unit as the experiment.
-- **Exactly 3 monitored stages, capped well below 100%** — e.g. 20% → 30% → 40%, ~60 minutes monitoring each. Don't add a stage at or above 100%; Guarded-rollout implementations reject stages above 50% audience allocation, and the rollout auto-promotes to 100% itself once the final monitored stage completes cleanly — no explicit 100% stage needed.
-- The same primary + guardrail metrics as the experiment, each configured to notify and auto-rollback on regression.
+- **Exactly 3 monitored stages, each below 50%** — e.g. 20% → 30% → 40%, ~60 minutes monitoring each. `rolloutWeight` is in thousandths of a percent (20% is `20000`) and `monitoringWindowMilliseconds` is in milliseconds (60 minutes is `3600000`). Don't add a 100% stage.
+- `updateDefaultRuleOnCompletion: true`, so the rollout moves the default rule to the winning variation once the final stage completes cleanly.
+- The same primary + guardrail metrics as the experiment, each with `onRegression` set to notify and roll back, and a `regressionThreshold` (required) agreed with the user.
 
 Track stage progression. If the rollout rolls back or stops at any point, treat it as a regression: declare failed, turn the flag off (do not archive it while the code still evaluates it), and go to the Step 8 report.
 
 Once the final stage completes cleanly and auto-promotes to 100%, declare a winner and go to the Step 8 report.
+
+**If the plan has no guarded rollouts:** if `start-guarded-rollout` fails because guarded rollouts aren't available on the plan, use a regular rollout instead:
+1. Call `update-rollout` with `rolloutType: "variation"` and `variationIndex: 0` (true) on the default rule. This serves the treatment to everyone at once, with no automatic rollback.
+2. Check the guardrail metrics once per monitoring window, for about as long as the guarded rollout would have run (e.g. 3 hours).
+3. If a guardrail regresses, call `update-rollout` with `variationIndex: 1` (false), declare failed, and go to the Step 8 report. Otherwise, declare a winner and go to the Step 8 report.
 
 **Retrying after a rollback:** a rollback isn't always caused by your monitored metrics genuinely regressing — it can also be triggered by an unrelated application error surfacing mid-ramp. Before blindly restarting after the user says they've fixed something:
 1. Confirm the flag's current state (should be back to 100% control, nothing stuck mid-rollout).
@@ -141,7 +149,7 @@ Runs automatically the instant Step 7 reaches a terminal outcome (winner + auto-
 - Branch: [branch name]
 
 ### Release Readiness
-- [reviewed, passed after N attempt(s) / skipped, per your environment's process]
+- [reviewed, passed after N attempt(s)]
 
 ### Experiment Phase (10% fixed split)
 - Status: [proven / loser / inconclusive]
@@ -149,10 +157,11 @@ Runs automatically the instant Step 7 reaches a terminal outcome (winner + auto-
 - Metric change: [before] → [after] ([+/-]%)
 - Statistical significance: [value, confidence interval]
 
-### Guarded Rollout Phase (if reached)
+### Rollout Phase (if reached)
+- Type: [guarded rollout / regular rollout (no guarded rollouts on this plan)]
 - Status: [completed / rolled_back / not started]
 - Duration: [time]
-- Stages reached: [N of 3 monitored stages]
+- Stages reached: [N of 3 monitored stages, guarded rollout only]
 - If rolled back and retried: [root cause, outcome of retry]
 
 ### Safety Metrics
@@ -166,11 +175,11 @@ Runs automatically the instant Step 7 reaches a terminal outcome (winner + auto-
 ## Safety Rules (the non-negotiables)
 
 - Always present the hypothesis before implementing.
-- Always run a release/risk review before merging, unless your environment has a deliberate, explicitly-called-out exception.
-- **Always prove a change via a fixed small-percentage experiment before starting any guarded rollout** — never ramp blind.
+- Always run a release readiness review before merging. Never skip it.
+- **Always prove a change via a fixed small-percentage experiment before starting any rollout** — never roll out blind.
 - Always include an error-rate (or equivalent "don't break prod") metric as a guardrail, separate from your success metric.
 - Add a performance guardrail (e.g. p95 latency) for performance-focused changes.
-- Every rollout metric should be configured to both notify AND auto-rollback on regression — don't rely on notification alone.
-- **Cap guarded rollout stages well below 100%** (most platforms reject stages ≥50% audience allocation) and let the platform auto-promote to 100% after the final stage — don't try to add an explicit 100% stage.
+- Every guarded rollout metric should be configured to both notify AND auto-rollback on regression — don't rely on notification alone. A regular rollout has no automatic rollback, so watch its guardrail metrics after rolling out.
+- **Keep guarded rollout stages below 50%** and let the rollout move to 100% after the final stage — don't add an explicit 100% stage.
 - Distinguish a metric-driven rollback (don't retry) from an external-cause rollback (safe to retry once fixed) before restarting a rolled-back rollout.
 - The final report is automatic and mandatory on every terminal outcome — never defer it to a follow-up ask.
