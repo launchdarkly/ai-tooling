@@ -607,3 +607,46 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:noProductNameAfterIntro
         metric: capability_names
         weight: 1
+
+  # ------------------------------------------------------------------
+  # The user installs the App and says "Done", but this connection still
+  # sees no install: the browser was signed in to a different account.
+  # The skill names this connection's member, asks which account the
+  # browser uses, and does not just repeat the link. No writes.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Installed from a different browser account: names the member, diagnoses, zero writes"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for my repos."
+      max_turns: 18
+      mock_tool_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: false }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        list-release-autopilot-github-repos:
+          installed: false
+          userAuthorized: false
+          repositories: []
+          totalCount: 0
+          githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=install"
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-flagging"]
+        - ["Require approval"]
+        - ["Done"]
+        - ["A different one"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:relistsAfterDone
+        metric: relists_after_done
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:asksWhichBrowserAccount
+        metric: diagnoses_browser_account
+        weight: 4

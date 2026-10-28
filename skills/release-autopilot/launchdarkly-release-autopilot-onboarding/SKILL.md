@@ -64,6 +64,7 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 - Say "Release Autopilot" only in the welcome. After that, name the capability ("auto-flagging", "auto-releasing", "auto-cleanup"), or say "these capabilities". The exceptions are the resume phrase "continue Release Autopilot setup" and the name of the settings skill.
 - Name repos as `owner/name`. Show a repository ID only for a mapped repo with no name.
 - Describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value, not even in parentheses for an admin. If a check after a write disagrees with it, name the change that could not be confirmed and where to check it in the LaunchDarkly UI.
+- Every browser step (GitHub, bring your own key, Lifecycle or release settings) must be done while signed in as the member from Step 1. Say so when you give the link.
 - State only what the reads show. Do not guess at causes (such as "installs can take a few minutes to propagate"), and do not invent UI locations: give only the pages this skill names. For an account change left for an admin, tell them to run [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md).
 - Keep each message to the current step, and do not narrate tool calls.
 
@@ -91,7 +92,7 @@ Then go to Step 1. Skip any step that the account state already completes, and s
 
 Run these reads. Do not write anything.
 
-1. `get-member-self`: the member's `role`.
+1. `get-member-self`: the member's `role`, and their `email`. Keep the email: every browser step must happen while signed in to LaunchDarkly as that member (see [Step 3](#step-3-connect-github)).
    - `reader` or `no_access`: switch to Preview. Tell the user: "You have read-only access, so I'll show what would change and make no changes."
    - `admin` or `owner`: can make every write in this flow.
    - Any other role, including `writer` and custom roles: may map repos in projects they can edit, but account settings need an admin or owner. In Step 7, mark account writes as "needs an admin" and leave them out of Step 8.
@@ -133,12 +134,18 @@ Otherwise read the URL's `flow`:
 - `flow=install`: the LaunchDarkly GitHub App is not installed on their GitHub organization. None of these capabilities can see a pull request until it is.
 - `flow=authorize`: the App is installed, but this member has not authorized GitHub, so repos cannot be listed.
 
-Give the user the exact URL. Tell them to open it in a browser where they are logged in to LaunchDarkly. To install, they must be a GitHub organization owner, or they must request the install from one. Then ask header "GitHub", with the URL in the question text (for example, "Open https://… to install the LaunchDarkly GitHub App. Done?"):
+Give the user the exact URL. The link acts on whatever LaunchDarkly session the browser has, so tell them to open it while signed in as the member from Step 1 (for example, "Open it while signed in to LaunchDarkly as admin@acme.example"). To install, they must be a GitHub organization owner, or they must request the install from one. Then ask header "GitHub", with the URL in the question text (for example, "Open https://… to install the LaunchDarkly GitHub App. Done?"):
 
 - label: "Done", description: "I finished the GitHub step"
 - label: "Need an org owner", description: "I can't install the App myself. Pause setup here"
 
-On "Done", call `list-release-autopilot-github-repos` again. If it still returns `githubConnectUrl`, say so and repeat this step. On "Need an org owner", summarize the decisions so far, repeat the exact URL for the org owner, tell the user to say "continue Release Autopilot setup" after the App is installed, and stop.
+On "Done", call `list-release-autopilot-github-repos` again. If it still returns `githubConnectUrl`, do not repeat the link. The most common cause is a browser signed in to a different LaunchDarkly account or member, so the App was installed there. Ask header "Browser account", with this connection's email in the question text (for example, "This connection is signed in as admin@acme.example. Which account is your browser signed in to?"):
+
+- label: "The same", description: "My browser is signed in as that member"
+- label: "A different one", description: "My browser is signed in to another account or member"
+- label: "Not sure", description: "I need to check"
+
+For "A different one" or "Not sure", tell them to check at `/profile`, sign in as the member from Step 1, open the link again, and finish there; then list again. For "The same", check the other causes in [references/github-troubleshooting.md](references/github-troubleshooting.md). On "Need an org owner", summarize the decisions so far, repeat the exact URL for the org owner, tell the user to say "continue Release Autopilot setup" after the App is installed, and stop.
 
 ### Step 4: Map repositories
 
@@ -210,7 +217,7 @@ List every write in the order you will make it. For each write, state the curren
 1. **Metrics and release plans** (release plans only): one line per metric to create and per environment, with the plan name, steps, advancement, and metrics.
 2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; this project has no release policy yet)."
 3. **Account settings**: only fields that change. If auto-releasing turns on, say it can ship code.
-   For a member who is not an admin or owner, list account writes under "Needs an admin" instead.
+   For a member who is not an admin or owner, list account writes under "Needs an admin" instead, and say an admin can make them with the settings skill. Do not name a settings page; there is none to point to.
 4. **Browser steps the user reported done**: GitHub, the AI model choice, and auto-cleanup, marked as reported, not verified.
 5. **Follow-ups for the user**: release policies to add, metric events to instrument.
 
@@ -262,6 +269,7 @@ If any change was left for an admin or failed, lead with "Partly set up: waiting
 | Member role is `reader` or `no_access` | Preview mode. End with a checklist for an admin |
 | Release plans return 403 | Use release policies. Create no plans |
 | Repo not on the install list | Explain the GitHub fix by owner, then list again |
+| GitHub still not connected after "Done" | Likely a different browser account. Follow [references/github-troubleshooting.md](references/github-troubleshooting.md) |
 
 More cases: [references/edge-cases.md](references/edge-cases.md).
 
@@ -277,6 +285,7 @@ More cases: [references/edge-cases.md](references/edge-cases.md).
 - [references/release-plans.md](references/release-plans.md): creating environment release plans
 - [references/modes.md](references/modes.md): Preview and Resume details
 - [references/byok.md](references/byok.md): bring-your-own-key setup
+- [references/github-troubleshooting.md](references/github-troubleshooting.md): GitHub still not connected after the user finished
 - [references/edge-cases.md](references/edge-cases.md): edge cases and existing mappings
 - [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md): settings rules, write confirmations, and PR diagnosis
 - [Vega inference settings](https://launchdarkly.com/docs/home/getting-started/vega#vega-inference-settings)

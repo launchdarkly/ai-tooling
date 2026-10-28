@@ -241,3 +241,15 @@ module.exports.noStorefrontRemap = (output) => {
   const hit = traj(output).filter((t) => t.tool.endsWith("-repo-settings") && /^(update|delete)/.test(t.tool) && (t.arguments || {}).repo === "acme/storefront");
   return result(hit.length === 0, hit.length ? `wrote acme/storefront: ${JSON.stringify(hit[0].arguments)}` : "acme/storefront left alone");
 };
+
+module.exports.relistsAfterDone = (output) => {
+  const n = traj(output).filter((t) => t.tool === "list-release-autopilot-github-repos").length;
+  return result(n >= 2, `listed GitHub repos ${n} time(s)`);
+};
+
+// After "Done" with no install, the skill names this connection's member and
+// asks which account the browser is signed in to.
+module.exports.asksWhichBrowserAccount = (output) => {
+  const pass = askPrompts(output).some((p) => p.includes("admin@acme.example") && !p.includes("flow=install"));
+  return result(pass, pass ? "asked which account the browser uses, naming this connection's member" : "did not ask about the browser account with the member's email");
+};
