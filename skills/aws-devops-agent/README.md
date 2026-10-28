@@ -11,7 +11,7 @@ The skill takes a product goal through a LaunchDarkly experiment and, if the exp
 
 ## Install
 
-Run `ldcli aws-devops-agent setup`. Setup connects the LaunchDarkly MCP server to the agent space and installs the skill and the custom agent. For the steps, run `ldcli aws-devops-agent setup --help`.
+Run `ldcli aws-devops-agent setup`. If ldcli isn't installed, see the [ldcli installation instructions](https://github.com/launchdarkly/ldcli#installation), or install the files by hand as described below. ldcli is needed only for setup: the skill and the custom agent use only the LaunchDarkly MCP server. Setup connects the LaunchDarkly MCP server to the agent space and installs the skill and the custom agent. For the steps, run `ldcli aws-devops-agent setup --help`.
 
 To install the files by hand, use the AWS DevOps Agent console:
 
