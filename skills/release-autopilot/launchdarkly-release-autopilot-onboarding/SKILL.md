@@ -78,6 +78,8 @@ When a step is complete, go to the next one unless it says to ask or wait. Treat
 
 ### Step 0: Welcome the user
 
+If the user's request is a diagnosis ("why didn't my PR get classified?", "why wasn't it auto-flagged?"), do not start this wizard, whatever the account state: follow the diagnosis in [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md#why-didnt-my-pr-get-classified). It is read-only; if it finds that nothing is set up, offer this wizard afterward.
+
 Decide the mode from the user's first message before you write anything. Never announce the mode by name; for a preview request, say "I'll show what would change and make no changes." **In Resume mode, skip this step entirely**: do not show the intro or any part of it, and go straight to Step 1. In Setup mode, present this intro (you may lightly adapt the wording, but keep the structure). In Preview mode, replace the last line with "I'll show you every change and make none of them."
 
 > **Release Autopilot Setup**

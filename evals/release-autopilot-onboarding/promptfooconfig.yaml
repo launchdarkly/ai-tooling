@@ -674,3 +674,33 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:saysAddOnNotEnabled
         metric: add_on_wording
         weight: 4
+
+  # ------------------------------------------------------------------
+  # "Why didn't my PR get classified?" on an account with nothing set up.
+  # The skill runs the read-only diagnosis instead of the wizard: no
+  # capability question, no writes, and it says auto-flagging is off.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Diagnosis on an empty account: no wizard, says auto-flagging is off, zero writes"
+    vars:
+      user_request: "Why didn't Release Autopilot classify my pull request acme/demo#42?"
+      max_turns: 12
+      mock_tool_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: false }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noCapabilityQuestion
+        metric: no_wizard
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:saysAutoFlaggingOff
+        metric: diagnosis_answer
+        weight: 3

@@ -259,3 +259,15 @@ module.exports.saysAddOnNotEnabled = (output) => {
   const pass = /Release Autopilot add-on enabled/i.test(text) && !/\balpha\b/i.test(text);
   return result(pass, pass ? "says the add-on is not enabled" : "did not use the add-on wording (or mentioned the alpha)");
 };
+
+module.exports.noCapabilityQuestion = (output) => {
+  const asked = traj(output).filter((t) => t.tool === "ask-question" &&
+    ((t.arguments && t.arguments.options) || []).some((o) => /auto-releasing|auto-cleanup/i.test(String(o.label || ""))));
+  return result(asked.length === 0, asked.length ? "started the setup wizard (asked for capabilities)" : "did not start the wizard");
+};
+
+module.exports.saysAutoFlaggingOff = (output) => {
+  const text = allText(output).toLowerCase();
+  const pass = /auto-flagging (is )?(turned )?off|auto-flagging is not (turned )?on|auto-flagging isn't (turned )?on/.test(text);
+  return result(pass, pass ? "says auto-flagging is off for the account" : "did not say auto-flagging is off");
+};

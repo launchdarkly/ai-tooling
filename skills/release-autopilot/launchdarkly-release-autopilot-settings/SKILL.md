@@ -73,13 +73,15 @@ After they confirm, apply **only** the fields in the proposal. Then verify (do n
 
 ## Choose a workflow
 
-- **First-time setup** ("set up Release Autopilot", "onboard us", or no capability on and no repo mapped) → [`launchdarkly-release-autopilot-onboarding`](../launchdarkly-release-autopilot-onboarding/SKILL.md). It gathers every decision first and confirms one plan.
-- **"Why didn't Release Autopilot classify / auto-flag my PR?"** (or similar) → [Why didn't my PR get classified?](#why-didnt-my-pr-get-classified) first. Do not write settings in that workflow.
+Route on what the user asked for, not on account state. Check these in order:
+
+- **"Why didn't Release Autopilot classify / auto-flag my PR?"** (or similar) → [Why didn't my PR get classified?](#why-didnt-my-pr-get-classified), even on an account with nothing set up. Do not write settings in that workflow.
+- **First-time setup** ("set up Release Autopilot", "onboard us", "get started") → [`launchdarkly-release-autopilot-onboarding`](../launchdarkly-release-autopilot-onboarding/SKILL.md). It gathers every decision first and confirms one plan.
 - Configure / map / turn on / unmap → [Configure settings](#configure-settings).
 
 ## Why didn't my PR get classified?
 
-Use this when the user asks why a PR was not classified, not auto-flagged, or Release Autopilot ignored the PR. **Read-only.** Check in this order. Stop at the first failure and tell them how to fix it (then [Confirm before write](#confirm-before-write) if they ask you to apply the fix).
+Use this when the user asks why a PR was not classified, not auto-flagged, or Release Autopilot ignored the PR. **Read-only.** Check in this order. Stop at the first failure and tell them how to fix it (then [Confirm before write](#confirm-before-write) if they ask you to apply the fix). If the answer is that auto-flagging is off for the account or the repo is not mapped, and nothing is set up yet, offer [`launchdarkly-release-autopilot-onboarding`](../launchdarkly-release-autopilot-onboarding/SKILL.md) as the way to set it up.
 
 Identify the GitHub repo (`owner/name`) from the PR URL, `git remote`, or the name they gave. If you cannot identify one repo, ask. Do not diagnose a different repo.
 
