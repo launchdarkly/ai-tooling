@@ -134,7 +134,7 @@ Surface a summary once verified:
 ```
 ✓ Event flowing: checkout-completed
   Seen in: production
-  
+
 Next: this event is now ready to back a metric. Use the metric-create skill to set one up,
 or attach an existing metric to your experiment.
 ```
