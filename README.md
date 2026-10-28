@@ -64,7 +64,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 
 | Skill | Description |
 |-------|-------------|
-| `aws-devops-agent/experiment-orchestration` | Take a product goal through a LaunchDarkly experiment and a guarded rollout in AWS DevOps Agent. `ldcli aws-devops-agent setup` installs it with the `experiment-orchestrator` custom agent. See [`skills/aws-devops-agent`](skills/aws-devops-agent/README.md). |
+| `aws-devops-agent/experiment-orchestration` | Take a product goal through a LaunchDarkly experiment and a rollout (guarded, if the plan has it) in AWS DevOps Agent. `ldcli aws-devops-agent setup` installs it with the `experiment-orchestrator` custom agent. See [`skills/aws-devops-agent`](skills/aws-devops-agent/README.md). |
 
 ## Install as a Claude Code Plugin
 

@@ -1,6 +1,11 @@
 ---
 name: "experiment-orchestration"
-description: "Orchestrates automated experimentation lifecycle using LaunchDarkly Guarded Rollouts, an AI coding agent for implementation, and GitHub Actions for deployment."
+description: "Takes a product goal through a LaunchDarkly experiment and, if it wins, a guarded rollout (or a regular rollout on plans without guarded rollouts). Uses GitHub for the code change and deployment when it is connected to the agent space; otherwise hands those steps to a person."
+license: Apache-2.0
+compatibility: Requires the remotely hosted LaunchDarkly MCP server in an AWS DevOps Agent space. GitHub is optional.
+metadata:
+  author: launchdarkly
+  version: "0.1.0"
 ---
 
 # Automated Experimentation

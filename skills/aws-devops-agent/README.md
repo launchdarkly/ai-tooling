@@ -7,7 +7,7 @@ This folder holds the files that `ldcli aws-devops-agent setup` installs in an A
 | `experiment-orchestration/SKILL.md` | The `experiment-orchestration` skill. Every agent in the space can load it. |
 | `agents/experiment-orchestrator.md` | The system prompt of the `experiment-orchestrator` custom agent. The agent runs the skill with the LaunchDarkly MCP tools. |
 
-The skill takes a product goal through a LaunchDarkly experiment and, if the experiment wins, a guarded rollout. The skill uses the LaunchDarkly MCP server, a coding agent for the code change, and GitHub Actions for deployment.
+The skill takes a product goal through a LaunchDarkly experiment and, if the experiment wins, a guarded rollout. Guarded rollouts depend on the LaunchDarkly plan; without them, the skill uses a regular rollout. The skill uses the LaunchDarkly MCP server, and GitHub for the code change and deployment when GitHub is connected to the agent space. Without GitHub, it hands those steps to a person.
 
 ## Install
 
