@@ -271,3 +271,8 @@ module.exports.saysAutoFlaggingOff = (output) => {
   const pass = /auto-flagging (is )?(turned )?off|auto-flagging is not (turned )?on|auto-flagging isn't (turned )?on/.test(text);
   return result(pass, pass ? "says auto-flagging is off for the account" : "did not say auto-flagging is off");
 };
+
+module.exports.archivalQuestionHasLifecycleLink = (output) => {
+  const pass = askPrompts(output).some((p) => p.includes("/settings/lifecycle") && /archiv/i.test(p));
+  return result(pass, pass ? "auto-archival question contains the lifecycle settings link" : "no archival question contains /settings/lifecycle");
+};

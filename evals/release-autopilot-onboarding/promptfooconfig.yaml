@@ -704,3 +704,44 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:saysAutoFlaggingOff
         metric: diagnosis_answer
         weight: 3
+
+  # ------------------------------------------------------------------
+  # Auto-archival picked with auto-flagging. It is a browser step on the
+  # project's Lifecycle settings page: the link is in the question, and
+  # the only write is the confirmed repo mapping.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Auto-archival: lifecycle settings link in the question, confirmed repo write only"
+    vars:
+      user_request: "Set up Release Autopilot for acme/demo in project default."
+      max_turns: 22
+      mock_tool_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: false }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-flagging", "Auto-archival"]
+        - ["Require approval"]
+        - ["LaunchDarkly's"]
+        - ["Done"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:archivalQuestionHasLifecycleLink
+        metric: lifecycle_link_in_question
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
+        metric: repo_override_unpicked
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noAutoCleanup
+        metric: no_auto_cleanup
+        weight: 2

@@ -12,6 +12,8 @@
     "github",
     "auto-flagging",
     "auto-releasing",
+    "auto-cleanup",
+    "auto-archival",
     "release-plans",
     "mcp"
   ],

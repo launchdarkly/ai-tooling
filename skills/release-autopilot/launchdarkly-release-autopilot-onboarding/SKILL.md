@@ -1,6 +1,6 @@
 ---
 name: launchdarkly-release-autopilot-onboarding
-description: "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), review release policies (release plans by GA), and turn on scheduled flag cleanup. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead."
+description: "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), review release policies (release plans by GA), and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
@@ -61,7 +61,7 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 ## Speaking to the user
 
 - Use product words ("auto-flagging", "release policy", "approval") in every message, including questions, checklists, and the final summary. Never show tool names, field names (`githubRepoId`, `autoReleasing.enabled`), HTTP status codes, step numbers, or this skill's mode names ("preview mode", "policy mode", "plan mode"); say "Here's what would change", "your account uses release policies", and "Verification", not "Step 9".
-- Say "Release Autopilot" only in the welcome. After that, name the capability ("auto-flagging", "auto-releasing", "auto-cleanup"), or say "these capabilities". The exceptions are the resume phrase "continue Release Autopilot setup", the name of the settings skill, and "the Release Autopilot add-on".
+- Say "Release Autopilot" only in the welcome. After that, name the capability ("auto-flagging", "auto-releasing", "auto-cleanup", "auto-archival"), or say "these capabilities". The exceptions are the resume phrase "continue Release Autopilot setup", the name of the settings skill, and "the Release Autopilot add-on".
 - Name repos as `owner/name`. Show a repository ID only for a mapped repo with no name.
 - Describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value, not even in parentheses for an admin. If a check after a write disagrees with it, name the change that could not be confirmed and where to check it in the LaunchDarkly UI.
 - Every browser step (GitHub, bring your own key, Lifecycle or release settings) must be done while signed in as the member from Step 1. Say so when you give the link.
@@ -84,7 +84,7 @@ Decide the mode from the user's first message before you write anything. Never a
 
 > **Release Autopilot Setup**
 >
-> I'll set up Release Autopilot in a few short steps: check your account, pick capabilities, connect GitHub, map repositories, choose whose AI model account runs the agents, then set up releases and flag cleanup for the capabilities you pick.
+> I'll set up Release Autopilot in a few short steps: check your account, pick capabilities, connect GitHub, map repositories, choose whose AI model account runs the agents, then set up releases, flag cleanup, and archival for the capabilities you pick.
 >
 > Nothing changes until you approve the full plan.
 
@@ -119,13 +119,14 @@ Use `AskUserQuestion` with header "Capabilities", `multiSelect: true`:
 - label: "Auto-flagging (Recommended)", description: "Reads each pull request and, when a change should ship behind a flag, opens a PR that adds the flag"
 - label: "Auto-releasing", description: "After a flagged change deploys, releases it with the environment's release policy or release plan. This can ship code to users"
 - label: "Auto-cleanup", description: "On a schedule, opens pull requests that remove the code for flags that are ready for removal. This removes code"
+- label: "Auto-archival", description: "Archives flags that are ready to archive, after safety checks and a grace period"
 
 Ask about approval only if the user picked auto-flagging **and** the account does not already have auto-flagging on with approval required. If it already does, say "Auto-flagging already requires approval for every mapped repo. Say 'change approval' if you want to turn it off," and move on unless they say so. Otherwise, or if they ask to change it, ask header "Approval":
 
 - label: "Require approval (Recommended)", description: "A person approves each auto-flagging PR before any code changes. This is an account setting, so it applies to every mapped repo"
 - label: "No approval", description: "Auto-flagging changes PRs without an approval step, in every mapped repo"
 
-Auto-cleanup is opt-in like auto-releasing: never recommend it by default. If the user picks no capability, stop and tell them there is nothing to set up.
+Auto-cleanup and auto-archival are opt-in like auto-releasing: never recommend them by default. If the user picks no capability, stop and tell them there is nothing to set up.
 
 ### Step 3: Connect GitHub
 
@@ -174,7 +175,7 @@ Record the answer as reported by the user, not as verified.
 
 ### Step 6: Set up releases and cleanup
 
-Skip this step if the user picked neither auto-releasing nor auto-cleanup. For auto-cleanup, follow [Auto-cleanup](#auto-cleanup) below. The rest of this step is for auto-releasing.
+Skip this step if the user picked none of auto-releasing, auto-cleanup, or auto-archival. For those two, follow [Auto-cleanup](#auto-cleanup) and [Auto-archival](#auto-archival) below. The rest of this step is for auto-releasing.
 
 For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-project`, or ask). Then check once per account whether it uses release plans or release policies.
 
@@ -203,10 +204,19 @@ To create a plan, follow [references/release-plans.md](references/release-plans.
 
 #### Auto-cleanup
 
-Auto-cleanup is the per-project **Automated flag cleanup** setting on the Lifecycle settings page. The MCP settings tools do not manage it yet, so never send `autoCleanup`; this is a browser step. If a later version of `get-release-autopilot-settings` returns `autoCleanup` and the update tool accepts it, set it there instead. For each project from Step 4, follow [references/auto-cleanup.md](references/auto-cleanup.md), then ask header "Auto-cleanup", with the link in the question text:
+Auto-cleanup is the per-project **Automated flag cleanup** setting, on the Lifecycle settings page (or the Vega settings page, for accounts where Vega has its own project settings). The MCP settings tools do not manage it yet, so never send `autoCleanup`; this is a browser step. If a later version of `get-release-autopilot-settings` returns `autoCleanup` and the update tool accepts it, set it there instead. For each project from Step 4, follow [references/auto-cleanup.md](references/auto-cleanup.md), then ask header "Auto-cleanup", with the link in the question text:
 
 - label: "Done", description: "I turned on automated flag cleanup for every project"
 - label: "Later", description: "Skip this. I'll turn it on from Lifecycle settings later"
+
+Record the answer as reported by the user, and list "Done" under browser steps in Step 7.
+
+#### Auto-archival
+
+Auto-archival is the per-project **Automatic archival** setting on the Lifecycle settings page. No MCP tool manages it, so this is a browser step. For each project from Step 4, follow [references/auto-archival.md](references/auto-archival.md), then ask header "Auto-archival", with the link in the question text:
+
+- label: "Done", description: "I turned on automatic archival for every project"
+- label: "Later", description: "Skip this, or the section isn't there yet. I'll turn it on from Lifecycle settings later"
 
 Record the answer as reported by the user, and list "Done" under browser steps in Step 7.
 
@@ -220,7 +230,7 @@ List every write in the order you will make it. For each write, state the curren
 2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; this project has no release policy yet)."
 3. **Account settings**: only fields that change. If auto-releasing turns on, say it can ship code.
    For a member who is not an admin or owner, list account writes under "Needs an admin" instead, and say an admin can make them with the settings skill. Do not name a settings page; there is none to point to.
-4. **Browser steps the user reported done**: GitHub, the AI model choice, and auto-cleanup, marked as reported, not verified.
+4. **Browser steps the user reported done**: GitHub, the AI model choice, auto-cleanup, and auto-archival, marked as reported, not verified.
 5. **Follow-ups for the user**: release policies to add, metric events to instrument.
 
 If there are no writes, say so, list the follow-ups, and stop.
@@ -287,6 +297,7 @@ More cases: [references/edge-cases.md](references/edge-cases.md).
 - [references/release-plans.md](references/release-plans.md): creating environment release plans
 - [references/modes.md](references/modes.md): Preview and Resume details
 - [references/byok.md](references/byok.md): bring-your-own-key setup
+- [references/auto-cleanup.md](references/auto-cleanup.md) / [references/auto-archival.md](references/auto-archival.md): turning on flag cleanup and archival
 - [references/github-troubleshooting.md](references/github-troubleshooting.md): GitHub still not connected after the user finished
 - [references/edge-cases.md](references/edge-cases.md): edge cases and existing mappings
 - [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md): settings rules, write confirmations, and PR diagnosis
