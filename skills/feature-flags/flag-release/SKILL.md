@@ -33,7 +33,7 @@ By the time this skill runs, the flag exists (OFF) and the guarding code is wire
 - A pull-request reference (`repoFullName` + `prNumber`, or `prUrl`) so the rollout binds to the right merge.
 
 **MCP tools this skill uses:**
-- `create-automated-rollout-config` — record the rollout for the flag against the PR *(the deliverable)*
+- `create-automated-rollout-config` — record the rollout for the flag against the PR *(the deliverable)*. It has no field for holding, scheduling, or a `notBefore` date: every environment in its `environments` array releases on merge, and a held environment is left out.
 - `match-release-policies` — resolve which release policy governs each environment (call before proposing the plan)
 - `get-release-policies` — see the project's release policies and the metrics they auto-attach
 - `get-flags` — confirm the flag exists and is OFF before recording

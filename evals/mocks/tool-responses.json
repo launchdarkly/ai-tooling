@@ -190,6 +190,18 @@
         "mobileKey": "mob-00000000-0000-0000-0000-000000000001"
       },
       {
+        "key": "dev",
+        "name": "Dev",
+        "clientSideId": "5f0000000000000000000003",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000003"
+      },
+      {
+        "key": "staging",
+        "name": "Staging",
+        "clientSideId": "5f0000000000000000000004",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000004"
+      },
+      {
         "key": "production",
         "name": "Production",
         "clientSideId": "5f0000000000000000000002",

@@ -18,7 +18,7 @@ the way the team has decided similar changes should roll out — no human toggli
 
 - **Immediate** (`{ environmentKey }`, no `releaseType` or `override`): serve `true` in that environment once the flag begins evaluating — the same trigger `policy` waits for, just with no policy resolution or stages. Use it for dev/staging environments you want fully enabled without ceremony.
 
-- **`policy`** (`{ environmentKey, releaseType: "policy" }`): wait until the PR merges and the flag begins evaluating, then resolve that environment's configured release policy and perform the matching release — immediate, progressive, or guarded — automatically. Use it for production and any environment where you want a governed, monitored rollout with the safety net the team already defined.
+- **`policy`** (`{ environmentKey, releaseType: "policy" }`): not a hold — it never waits for a date or a sign-off. Wait until the PR merges and the flag begins evaluating, then resolve that environment's configured release policy and perform the matching release — immediate, progressive, or guarded — automatically. Use it for production and any environment where you want a governed, monitored rollout with the safety net the team already defined.
 
 A typical plan: `staging → immediate`, `production → policy`.
 
