@@ -14,11 +14,11 @@ Use this skill when you have a goal you want to move through experimentation (e.
 
 **Core principle: experiment first, then a guarded rollout, or a regular rollout if the plan has no guarded rollouts.** Always prove a change on a small, fixed slice of traffic via an A/B experiment before rolling it out. Never roll out blind — the rollout exists only to scale a change the experiment has already shown to work.
 
-**Execution mode:** once the goal is confirmed (Step 1), run Steps 2–8 end-to-end. Async operations (code implementation, release review, deployment, experiment monitoring, rollout monitoring) should be checked periodically, not tight-polled — see the waiting note in each step. Only stop and ask the user something if a step fails unrecoverably (repeated failed release reviews, deployment failure, or an inconclusive/losing experiment result).
+**Execution mode:** once the goal is confirmed (Step 1), run Steps 2–8 end-to-end. Async operations (code implementation, release review, deployment, experiment monitoring, rollout monitoring) should be checked periodically, not tight-polled — see the waiting note in each step. Stop and ask the user only for a planned handoff (merging the PR; any code, review, or deploy step you hand over without GitHub) or if a step fails unrecoverably (repeated failed release reviews, deployment failure, or an inconclusive/losing experiment result).
 
 **Approvals:** if the LaunchDarkly environment requires approval for a change (for example, to turn a flag on or off, start or stop an experiment, or start a guarded rollout), create an approval request instead of the direct change. Call the change tool directly; if the response has `requiresApproval: true`, pass the returned instructions to `create-approval-request`. Don't guess beforehand whether the environment requires approval. Tell the person who must review it. Continue only after `list-approval-requests` shows it approved, then apply it with `apply-approval-request` and go to the next step. If a reviewer rejects it, stop and report.
 
-**GitHub:** Steps 2–5 use GitHub when it is connected to the agent space. Before Step 2, check whether you have GitHub access to the target repository. If you don't, read no code: ask the user where the change belongs, and in Steps 3–5 give them the flag key and the change to make, then wait until they confirm the change is merged and deployed. Triggering workflows and proposing fixes need the GitHub connection's Read and write permissions; with Read-only, hand those steps to the user.
+**GitHub:** Steps 2–5 use GitHub when it is connected to the agent space. Before Step 2, check whether you have GitHub access to the target repository. If you don't, read no code: ask the user where the change belongs, and in Step 3 give them the flag key and the change to make, then wait until they confirm the change is reviewed, merged, and deployed, and skip to Step 6. Triggering workflows and proposing fixes need the GitHub connection's Read and write permissions; with Read-only, hand those steps to the user.
 
 **The final report (Step 8) is mandatory, not optional.** The moment an experiment or rollout reaches a terminal outcome — winner, loser, inconclusive, or rollback — produce the full report in the same turn you announce the outcome. Don't let a casual "it worked!" substitute for the structured report.
 
@@ -31,8 +31,9 @@ Before doing anything, get answers to:
 3. **What's the current baseline?** *(Optional — infer from production metrics if not given)*
 4. **What parts of the app are in scope?** *(Optional — infer from the codebase if not given)*
 5. **Any constraints?** *(Optional)* e.g. no changes to the payment flow.
+6. **How much regression should roll a change back?** *(Optional — propose one per guardrail metric if not given)* Used as each metric's `regressionThreshold` in Step 7.
 
-Questions 1–2 are required before proceeding; infer 3–5 where possible and confirm your assumptions with the user before implementing.
+Questions 1–2 are required before proceeding; infer 3–6 where possible and confirm your assumptions with the user before implementing.
 
 ## Step 2: Hypothesis Generation
 
@@ -51,7 +52,7 @@ Explore the target repository/codebase to find a plausible change:
 ## Step 3: Implementation
 
 1. Create a boolean feature flag, OFF by default in all environments, with `defaults` of `{"onVariation": 1, "offVariation": 1}` so that it serves false even when it is on, and `clientSideAvailability` of `{"usingEnvironmentId": true, "usingMobileKey": true}` so that every SDK can read it. Name it with a clear pattern like `exp-<metric>-<short-description>` (e.g. `exp-checkout-conversion-cta-color`), lowercase with hyphens, ~50 chars max. If the project has its own flag naming conventions (for example, a required prefix or case), follow them instead.
-2. Hand off implementation to your coding agent/tool of choice, with clear instructions to gate the change behind the exact flag key from step 1. Without a coding agent or GitHub write access, give the user the flag key and the change instead, and wait for their PR.
+2. Hand off implementation to your coding agent/tool of choice, with clear instructions to gate the change behind the exact flag key from step 1. Without a coding agent or GitHub write access, give the user the flag key and the change instead, and wait for their PR (with GitHub connected) or their confirmation that it is deployed (without GitHub).
 3. This step is asynchronous — check status periodically rather than looping tightly on it.
 4. Once implementation completes, move to Step 4 with the resulting branch/PR. If it fails, report the error and stop.
 
@@ -60,7 +61,7 @@ Explore the target repository/codebase to find a plausible change:
 Run an AWS DevOps Agent release readiness code review on the PR before it merges. It runs automatically on connected repositories with **Auto trigger change review** enabled; otherwise request one.
 
 - If it passes: ask the user to merge the PR, and wait until they confirm it is merged.
-- If it fails: feed the review's specific feedback back into implementation and retry. Cap retries at a small fixed number (e.g. 3 attempts total) — if it still hasn't passed, stop and report the last failure to the user rather than retrying indefinitely.
+- If it fails: feed the review's specific feedback back into implementation (or to the user, if they made the change) and retry. Cap retries at a small fixed number (e.g. 3 attempts total) — if it still hasn't passed, stop and report the last failure to the user rather than retrying indefinitely.
 
 Never skip the review. Without GitHub, ask the user to have the PR reviewed and merged.
 
@@ -68,7 +69,7 @@ Never skip the review. Without GitHub, ask the user to have the PR reviewed and 
 
 Deployment typically won't fire automatically on merge if your workflow is manually-triggered (`workflow_dispatch`-only) — you'll need to trigger it explicitly.
 
-1. Trigger the deploy workflow on the merge target branch. Treat "already an in-progress deployment for this ref" as expected de-duplication, not an error — don't re-trigger.
+1. Trigger the deploy workflow on the merge target branch (this needs Read and write GitHub access; otherwise ask the user to deploy and confirm when it's done). Treat "already an in-progress deployment for this ref" as expected de-duplication, not an error — don't re-trigger.
 2. Check the workflow run's status periodically rather than looping tightly.
 3. If a run reports "running" for far longer than normal, check the workflow run history for that commit before assuming it's still in progress.
 4. **Trigger a deployment at most once per attempt.** If you're unsure whether a previous trigger succeeded, check status first — never re-trigger just because you're unsure.
@@ -110,18 +111,18 @@ Start a guarded rollout with:
 - Same randomization unit as the experiment.
 - **Exactly 3 monitored stages, each below 50%** — e.g. 20% → 30% → 40%, ~60 minutes monitoring each. `rolloutWeight` is in thousandths of a percent (20% is `20000`) and `monitoringWindowMilliseconds` is in milliseconds (60 minutes is `3600000`). Don't add a 100% stage.
 - `updateDefaultRuleOnCompletion: true`, so the rollout moves the default rule to the winning variation once the final stage completes cleanly.
-- The same primary + guardrail metrics as the experiment, each with `onRegression` set to notify and roll back, and a `regressionThreshold` (required) agreed with the user.
+- The same primary + guardrail metrics as the experiment, each with `onRegression` set to notify and roll back, and a `regressionThreshold` (required) from Step 1.
 
 Track stage progression. If the rollout rolls back or stops at any point, treat it as a regression: declare failed, turn the flag off (do not archive it while the code still evaluates it), and go to the Step 8 report.
 
-Once the final stage completes cleanly and auto-promotes to 100%, declare a winner and go to the Step 8 report.
+Once the final stage completes cleanly and the default rule serves the winning variation, declare a winner and go to the Step 8 report.
 
 **If the plan has no guarded rollouts:** if `start-guarded-rollout` fails because guarded rollouts aren't available on the plan, use a regular rollout instead:
-1. Call `update-rollout` with `rolloutType: "variation"` and `variationIndex: 0` (true) on the default rule. This serves the treatment to everyone at once, with no automatic rollback.
-2. Check the guardrail metrics once per monitoring window, for about as long as the guarded rollout would have run (e.g. 3 hours).
-3. If a guardrail regresses, call `update-rollout` with `variationIndex: 1` (false), declare failed, and go to the Step 8 report. Otherwise, declare a winner and go to the Step 8 report.
+1. Read the flag's variations to find the indexes of `true` and `false`. Call `update-rollout` with `rolloutType: "variation"` and the index of `true` on the default rule. This serves the treatment to everyone at once, with no automatic rollback.
+2. Check the guardrail metrics once per monitoring window, for about as long as the guarded rollout would have run (e.g. 3 hours). Reverting is a write that needs a person's approval, so run this watch in a session where someone can approve.
+3. If a guardrail regresses, call `update-rollout` with the index of `false`, declare failed, and go to the Step 8 report. Otherwise, declare a winner and go to the Step 8 report.
 
-**Retrying after a rollback:** a rollback isn't always caused by your monitored metrics genuinely regressing — it can also be triggered by an unrelated application error surfacing mid-ramp. Before blindly restarting after the user says they've fixed something:
+**Retrying after a guarded rollout rollback:** a rollback isn't always caused by your monitored metrics genuinely regressing — it can also be triggered by an unrelated application error surfacing mid-ramp. Before blindly restarting after the user says they've fixed something:
 1. Confirm the flag's current state (should be back to 100% control, nothing stuck mid-rollout).
 2. Check the change history timing between "advanced to next stage" and "reverted." A rollback within seconds of advancing is inconsistent with a full metric-window regression and points to an external cause instead.
 3. If the flag is cleanly reverted and the external cause is confirmed fixed, it's safe to restart the guarded rollout from scratch with the same parameters.
@@ -131,7 +132,7 @@ Once the final stage completes cleanly and auto-promotes to 100%, declare a winn
 
 ## Step 8: Report
 
-Runs automatically the instant Step 7 reaches a terminal outcome (winner + auto-promoted to 100%; loser; inconclusive; or rollback/failure). Use this exact structure from Experiment Report to Next Steps:
+Runs automatically the instant Step 7 reaches a terminal outcome (winner, with the default rule serving it; loser; inconclusive; or rollback/failure). Use this exact structure from Experiment Report to Next Steps:
 
 ```markdown
 ## Experiment Report: [Goal Description]
@@ -149,7 +150,7 @@ Runs automatically the instant Step 7 reaches a terminal outcome (winner + auto-
 - Branch: [branch name]
 
 ### Release Readiness
-- [reviewed, passed after N attempt(s)]
+- [release readiness review passed after N attempt(s) / reviewed by the user]
 
 ### Experiment Phase (10% fixed split)
 - Status: [proven / loser / inconclusive]
@@ -175,7 +176,7 @@ Runs automatically the instant Step 7 reaches a terminal outcome (winner + auto-
 ## Safety Rules (the non-negotiables)
 
 - Always present the hypothesis before implementing.
-- Always run a release readiness review before merging. Never skip it.
+- Always have the PR reviewed before merging: the release readiness review with GitHub, or the user's review without it. Never skip it.
 - **Always prove a change via a fixed small-percentage experiment before starting any rollout** — never roll out blind.
 - Always include an error-rate (or equivalent "don't break prod") metric as a guardrail, separate from your success metric.
 - Add a performance guardrail (e.g. p95 latency) for performance-focused changes.
