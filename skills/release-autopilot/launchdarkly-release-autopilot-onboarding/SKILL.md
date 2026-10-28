@@ -175,7 +175,11 @@ Record the answer as reported by the user, not as verified.
 
 ### Step 6: Set up releases and cleanup
 
-Skip this step if the user picked none of auto-releasing, auto-cleanup, or auto-archival. For those two, follow [Auto-cleanup](#auto-cleanup) and [Auto-archival](#auto-archival) below. The rest of this step is for auto-releasing.
+Run each part of this step only for a capability the user picked in Step 2, and skip the step if they picked none of them. Never walk the user through a capability they did not pick:
+
+- Auto-releasing picked: the release setup below.
+- Auto-cleanup picked: [Auto-cleanup](#auto-cleanup).
+- Auto-archival picked: [Auto-archival](#auto-archival).
 
 For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-project`, or ask). Then check once per account whether it uses release plans or release policies.
 
@@ -204,6 +208,9 @@ To create a plan, follow [references/release-plans.md](references/release-plans.
 
 #### Auto-cleanup
 
+Only if the user picked auto-cleanup.
+
+
 Auto-cleanup is the per-project **Automated flag cleanup** setting, on the Lifecycle settings page (or the Vega settings page, for accounts where Vega has its own project settings). The MCP settings tools do not manage it yet, so never send `autoCleanup`; this is a browser step. If a later version of `get-release-autopilot-settings` returns `autoCleanup` and the update tool accepts it, set it there instead. For each project from Step 4, follow [references/auto-cleanup.md](references/auto-cleanup.md), then ask header "Auto-cleanup", with the link in the question text:
 
 - label: "Done", description: "I turned on automated flag cleanup for every project"
@@ -212,6 +219,9 @@ Auto-cleanup is the per-project **Automated flag cleanup** setting, on the Lifec
 Record the answer as reported by the user, and list "Done" under browser steps in Step 7.
 
 #### Auto-archival
+
+Only if the user picked auto-archival.
+
 
 Auto-archival is the per-project **Automatic archival** setting on the Lifecycle settings page. No MCP tool manages it, so this is a browser step. For each project from Step 4, follow [references/auto-archival.md](references/auto-archival.md), then ask header "Auto-archival", with the link in the question text:
 

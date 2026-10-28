@@ -69,6 +69,14 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noCleanupQuestion
+        metric: no_unpicked_cleanup
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noArchivalQuestion
+        metric: no_unpicked_archival
+        weight: 3
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 4
@@ -127,6 +135,14 @@ tests:
         - ["Test", "Production"]
         - ["Looks good"]
     assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noCleanupQuestion
+        metric: no_unpicked_cleanup
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noArchivalQuestion
+        metric: no_unpicked_archival
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:releasePlansCalledAtMostOnce
         metric: plans_403_account_wide
@@ -413,6 +429,14 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noCleanupQuestion
+        metric: no_unpicked_cleanup
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noArchivalQuestion
+        metric: no_unpicked_archival
+        weight: 3
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:planBeforeRepoWrite
         metric: plan_before_repo_write
         weight: 4
@@ -588,6 +612,10 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noArchivalQuestion
+        metric: no_unpicked_archival
+        weight: 3
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noAutoCleanup
         metric: no_auto_cleanup
         weight: 3
@@ -729,6 +757,10 @@ tests:
         - ["Done"]
         - ["Looks good"]
     assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noCleanupQuestion
+        metric: no_unpicked_cleanup
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:archivalQuestionHasLifecycleLink
         metric: lifecycle_link_in_question

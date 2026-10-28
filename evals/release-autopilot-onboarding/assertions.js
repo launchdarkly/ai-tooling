@@ -276,3 +276,16 @@ module.exports.archivalQuestionHasLifecycleLink = (output) => {
   const pass = askPrompts(output).some((p) => p.includes("/settings/lifecycle") && /archiv/i.test(p));
   return result(pass, pass ? "auto-archival question contains the lifecycle settings link" : "no archival question contains /settings/lifecycle");
 };
+
+// Step 6 must not walk the user through cleanup or archival they did not pick.
+const asksAbout = (output, re) => askPrompts(output).filter((p) => re.test(p));
+const CLEANUP = /auto-cleanup|automated flag cleanup|flag cleanup/i;
+const ARCHIVAL = /auto-archival|automatic archival/i;
+module.exports.noCleanupQuestion = (output) => {
+  const hit = asksAbout(output, CLEANUP).filter((p) => !/capabilit/i.test(p));
+  return result(hit.length === 0, hit.length ? `asked about unpicked auto-cleanup: "${hit[0].slice(0, 90)}"` : "no auto-cleanup step");
+};
+module.exports.noArchivalQuestion = (output) => {
+  const hit = asksAbout(output, ARCHIVAL).filter((p) => !/capabilit/i.test(p));
+  return result(hit.length === 0, hit.length ? `asked about unpicked auto-archival: "${hit[0].slice(0, 90)}"` : "no auto-archival step");
+};
