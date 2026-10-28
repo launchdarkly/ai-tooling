@@ -180,28 +180,33 @@ function isNotEqualsUser(input) {
   );
 }
 
+function contextItem(kind, key) {
+  return { kind, key, lastSeen: "2026-10-20T00:00:00.000Z" };
+}
+
+function isUnfilteredContextSearch(input) {
+  const kindBlank = input.kind == null || String(input.kind).trim() === "";
+  const filterBlank = input.filter == null || String(input.filter).trim() === "";
+  return kindBlank && filterBlank;
+}
+
 function searchContextsResponse(input) {
   const mixed = input.projectKey === "mixed-contexts";
   if (isNotEqualsUser(input)) {
     if (mixed) {
-      return {
-        items: [
-          {
-            kind: "organization",
-            key: "org-1",
-            lastSeen: "2026-10-20T00:00:00.000Z",
-          },
-        ],
-        totalCount: 1,
-      };
+      return { items: [contextItem("organization", "org-1")], totalCount: 1 };
     }
     return { items: [], totalCount: 0 };
   }
-  if (isUserKindQuery(input) || (input.kind == null && input.filter == null)) {
-    return {
-      items: [{ kind: "user", key: "user-1", lastSeen: "2026-10-20T00:00:00.000Z" }],
-      totalCount: 1,
-    };
+  if (isUserKindQuery(input)) {
+    return { items: [contextItem("user", "user-1")], totalCount: 1 };
+  }
+  // No kind and no filter lists every stored kind: user in both projects,
+  // and organization as well when other kinds are stored.
+  if (isUnfilteredContextSearch(input)) {
+    const items = [contextItem("user", "user-1")];
+    if (mixed) items.push(contextItem("organization", "org-1"));
+    return { items, totalCount: items.length };
   }
   return { items: [], totalCount: 0 };
 }
@@ -538,7 +543,9 @@ function renderMockResponse(template, input, toolName, state) {
 
   if (toolName === "list-flags" || toolName === "list-feature-flags") {
     const query = typeof input.query === "string" ? input.query.trim().toLowerCase() : "";
-    if (query === "missing-checkout") return similarCheckoutFlags();
+    // A search for a checkout flag returns the similar keys and omits the
+    // missing one, whatever the exact query string is.
+    if (query.includes("checkout")) return similarCheckoutFlags();
   }
 
   if (toolName === "get-experiment") {

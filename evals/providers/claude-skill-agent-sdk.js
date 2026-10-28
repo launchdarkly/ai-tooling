@@ -27,6 +27,12 @@
  *                            `/<skill_slug>` to explicitly invoke the skill via
  *                            slash command. Use for routing/advisory skills whose
  *                            description-based activation is unreliable in eval.
+ *                            That slash command is its own first turn; the
+ *                            request arrives as a second turn.
+ *   inline_skill_invocation - Default false. When true, send `/<skill_slug>`
+ *                            and the user message as one turn, and do not set
+ *                            initialPrompt. Use when the skill must be invoked
+ *                            without a second message aborting tool calls.
  *   expose_ask_question    - Default false. When true, expose a second in-process
  *                            MCP server with an `ask-question` tool that records
  *                            calls into the trajectory and returns a canned answer.
@@ -179,6 +185,31 @@ function loadSdk() {
   return sdkPromise;
 }
 
+/**
+ * How the skill is invoked for one call.
+ * Inline sends `/<slug>` and the request as the single query prompt and leaves
+ * initialPrompt unset, even if force_skill_invocation is also set.
+ * Otherwise the prompt is the request alone, and force_skill_invocation sets
+ * initialPrompt to `/<slug>` as its own first turn.
+ */
+function resolveSkillDelivery({
+  skillSlug,
+  userMessage,
+  forceSkillInvocation,
+  inlineSkillInvocation,
+}) {
+  if (inlineSkillInvocation) {
+    return {
+      prompt: `/${skillSlug}\n\n${userMessage}`,
+      initialPrompt: undefined,
+    };
+  }
+  return {
+    prompt: userMessage,
+    initialPrompt: forceSkillInvocation ? `/${skillSlug}` : undefined,
+  };
+}
+
 class ClaudeSkillAgentSdk {
   constructor(options = {}) {
     const config = options.config || {};
@@ -191,6 +222,7 @@ class ClaudeSkillAgentSdk {
     this.allowBuiltins = Boolean(config.allow_builtins);
     this.exposeMcpTools = config.expose_mcp_tools !== false;
     this.forceSkillInvocation = Boolean(config.force_skill_invocation);
+    this.inlineSkillInvocation = Boolean(config.inline_skill_invocation);
     this.exposeAskQuestion = Boolean(config.expose_ask_question);
 
     const source = resolveSkillSource(this.skillSlug);
@@ -241,6 +273,13 @@ class ClaudeSkillAgentSdk {
     if (gitDiff) {
       userMessage += `\n\n<git_diff>\n${gitDiff}\n</git_diff>`;
     }
+
+    const delivery = resolveSkillDelivery({
+      skillSlug: this.skillSlug,
+      userMessage,
+      forceSkillInvocation: this.forceSkillInvocation,
+      inlineSkillInvocation: this.inlineSkillInvocation,
+    });
 
     const { cwd, isolatedConfig } = createInvocationCwd(
       this.skillSlug,
@@ -390,8 +429,8 @@ class ClaudeSkillAgentSdk {
           description: "Evaluation harness agent for LaunchDarkly skills.",
           prompt: harnessPrompt,
           skills: [this.skillSlug],
-          ...(this.forceSkillInvocation
-            ? { initialPrompt: `/${this.skillSlug}` }
+          ...(delivery.initialPrompt
+            ? { initialPrompt: delivery.initialPrompt }
             : {}),
           ...(agentTools ? { tools: agentTools } : {}),
         },
@@ -447,7 +486,7 @@ class ClaudeSkillAgentSdk {
     };
 
     try {
-      const q = query({ prompt: userMessage, options: queryOptions });
+      const q = query({ prompt: delivery.prompt, options: queryOptions });
       for await (const msg of q) {
         if (debug) allMessages.push(msg);
         if (msg.type === "assistant") {
@@ -587,3 +626,4 @@ module.exports = ClaudeSkillAgentSdk;
 // Exposed for unit tests; the promptfoo loader uses the class default export.
 module.exports.stripRawWrapper = stripRawWrapper;
 module.exports.resolveExposeMcpTools = resolveExposeMcpTools;
+module.exports.resolveSkillDelivery = resolveSkillDelivery;

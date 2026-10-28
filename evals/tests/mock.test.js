@@ -502,6 +502,17 @@ test("list-flags query missing-checkout returns similar keys only", () => {
   assert.deepEqual(keys, ["checkout-flow", "new-checkout"]);
 });
 
+test("list-flags query containing checkout returns similar keys and omits missing-checkout", () => {
+  const state = createMockState();
+  const result = renderMockResponse(TEMPLATES["list-flags"], {
+    projectKey: "my-project",
+    query: "Checkout",
+  }, "list-flags", state);
+  const keys = result.flags.map((flag) => flag.key);
+  assert.deepEqual(keys, ["checkout-flow", "new-checkout"]);
+  assert.equal(keys.includes("missing-checkout"), false);
+});
+
 test("list-flags without that query keeps the shared flag list", () => {
   const state = createMockState();
   const result = renderMockResponse(TEMPLATES["list-flags"], {
@@ -529,6 +540,26 @@ test("search-contexts suggests user only when no other kind is stored", () => {
   assert.equal(users.totalCount, 1);
   assert.equal(users.items[0].kind, "user");
   assert.equal(others.totalCount, 0);
+});
+
+test("search-contexts with no kind filter lists every stored kind", () => {
+  const state = createMockState();
+  const onlyUser = renderMockResponse(TEMPLATES["search-contexts"], {
+    projectKey: "only-user",
+    environmentKey: "production",
+  }, "search-contexts", state);
+  assert.deepEqual(onlyUser.items.map((item) => item.kind), ["user"]);
+  assert.equal(onlyUser.totalCount, 1);
+
+  const mixed = renderMockResponse(TEMPLATES["search-contexts"], {
+    projectKey: "mixed-contexts",
+    environmentKey: "production",
+  }, "search-contexts", state);
+  assert.deepEqual(
+    mixed.items.map((item) => item.kind).sort(),
+    ["organization", "user"],
+  );
+  assert.equal(mixed.totalCount, 2);
 });
 
 test("search-contexts on mixed-contexts returns another kind", () => {

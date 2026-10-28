@@ -356,6 +356,7 @@ Every `type: javascript` assertion must return `{ pass: boolean, score: number, 
 | `allow_builtins` | `false` | When `true`, expose Claude Code's built-in tools (Read/Grep/Glob/Bash/Edit/Write). Use for skills that scan the codebase. |
 | `expose_mcp_tools` | `true` | When `false`, do not expose LaunchDarkly mock MCP tools. Use for routing/advisory skills. A test can also set `expose_mcp_tools` as a var to override this for itself, e.g. one "no LaunchDarkly access" case in a suite that otherwise has the mocks. |
 | `force_skill_invocation` | `false` | When `true`, set `initialPrompt` to `/<skill_slug>` so the skill is invoked via slash command. Use for skills whose description-based activation is unreliable. |
+| `inline_skill_invocation` | `false` | When `true`, send `/<skill_slug>` and the user message as one turn, and do not set `initialPrompt`. |
 | `expose_ask_question` | `false` | When `true`, expose an `ask-question` MCP tool for testing blocking decision points. |
 
 ## Aggregated Quality Artifact (`eval-scores.json`)
