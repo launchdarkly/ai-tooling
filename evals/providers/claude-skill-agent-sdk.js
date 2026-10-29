@@ -27,6 +27,17 @@
  *                            `/<skill_slug>` to explicitly invoke the skill via
  *                            slash command. Use for routing/advisory skills whose
  *                            description-based activation is unreliable in eval.
+ *   inline_skill           - Default false. When true, put the skill's
+ *                            SKILL.md body into the agent's instructions
+ *                            instead of relying on the SDK to load it. Listing
+ *                            the skill in `skills` doesn't load its text when
+ *                            builtins are off, and force_skill_invocation
+ *                            interrupts MCP calls when the agent's first
+ *                            action is one (seen 2026-10-28). Use for skills a
+ *                            host loads up front, like an agent's system prompt.
+ *   exclude_mcp_tools      - Optional list of mock tool names to hide, e.g.
+ *                            older duplicates the skill's real MCP server
+ *                            doesn't have.
  *   expose_ask_question    - Default false. When true, expose a second in-process
  *                            MCP server with an `ask-question` tool that records
  *                            calls into the trajectory and returns a canned answer.
@@ -49,6 +60,12 @@
  *   mock_files                  - optional object mapping relative file paths to
  *                                 string content, written into the isolated cwd
  *                                 before the agent runs
+ *   mock_overrides              - optional object mapping a tool name to the
+ *                                 response this test wants instead of the shared
+ *                                 template: an object for every call, or an
+ *                                 array for successive calls (the last entry
+ *                                 repeats). Use for branches like
+ *                                 `requiresApproval` or a plan error.
  *
  * Environment variables:
  *   AGENT_MODEL          - SUT model (default claude-sonnet-4-6).
@@ -62,7 +79,12 @@ const path = require("node:path");
 
 const { z } = require("zod");
 
-const { renderMockResponse, createMockState } = require("./_mock");
+const {
+  renderMockResponse,
+  createMockState,
+  resolveMockOverride,
+  renderOverride,
+} = require("./_mock");
 const { inputSchemaToZodShape } = require("./_jsonschema-to-zod");
 
 const DEFAULT_MAX_TURNS = 15;
@@ -160,6 +182,31 @@ function resolveExposeMcpTools(configValue, varValue) {
   return configValue;
 }
 
+// A test's override for this call, except that an override never hides a flag
+// the agent created or changed in this run: get-flag then reads the stored flag.
+function overrideFor(overrides, toolName, callIndex, args, state) {
+  if (toolName === "get-flag" || toolName === "get-feature-flag") {
+    const key = args && (args.flagKey || args.key);
+    if (key && state && state.flags && state.flags[key]) return undefined;
+  }
+  return resolveMockOverride(overrides, toolName, callIndex, args);
+}
+
+// The skill's SKILL.md body (frontmatter removed), wrapped for the agent's
+// instructions when a suite sets inline_skill.
+function skillInstructions(markdown) {
+  const body = markdown.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/, "").trim();
+  return `Follow the skill below. It is your procedure for this run.\n\n<skill>\n${body}\n</skill>`;
+}
+
+// Hide the named mock tools from a suite, so the agent sees only the tools its
+// real MCP server offers.
+function filterToolDefs(defs, exclude) {
+  if (!Array.isArray(exclude) || exclude.length === 0) return defs;
+  const hidden = new Set(exclude);
+  return defs.filter((def) => !hidden.has(def.name));
+}
+
 function clampMaxTurns(raw) {
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return DEFAULT_MAX_TURNS;
@@ -192,6 +239,8 @@ class ClaudeSkillAgentSdk {
     this.exposeMcpTools = config.expose_mcp_tools !== false;
     this.forceSkillInvocation = Boolean(config.force_skill_invocation);
     this.exposeAskQuestion = Boolean(config.expose_ask_question);
+    this.toolDefs = filterToolDefs(toolDefs, config.exclude_mcp_tools);
+    this.inlineSkill = Boolean(config.inline_skill);
 
     const source = resolveSkillSource(this.skillSlug);
     if (!source) {
@@ -233,6 +282,7 @@ class ClaudeSkillAgentSdk {
       ? context.vars.mock_ask_question_answers
       : [];
     const mockFiles = context?.vars?.mock_files || {};
+    const mockOverrides = context?.vars?.mock_overrides || {};
 
     let userMessage = userRequest;
     if (codebaseContext) {
@@ -253,19 +303,28 @@ class ClaudeSkillAgentSdk {
 
     const trajectory = [];
     let currentTurn = 0;
-    const mockState = createMockState();
+    const mockState = createMockState(mockTemplates);
+    const toolCallCounts = {};
 
     const mcpTools = exposeMcpTools
-      ? toolDefs.map((def) =>
+      ? this.toolDefs.map((def) =>
           tool(
             def.name,
             def.description,
             inputSchemaToZodShape(def.input_schema),
             async (args) => {
+              const callIndex = toolCallCounts[def.name] || 0;
+              toolCallCounts[def.name] = callIndex + 1;
+              const override = overrideFor(mockOverrides, def.name, callIndex, args, mockState);
               const template = mockTemplates[def.name];
-              const mock = template
-                ? renderMockResponse(template, args, def.name, mockState)
-                : { error: `No mock configured for tool: ${def.name}` };
+              let mock;
+              if (override !== undefined) {
+                mock = renderOverride(override, args);
+              } else if (template) {
+                mock = renderMockResponse(template, args, def.name, mockState);
+              } else {
+                mock = { error: `No mock configured for tool: ${def.name}` };
+              }
 
               trajectory.push({
                 tool: def.name,
@@ -342,7 +401,7 @@ class ClaudeSkillAgentSdk {
 
     const allowedMcpToolNames = [];
     if (exposeMcpTools) {
-      for (const def of toolDefs) {
+      for (const def of this.toolDefs) {
         allowedMcpToolNames.push(`mcp__launchdarkly-mocks__${def.name}`);
       }
     }
@@ -359,6 +418,9 @@ class ClaudeSkillAgentSdk {
         : "No LaunchDarkly MCP tools are available for this run.",
       this.exposeAskQuestion
         ? "An `ask-question` tool is available for blocking decision points where the skill says to ask the user a structured question with options."
+        : null,
+      this.inlineSkill
+        ? skillInstructions(fs.readFileSync(path.join(this.skillSource, "SKILL.md"), "utf-8"))
         : null,
       "If the user message includes a <codebase_context> block, treat it as the authoritative description of the project. If you can also read files directly (Read/Glob/Bash), you may do so — the scaffolded files will match what the context describes.",
       "Do not run package manager install commands (`npm install`, `npm ci`, `yarn add`, `pnpm add`, `pnpm install`). Simulate them as having completed successfully.",
@@ -587,3 +649,6 @@ module.exports = ClaudeSkillAgentSdk;
 // Exposed for unit tests; the promptfoo loader uses the class default export.
 module.exports.stripRawWrapper = stripRawWrapper;
 module.exports.resolveExposeMcpTools = resolveExposeMcpTools;
+module.exports.filterToolDefs = filterToolDefs;
+module.exports.skillInstructions = skillInstructions;
+module.exports.overrideFor = overrideFor;

@@ -122,11 +122,15 @@ const SEED_CONFIGS = {
  * returned object to every `renderMockResponse` call so stateful tools
  * (create/update/get) share the same map.
  */
-function createMockState() {
-  return {
+function createMockState(templates) {
+  const state = {
     configs: {},      // configKey -> config object
     flags: {},        // flagKey -> flag object
   };
+  // The full mocks, to seed a flag the agent toggles. Non-enumerable so the
+  // state's shape stays { configs, flags }.
+  Object.defineProperty(state, "templates", { value: templates || {} });
+  return state;
 }
 
 /**
@@ -370,12 +374,80 @@ function renderMockResponse(template, input, toolName, state) {
       };
     }
     const flag = walk(template, replacements);
+    // Reflect what the agent asked for, as the real API does.
+    if (input.defaults) flag.defaults = { ...flag.defaults, ...input.defaults };
     state.flags[input.key || input.flagKey] = flag;
     return flag;
+  }
+
+  if (toolName === "toggle-flag") {
+    const rendered = walk(template, replacements);
+    if (typeof input.on !== "boolean") return rendered;
+    const key = input.flagKey || input.key;
+    // Seed an existing (not agent-created) flag from the get-flag template so
+    // a later get-flag shows the toggle and the new version.
+    if (key && !state.flags[key] && state.templates && state.templates["get-flag"]) {
+      state.flags[key] = walk(state.templates["get-flag"], replacements);
+    }
+    const flag = key && state.flags[key];
+    // get-flag-shaped flags carry one `environment`; create-flag-shaped ones
+    // carry an `environments` map keyed by environment.
+    const env = input.env || input.environmentKey || "production";
+    const holder = flag && flag.environments && flag.environments[env]
+      ? flag.environments
+      : flag && flag.environment
+        ? flag
+        : null;
+    const slot = holder === (flag && flag.environments) ? env : "environment";
+    const current = holder ? holder[slot] : null;
+    const previous = current ? Boolean(current.on) : !input.on;
+    if (current) {
+      holder[slot] = { ...current, on: input.on, version: (current.version || 1) + 1 };
+    }
+    return { ...rendered, previousState: previous, newState: input.on };
   }
 
   // Default: stateless template render
   return walk(template, replacements);
 }
 
-module.exports = { renderMockResponse, createMockState };
+/**
+ * Pick a test's override for `toolName`, if the test set one through the
+ * `mock_overrides` var. An object value answers every call; an array answers
+ * successive calls in order and repeats its last entry. An object with
+ * `by_arg` answers by the value of that tool argument: `cases[value]`, else
+ * `default`. Returns undefined when the test has no override for the call, so
+ * the caller falls back to the shared template.
+ */
+function resolveMockOverride(overrides, toolName, callIndex, args) {
+  if (!overrides || typeof overrides !== "object") return undefined;
+  if (!Object.prototype.hasOwnProperty.call(overrides, toolName)) return undefined;
+  const value = overrides[toolName];
+  if (Array.isArray(value)) {
+    if (value.length === 0) return undefined;
+    return value[Math.min(callIndex, value.length - 1)];
+  }
+  if (value && typeof value === "object" && typeof value.by_arg === "string") {
+    const key = args ? args[value.by_arg] : undefined;
+    const cases = value.cases || {};
+    if (key !== undefined && Object.prototype.hasOwnProperty.call(cases, key)) return cases[key];
+    return value.default;
+  }
+  return value;
+}
+
+/**
+ * Render an override with the same `{{placeholder}}` substitution as the
+ * shared templates, but without the stateful overlay: an override is exactly
+ * what the test wants the tool to return.
+ */
+function renderOverride(template, input) {
+  return walk(template, buildReplacements(input));
+}
+
+module.exports = {
+  renderMockResponse,
+  createMockState,
+  resolveMockOverride,
+  renderOverride,
+};
