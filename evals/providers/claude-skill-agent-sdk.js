@@ -35,10 +35,14 @@
  *                            interrupts MCP calls when the agent's first
  *                            action is one (seen 2026-10-28). Use for skills a
  *                            host loads up front, like an agent's system prompt.
- *   include_mcp_tools      - Optional list of opt-in mock tools to expose.
- *                            Definitions marked `opt_in` are hidden from
- *                            every suite that doesn't list them, so adding a
- *                            tool doesn't change what other suites see.
+ *   tool_definitions       - Optional path, relative to evals/, of a JSON
+ *                            array of tool definitions for this suite only.
+ *                            Each replaces the shared definition of the same
+ *                            name or adds a tool, so a suite can match its
+ *                            skill's MCP server without changing other suites.
+ *   tool_mocks             - Optional path, relative to evals/, of a JSON
+ *                            object of mock templates for this suite only,
+ *                            merged over mocks/tool-responses.json.
  *   exclude_mcp_tools      - Optional list of mock tool names to hide, e.g.
  *                            older duplicates the skill's real MCP server
  *                            doesn't have.
@@ -205,14 +209,28 @@ function skillInstructions(markdown) {
   return `Follow the skill below. It is your procedure for this run.\n\n<skill>\n${body}\n</skill>`;
 }
 
-// The mock tools a suite sees: opt-in definitions only when the suite includes
-// them, minus any it excludes, so the agent sees only its real MCP server's tools.
-function filterToolDefs(defs, exclude, include) {
-  const hidden = new Set(Array.isArray(exclude) ? exclude : []);
-  const optedIn = new Set(Array.isArray(include) ? include : []);
-  return defs.filter(
-    (def) => !hidden.has(def.name) && (!def.opt_in || optedIn.has(def.name)),
-  );
+// Hide the named mock tools from a suite, so the agent sees only the tools its
+// real MCP server offers.
+function filterToolDefs(defs, exclude) {
+  if (!Array.isArray(exclude) || exclude.length === 0) return defs;
+  const hidden = new Set(exclude);
+  return defs.filter((def) => !hidden.has(def.name));
+}
+
+// A suite's own definitions replace shared ones of the same name, in place;
+// new names are appended.
+function mergeToolDefs(base, extra) {
+  if (!Array.isArray(extra) || extra.length === 0) return base;
+  const byName = new Map(extra.map((def) => [def.name, def]));
+  const merged = base.map((def) => byName.get(def.name) || def);
+  const known = new Set(base.map((def) => def.name));
+  return merged.concat(extra.filter((def) => !known.has(def.name)));
+}
+
+// Read a suite-owned JSON file named in the provider config, relative to evals/.
+function readSuiteJson(relPath, fallback) {
+  if (!relPath) return fallback;
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "..", relPath), "utf-8"));
 }
 
 function clampMaxTurns(raw) {
@@ -247,7 +265,11 @@ class ClaudeSkillAgentSdk {
     this.exposeMcpTools = config.expose_mcp_tools !== false;
     this.forceSkillInvocation = Boolean(config.force_skill_invocation);
     this.exposeAskQuestion = Boolean(config.expose_ask_question);
-    this.toolDefs = filterToolDefs(toolDefs, config.exclude_mcp_tools, config.include_mcp_tools);
+    this.toolDefs = filterToolDefs(
+      mergeToolDefs(toolDefs, readSuiteJson(config.tool_definitions, [])),
+      config.exclude_mcp_tools,
+    );
+    this.mockTemplates = { ...mockTemplates, ...readSuiteJson(config.tool_mocks, {}) };
     this.inlineSkill = Boolean(config.inline_skill);
 
     const source = resolveSkillSource(this.skillSlug);
@@ -311,7 +333,7 @@ class ClaudeSkillAgentSdk {
 
     const trajectory = [];
     let currentTurn = 0;
-    const mockState = createMockState(mockTemplates);
+    const mockState = createMockState();
     const toolCallCounts = {};
 
     const mcpTools = exposeMcpTools
@@ -324,7 +346,7 @@ class ClaudeSkillAgentSdk {
               const callIndex = toolCallCounts[def.name] || 0;
               toolCallCounts[def.name] = callIndex + 1;
               const override = overrideFor(mockOverrides, def.name, callIndex, args, mockState);
-              const template = mockTemplates[def.name];
+              const template = this.mockTemplates[def.name];
               let mock;
               if (override !== undefined) {
                 mock = renderOverride(override, args);
@@ -659,5 +681,6 @@ module.exports = ClaudeSkillAgentSdk;
 module.exports.stripRawWrapper = stripRawWrapper;
 module.exports.resolveExposeMcpTools = resolveExposeMcpTools;
 module.exports.filterToolDefs = filterToolDefs;
+module.exports.mergeToolDefs = mergeToolDefs;
 module.exports.skillInstructions = skillInstructions;
 module.exports.overrideFor = overrideFor;

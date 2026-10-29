@@ -50,44 +50,15 @@ test("a by_arg override answers by the argument's value", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Flag state the agent changes, so later reads agree with its writes
+// An override never hides a flag the agent created
 // ---------------------------------------------------------------------------
 
 const { renderMockResponse, createMockState } = require("../providers/_mock");
 const TEMPLATES = require("../mocks/tool-responses.json");
 const { overrideFor } = require("../providers/claude-skill-agent-sdk");
 
-test("create-flag keeps the defaults the agent sent", () => {
-  const state = createMockState(TEMPLATES);
-  const flag = renderMockResponse(TEMPLATES["create-flag"], { projectKey: "p", key: "exp-a", name: "A", defaults: { onVariation: 1, offVariation: 1 } }, "create-flag", state);
-  assert.deepEqual(flag.defaults, { onVariation: 1, offVariation: 1 });
-  assert.deepEqual(state.flags["exp-a"].defaults, { onVariation: 1, offVariation: 1 });
-});
-
-test("toggle-flag reports the requested state and updates a stored flag", () => {
-  const state = createMockState(TEMPLATES);
-  renderMockResponse(TEMPLATES["create-flag"], { projectKey: "p", key: "exp-a", name: "A" }, "create-flag", state);
-  const before = state.flags["exp-a"].environments.production.version;
-  const out = renderMockResponse(TEMPLATES["toggle-flag"], { projectKey: "p", flagKey: "exp-a", env: "production", on: true }, "toggle-flag", state);
-  assert.equal(out.newState, true);
-  assert.equal(out.previousState, false);
-  assert.equal(state.flags["exp-a"].environments.production.on, true);
-  assert.equal(state.flags["exp-a"].environments.production.version, before + 1);
-  assert.equal(state.flags["exp-a"].environments.staging.on, false);
-  const off = renderMockResponse(TEMPLATES["toggle-flag"], { projectKey: "p", flagKey: "exp-a", env: "production", on: false }, "toggle-flag", state);
-  assert.equal(off.newState, false);
-  assert.equal(off.previousState, true);
-});
-
-test("toggle-flag seeds a flag the agent didn't create from the get-flag template", () => {
-  const state = createMockState(TEMPLATES);
-  renderMockResponse(TEMPLATES["toggle-flag"], { projectKey: "p", flagKey: "existing", env: "production", on: true }, "toggle-flag", state);
-  const read = renderMockResponse(TEMPLATES["get-flag"], { projectKey: "p", flagKey: "existing" }, "get-flag", state);
-  assert.equal(read.environment.on, true);
-});
-
 test("a get-flag override doesn't hide a flag the agent created", () => {
-  const state = createMockState(TEMPLATES);
+  const state = createMockState();
   const overrides = { "get-flag": { error: "flag not found" } };
   assert.deepEqual(overrideFor(overrides, "get-flag", 0, { flagKey: "exp-a" }, state), { error: "flag not found" });
   renderMockResponse(TEMPLATES["create-flag"], { projectKey: "p", key: "exp-a", name: "A" }, "create-flag", state);

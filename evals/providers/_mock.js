@@ -122,15 +122,11 @@ const SEED_CONFIGS = {
  * returned object to every `renderMockResponse` call so stateful tools
  * (create/update/get) share the same map.
  */
-function createMockState(templates) {
-  const state = {
+function createMockState() {
+  return {
     configs: {},      // configKey -> config object
     flags: {},        // flagKey -> flag object
   };
-  // The full mocks, to seed a flag the agent toggles. Non-enumerable so the
-  // state's shape stays { configs, flags }.
-  Object.defineProperty(state, "templates", { value: templates || {} });
-  return state;
 }
 
 /**
@@ -374,37 +370,8 @@ function renderMockResponse(template, input, toolName, state) {
       };
     }
     const flag = walk(template, replacements);
-    // Reflect what the agent asked for, as the real API does.
-    if (input.defaults) flag.defaults = { ...flag.defaults, ...input.defaults };
     state.flags[input.key || input.flagKey] = flag;
     return flag;
-  }
-
-  if (toolName === "toggle-flag") {
-    const rendered = walk(template, replacements);
-    if (typeof input.on !== "boolean") return rendered;
-    const key = input.flagKey || input.key;
-    // Seed an existing (not agent-created) flag from the get-flag template so
-    // a later get-flag shows the toggle and the new version.
-    if (key && !state.flags[key] && state.templates && state.templates["get-flag"]) {
-      state.flags[key] = walk(state.templates["get-flag"], replacements);
-    }
-    const flag = key && state.flags[key];
-    // get-flag-shaped flags carry one `environment`; create-flag-shaped ones
-    // carry an `environments` map keyed by environment.
-    const env = input.env || input.environmentKey || "production";
-    const holder = flag && flag.environments && flag.environments[env]
-      ? flag.environments
-      : flag && flag.environment
-        ? flag
-        : null;
-    const slot = holder === (flag && flag.environments) ? env : "environment";
-    const current = holder ? holder[slot] : null;
-    const previous = current ? Boolean(current.on) : !input.on;
-    if (current) {
-      holder[slot] = { ...current, on: input.on, version: (current.version || 1) + 1 };
-    }
-    return { ...rendered, previousState: previous, newState: input.on };
   }
 
   // Default: stateless template render

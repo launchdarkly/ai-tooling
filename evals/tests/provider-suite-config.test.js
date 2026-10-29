@@ -1,10 +1,10 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-// Suite-level provider config: `include_mcp_tools` exposes opt-in mock tools,
+// Suite-level provider config: `tool_definitions` adds or replaces mock tools,
 // `exclude_mcp_tools` hides ones the skill's real MCP server doesn't offer, and `inline_skill` puts SKILL.md in the
 // agent's instructions.
-const { filterToolDefs, skillInstructions } = require("../providers/claude-skill-agent-sdk");
+const { filterToolDefs, mergeToolDefs, skillInstructions } = require("../providers/claude-skill-agent-sdk");
 
 const defs = [{ name: "create-flag" }, { name: "create-feature-flag" }, { name: "get-flag" }];
 
@@ -21,10 +21,11 @@ test("an unknown name hides nothing", () => {
   assert.deepEqual(filterToolDefs(defs, ["delete-flag"]), defs);
 });
 
-test("opt-in tools are hidden unless the suite includes them", () => {
-  const withOptIn = [...defs, { name: "start-guarded-rollout", opt_in: true }];
-  assert.deepEqual(filterToolDefs(withOptIn).map((d) => d.name), ["create-flag", "create-feature-flag", "get-flag"]);
-  assert.ok(filterToolDefs(withOptIn, [], ["start-guarded-rollout"]).some((d) => d.name === "start-guarded-rollout"));
+test("suite definitions replace shared ones by name and add new tools", () => {
+  const merged = mergeToolDefs(defs, [{ name: "get-flag", description: "suite" }, { name: "update-rollout" }]);
+  assert.deepEqual(merged.map((d) => d.name), ["create-flag", "create-feature-flag", "get-flag", "update-rollout"]);
+  assert.equal(merged.find((d) => d.name === "get-flag").description, "suite");
+  assert.deepEqual(mergeToolDefs(defs, []), defs);
 });
 
 test("skillInstructions drops the frontmatter and wraps the body", () => {
