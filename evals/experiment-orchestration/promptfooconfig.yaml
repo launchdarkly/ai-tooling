@@ -31,6 +31,8 @@ providers:
       # Older duplicates the hosted LaunchDarkly MCP server doesn't have; the
       # agent would otherwise pick create-feature-flag, which has no `defaults`.
       exclude_mcp_tools: [create-feature-flag, update-feature-flag, get-feature-flag, list-feature-flags]
+      # Opt-in tools this skill uses, hidden from other suites.
+      include_mcp_tools: [start-guarded-rollout, update-rollout, stop-experiment-iteration, get-experiment-results, get-experiment-metric-results, create-approval-request, apply-approval-request, list-approval-requests, list-metric-events]
 
 tests:
   # ==================================================================

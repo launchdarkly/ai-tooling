@@ -1,8 +1,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 
-// Suite-level provider config: `exclude_mcp_tools` hides mock tools the skill's
-// real MCP server doesn't offer, and `inline_skill` puts SKILL.md in the
+// Suite-level provider config: `include_mcp_tools` exposes opt-in mock tools,
+// `exclude_mcp_tools` hides ones the skill's real MCP server doesn't offer, and `inline_skill` puts SKILL.md in the
 // agent's instructions.
 const { filterToolDefs, skillInstructions } = require("../providers/claude-skill-agent-sdk");
 
@@ -19,6 +19,12 @@ test("excluded tools are hidden", () => {
 
 test("an unknown name hides nothing", () => {
   assert.deepEqual(filterToolDefs(defs, ["delete-flag"]), defs);
+});
+
+test("opt-in tools are hidden unless the suite includes them", () => {
+  const withOptIn = [...defs, { name: "start-guarded-rollout", opt_in: true }];
+  assert.deepEqual(filterToolDefs(withOptIn).map((d) => d.name), ["create-flag", "create-feature-flag", "get-flag"]);
+  assert.ok(filterToolDefs(withOptIn, [], ["start-guarded-rollout"]).some((d) => d.name === "start-guarded-rollout"));
 });
 
 test("skillInstructions drops the frontmatter and wraps the body", () => {

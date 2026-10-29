@@ -35,6 +35,10 @@
  *                            interrupts MCP calls when the agent's first
  *                            action is one (seen 2026-10-28). Use for skills a
  *                            host loads up front, like an agent's system prompt.
+ *   include_mcp_tools      - Optional list of opt-in mock tools to expose.
+ *                            Definitions marked `opt_in` are hidden from
+ *                            every suite that doesn't list them, so adding a
+ *                            tool doesn't change what other suites see.
  *   exclude_mcp_tools      - Optional list of mock tool names to hide, e.g.
  *                            older duplicates the skill's real MCP server
  *                            doesn't have.
@@ -201,12 +205,14 @@ function skillInstructions(markdown) {
   return `Follow the skill below. It is your procedure for this run.\n\n<skill>\n${body}\n</skill>`;
 }
 
-// Hide the named mock tools from a suite, so the agent sees only the tools its
-// real MCP server offers.
-function filterToolDefs(defs, exclude) {
-  if (!Array.isArray(exclude) || exclude.length === 0) return defs;
-  const hidden = new Set(exclude);
-  return defs.filter((def) => !hidden.has(def.name));
+// The mock tools a suite sees: opt-in definitions only when the suite includes
+// them, minus any it excludes, so the agent sees only its real MCP server's tools.
+function filterToolDefs(defs, exclude, include) {
+  const hidden = new Set(Array.isArray(exclude) ? exclude : []);
+  const optedIn = new Set(Array.isArray(include) ? include : []);
+  return defs.filter(
+    (def) => !hidden.has(def.name) && (!def.opt_in || optedIn.has(def.name)),
+  );
 }
 
 function clampMaxTurns(raw) {
@@ -241,7 +247,7 @@ class ClaudeSkillAgentSdk {
     this.exposeMcpTools = config.expose_mcp_tools !== false;
     this.forceSkillInvocation = Boolean(config.force_skill_invocation);
     this.exposeAskQuestion = Boolean(config.expose_ask_question);
-    this.toolDefs = filterToolDefs(toolDefs, config.exclude_mcp_tools);
+    this.toolDefs = filterToolDefs(toolDefs, config.exclude_mcp_tools, config.include_mcp_tools);
     this.inlineSkill = Boolean(config.inline_skill);
 
     const source = resolveSkillSource(this.skillSlug);
