@@ -56,7 +56,9 @@
  *                                 (true/false), e.g. to run one test with no
  *                                 LaunchDarkly tools
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
- *                                 successive `ask-question` calls
+ *                                 successive `ask-question` calls; an empty
+ *                                 array is a dismissed question (no selection).
+ *                                 Calls past the end get the first option.
  *   mock_files                  - optional object mapping relative file paths to
  *                                 string content, written into the isolated cwd
  *                                 before the agent runs
@@ -371,7 +373,8 @@ class ClaudeSkillAgentSdk {
               const idx = askQuestionCallCount++;
               const override = askQuestionAnswers[idx];
               let selected;
-              if (Array.isArray(override) && override.length > 0) {
+              // An explicit [] is a dismissed question: no selection.
+              if (Array.isArray(override)) {
                 selected = override;
               } else if (Array.isArray(args.options) && args.options.length > 0) {
                 selected = [args.options[0].id];
