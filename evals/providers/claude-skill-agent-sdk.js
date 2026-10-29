@@ -27,6 +27,25 @@
  *                            `/<skill_slug>` to explicitly invoke the skill via
  *                            slash command. Use for routing/advisory skills whose
  *                            description-based activation is unreliable in eval.
+ *   inline_skill           - Default false. When true, put the skill's
+ *                            SKILL.md body into the agent's instructions
+ *                            instead of relying on the SDK to load it. Listing
+ *                            the skill in `skills` doesn't load its text when
+ *                            builtins are off, and force_skill_invocation
+ *                            interrupts MCP calls when the agent's first
+ *                            action is one (seen 2026-10-28). Use for skills a
+ *                            host loads up front, like an agent's system prompt.
+ *   tool_definitions       - Optional path, relative to evals/, of a JSON
+ *                            array of tool definitions for this suite only.
+ *                            Each replaces the shared definition of the same
+ *                            name or adds a tool, so a suite can match its
+ *                            skill's MCP server without changing other suites.
+ *   tool_mocks             - Optional path, relative to evals/, of a JSON
+ *                            object of mock templates for this suite only,
+ *                            merged over mocks/tool-responses.json.
+ *   exclude_mcp_tools      - Optional list of mock tool names to hide, e.g.
+ *                            older duplicates the skill's real MCP server
+ *                            doesn't have.
  *   expose_ask_question    - Default false. When true, expose a second in-process
  *                            MCP server with an `ask-question` tool that records
  *                            calls into the trajectory and returns a canned answer.
@@ -45,10 +64,18 @@
  *                                 (true/false), e.g. to run one test with no
  *                                 LaunchDarkly tools
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
- *                                 successive `ask-question` calls
+ *                                 successive `ask-question` calls; an empty
+ *                                 array is a dismissed question (no selection).
+ *                                 Calls past the end get the first option.
  *   mock_files                  - optional object mapping relative file paths to
  *                                 string content, written into the isolated cwd
  *                                 before the agent runs
+ *   mock_overrides              - optional object mapping a tool name to the
+ *                                 response this test wants instead of the shared
+ *                                 template: an object for every call, or an
+ *                                 array for successive calls (the last entry
+ *                                 repeats). Use for branches like
+ *                                 `requiresApproval` or a plan error.
  *
  * Environment variables:
  *   AGENT_MODEL          - SUT model (default claude-sonnet-4-6).
@@ -62,7 +89,12 @@ const path = require("node:path");
 
 const { z } = require("zod");
 
-const { renderMockResponse, createMockState } = require("./_mock");
+const {
+  renderMockResponse,
+  createMockState,
+  resolveMockOverride,
+  renderOverride,
+} = require("./_mock");
 const { inputSchemaToZodShape } = require("./_jsonschema-to-zod");
 
 const DEFAULT_MAX_TURNS = 15;
@@ -160,6 +192,47 @@ function resolveExposeMcpTools(configValue, varValue) {
   return configValue;
 }
 
+// A test's override for this call, except that an override never hides a flag
+// the agent created or changed in this run: get-flag then reads the stored flag.
+function overrideFor(overrides, toolName, callIndex, args, state) {
+  if (toolName === "get-flag" || toolName === "get-feature-flag") {
+    const key = args && (args.flagKey || args.key);
+    if (key && state && state.flags && state.flags[key]) return undefined;
+  }
+  return resolveMockOverride(overrides, toolName, callIndex, args);
+}
+
+// The skill's SKILL.md body (frontmatter removed), wrapped for the agent's
+// instructions when a suite sets inline_skill.
+function skillInstructions(markdown) {
+  const body = markdown.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/, "").trim();
+  return `Follow the skill below. It is your procedure for this run.\n\n<skill>\n${body}\n</skill>`;
+}
+
+// Hide the named mock tools from a suite, so the agent sees only the tools its
+// real MCP server offers.
+function filterToolDefs(defs, exclude) {
+  if (!Array.isArray(exclude) || exclude.length === 0) return defs;
+  const hidden = new Set(exclude);
+  return defs.filter((def) => !hidden.has(def.name));
+}
+
+// A suite's own definitions replace shared ones of the same name, in place;
+// new names are appended.
+function mergeToolDefs(base, extra) {
+  if (!Array.isArray(extra) || extra.length === 0) return base;
+  const byName = new Map(extra.map((def) => [def.name, def]));
+  const merged = base.map((def) => byName.get(def.name) || def);
+  const known = new Set(base.map((def) => def.name));
+  return merged.concat(extra.filter((def) => !known.has(def.name)));
+}
+
+// Read a suite-owned JSON file named in the provider config, relative to evals/.
+function readSuiteJson(relPath, fallback) {
+  if (!relPath) return fallback;
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "..", relPath), "utf-8"));
+}
+
 function clampMaxTurns(raw) {
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) return DEFAULT_MAX_TURNS;
@@ -192,6 +265,12 @@ class ClaudeSkillAgentSdk {
     this.exposeMcpTools = config.expose_mcp_tools !== false;
     this.forceSkillInvocation = Boolean(config.force_skill_invocation);
     this.exposeAskQuestion = Boolean(config.expose_ask_question);
+    this.toolDefs = filterToolDefs(
+      mergeToolDefs(toolDefs, readSuiteJson(config.tool_definitions, [])),
+      config.exclude_mcp_tools,
+    );
+    this.mockTemplates = { ...mockTemplates, ...readSuiteJson(config.tool_mocks, {}) };
+    this.inlineSkill = Boolean(config.inline_skill);
 
     const source = resolveSkillSource(this.skillSlug);
     if (!source) {
@@ -233,6 +312,7 @@ class ClaudeSkillAgentSdk {
       ? context.vars.mock_ask_question_answers
       : [];
     const mockFiles = context?.vars?.mock_files || {};
+    const mockOverrides = context?.vars?.mock_overrides || {};
 
     let userMessage = userRequest;
     if (codebaseContext) {
@@ -254,18 +334,27 @@ class ClaudeSkillAgentSdk {
     const trajectory = [];
     let currentTurn = 0;
     const mockState = createMockState();
+    const toolCallCounts = {};
 
     const mcpTools = exposeMcpTools
-      ? toolDefs.map((def) =>
+      ? this.toolDefs.map((def) =>
           tool(
             def.name,
             def.description,
             inputSchemaToZodShape(def.input_schema),
             async (args) => {
-              const template = mockTemplates[def.name];
-              const mock = template
-                ? renderMockResponse(template, args, def.name, mockState)
-                : { error: `No mock configured for tool: ${def.name}` };
+              const callIndex = toolCallCounts[def.name] || 0;
+              toolCallCounts[def.name] = callIndex + 1;
+              const override = overrideFor(mockOverrides, def.name, callIndex, args, mockState);
+              const template = this.mockTemplates[def.name];
+              let mock;
+              if (override !== undefined) {
+                mock = renderOverride(override, args);
+              } else if (template) {
+                mock = renderMockResponse(template, args, def.name, mockState);
+              } else {
+                mock = { error: `No mock configured for tool: ${def.name}` };
+              }
 
               trajectory.push({
                 tool: def.name,
@@ -312,7 +401,8 @@ class ClaudeSkillAgentSdk {
               const idx = askQuestionCallCount++;
               const override = askQuestionAnswers[idx];
               let selected;
-              if (Array.isArray(override) && override.length > 0) {
+              // An explicit [] is a dismissed question: no selection.
+              if (Array.isArray(override)) {
                 selected = override;
               } else if (Array.isArray(args.options) && args.options.length > 0) {
                 selected = [args.options[0].id];
@@ -342,7 +432,7 @@ class ClaudeSkillAgentSdk {
 
     const allowedMcpToolNames = [];
     if (exposeMcpTools) {
-      for (const def of toolDefs) {
+      for (const def of this.toolDefs) {
         allowedMcpToolNames.push(`mcp__launchdarkly-mocks__${def.name}`);
       }
     }
@@ -359,6 +449,9 @@ class ClaudeSkillAgentSdk {
         : "No LaunchDarkly MCP tools are available for this run.",
       this.exposeAskQuestion
         ? "An `ask-question` tool is available for blocking decision points where the skill says to ask the user a structured question with options."
+        : null,
+      this.inlineSkill
+        ? skillInstructions(fs.readFileSync(path.join(this.skillSource, "SKILL.md"), "utf-8"))
         : null,
       "If the user message includes a <codebase_context> block, treat it as the authoritative description of the project. If you can also read files directly (Read/Glob/Bash), you may do so — the scaffolded files will match what the context describes.",
       "Do not run package manager install commands (`npm install`, `npm ci`, `yarn add`, `pnpm add`, `pnpm install`). Simulate them as having completed successfully.",
@@ -587,3 +680,7 @@ module.exports = ClaudeSkillAgentSdk;
 // Exposed for unit tests; the promptfoo loader uses the class default export.
 module.exports.stripRawWrapper = stripRawWrapper;
 module.exports.resolveExposeMcpTools = resolveExposeMcpTools;
+module.exports.filterToolDefs = filterToolDefs;
+module.exports.mergeToolDefs = mergeToolDefs;
+module.exports.skillInstructions = skillInstructions;
+module.exports.overrideFor = overrideFor;

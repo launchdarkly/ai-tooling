@@ -378,4 +378,43 @@ function renderMockResponse(template, input, toolName, state) {
   return walk(template, replacements);
 }
 
-module.exports = { renderMockResponse, createMockState };
+/**
+ * Pick a test's override for `toolName`, if the test set one through the
+ * `mock_overrides` var. An object value answers every call; an array answers
+ * successive calls in order and repeats its last entry. An object with
+ * `by_arg` answers by the value of that tool argument: `cases[value]`, else
+ * `default`. Returns undefined when the test has no override for the call, so
+ * the caller falls back to the shared template.
+ */
+function resolveMockOverride(overrides, toolName, callIndex, args) {
+  if (!overrides || typeof overrides !== "object") return undefined;
+  if (!Object.prototype.hasOwnProperty.call(overrides, toolName)) return undefined;
+  const value = overrides[toolName];
+  if (Array.isArray(value)) {
+    if (value.length === 0) return undefined;
+    return value[Math.min(callIndex, value.length - 1)];
+  }
+  if (value && typeof value === "object" && typeof value.by_arg === "string") {
+    const key = args ? args[value.by_arg] : undefined;
+    const cases = value.cases || {};
+    if (key !== undefined && Object.prototype.hasOwnProperty.call(cases, key)) return cases[key];
+    return value.default;
+  }
+  return value;
+}
+
+/**
+ * Render an override with the same `{{placeholder}}` substitution as the
+ * shared templates, but without the stateful overlay: an override is exactly
+ * what the test wants the tool to return.
+ */
+function renderOverride(template, input) {
+  return walk(template, buildReplacements(input));
+}
+
+module.exports = {
+  renderMockResponse,
+  createMockState,
+  resolveMockOverride,
+  renderOverride,
+};

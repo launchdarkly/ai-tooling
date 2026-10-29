@@ -1,0 +1,634 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# Run with shared defaults:
+#   promptfoo eval -c shared/defaults.yaml -c experiment-orchestration/promptfooconfig.yaml
+#
+# experiment-orchestration (skills/aws-devops-agent/) takes a product goal
+# through a 10% experiment and, if it wins, a guarded rollout, using only the
+# LaunchDarkly MCP tools. It runs in AWS DevOps Agent, which these evals can't
+# reproduce: they score the skill's decisions under the Claude Agent SDK with
+# mocked tools. Lean mode (allow_builtins:false) also stands in for an agent
+# space with no GitHub connected, so the code change is the user's.
+#
+# Each test after the first starts mid-flow: the user request states what the
+# earlier steps settled, and `mock_overrides` sets the tool responses for the
+# branch under test (an approval requirement, a plan without guarded
+# rollouts, a losing result).
+description: "Evaluation of the experiment-orchestration skill (AWS DevOps Agent)"
+
+prompts:
+  - file://../../skills/aws-devops-agent/experiment-orchestration/SKILL.md
+
+providers:
+  - id: file://../providers/claude-skill-agent-sdk.js
+    label: mcp
+    config:
+      skill_slug: experiment-orchestration
+      allow_builtins: false
+      expose_ask_question: true
+      # The agent's system prompt loads the skill up front in AWS DevOps Agent.
+      inline_skill: true
+      # Older duplicates the hosted LaunchDarkly MCP server doesn't have; the
+      # agent would otherwise pick create-feature-flag, which has no `defaults`.
+      exclude_mcp_tools: [create-feature-flag, update-feature-flag, get-feature-flag, list-feature-flags]
+      # This suite's tools and mocks, matched to the hosted LaunchDarkly MCP
+      # server, so other suites keep the shared definitions unchanged.
+      tool_definitions: experiment-orchestration/tools.json
+      tool_mocks: experiment-orchestration/mocks.json
+
+tests:
+  # ==================================================================
+  # GOAL CLARIFICATION — a goal with no metric or target. The skill must
+  # ask before it creates or changes anything (Step 1, Safety Rules). The
+  # user dismisses every question, so no answer ever arrives.
+  # `asked_with_tool` is informational (weight 0): it records whether the
+  # agent used a structured question tool, which review asked about.
+  # ==================================================================
+  - description: "Vague goal: asks for the metric and target before creating anything"
+    vars:
+      user_request: >
+        Project `storefront`, environment `production`. I want more people to
+        finish checkout. Can you run an experiment for that?
+      max_turns: 8
+      mock_ask_question_answers: [[], [], [], [], []]
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const writes = ['create-flag','toggle-flag','create-experiment','start-experiment-iteration','create-metric','update-rollout','start-guarded-rollout'];
+          const called = writes.filter(w => tools.includes(w));
+          const asked = tools.some(t => String(t).includes('ask-question')) || /\?/.test(String(output.response || ''));
+          const pass = called.length === 0 && asked;
+          return { pass, score: pass ? 1 : 0, reason: !asked ? 'asked nothing' : pass ? 'asked and made no changes' : 'changed before asking: ' + called.join(', ') };
+        metric: no_writes_before_goal
+        weight: 4
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = tools.some(t => String(t).includes('ask-question'));
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'used ask-question' : 'asked in prose (or not at all)' };
+        metric: asked_with_tool
+        weight: 0
+      - type: llm-rubric
+        value: |
+          The user asked to "get more people to finish checkout" with no metric or
+          target. Evaluate the agent's questions (in prose or via a question tool):
+          1. Does it ask for, or propose and ask to confirm, the success metric?
+          2. Does it ask for the target improvement?
+          3. Does it avoid claiming it already created a flag or experiment?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
+        metric: asks_required_questions
+        weight: 3
+
+  # ==================================================================
+  # IMPLEMENTATION WITHOUT GITHUB — goal and hypothesis are settled. The
+  # skill creates the boolean flag with both defaults on `false`, then
+  # hands the code change to the user instead of turning anything on.
+  # ==================================================================
+  - description: "No GitHub: creates the boolean flag serving false and hands the code change to the user"
+    vars:
+      user_request: >
+        Project `storefront`, environment `production`. Goal confirmed:
+        checkout conversion (metric `checkout-completed`) up 5%, randomized by
+        user, roll back on a 2% error-rate regression. GitHub is not connected
+        to this agent space and there is no coding agent. Hypothesis approved:
+        changing the checkout button copy from "Continue" to "Place order"
+        raises conversion. No flag exists yet; use the key
+        `exp-checkout-conversion-button-copy`. Continue from Step 3.
+      max_turns: 10
+      mock_overrides:
+        list-metrics: &metrics_with_error
+          metrics:
+            - { key: "checkout-completed", name: "Checkout completed", measureType: "occurrence", successCriteria: "HigherThanBaseline", eventKey: "checkout-completed", randomizationUnits: ["user"] }
+            - { key: "storefront-telemetry-default-error-rate", name: "Error rate", measureType: "occurrence", successCriteria: "LowerThanBaseline", eventKey: "$ld:telemetry:error", randomizationUnits: ["user"] }
+          totalCount: 2
+        get-flag:
+          error: "flag not found"
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const c = traj.find(t => t.tool === 'create-flag');
+          if (!c) return { pass: false, score: 0, reason: 'never created the flag' };
+          const a = c.arguments || {};
+          const d = a.defaults || {};
+          const boolKind = !a.kind || a.kind === 'boolean';
+          const pass = boolKind && d.onVariation === 1 && d.offVariation === 1;
+          return { pass, score: pass ? 1 : 0, reason: `kind=${a.kind} defaults=${JSON.stringify(d)} (want boolean, 1/1)` };
+        metric: flag_defaults_serve_false
+        weight: 4
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const early = ['toggle-flag','create-experiment','start-experiment-iteration'];
+          const called = early.filter(w => tools.includes(w));
+          const created = tools.includes('create-flag');
+          const pass = created && called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: !created ? 'never created the flag' : pass ? 'waited for the deploy' : 'ran ahead of the code change: ' + called.join(', ') };
+        metric: waits_for_deploy
+        weight: 4
+      - type: llm-rubric
+        value: |
+          GitHub isn't connected, so the user makes the code change. Evaluate the response:
+          1. Does it give the user the flag key `exp-checkout-conversion-button-copy`
+             and say the change must be gated behind it?
+          2. Does it ask the user to confirm when the change is reviewed, merged, and
+             deployed, rather than claiming it will do those itself?
+          Score 1.0 if both, 0.5 if one, 0 if neither.
+        metric: hands_off_code_change
+        weight: 3
+
+  # ==================================================================
+  # MULTIVARIATE FLAG — the hypothesis has three versions of the change.
+  # The skill creates a multivariate flag with the control first and both
+  # defaults on it, so the flag serves the control even when it is on.
+  # ==================================================================
+  - description: "Several versions: creates a multivariate flag with the control first and defaults on it"
+    vars:
+      user_request: >
+        Project `storefront`, environment `production`. Goal confirmed:
+        checkout conversion (metric `checkout-completed`) up 5%, randomized by
+        user, roll back on a 2% error-rate regression. GitHub is not connected
+        to this agent space and there is no coding agent. Hypothesis approved:
+        the checkout button label affects conversion; test the current label
+        "Continue" against "Place order" and "Buy now". No flag exists yet; use
+        the key `exp-checkout-conversion-button-label`. Continue from Step 3.
+      max_turns: 10
+      mock_overrides:
+        list-metrics: *metrics_with_error
+        get-flag:
+          error: "flag not found"
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const c = traj.find(t => t.tool === 'create-flag');
+          if (!c) return { pass: false, score: 0, reason: 'never created the flag' };
+          const a = c.arguments || {};
+          const vals = (a.variations || []).map(v => String(v.value));
+          const d = a.defaults || {};
+          const checks = {
+            multivariate: a.kind === 'multivariate',
+            threeVariations: vals.length === 3,
+            controlFirst: /continue/i.test(vals[0] || ''),
+            defaultsOnControl: d.onVariation === 0 && d.offVariation === 0,
+          };
+          const failed = Object.keys(checks).filter(k => !checks[k]);
+          const score = 1 - failed.length / Object.keys(checks).length;
+          return { pass: failed.length === 0, score, reason: `kind=${a.kind} values=${JSON.stringify(vals)} defaults=${JSON.stringify(d)}` + (failed.length ? ' failed: ' + failed.join(', ') : '') };
+        metric: multivariate_flag_shape
+        weight: 5
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const early = ['toggle-flag','create-experiment','start-experiment-iteration'].filter(w => tools.includes(w));
+          const created = tools.includes('create-flag');
+          const pass = created && early.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: !created ? 'never created the flag' : pass ? 'waited for the deploy' : 'ran ahead of the code change: ' + early.join(', ') };
+        metric: waits_for_deploy
+        weight: 3
+
+  # ==================================================================
+  # 10% EXPERIMENT — code is deployed. The skill turns the flag on, then
+  # creates the experiment on the fallthrough with 5 + 5 allocation, the
+  # control for everyone outside it, and sequential frequentist analysis.
+  # Guards the "50/50 allocated to 10%" wording that sent 50 + 50 (100%).
+  # ==================================================================
+  - description: "Deployed: creates a fallthrough experiment at 5 + 5 with the control outside it"
+    vars:
+      user_request: >
+        Project `storefront`, environment `production`. Goal confirmed:
+        checkout conversion (metric `checkout-completed`) up 5%, randomized by
+        user, roll back on a 2% error-rate regression. Guardrail: the built-in
+        error-rate metric `storefront-telemetry-default-error-rate`. Hypothesis
+        approved: changing the checkout button copy to "Place order" raises
+        conversion. Flag `exp-checkout-conversion-button-copy` exists and the
+        gated change is reviewed, merged, and deployed. Continue from Step 6:
+        set up and start the experiment.
+      max_turns: 12
+      mock_overrides:
+        list-metrics: *metrics_with_error
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const on = tools.indexOf('toggle-flag');
+          const ce = tools.indexOf('create-experiment');
+          const pass = on >= 0 && ce > on;
+          return { pass, score: pass ? 1 : 0, reason: `toggle-flag@${on} create-experiment@${ce}` };
+        metric: flag_on_before_experiment
+        weight: 2
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const c = traj.find(t => t.tool === 'create-experiment');
+          if (!c) return { pass: false, score: 0, reason: 'never created the experiment' };
+          const it = (c.arguments || {}).iteration || {};
+          const ts = it.treatments || [];
+          const total = ts.reduce((s, t) => s + Number(t.allocationPercent || 0), 0);
+          const each = ts.map(t => Number(t.allocationPercent));
+          const pass = ts.length === 2 && Math.abs(total - 10) < 0.01 && each.every(x => Math.abs(x - 5) < 0.01);
+          return { pass, score: pass ? 1 : 0, reason: `allocations=${JSON.stringify(each)} total=${total} (want 5 + 5 = 10)` };
+        metric: ten_percent_allocation
+        weight: 5
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const c = traj.find(t => t.tool === 'create-experiment');
+          if (!c) return { pass: false, score: 0, reason: 'never created the experiment' };
+          const it = (c.arguments || {}).iteration || {};
+          // var-false is the false variation's _id in the shared get-flag mock.
+          const flag = (it.flags || {})['exp-checkout-conversion-button-copy'] || {};
+          const control = (it.treatments || []).find(t => t.baseline) || {};
+          const controlVar = ((control.parameters || [])[0] || {}).variationId;
+          const checks = {
+            fallthrough: flag.ruleId === 'fallthrough',
+            outsideIsControl: flag.notInExperimentVariationId === 'var-false',
+            controlIsFalse: controlVar === 'var-false',
+          };
+          const failed = Object.keys(checks).filter(k => !checks[k]);
+          const pass = failed.length === 0;
+          return { pass, score: 1 - failed.length / 3, reason: pass ? 'fallthrough, control outside and as baseline' : 'failed: ' + failed.join(', ') + ' | flags=' + JSON.stringify(it.flags) };
+        metric: fallthrough_control_outside
+        weight: 4
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const c = traj.find(t => t.tool === 'create-experiment');
+          if (!c) return { pass: false, score: 0, reason: 'never created the experiment' };
+          const a = c.arguments || {};
+          const it = a.iteration || {};
+          const keys = (it.metrics || []).map(m => m.key);
+          const checks = {
+            frequentist: a.methodology === 'frequentist',
+            sequential: (a.analysisConfig || {}).sequentialTestingEnabled === true,
+            primary: it.primarySingleMetricKey === 'checkout-completed',
+            errorGuardrail: keys.includes('storefront-telemetry-default-error-rate'),
+            noReshuffle: it.canReshuffleTraffic === false,
+          };
+          const failed = Object.keys(checks).filter(k => !checks[k]);
+          const score = 1 - failed.length / Object.keys(checks).length;
+          return { pass: failed.length === 0, score, reason: failed.length ? 'failed: ' + failed.join(', ') : 'analysis and metrics set' };
+        metric: analysis_and_metrics
+        weight: 3
+
+  # ==================================================================
+  # MULTIVARIATE EXPERIMENT — three variations share the 10%: 3.33 each,
+  # the control outside the experiment, and Benjamini-Hochberg with the
+  # scope LaunchDarkly requires alongside it.
+  # ==================================================================
+  - description: "Multivariate deployed: splits 10% evenly across three variations with the comparison correction"
+    vars:
+      user_request: >
+        Project `storefront`, environment `production`. Goal confirmed:
+        checkout conversion (metric `checkout-completed`) up 5%, randomized by
+        user, roll back on a 2% error-rate regression. Guardrail: the built-in
+        error-rate metric `storefront-telemetry-default-error-rate`. Hypothesis
+        approved: test the checkout button label "Continue" (current) against
+        "Place order" and "Buy now". Multivariate flag
+        `exp-checkout-conversion-button-label` exists and the gated change is
+        reviewed, merged, and deployed. Continue from Step 6: set up and start
+        the experiment.
+      max_turns: 12
+      mock_overrides:
+        list-metrics: *metrics_with_error
+        get-flag:
+          key: "exp-checkout-conversion-button-label"
+          kind: "multivariate"
+          variations:
+            - { _id: "var-continue", value: "Continue", name: "Continue" }
+            - { _id: "var-place-order", value: "Place order", name: "Place order" }
+            - { _id: "var-buy-now", value: "Buy now", name: "Buy now" }
+          defaults: { onVariation: 0, offVariation: 0 }
+          environment: { on: false, version: 2, rules: [], targets: [], fallthrough: { variation: 0 }, offVariation: 0 }
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const c = traj.find(t => t.tool === 'create-experiment');
+          if (!c) return { pass: false, score: 0, reason: 'never created the experiment' };
+          const it = (c.arguments || {}).iteration || {};
+          const ts = it.treatments || [];
+          const each = ts.map(t => Number(t.allocationPercent));
+          const total = each.reduce((a, b) => a + b, 0);
+          const pass = ts.length === 3 && each.every(x => Math.abs(x - 3.33) < 0.011) && total <= 10 + 1e-9;
+          return { pass, score: pass ? 1 : 0, reason: `allocations=${JSON.stringify(each)} total=${total} (want 3 x 3.33, <= 10)` };
+        metric: even_split_within_ten
+        weight: 5
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const c = traj.find(t => t.tool === 'create-experiment');
+          if (!c) return { pass: false, score: 0, reason: 'never created the experiment' };
+          const a = c.arguments || {};
+          const it = a.iteration || {};
+          const flag = (it.flags || {})['exp-checkout-conversion-button-label'] || {};
+          const control = (it.treatments || []).find(t => t.baseline) || {};
+          const controlVar = ((control.parameters || [])[0] || {}).variationId;
+          const ac = a.analysisConfig || {};
+          const checks = {
+            fallthrough: flag.ruleId === 'fallthrough',
+            outsideIsControl: flag.notInExperimentVariationId === 'var-continue',
+            controlBaseline: controlVar === 'var-continue',
+            correction: ac.multipleComparisonCorrectionMethod === 'benjamini-hochberg',
+            scope: typeof ac.multipleComparisonCorrectionScope === 'string' && ac.multipleComparisonCorrectionScope.length > 0,
+          };
+          const failed = Object.keys(checks).filter(k => !checks[k]);
+          const score = 1 - failed.length / Object.keys(checks).length;
+          return { pass: failed.length === 0, score, reason: failed.length ? 'failed: ' + failed.join(', ') + ' | analysisConfig=' + JSON.stringify(ac) : 'control outside and as baseline, correction with scope' };
+        metric: multivariate_experiment_config
+        weight: 4
+
+  # ==================================================================
+  # LAUNCHDARKLY APPROVAL — turning the flag on returns requiresApproval.
+  # The skill says the change wasn't made, submits an approval request
+  # with the returned instructions, and doesn't retry the direct call.
+  # ==================================================================
+  - description: "Approval required: requests approval instead of retrying the flag change"
+    vars:
+      user_request: >
+        Project `storefront`, environment `production`. Goal confirmed:
+        checkout conversion (metric `checkout-completed`) up 5%, randomized by
+        user, roll back on a 2% error-rate regression. Guardrail: the built-in
+        error-rate metric `storefront-telemetry-default-error-rate`. Hypothesis
+        approved: changing the checkout button copy to "Place order" raises
+        conversion. Flag `exp-checkout-conversion-button-copy` exists and the
+        gated change is reviewed, merged, and deployed. If LaunchDarkly needs
+        an approval, the reviewer is member `m-4821`. Continue from Step 6.
+      max_turns: 10
+      mock_overrides:
+        list-metrics: *metrics_with_error
+        toggle-flag:
+          requiresApproval: true
+          message: "This environment requires approval for flag changes."
+          instructions: [{ kind: "turnFlagOn" }]
+        list-approval-requests:
+          items: [{ _id: "apr-0001", flagKey: "exp-checkout-conversion-button-copy", status: "pending", reviewStatus: "pending" }]
+          totalCount: 1
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const toggles = traj.filter(t => t.tool === 'toggle-flag').length;
+          const reqIdx = traj.findIndex(t => t.tool === 'create-approval-request');
+          const togIdx = traj.findIndex(t => t.tool === 'toggle-flag');
+          const pass = reqIdx > togIdx && togIdx >= 0 && toggles === 1;
+          return { pass, score: pass ? 1 : 0, reason: `toggle-flag x${toggles}, create-approval-request@${reqIdx}` };
+        metric: requests_approval_once
+        weight: 5
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const r = traj.find(t => t.tool === 'create-approval-request');
+          if (!r) return { pass: false, score: 0, reason: 'no approval request' };
+          const a = r.arguments || {};
+          const ins = JSON.stringify(a.instructions || []);
+          const pass = a.flagKey === 'exp-checkout-conversion-button-copy' && (a.notifyMemberIds || []).includes('m-4821') && /turnFlagOn/.test(ins);
+          return { pass, score: pass ? 1 : 0, reason: `flagKey=${a.flagKey} reviewers=${JSON.stringify(a.notifyMemberIds)} instructions=${ins}` };
+        metric: approval_request_contents
+        weight: 3
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const requested = tools.includes('create-approval-request');
+          const early = ['apply-approval-request','create-experiment','start-experiment-iteration'].filter(w => tools.includes(w));
+          const pass = requested && early.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: !requested ? 'never requested approval' : pass ? 'waited for the pending approval' : 'acted before approval: ' + early.join(', ') };
+        metric: waits_for_approval
+        weight: 3
+
+  # ==================================================================
+  # WINNING EXPERIMENT -> GUARDED ROLLOUT — results are significant and
+  # positive (default mocks). The skill stops with the control as winner,
+  # then starts a 3-stage guarded rollout below 50% in thousandths.
+  # ==================================================================
+  - description: "Winner: stops with control, then a 3-stage guarded rollout below 50%"
+    vars:
+      user_request: &winner_ready >
+        Project `storefront`, environment `production`. Experiment
+        `exp-checkout-button-copy` on flag `exp-checkout-conversion-button-copy`
+        (primary metric `checkout-completed`, guardrail
+        `storefront-telemetry-default-error-rate`, randomized by user, roll
+        back on a 2% regression) has run for two weeks. Continue from Step 7:
+        check the results and act on them.
+      max_turns: 14
+      mock_overrides:
+        get-experiment:
+          key: "exp-checkout-button-copy"
+          environmentKey: "production"
+          currentIteration:
+            status: "running"
+            startedAt: "2026-10-14T00:00:00Z"
+            treatments:
+              - { _id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
+              - { _id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
+        get-flag:
+          key: "exp-checkout-conversion-button-copy"
+          kind: "boolean"
+          variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
+          defaults: { onVariation: 1, offVariation: 1 }
+          environment: { on: true, version: 5, rules: [], targets: [], fallthrough: { variation: 1 }, offVariation: 1 }
+        get-experiment-metric-results:
+          by_arg: metricKey
+          cases:
+            checkout-completed:
+              metricKey: "checkout-completed"
+              treatments:
+                - { treatmentId: "treat-control", name: "Control", analyzedUnitCount: 4200, trafficCount: 4200, conversionCount: 630, mean: 0.15 }
+                - { treatmentId: "treat-treatment", name: "Treatment", analyzedUnitCount: 4180, trafficCount: 4180, conversionCount: 678, mean: 0.162, statistics: { relativeDifferences: [{ estimate: 0.081, lower: 0.02, upper: 0.14, pValue: 0.008 }], isSignificant: true } }
+          default:
+            metricKey: "{{metricKey}}"
+            treatments:
+              - { treatmentId: "treat-control", name: "Control", analyzedUnitCount: 4200, trafficCount: 4200, conversionCount: 42, mean: 0.010 }
+              - { treatmentId: "treat-treatment", name: "Treatment", analyzedUnitCount: 4180, trafficCount: 4180, conversionCount: 41, mean: 0.0098, statistics: { relativeDifferences: [{ estimate: -0.02, lower: -0.4, upper: 0.4, pValue: 0.91 }], isSignificant: false } }
+        get-experiment-results:
+          experimentKey: "exp-checkout-button-copy"
+          metrics:
+            - { metricKey: "checkout-completed", isPrimary: true, treatments: [{ treatmentId: "treat-control", name: "Control", isBest: false, analyzedUnitCount: 4200 }, { treatmentId: "treat-treatment", name: "Treatment", isBest: true, relativeDifference: 0.081, isSignificant: true, analyzedUnitCount: 4180 }] }
+            - { metricKey: "storefront-telemetry-default-error-rate", isPrimary: false, treatments: [{ treatmentId: "treat-control", name: "Control", analyzedUnitCount: 4200 }, { treatmentId: "treat-treatment", name: "Treatment", relativeDifference: -0.02, isSignificant: false, analyzedUnitCount: 4180 }] }
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const s = traj.find(t => t.tool === 'stop-experiment-iteration');
+          const g = traj.findIndex(t => t.tool === 'start-guarded-rollout');
+          const sIdx = traj.findIndex(t => t.tool === 'stop-experiment-iteration');
+          const winner = s && (s.arguments || {}).winningTreatmentId;
+          const pass = winner === 'treat-control' && g > sIdx;
+          return { pass, score: pass ? 1 : 0, reason: `winner=${winner} stop@${sIdx} rollout@${g} (want control, stop before rollout)` };
+        metric: stop_with_control_then_rollout
+        weight: 4
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const g = traj.find(t => t.tool === 'start-guarded-rollout');
+          if (!g) return { pass: false, score: 0, reason: 'no guarded rollout' };
+          const a = g.arguments || {};
+          const w = (a.stages || []).map(s => Number(s.rolloutWeight));
+          const checks = {
+            threeStages: w.length === 3,
+            belowHalf: w.every(x => x > 0 && x < 50000),
+            thousandths: w.every(x => x >= 1000),
+            variations: a.testVariationId === 'var-true' && a.controlVariationId === 'var-false',
+            completes: a.updateDefaultRuleOnCompletion === true,
+          };
+          const failed = Object.keys(checks).filter(k => !checks[k]);
+          const score = 1 - failed.length / Object.keys(checks).length;
+          return { pass: failed.length === 0, score, reason: `weights=${JSON.stringify(w)} ` + (failed.length ? 'failed: ' + failed.join(', ') : 'ok') };
+        metric: rollout_stages
+        weight: 4
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const g = traj.find(t => t.tool === 'start-guarded-rollout');
+          if (!g) return { pass: false, score: 0, reason: 'no guarded rollout' };
+          const ms = (g.arguments || {}).metrics || [];
+          const keys = ms.map(m => m.metricKey);
+          const allRollback = ms.length > 0 && ms.every(m => m.onRegression && m.onRegression.rollback === true && typeof m.regressionThreshold === 'number');
+          const pass = keys.includes('storefront-telemetry-default-error-rate') && allRollback;
+          return { pass, score: pass ? 1 : 0, reason: `metrics=${JSON.stringify(ms)}` };
+        metric: rollout_guardrails
+        weight: 3
+
+  # ==================================================================
+  # NO GUARDED ROLLOUTS ON THE PLAN — start-guarded-rollout fails with a
+  # plan error. The skill falls back to a regular rollout of the treatment
+  # on the default rule instead of stopping or retrying.
+  # ==================================================================
+  - description: "No guarded rollouts on the plan: falls back to a regular rollout of the treatment"
+    vars:
+      user_request: *winner_ready
+      max_turns: 14
+      mock_overrides:
+        get-experiment:
+          key: "exp-checkout-button-copy"
+          environmentKey: "production"
+          currentIteration:
+            status: "running"
+            startedAt: "2026-10-14T00:00:00Z"
+            treatments:
+              - { _id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
+              - { _id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
+        get-flag:
+          key: "exp-checkout-conversion-button-copy"
+          kind: "boolean"
+          variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
+          defaults: { onVariation: 1, offVariation: 1 }
+          environment: { on: true, version: 5, rules: [], targets: [], fallthrough: { variation: 1 }, offVariation: 1 }
+        get-experiment-metric-results:
+          by_arg: metricKey
+          cases:
+            checkout-completed:
+              metricKey: "checkout-completed"
+              treatments:
+                - { treatmentId: "treat-control", name: "Control", analyzedUnitCount: 4200, trafficCount: 4200, conversionCount: 630, mean: 0.15 }
+                - { treatmentId: "treat-treatment", name: "Treatment", analyzedUnitCount: 4180, trafficCount: 4180, conversionCount: 678, mean: 0.162, statistics: { relativeDifferences: [{ estimate: 0.081, lower: 0.02, upper: 0.14, pValue: 0.008 }], isSignificant: true } }
+          default:
+            metricKey: "{{metricKey}}"
+            treatments:
+              - { treatmentId: "treat-control", name: "Control", analyzedUnitCount: 4200, trafficCount: 4200, conversionCount: 42, mean: 0.010 }
+              - { treatmentId: "treat-treatment", name: "Treatment", analyzedUnitCount: 4180, trafficCount: 4180, conversionCount: 41, mean: 0.0098, statistics: { relativeDifferences: [{ estimate: -0.02, lower: -0.4, upper: 0.4, pValue: 0.91 }], isSignificant: false } }
+        get-experiment-results:
+          experimentKey: "exp-checkout-button-copy"
+          metrics:
+            - { metricKey: "checkout-completed", isPrimary: true, treatments: [{ treatmentId: "treat-control", name: "Control", isBest: false, analyzedUnitCount: 4200 }, { treatmentId: "treat-treatment", name: "Treatment", isBest: true, relativeDifference: 0.081, isSignificant: true, analyzedUnitCount: 4180 }] }
+            - { metricKey: "storefront-telemetry-default-error-rate", isPrimary: false, treatments: [{ treatmentId: "treat-control", name: "Control", analyzedUnitCount: 4200 }, { treatmentId: "treat-treatment", name: "Treatment", relativeDifference: -0.02, isSignificant: false, analyzedUnitCount: 4180 }] }
+        start-guarded-rollout:
+          error: "Guarded rollouts are not available on your LaunchDarkly plan."
+          code: "feature_not_available"
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const gr = traj.filter(t => t.tool === 'start-guarded-rollout').length;
+          const g = traj.findIndex(t => t.tool === 'start-guarded-rollout');
+          const u = traj.find((t, i) => t.tool === 'update-rollout' && i > g);
+          const a = (u && u.arguments) || {};
+          const pass = g >= 0 && gr === 1 && a.rolloutType === 'variation' && a.variationIndex === 0;
+          return { pass, score: pass ? 1 : 0, reason: `start-guarded-rollout x${gr}; update-rollout=${JSON.stringify(a)} (want variation, index 0)` };
+        metric: regular_rollout_fallback
+        weight: 5
+      - type: llm-rubric
+        value: |
+          Guarded rollouts weren't available, so the agent used a regular rollout.
+          Evaluate the response:
+          1. Does it say the regular rollout serves the treatment to everyone with no
+             automatic rollback?
+          2. Does it say it will watch the guardrail metrics and revert to false on a
+             regression?
+          Score 1.0 if both, 0.5 if one, 0 if neither.
+        metric: explains_no_auto_rollback
+        weight: 2
+
+  # ==================================================================
+  # LOSING EXPERIMENT — the primary metric drops significantly. The skill
+  # stops with the control, turns the flag off, starts no rollout, and
+  # writes the Step 8 report.
+  # ==================================================================
+  - description: "Loser: stops with control, turns the flag off, no rollout, and reports"
+    vars:
+      user_request: *winner_ready
+      max_turns: 12
+      mock_overrides:
+        get-experiment:
+          key: "exp-checkout-button-copy"
+          environmentKey: "production"
+          currentIteration:
+            status: "running"
+            startedAt: "2026-10-14T00:00:00Z"
+            treatments:
+              - { _id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
+              - { _id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
+        get-flag:
+          key: "exp-checkout-conversion-button-copy"
+          kind: "boolean"
+          variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
+          defaults: { onVariation: 1, offVariation: 1 }
+          environment: { on: true, version: 5, rules: [], targets: [], fallthrough: { variation: 1 }, offVariation: 1 }
+        get-experiment-metric-results:
+          by_arg: metricKey
+          cases:
+            checkout-completed:
+              metricKey: "checkout-completed"
+              treatments:
+                - { treatmentId: "treat-control", name: "Control", analyzedUnitCount: 4200, trafficCount: 4200, conversionCount: 630, mean: 0.15 }
+                - { treatmentId: "treat-treatment", name: "Treatment", analyzedUnitCount: 4180, trafficCount: 4180, conversionCount: 543, mean: 0.13, statistics: { relativeDifferences: [{ estimate: -0.133, lower: -0.19, upper: -0.07, pValue: 0.001 }], isSignificant: true } }
+          default:
+            metricKey: "{{metricKey}}"
+            treatments:
+              - { treatmentId: "treat-control", name: "Control", analyzedUnitCount: 4200, trafficCount: 4200, conversionCount: 42, mean: 0.010 }
+              - { treatmentId: "treat-treatment", name: "Treatment", analyzedUnitCount: 4180, trafficCount: 4180, conversionCount: 41, mean: 0.0098, statistics: { relativeDifferences: [{ estimate: -0.02, lower: -0.4, upper: 0.4, pValue: 0.91 }], isSignificant: false } }
+        get-experiment-results:
+          experimentKey: "exp-checkout-button-copy"
+          metrics:
+            - { metricKey: "checkout-completed", isPrimary: true, treatments: [{ treatmentId: "treat-control", name: "Control", isBest: true, analyzedUnitCount: 4200 }, { treatmentId: "treat-treatment", name: "Treatment", isBest: false, relativeDifference: -0.133, isSignificant: true, analyzedUnitCount: 4180 }] }
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const s = traj.find(t => t.tool === 'stop-experiment-iteration');
+          const off = traj.find(t => t.tool === 'toggle-flag' && (t.arguments || {}).on === false);
+          const winner = s && (s.arguments || {}).winningTreatmentId;
+          const pass = winner === 'treat-control' && Boolean(off);
+          return { pass, score: pass ? 1 : 0, reason: `winner=${winner} flagOff=${Boolean(off)}` };
+        metric: stops_and_turns_off
+        weight: 4
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const stopped = traj.some(t => t.tool === 'stop-experiment-iteration');
+          const bad = traj.filter(t => t.tool === 'start-guarded-rollout' || (t.tool === 'update-rollout' && (t.arguments || {}).variationIndex === 0) || t.tool === 'delete-flag');
+          const pass = stopped && bad.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: !stopped ? 'never stopped the experiment' : pass ? 'no rollout, flag kept' : 'called: ' + bad.map(t => t.tool).join(', ') };
+        metric: no_rollout_after_loss
+        weight: 4
+      - type: llm-rubric
+        value: |
+          The experiment lost: checkout conversion fell about 13%, significantly.
+          Evaluate the response:
+          1. Does it include a structured report with an "Experiment Report" heading
+             and sections for the hypothesis, the experiment phase, and next steps?
+          2. Does it mark the experiment as a loser and say no rollout happened?
+          Score 1.0 if both, 0.5 if one, 0 if neither.
+        metric: loss_report
+        weight: 3

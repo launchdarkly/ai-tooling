@@ -1,0 +1,823 @@
+[
+  {
+    "name": "create-flag",
+    "description": "Create a new feature flag in a project. Defaults to a boolean temporary flag. After creation the flag is OFF in all environments: use toggle-flag to enable it. An OFF flag serves `defaults.offVariation` and an ON flag that matches no rule serves `defaults.onVariation`; boolean flags default to OFF serving false.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "The project key"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable flag name"
+        },
+        "key": {
+          "type": "string",
+          "description": "Unique flag key (immutable)"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "boolean",
+            "multivariate"
+          ],
+          "description": "Flag kind (default: boolean)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the flag's purpose"
+        },
+        "temporary": {
+          "type": "boolean",
+          "description": "Whether the flag is temporary (default: true)"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags for organization"
+        },
+        "variations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "The variation value"
+              },
+              "name": {
+                "type": "string",
+                "description": "Variation name"
+              }
+            }
+          },
+          "description": "Custom variations (for multivariate flags)"
+        },
+        "clientSideAvailability": {
+          "type": "object",
+          "properties": {
+            "usingMobileKey": {
+              "type": "boolean"
+            },
+            "usingEnvironmentId": {
+              "type": "boolean"
+            }
+          },
+          "description": "Client-side SDK availability"
+        },
+        "defaults": {
+          "type": "object",
+          "properties": {
+            "onVariation": {
+              "type": "number"
+            },
+            "offVariation": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "onVariation",
+            "offVariation"
+          ]
+        }
+      },
+      "required": [
+        "projectKey",
+        "name",
+        "key"
+      ]
+    }
+  },
+  {
+    "name": "toggle-flag",
+    "description": "Turn a feature flag's targeting on or off in a specific environment. Returns the previous and new state. If the environment requires approval, the response includes requiresApproval: true and the attempted instructions; call `create-approval-request` with the returned instructions to submit it for review.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "The project key"
+        },
+        "flagKey": {
+          "type": "string",
+          "description": "The flag key"
+        },
+        "env": {
+          "type": "string",
+          "description": "Environment key"
+        },
+        "on": {
+          "type": "boolean",
+          "description": "Whether to turn targeting on or off"
+        },
+        "comment": {
+          "type": "string",
+          "description": "Optional comment"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagKey",
+        "env",
+        "on"
+      ]
+    }
+  },
+  {
+    "name": "list-metrics",
+    "description": "List metrics in a project. Use to find existing metrics to reuse as an experiment's primary or guardrail metric before creating a new one.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "The project key"
+        },
+        "query": {
+          "type": "string",
+          "description": "Search by metric name or key"
+        },
+        "limit": {
+          "type": "number",
+          "description": "Max number of results (default 20)"
+        },
+        "metricUsedIn": {
+          "type": "string"
+        },
+        "eventKind": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "projectKey"
+      ]
+    }
+  },
+  {
+    "name": "create-metric",
+    "description": "Create a metric that measures an experiment outcome. measureType 'occurrence' is a conversion (did each user do it at least once), 'count' totals events, and 'value' averages or sums the number sent with track(). eventKey is the tracked event the metric counts.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "The project key"
+        },
+        "key": {
+          "type": "string",
+          "description": "Unique metric key (immutable)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable metric name"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "custom",
+            "pageview",
+            "click"
+          ]
+        },
+        "measureType": {
+          "type": "string",
+          "enum": [
+            "count",
+            "occurrence",
+            "value"
+          ],
+          "description": "occurrence = conversion, count = event total, value = numeric value"
+        },
+        "valueAggregation": {
+          "type": "string",
+          "enum": [
+            "sum",
+            "average"
+          ],
+          "description": "Only for measureType 'value': average (default) or sum"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit for value metrics, e.g. USD or ms"
+        },
+        "eventKey": {
+          "type": "string",
+          "description": "The event key the metric counts (matches the track() call)"
+        },
+        "urls": {
+          "type": "array",
+          "description": "Required for pageview and click metrics: pages to match",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "substring",
+                  "exact",
+                  "canonical",
+                  "regex"
+                ]
+              },
+              "substring": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "pattern": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          }
+        },
+        "selector": {
+          "type": "string",
+          "description": "Required for click metrics: CSS selector that triggers the event"
+        },
+        "successCriteria": {
+          "type": "string",
+          "enum": [
+            "HigherThanBaseline",
+            "LowerThanBaseline"
+          ],
+          "description": "Which direction is success"
+        },
+        "description": {
+          "type": "string",
+          "description": "What the metric measures"
+        },
+        "randomizationUnits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "projectKey",
+        "key",
+        "name",
+        "measureType",
+        "successCriteria"
+      ]
+    }
+  },
+  {
+    "name": "create-experiment",
+    "description": "Create a new experiment on a flag. The iteration takes a hypothesis, metrics ({key}), primarySingleMetricKey, randomizationUnit, canReshuffleTraffic, treatments ({name, baseline, allocationPercent, parameters: [{flagKey, variationId}]}), and flags keyed by flag key ({ruleId, flagConfigVersion, notInExperimentVariationId}). allocationPercent is each treatment's share of all traffic on the rule; the rest is served notInExperimentVariationId. The experiment is created as a draft and collects no data until an iteration is started.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "methodology": {
+          "type": "string",
+          "enum": [
+            "bayesian",
+            "frequentist",
+            "export_only"
+          ]
+        },
+        "analysisConfig": {
+          "type": "object",
+          "properties": {
+            "sequentialTestingEnabled": {
+              "type": "boolean"
+            },
+            "significanceThreshold": {
+              "type": "string"
+            },
+            "testDirection": {
+              "type": "string"
+            },
+            "multipleComparisonCorrectionMethod": {
+              "type": "string",
+              "enum": [
+                "bonferroni",
+                "benjamini-hochberg"
+              ]
+            },
+            "multipleComparisonCorrectionScope": {
+              "type": "string",
+              "enum": [
+                "variations",
+                "variations-and-metrics",
+                "metrics"
+              ]
+            }
+          }
+        },
+        "iteration": {
+          "type": "object",
+          "properties": {
+            "hypothesis": {
+              "type": "string"
+            },
+            "canReshuffleTraffic": {
+              "type": "boolean"
+            },
+            "randomizationUnit": {
+              "type": "string"
+            },
+            "primarySingleMetricKey": {
+              "type": "string"
+            },
+            "metrics": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "isGroup": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            },
+            "treatments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "baseline": {
+                    "type": "boolean"
+                  },
+                  "allocationPercent": {
+                    "type": "number"
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "flagKey": {
+                          "type": "string"
+                        },
+                        "variationId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "flags": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "ruleId": {
+                    "type": "string"
+                  },
+                  "flagConfigVersion": {
+                    "type": "number"
+                  },
+                  "notInExperimentVariationId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "key",
+        "name",
+        "iteration"
+      ]
+    }
+  },
+  {
+    "name": "start-guarded-rollout",
+    "description": "Start a guarded rollout on a flag's default rule (fallthrough). A guarded rollout progressively increases traffic to the test variation through a series of stages while monitoring metrics for regressions. Each stage specifies a rolloutWeight (percentage in thousandths, e.g. 10000 = 10%) and a monitoring window in milliseconds. Metrics define what to monitor and whether to notify or rollback on regression. Requires the flag to be on and not already have an active guarded rollout. If the environment requires approval, the response includes requiresApproval: true and the attempted instructions; call `create-approval-request` with the returned instructions to submit it for review.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "type": "string"
+        },
+        "testVariationId": {
+          "type": "string"
+        },
+        "controlVariationId": {
+          "type": "string"
+        },
+        "randomizationUnit": {
+          "type": "string"
+        },
+        "stages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rolloutWeight": {
+                "type": "number"
+              },
+              "monitoringWindowMilliseconds": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "rolloutWeight",
+              "monitoringWindowMilliseconds"
+            ]
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "metricKey": {
+                "type": "string"
+              },
+              "onRegression": {
+                "type": "object",
+                "properties": {
+                  "notify": {
+                    "type": "boolean"
+                  },
+                  "rollback": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "notify",
+                  "rollback"
+                ]
+              },
+              "regressionThreshold": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "metricKey",
+              "onRegression",
+              "regressionThreshold"
+            ]
+          }
+        },
+        "metricSources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "isGroup": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "key",
+              "isGroup"
+            ]
+          }
+        },
+        "updateDefaultRuleOnCompletion": {
+          "type": "boolean"
+        },
+        "comment": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagKey",
+        "environmentKey",
+        "testVariationId",
+        "controlVariationId",
+        "randomizationUnit",
+        "stages",
+        "metrics"
+      ]
+    }
+  },
+  {
+    "name": "update-rollout",
+    "description": "Change the default rule (fallthrough) for a flag. Set a percentage rollout across variations or serve a single variation to all unmatched users. Weights must sum to 100. Use human-friendly percentages (e.g., 80 for 80%). If the environment requires approval, the response includes requiresApproval: true and the attempted instructions; call `create-approval-request` with the returned instructions to submit it for review.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        },
+        "rolloutType": {
+          "type": "string",
+          "enum": [
+            "percentage",
+            "variation"
+          ]
+        },
+        "variationIndex": {
+          "type": "number"
+        },
+        "weights": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "variationIndex": {
+                "type": "number"
+              },
+              "percent": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "variationIndex",
+              "percent"
+            ]
+          }
+        },
+        "contextKind": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagKey",
+        "env",
+        "rolloutType"
+      ]
+    }
+  },
+  {
+    "name": "stop-experiment-iteration",
+    "description": "Stop the currently running iteration of an experiment. Data collection ends and the iteration moves to the `stopped` status. A winning treatment is required to stop: pass `winningTreatmentId` (the `_id` of one of the iteration's treatments, available from get-experiment) and an optional `winningReason` explaining the call. If the experiment was inconclusive, declare the baseline/control treatment as the winner.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "type": "string"
+        },
+        "experimentKey": {
+          "type": "string"
+        },
+        "winningTreatmentId": {
+          "type": "string"
+        },
+        "winningReason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "experimentKey",
+        "winningTreatmentId"
+      ]
+    }
+  },
+  {
+    "name": "get-experiment-results",
+    "description": "Get an overall results summary for an experiment, across every metric on the current iteration. Returns a compact per-metric summary: which treatment is leading (isBest) — for frequentist, the lowest p-value versus control (note: not significance-gated, so a treatment can be flagged leading even when nothing is significant) — each treatment's lift versus control, whether it's statistically significant, and sample sizes. For the full per-treatment statistics on one metric, use get-experiment-metric-results.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "type": "string"
+        },
+        "experimentKey": {
+          "type": "string"
+        },
+        "iterationId": {
+          "type": "string"
+        },
+        "disableMultipleComparisonCorrection": {
+          "type": "boolean"
+        },
+        "disableSequentialTesting": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "experimentKey"
+      ]
+    }
+  },
+  {
+    "name": "get-experiment-metric-results",
+    "description": "Get detailed statistical results for a single metric on an experiment iteration. Returns, per treatment: sample sizes (analyzedUnitCount, trafficCount, conversionCount), the observed mean and standard deviation, and a `statistics` block with the lift versus control (relativeDifferences: estimate plus lower/upper interval bounds and a per-comparison pValue), the overall pValue, and an isSignificant flag.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "type": "string"
+        },
+        "experimentKey": {
+          "type": "string"
+        },
+        "metricKey": {
+          "type": "string"
+        },
+        "iterationId": {
+          "type": "string"
+        },
+        "disableMultipleComparisonCorrection": {
+          "type": "boolean"
+        },
+        "disableSequentialTesting": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "experimentKey",
+        "metricKey"
+      ]
+    }
+  },
+  {
+    "name": "create-approval-request",
+    "description": "Create an approval request for a flag or segment change in an environment that requires approvals. Pass flagKey for a flag or segmentKey for a segment, never both. Requires at least one reviewer: notifyMemberIds and/or notifyTeamKeys. If the user named a person, resolve them with find-members and pass the returned id. If they did not name anyone, ask who should review before calling this tool. Provide the same semantic patch instructions you would use for a direct change. The request will be reviewed by approvers before taking effect. Does NOT approve the request: that must be done by a human reviewer.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "segmentKey": {
+          "type": "string"
+        },
+        "instructions": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "description": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        },
+        "notifyMemberIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notifyTeamKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "projectKey",
+        "env",
+        "instructions",
+        "description"
+      ]
+    }
+  },
+  {
+    "name": "apply-approval-request",
+    "description": "Apply an already-approved flag or segment approval request. This executes the changes that were approved by reviewers. Pass flagKey for a flag or segmentKey for a segment, never both. Only works on requests with reviewStatus 'approved'. Does NOT approve requests: that must be done by a human reviewer. Use list-approval-requests to get the request id.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "segmentKey": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "env",
+        "id"
+      ]
+    }
+  },
+  {
+    "name": "list-approval-requests",
+    "description": "List approval requests for a flag or a segment in an environment. Pass flagKey for a flag or segmentKey for a segment, never both. Shows status, review state, and who requested the change. Use to check on approval progress after creating a request.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "segmentKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "env"
+      ]
+    }
+  },
+  {
+    "name": "list-metric-events",
+    "description": "List recent event keys received by a LaunchDarkly project — used to check which events are actively flowing before creating a metric. Returns up to 50 event keys with last-seen timestamps. If the event key you need isn't here, it may not be instrumented yet. Supports fuzzy search via `query` to narrow results. Filter by `environmentKey` to check a specific environment.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey"
+      ]
+    }
+  }
+]
