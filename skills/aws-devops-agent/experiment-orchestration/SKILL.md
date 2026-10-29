@@ -37,7 +37,7 @@ Before doing anything, get answers to:
 3. **What's the current baseline?** *(Optional — infer from production metrics if not given)*
 4. **What parts of the app are in scope?** *(Optional — infer from the codebase if not given)*
 5. **Any constraints?** *(Optional)* e.g. no changes to the payment flow.
-6. **How much regression should roll a change back?** *(Optional — propose one per guardrail metric if not given)* Used as each metric's `regressionThreshold` in Step 7.
+6. **How much regression should roll a change back?** *(Optional — propose one for the success metric and each guardrail metric if not given)* Used as each metric's `regressionThreshold` in Step 7.
 
 Questions 1–2 are required before proceeding: until the user has answered both, make no changes (no flag, metric, or experiment). If a question gets no answer, ask again or stop; never assume an answer. Infer 3–6 where possible and confirm your assumptions with the user before implementing.
 
@@ -46,8 +46,7 @@ Questions 1–2 are required before proceeding: until the user has answered both
 1. Choose the randomization unit (typically "user"). Every metric must list it in its randomization units, or the guarded rollout rejects the metric.
 2. Call `list-metrics` with a `query` for the success metric. For errors, look first for LaunchDarkly's built-in error-rate metric (key ending in `telemetry-default-error-rate`, event `$ld:telemetry:error`), then `query: "error"`. Check that each metric's randomization units include the unit from item 1.
 3. For the success metric, call `list-metric-events` with `query` set to its event key, in the environment the experiment will use. It returns at most 50 keys, so always pass the query. Don't run this check for the error-rate metric: no recent error events may just mean no errors.
-4. Call `list-release-policies`. A metric that a policy already attaches to guarded rollouts here doesn't need adding to the rollout a second time, but still pass the error-rate metric to the experiment, which gets no policy metrics.
-5. Confirm the metric keys with the user. If a metric doesn't exist, plan to create it in Step 3: Implementation. If the success metric exists but its event isn't arriving, plan to add its `track()` call in Step 3: Implementation instead of creating a second metric.
+4. Confirm the metric keys with the user. If a metric doesn't exist, plan to create it in Step 3: Implementation. If the success metric exists but its event isn't arriving, plan to add its `track()` call in Step 3: Implementation instead of creating a second metric.
 
 ## Step 2: Hypothesis Generation
 
@@ -126,9 +125,10 @@ Watch for statistical significance on the primary metric. For each metric, call 
 
 **Check the instrumentation after the first day.** If the success metric, or any guardrail other than the error-rate metric, has a `conversionCount` of 0 in every treatment, stop and report an instrumentation problem instead of waiting for significance. Zero error events is fine: it means no errors.
 
+Judge each treatment against the control on its own. A treatment **qualifies** if it has a significant positive lift on the primary metric and no guardrail regression. A treatment **fails** if it has a significant negative lift on the primary metric or a guardrail regression.
 
-- **Proven:** at least one treatment has a significant positive lift on the primary metric and no guardrail regression. The winner is the one with the largest such lift. Stop the experiment iteration with control as the winner, then move to Phase 2. Stopping serves the winner to the experiment's targeting rule (everyone, when the experiment is on the default rule), so a treatment winner would skip the guarded rollout. If the plan has no guarded rollouts, still stop with control as the winner and use the regular rollout in Phase 2.
-- **Loser:** every treatment has a significant negative lift, or a guardrail regression. Declare a loser, stop the iteration with control as the winner, turn the flag off (do not archive it while the code still evaluates it), skip Phase 2, go straight to the Step 8 report.
+- **Proven:** at least one treatment qualifies, even if another fails. The winner is the qualifying treatment with the largest lift. Stop the experiment iteration with control as the winner, then move to Phase 2. Stopping serves the winner to the experiment's targeting rule (everyone, when the experiment is on the default rule), so a treatment winner would skip the guarded rollout. If the plan has no guarded rollouts, still stop with control as the winner and use the regular rollout in Phase 2.
+- **Loser:** no treatment qualifies, and either every treatment fails or any treatment has a guardrail regression. A regressing treatment must not keep serving traffic while the others collect data. Declare a loser, stop the iteration with control as the winner, turn the flag off (do not archive it while the code still evaluates it), skip Phase 2, go straight to the Step 8 report.
 - **Anything else** (no significance, or mixed results such as one treatment worse and another flat): keep collecting data. At a reasonable ceiling (e.g. 4 weeks), report "inconclusive, need more traffic", naming any treatment that was significantly worse, stop the iteration with control as the winner, and stop; don't proceed to Phase 2.
 
 To stop the iteration, pass `stop-experiment-iteration` the `_id` of the control treatment (`baseline: true`) from `get-experiment` as `winningTreatmentId`, in every outcome; it takes a treatment ID, not a variation ID. Stopping with the real winner would serve it to everyone and skip the rollout.
@@ -142,7 +142,7 @@ Start a guarded rollout with:
 - Same randomization unit as the experiment.
 - **Exactly 3 monitored stages, each below 50%** — e.g. 20% → 30% → 40%, ~60 minutes monitoring each. `rolloutWeight` is in thousandths of a percent (20% is `20000`) and `monitoringWindowMilliseconds` is in milliseconds (60 minutes is `3600000`). Don't add a 100% stage.
 - `updateDefaultRuleOnCompletion: true`, so the rollout moves the default rule to the winning variation once the final stage completes cleanly.
-- The same primary + guardrail metrics as the experiment, each with `onRegression` set to notify and roll back, and a `regressionThreshold` (required) from Step 1.
+- Every metric the experiment used, primary and guardrails, each with `onRegression` set to notify and roll back, and a `regressionThreshold` (required) from Step 1.
 
 Track stage progression. If the rollout rolls back or stops at any point, treat it as a regression: declare failed, turn the flag off (do not archive it while the code still evaluates it), and go to the Step 8 report.
 
