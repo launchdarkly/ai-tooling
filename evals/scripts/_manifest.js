@@ -91,6 +91,12 @@ const SUITES = [
     skillDir: "skills/experiments/launchdarkly-experiment-guide",
     readme: "skills/experiments/launchdarkly-experiment-guide/README.md",
   },
+  {
+    // No readme: the skill folder holds only the SKILL.md that ldcli embeds.
+    suite: "experiment-orchestration",
+    skillKey: "aws-devops-agent/experiment-orchestration",
+    skillDir: "skills/aws-devops-agent/experiment-orchestration",
+  },
 ];
 
 /**

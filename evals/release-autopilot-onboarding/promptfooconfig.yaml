@@ -10,11 +10,12 @@
 # account-wide policy mode, and account settings stay untouched when they
 # already match.
 #
-# Default mocks match a catamorphic-like account with both capabilities on,
+# Tool definitions and default mocks live in this folder (tool_definitions,
+# tool_mocks). Default mocks match a catamorphic-like account with both capabilities on,
 # the GitHub App installed, and release plans available but empty (the GA
 # shape). The policy-mode case overrides release plans to the 403 accounts
 # return today. Mocks record Release Autopilot writes, so verification reads
-# reflect them. Tests change state with mock_tool_overrides, and scripted
+# reflect them. Tests change state with mock_overrides, and scripted
 # answers are matched to each question by option label
 # (mock_ask_question_match), so a skipped question cannot shift them.
 description: "Evaluation of the Release Autopilot onboarding skill"
@@ -27,7 +28,8 @@ providers:
     label: mcp
     config:
       skill_slug: launchdarkly-release-autopilot-onboarding
-      tool_scopes: [release-autopilot]
+      tool_definitions: release-autopilot-onboarding/tool-definitions.json
+      tool_mocks: release-autopilot-onboarding/tool-mocks.json
       allow_builtins: false
       expose_ask_question: true
       force_skill_invocation: true
@@ -38,7 +40,8 @@ providers:
     label: mcp-auto
     config:
       skill_slug: launchdarkly-release-autopilot-onboarding
-      tool_scopes: [release-autopilot]
+      tool_definitions: release-autopilot-onboarding/tool-definitions.json
+      tool_mocks: release-autopilot-onboarding/tool-mocks.json
       allow_builtins: true
       expose_ask_question: true
 
@@ -53,7 +56,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 25
-      mock_tool_overrides:
+      mock_overrides:
         get-release-autopilot-settings:
           autoFlagging: { enabled: false, approvalRequired: false }
           autoReleasing: { enabled: false }
@@ -116,7 +119,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default."
       max_turns: 20
-      mock_tool_overrides:
+      mock_overrides:
         list-release-plans:
           error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Plan does not allow this operation\"}"
         list-release-policies:
@@ -181,7 +184,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 20
-      mock_tool_overrides:
+      mock_overrides:
         get-member-self: { id: "member-2", email: "reader@acme.example", role: "reader", teams: [] }
       mock_ask_question_match: true
       mock_ask_question_answers:
@@ -248,7 +251,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot for my repos."
       max_turns: 15
-      mock_tool_overrides:
+      mock_overrides:
         get-release-autopilot-settings:
           autoFlagging: { enabled: false, approvalRequired: false }
           autoReleasing: { enabled: false }
@@ -288,7 +291,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 25
-      mock_tool_overrides:
+      mock_overrides:
         get-member-self: { id: "member-3", email: "writer@acme.example", role: "writer", teams: [] }
         get-release-autopilot-settings:
           autoFlagging: { enabled: false, approvalRequired: false }
@@ -333,7 +336,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 20
-      mock_tool_overrides:
+      mock_overrides:
         get-release-autopilot-settings:
           autoFlagging: { enabled: false, approvalRequired: false }
           autoReleasing: { enabled: false }
@@ -486,7 +489,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 10
-      mock_tool_overrides:
+      mock_overrides:
         get-member-self:
           id: "member-1"
           email: "admin@acme.example"
@@ -522,7 +525,7 @@ tests:
         required, repo acme/demo in project default, LaunchDarkly managed inference. We paused while
         our GitHub org owner installed the App, and that is done now.
       max_turns: 20
-      mock_tool_overrides:
+      mock_overrides:
         get-release-autopilot-settings:
           autoFlagging: { enabled: false, approvalRequired: false }
           autoReleasing: { enabled: false }
@@ -559,7 +562,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 20
-      mock_tool_overrides:
+      mock_overrides:
         get-release-autopilot-settings:
           autoFlagging: { enabled: false, approvalRequired: false }
           autoReleasing: { enabled: false }
@@ -597,7 +600,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
-      mock_tool_overrides:
+      mock_overrides:
         get-release-autopilot-settings:
           autoFlagging: { enabled: false, approvalRequired: false }
           autoReleasing: { enabled: false }
@@ -647,7 +650,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot auto-flagging for my repos."
       max_turns: 18
-      mock_tool_overrides:
+      mock_overrides:
         get-release-autopilot-settings:
           autoFlagging: { enabled: false, approvalRequired: false }
           autoReleasing: { enabled: false }
@@ -688,7 +691,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 10
-      mock_tool_overrides:
+      mock_overrides:
         get-release-autopilot-settings: { error: "LaunchDarkly API error: 404 Not Found" }
         list-release-autopilot-repo-settings: { error: "LaunchDarkly API error: 404 Not Found" }
         list-release-autopilot-github-repos: { error: "LaunchDarkly API error: 404 Not Found" }
@@ -705,15 +708,16 @@ tests:
 
   # ------------------------------------------------------------------
   # "Why didn't my PR get classified?" on an account with nothing set up.
-  # The skill runs the read-only diagnosis instead of the wizard: no
-  # capability question, no writes, and it says auto-flagging is off.
+  # The skill answers first (auto-flagging is off), then offers setup
+  # instead of starting the wizard. The harness answers the unscripted offer
+  # with its first option, so any later writes must follow "Looks good".
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Diagnosis on an empty account: no wizard, says auto-flagging is off, zero writes"
+    description: "Diagnosis on an empty account: explains first, offers setup, no unconfirmed writes"
     vars:
       user_request: "Why didn't Release Autopilot classify my pull request acme/demo#42?"
       max_turns: 12
-      mock_tool_overrides:
+      mock_overrides:
         get-release-autopilot-settings:
           autoFlagging: { enabled: false, approvalRequired: false }
           autoReleasing: { enabled: false }
@@ -721,17 +725,13 @@ tests:
         list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
     assert:
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:noWrites
-        metric: no_writes
+        value: file://../release-autopilot-onboarding/assertions.js:diagnosesBeforeOffering
+        metric: diagnosis_first
         weight: 4
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:noCapabilityQuestion
-        metric: no_wizard
-        weight: 3
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:saysAutoFlaggingOff
-        metric: diagnosis_answer
-        weight: 3
+        value: file://../release-autopilot-onboarding/assertions.js:noUnconfirmedWrites
+        metric: no_unconfirmed_writes
+        weight: 4
 
   # ------------------------------------------------------------------
   # Auto-archival picked with auto-flagging. It is a browser step on the
@@ -743,7 +743,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
-      mock_tool_overrides:
+      mock_overrides:
         get-release-autopilot-settings:
           autoFlagging: { enabled: false, approvalRequired: false }
           autoReleasing: { enabled: false }

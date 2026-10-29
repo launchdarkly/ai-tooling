@@ -41,3 +41,7 @@ test("match mode skips answers that fit no option, and uses each once", () => {
 test("match mode returns undefined when nothing fits", () => {
   assert.equal(pickAnswer([["Looks good"]], 0, options, true, new Set()), undefined);
 });
+
+test("order mode keeps an explicit [] as a dismissed question", () => {
+  assert.deepEqual(pickAnswer([[]], 0, options, false, new Set()), []);
+});

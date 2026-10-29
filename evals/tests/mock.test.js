@@ -424,14 +424,16 @@ test("update-ai-config uses template substitution", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Release Autopilot stateful reads
+// Release Autopilot stateful reads (templates from the suite's own mocks)
+
+const RA_TEMPLATES = require("../release-autopilot-onboarding/tool-mocks.json");
 // ---------------------------------------------------------------------------
 
 test("repo settings read reflects an earlier repo write", () => {
   const state = createMockState();
-  const tpl = TEMPLATES["get-release-autopilot-repo-settings"];
+  const tpl = RA_TEMPLATES["get-release-autopilot-repo-settings"];
   assert.ok(renderMockResponse(tpl, { repo: "acme/demo" }, "get-release-autopilot-repo-settings", state).error);
-  renderMockResponse(TEMPLATES["update-release-autopilot-repo-settings"], { repo: "acme/demo", projectKey: "default", autoReleasing: { enabled: false } }, "update-release-autopilot-repo-settings", state);
+  renderMockResponse(RA_TEMPLATES["update-release-autopilot-repo-settings"], { repo: "acme/demo", projectKey: "default", autoReleasing: { enabled: false } }, "update-release-autopilot-repo-settings", state);
   const got = renderMockResponse(tpl, { repo: "acme/demo" }, "get-release-autopilot-repo-settings", state);
   assert.equal(got.projectKey, "default");
   assert.equal(got.autoReleasing.enabled, false);
@@ -439,16 +441,16 @@ test("repo settings read reflects an earlier repo write", () => {
 
 test("account settings read merges an earlier account write", () => {
   const state = createMockState();
-  renderMockResponse(TEMPLATES["update-release-autopilot-settings"], { autoFlagging: { enabled: false } }, "update-release-autopilot-settings", state);
-  const got = renderMockResponse(TEMPLATES["get-release-autopilot-settings"], {}, "get-release-autopilot-settings", state);
+  renderMockResponse(RA_TEMPLATES["update-release-autopilot-settings"], { autoFlagging: { enabled: false } }, "update-release-autopilot-settings", state);
+  const got = renderMockResponse(RA_TEMPLATES["get-release-autopilot-settings"], {}, "get-release-autopilot-settings", state);
   assert.equal(got.autoFlagging.enabled, false);
   assert.equal(got.autoFlagging.approvalRequired, true);
 });
 
 test("release plans list reflects a created plan", () => {
   const state = createMockState();
-  renderMockResponse(TEMPLATES["create-release-plan"], { projectKey: "default", environmentKey: "production", key: "p", name: "P", progressiveRelease: { phases: [] } }, "create-release-plan", state);
-  const got = renderMockResponse(TEMPLATES["list-release-plans"], { projectKey: "default", environmentKey: "production" }, "list-release-plans", state);
+  renderMockResponse(RA_TEMPLATES["create-release-plan"], { projectKey: "default", environmentKey: "production", key: "p", name: "P", progressiveRelease: { phases: [] } }, "create-release-plan", state);
+  const got = renderMockResponse(RA_TEMPLATES["list-release-plans"], { projectKey: "default", environmentKey: "production" }, "list-release-plans", state);
   assert.equal(got.totalCount, 1);
   assert.equal(got.items[0].key, "p");
 });

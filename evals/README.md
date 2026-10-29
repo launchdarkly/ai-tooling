@@ -34,6 +34,7 @@ npm run eval:agentcontrol-tools       # agentcontrol/tools
 npm run eval:configs-variations       # agentcontrol/configs-variations
 npm run eval:flag-create             # feature-flags/launchdarkly-flag-create
 npm run eval:onboarding              # onboarding
+npm run eval:experiment-orchestration # aws-devops-agent/experiment-orchestration
 npm run eval:release-autopilot-onboarding  # release-autopilot/launchdarkly-release-autopilot-onboarding
 
 # Quick smoke check — first test case only (~15-20s, ~$0.05)
@@ -43,6 +44,7 @@ npm run eval:agentcontrol-tools:single
 npm run eval:configs-variations:single
 npm run eval:flag-create:single
 npm run eval:onboarding:single
+npm run eval:experiment-orchestration:single
 npm run eval:release-autopilot-onboarding:single
 
 # Aggregate and CI operations

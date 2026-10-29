@@ -61,6 +61,12 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `metrics/launchdarkly-metric-create` | Create metrics and instrument tracking events |
 | `metrics/launchdarkly-metric-instrument` | Add tracking calls to code for existing metrics |
 
+### AWS DevOps Agent
+
+| Skill | Description |
+|-------|-------------|
+| `aws-devops-agent/experiment-orchestration` | Take a product goal through a LaunchDarkly experiment and a rollout (guarded, if the plan has it) in AWS DevOps Agent. `ldcli aws-devops-agent setup` installs it with the `experiment-orchestrator` custom agent. See [`skills/aws-devops-agent`](skills/aws-devops-agent/README.md). |
+
 ## Install as a Claude Code Plugin
 
 This repo is a [Claude Code plugin](https://code.claude.com/docs/en/create-plugins). Installing it gives you all the skills above plus the LaunchDarkly MCP server.
