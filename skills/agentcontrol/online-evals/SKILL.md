@@ -59,7 +59,7 @@ Judges can only be attached to **completion mode** configs in the UI. Attaching 
 
 ### Step 1: Create Custom Judges (Optional)
 
-For domain-specific evaluation, create a judge config with `create-agentcontrol-config`:
+For domain-specific evaluation, create a judge config with `create-agent-config`:
 
 ```json
 {
@@ -74,7 +74,7 @@ For domain-specific evaluation, create a judge config with `create-agentcontrol-
 
 > **Note:** `evaluationMetricKey` must start with `$ld:ai:judge:`. Set `isInverted: true` for metrics like toxicity where 0.0 is better.
 
-Then add a variation with the evaluation prompt using `create-agentcontrol-config-variation`. Get `modelConfigKey` from `list-agentcontrol-model-configs`:
+Then add a variation with the evaluation prompt using `create-agent-config-variation`. Get `modelConfigKey` from `get-ai-model-configs`:
 
 ```json
 {
@@ -98,7 +98,7 @@ Then add a variation with the evaluation prompt using `create-agentcontrol-confi
 
 ### Step 2: Attach Judges to Variations
 
-Use `update-agentcontrol-config-variation` with `judgeConfiguration`. Get `variationKey` from `get-agentcontrol-config`:
+Use `update-agent-config-variation` with `judgeConfiguration`. Get `variationKey` from `get-agent-configs`:
 
 ```json
 {
@@ -110,7 +110,8 @@ Use `update-agentcontrol-config-variation` with `judgeConfiguration`. Get `varia
       {"judgeConfigKey": "security-judge", "samplingRate": 1.0},
       {"judgeConfigKey": "api-contract-judge", "samplingRate": 0.5}
     ]
-  }
+  },
+  "confirm": true
 }
 ```
 
@@ -118,7 +119,7 @@ Use `update-agentcontrol-config-variation` with `judgeConfiguration`. Get `varia
 
 ### Step 3: Set Fallthrough on Judges
 
-Each judge config needs its fallthrough set to the enabled variation in every environment that runs it. Configs default to the "disabled" variation. Use `update-agentcontrol-config-rollout`:
+Each judge config needs its fallthrough set to the enabled variation in every environment that runs it. Configs default to the "disabled" variation. Use `update-agent-config-rollout`:
 
 ```json
 {
@@ -126,11 +127,12 @@ Each judge config needs its fallthrough set to the enabled variation in every en
   "configKey": "security-judge",
   "env": "production",
   "rolloutType": "variation",
-  "variationKey": "default"
+  "variationKey": "default",
+  "confirm": true
 }
 ```
 
-Then run `get-agentcontrol-config-health` on the judge to confirm it's targetable.
+Then call `get-agent-configs` with the judge's configKey and `section: "health"` to confirm it's targetable.
 
 ## Scripting without MCP
 

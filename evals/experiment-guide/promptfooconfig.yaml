@@ -51,7 +51,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const scanTools = ['list-flags','list-feature-flags','list-metrics','get-environments','get-flag','get-project'];
+          const scanTools = ['get-flags','get-metrics','get-projects','get-environment'];
           const hit = tools.filter(t => scanTools.includes(String(t)));
           const pass = hit.length > 0;
           return { pass, score: pass ? 1 : 0, reason: 'scan tools called: ' + (hit.join(', ') || '(none)') + ' | all: ' + (tools.join(' -> ') || '(none)') };

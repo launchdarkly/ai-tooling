@@ -1,7 +1,7 @@
 ---
 name: configs-targeting
 description: Configure config targeting rules to control which variations serve to different users. Enable percentage rollouts, attribute-based rules, segment targeting, and guarded rollouts.
-compatibility: Requires LaunchDarkly API access token with ai-configs:write permission.
+compatibility: Requires the remotely hosted LaunchDarkly MCP server. Scripted setup without MCP needs an API access token with ai-configs:write permission.
 metadata:
   author: launchdarkly
   version: "0.1.0"
@@ -14,13 +14,12 @@ Configure targeting rules for configs to control which variations serve to diffe
 ## Prerequisites
 
 - LaunchDarkly account with AgentControl enabled
-- API access token with write permissions
 - Project key and environment key
 - Existing config with variations (use `configs-create` skill)
 
 ## API Access
 
-Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+Use the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. The REST examples under [Scripting without MCP](#scripting-without-mcp) are for code that runs without the agent; if the user wants one run in this session, ask them to paste an API access token and substitute it for `{api_token}`. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
 
 ## Core Concepts
 
@@ -34,122 +33,97 @@ Targeting rules evaluate in this order (same as feature flags):
 4. **Default rule** - Fallthrough for all others
 5. **Off variation** - When targeting is disabled
 
-### Semantic Patch API
-
-config targeting uses semantic patch instructions:
-
-```
-PATCH /api/v2/projects/{projectKey}/ai-configs/{configKey}/targeting
-Content-Type: application/json; domain-model=launchdarkly.semanticpatch
-```
-
 ### Key Concepts
 
-- **variationId**: UUIDs, not keys. Always fetch targeting first to get IDs.
+- **Variations**: MCP instructions take `variationKey` (a variation key or name) or `variationId` (a UUID from the targeting read). Raw REST needs the UUID.
 - **Weights**: Thousandths (50000 = 50%, 100000 = 100%)
 - **Clause logic**: Multiple clauses = AND, multiple values = OR
 - **Null attributes**: Rules with null/missing attributes are skipped
 
 ## Workflow
 
-### Step 1: Get Targeting (with Variation IDs)
+Every write below requires `confirm: true`. Show the user the change and pass it only after they agree.
 
-```bash
-curl -X GET "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/{configKey}/targeting" \
-  -H "Authorization: {api_token}" \
-  -H "LD-API-Version: beta"
-```
+### Step 1: Get Targeting
 
-Response includes `variations` array with `_id` (UUID) for each variation.
+Call `get-agent-configs` with `projectKey`, `configKey`, `section: "targeting"`, and `env`. The response lists the variations (key, name, and `_id`), the rules with their `_id`s, individual targets, and the current fallthrough.
 
 ### Step 2: Edit the Default Rule
 
-Edit the default rule to serve the variation you created.
+Set the default rule to the variation you created with `update-agent-config-rollout`:
 
-> **Important:** The `turnTargetingOn` instruction does not work for configs. Use `updateFallthroughVariationOrRollout` instead.
-
-```bash
-# First, get variation IDs from Step 1 response
-# Then set fallthrough to the enabled variation (e.g., "Default" variation)
-curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/{configKey}/targeting" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json; domain-model=launchdarkly.semanticpatch" \
-  -H "LD-API-Version: beta" \
-  -d '{
-    "environmentKey": "production",
-    "instructions": [{
-      "kind": "updateFallthroughVariationOrRollout",
-      "variationId": "your-enabled-variation-uuid"
-    }]
-  }'
+```json
+{
+  "projectKey": "my-project",
+  "configKey": "chat-assistant",
+  "env": "production",
+  "rolloutType": "variation",
+  "variationKey": "default",
+  "confirm": true
+}
 ```
+
+For a percentage split, pass `rolloutType: "percentage"` and `weights`, for example `[{"variationKey": "default", "percent": 80}, {"variationKey": "experimental", "percent": 20}]`.
+
+> **Important:** The `turnTargetingOn` instruction does not work for configs. A new config serves its disabled variation until you set the default rule.
 
 ### Step 3: Add Targeting Rules
 
+Use `update-agent-config-targeting`. It accepts `addRule`, `removeRule`, `replaceRules`, `reorderRules`, `updateRuleDescription`, `addClauses`, `removeClauses`, `addValuesToClause`, `removeValuesFromClause`, and `updateClause`.
+
 **Attribute-based rule:**
 
-```bash
-curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/{projectKey}/ai-configs/{configKey}/targeting" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json; domain-model=launchdarkly.semanticpatch" \
-  -H "LD-API-Version: beta" \
-  -d '{
-    "environmentKey": "production",
-    "instructions": [{
-      "kind": "addRule",
-      "clauses": [{
-        "contextKind": "user",
-        "attribute": "selectedModel",
-        "op": "contains",
-        "values": ["sonnet"],
-        "negate": false
-      }],
-      "variation": 0
-    }]
-  }'
+```json
+{
+  "projectKey": "my-project",
+  "configKey": "model-selector",
+  "env": "production",
+  "instructions": [{
+    "kind": "addRule",
+    "clauses": [{
+      "contextKind": "user",
+      "attribute": "selectedModel",
+      "op": "contains",
+      "values": ["sonnet"],
+      "negate": false
+    }],
+    "variationKey": "sonnet"
+  }],
+  "comment": "Route sonnet requests",
+  "confirm": true
+}
 ```
 
-**Percentage rollout:**
+**Percentage rollout on a rule:** send an `addRule` instruction with `percentageRolloutConfig` in place of `variationKey`, as in the [Manual Percentage Rollout](#manual-percentage-rollout) shape below.
 
-```bash
-curl -X PATCH "..." \
-  -d '{
-    "environmentKey": "production",
-    "instructions": [{
-      "kind": "addRule",
-      "clauses": [{
-        "contextKind": "user",
-        "attribute": "tier",
-        "op": "in",
-        "values": ["premium"],
-        "negate": false
-      }],
-      "percentageRolloutConfig": {
-        "contextKind": "user",
-        "bucketBy": "key",
-        "variations": [
-          {"variation": 0, "weight": 60000},
-          {"variation": 1, "weight": 40000}
-        ]
-      }
-    }]
-  }'
+**Segment rule:** a clause with `attribute: "segmentMatch"`, `op: "segmentMatch"`, an empty `contextKind`, and the segment keys as `values`.
+
+### Step 4: Target Individuals
+
+Use `update-agent-config-targets` with `addTargets`, `removeTargets`, `replaceTargets`, or `clearTargets`:
+
+```json
+{
+  "projectKey": "my-project",
+  "configKey": "chat-assistant",
+  "env": "production",
+  "instructions": [{"kind": "addTargets", "contextKind": "user", "variationKey": "experimental", "values": ["user-123"]}],
+  "confirm": true
+}
 ```
 
-**Set fallthrough (default rule):**
+### Step 5: Verify
 
-```bash
-curl -X PATCH "..." \
-  -d '{
-    "environmentKey": "production",
-    "instructions": [{
-      "kind": "updateFallthroughVariationOrRollout",
-      "variationId": "fallback-variation-uuid"
-    }]
-  }'
+Call `get-agent-configs` with `section: "targeting"` again and confirm the fallthrough, rules, and targets match what the user approved.
+
+## Scripting without MCP
+
+For CI or scripts that can't use the MCP server, the same steps go through the REST API's semantic patch endpoint:
+
 ```
-
-## Python Implementation
+PATCH /api/v2/projects/{projectKey}/ai-configs/{configKey}/targeting
+Content-Type: application/json; domain-model=launchdarkly.semanticpatch
+```
 
 ```python
 import requests

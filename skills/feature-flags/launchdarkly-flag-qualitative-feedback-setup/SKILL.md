@@ -23,12 +23,12 @@ Qualitative feedback ties user sentiment (positive / neutral / negative) and opt
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `get-flag` — verify the target flag exists and check its configuration
+- `get-flags` — verify the target flag exists and check its configuration
 
 **Optional MCP tools (enhance workflow):**
 - `create-flag` — create a new flag if one doesn't exist yet
-- `list-flags` — browse existing flags to find the right one to attach feedback to
-- `update-flag-settings` — update flag metadata (e.g., add a `feedback` tag)
+- `get-flags` — browse existing flags to find the right one to attach feedback to
+- `update-flag` — update flag metadata (e.g., add a `feedback` tag)
 
 ## Core Principles
 
@@ -157,12 +157,12 @@ After the checks above pass, gather the remaining context:
 
 ### Step 3: Verify the Flag in LaunchDarkly
 
-Use `get-flag` to confirm the target flag exists and is configured for client-side use.
+Use `get-flags` to confirm the target flag exists and is configured for client-side use.
 
 - If the flag **doesn't exist**, use `create-flag` (or direct the user to the [flag create skill](../launchdarkly-flag-create/SKILL.md)).
 - If the flag **exists but doesn't have client-side SDK availability enabled**, inform the user they need to enable it in the flag's Advanced Controls section.
 - If the flag was created or verified, **provide the user with a direct link** to the flag in the LaunchDarkly dashboard.
-- Optionally use `update-flag-settings` to add a `feedback` tag.
+- Optionally use `update-flag` to add a `feedback` tag.
 
 ### Step 4: Confirm Before Applying
 

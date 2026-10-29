@@ -19,15 +19,15 @@ You're using a skill that will guide you through creating a config in LaunchDark
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Primary MCP tool:**
-- `setup-ai-config` -- create a config with its first variation in one step (recommended)
+- `setup-agent-config` -- create a config with its first variation in one step (recommended)
 
 **Alternative MCP tools (for more control):**
-- `create-ai-config` -- create just the config shell (key, name, mode)
-- `create-ai-config-variation` -- add a variation with model, prompts, and parameters
-- `get-ai-config` -- verify the config was created correctly
+- `create-agent-config` -- create just the config shell (key, name, mode)
+- `create-agent-config-variation` -- add a variation with model, prompts, and parameters
+- `get-agent-configs` -- verify the config was created correctly
 
 **Optional MCP tools (enhance workflow):**
-- `list-ai-configs` -- browse existing configs to understand naming conventions
+- `get-agent-configs` -- browse existing configs to understand naming conventions
 - `create-project` -- create a project if one doesn't exist yet
 
 ## Important: Bias Towards Action
@@ -61,7 +61,7 @@ This choice is about **input schema and framework compatibility**, not execution
 
 ### Step 3: Create the Config (Recommended: One Step)
 
-Use `setup-ai-config` to create the config and its first variation in one call. This is the recommended approach: it handles creation, variation setup, and verification automatically.
+Use `setup-agent-config` to create the config and its first variation in one call. This is the recommended approach: it handles creation, variation setup, and verification automatically.
 
 **Config fields:**
 - `key` -- unique identifier (lowercase, hyphens)
@@ -112,22 +112,22 @@ The tool returns the full verified config detail with the variation attached.
 
 If the user asks for more control or a step-by-step approach, use the individual tools:
 
-1. `create-ai-config` -- create the config shell
-2. `create-ai-config-variation` -- add the variation with model, prompts, and parameters
-3. `get-ai-config` -- verify the result
+1. `create-agent-config` -- create the config shell
+2. `create-agent-config-variation` -- add the variation with model, prompts, and parameters
+3. `get-agent-configs` -- verify the result
 
 **Execute all three steps without stopping to ask for details.** Infer the variation key (`default`), name (`Default`), instructions/messages, and model from the user's request context. If the user asked for GPT-4o agent mode, you have enough to complete the entire flow. Only ask clarifying questions if the mode or model is truly ambiguous.
 
 ### Step 4: Verify
 
-If you used `setup-ai-config`, verification is automatic: the response includes the full config with variations. Check:
+If you used `setup-agent-config`, verification is automatic: the response includes the full config with variations. Check:
 
 1. Config exists with the correct mode
 2. Variation has a model assigned (not "NO MODEL")
 3. Instructions or messages are present
 4. Parameters are set
 
-**Use `get-ai-config` for the verification call — do not drop to raw `curl` + `jq`.** The MCP tool returns a typed object you can inspect directly. Hand-rolled `jq` filters against the REST response routinely break: the configs detail endpoint returns the variation list under different keys depending on `expand`, and a filter like `.variations.items[]` will fail with `Cannot index array with string "items"` when the response shape is a bare array. If you must call the REST API, use `jq -e .` first to inspect the actual shape before drilling in.
+**Use `get-agent-configs` for the verification call — do not drop to raw `curl` + `jq`.** The MCP tool returns a typed object you can inspect directly. Hand-rolled `jq` filters against the REST response routinely break: the configs detail endpoint returns the variation list under different keys depending on `expand`, and a filter like `.variations.items[]` will fail with `Cannot index array with string "items"` when the response shape is a bare array. If you must call the REST API, use `jq -e .` first to inspect the actual shape before drilling in.
 
 **Report results:**
 - Config created with correct structure
@@ -137,7 +137,7 @@ If you used `setup-ai-config`, verification is automatic: the response includes 
 
 ### Step 5: Make the variation servable
 
-`setup-ai-config` and `create-ai-config-variation` create the variation but **do not promote it to fallthrough**. The new config will return `enabled=False` to every consumer until targeting is updated. This is the single most common "I created a config but my SDK still gets the fallback" failure. **The workflow is not complete until this step is done.**
+`setup-agent-config` and `create-agent-config-variation` create the variation but **do not promote it to fallthrough**. The new config will return `enabled=False` to every consumer until targeting is updated. This is the single most common "I created a config but my SDK still gets the fallback" failure. **The workflow is not complete until this step is done.**
 
 #### What to tell the user
 
@@ -159,32 +159,22 @@ Print this checklist verbatim to the user after Step 4, then wait for confirmati
 
 #### Direct shortcut if the user wants to flip targeting without invoking the sibling skill
 
-`configs-targeting` is the canonical path — it handles percentage rollouts, targeted rules, and variation-ID lookups. But for the simplest case ("promote the new variation to fallthrough in one environment"), you can run the underlying semantic PATCH yourself once you know the new variation's `_id`.
+`configs-targeting` is the canonical path — it handles percentage rollouts, targeted rules, and individual targets. For the simplest case ("promote the new variation to fallthrough in one environment"), call `update-agent-config-rollout` after the user agrees:
 
-Get the variation ID (use `get-ai-config` MCP, or):
-```bash
-curl -s "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
-  -H "Authorization: {api_token}" -H "LD-API-Version: beta" \
-  | jq '.variations[] | {key, _id}'
+```json
+{
+  "projectKey": "{projectKey}",
+  "configKey": "{configKey}",
+  "env": "{envKey}",
+  "rolloutType": "variation",
+  "variationKey": "{variationKey}",
+  "confirm": true
+}
 ```
 
-Flip the fallthrough to point at it:
-```bash
-curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
-  -H "Authorization: {api_token}" \
-  -H "Content-Type: application/json; domain-model=launchdarkly.semanticpatch" \
-  -H "LD-API-Version: beta" \
-  -d '{"instructions":[{"kind":"updateFallthroughVariationOrRollout","variationId":"<id-from-step-above>"}]}'
-```
+Then call `get-agent-configs` with `configKey`, `section: "targeting"`, and `env` to confirm the default rule serves that variation.
 
-Or the same thing via the LD CLI if it's installed locally:
-```bash
-ldcli resources ai-configs update-ai-config-targeting \
-  --projectKey $PROJECT --configKey $CONFIG_KEY --envKey $ENV \
-  --data '{"instructions":[{"kind":"updateFallthroughVariationOrRollout","variationId":"<id>"}]}'
-```
-
-Do not use `turnTargetingOn` — that semantic-patch instruction does **not** work for configs. `updateFallthroughVariationOrRollout` is the only instruction that actually flips the fallthrough.
+Do not use `turnTargetingOn` — that semantic-patch instruction does **not** work for configs. Setting the fallthrough is what makes the config serve the new variation.
 
 ## modelConfigKey Format
 
@@ -195,14 +185,14 @@ Required for models to display in the UI. Format: `{Provider}.{model-id}`
 - `Anthropic.claude-sonnet-4-5`
 - `Anthropic.claude-3-5-sonnet`
 
-The `create-ai-config-variation` tool validates this format and rejects invalid values.
+The `create-agent-config-variation` tool validates this format and rejects invalid values.
 
 ## Edge Cases
 
 | Situation | Action |
 |-----------|--------|
 | Config already exists | Ask if user wants to update instead |
-| Variation shows "NO MODEL" | Use `update-ai-config-variation` to set modelConfigKey |
+| Variation shows "NO MODEL" | Use `update-agent-config-variation` to set modelConfigKey |
 | Need to attach tools | Create tools first (`tools` skill), then update the variation |
 
 ## What NOT to Do
@@ -212,7 +202,7 @@ The `create-ai-config-variation` tool validates this format and rejects invalid 
 - Don't try to attach tools during initial creation -- update the variation afterward
 - Don't forget modelConfigKey (models won't show in the UI)
 - Don't omit `modelName` from the initial variation call. It is required at create time; setting it via a follow-up PATCH is a workaround for a bug, not the intended flow. The PATCH field is also `modelName`, not `name`.
-- Don't drop to raw `curl` + `jq` for verification. Use `get-ai-config` (MCP) — it returns a typed object and avoids brittle `jq` filters that break on response-shape variation.
+- Don't drop to raw `curl` + `jq` for verification. Use `get-agent-configs` (MCP) — it returns a typed object and avoids brittle `jq` filters that break on response-shape variation.
 - Don't consider the workflow complete until the user has been told to run `configs-targeting`. A created variation that isn't promoted to fallthrough returns `enabled=False` to every consumer.
 
 ## More resources

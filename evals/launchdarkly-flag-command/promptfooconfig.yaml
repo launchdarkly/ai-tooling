@@ -4,7 +4,7 @@
 #   promptfoo eval -c shared/defaults.yaml -c launchdarkly-flag-command/promptfooconfig.yaml
 #
 # The launchdarkly-flag-command skill is a read-only routing entrypoint for
-# quick `/flag <query>` lookups. It resolves a flag via list-flags / get-flag,
+# quick `/flag <query>` lookups. It resolves a flag via get-flags,
 # returns a brief operational summary, and routes to deeper skills when needed.
 # It should NEVER call destructive tools (create, toggle, update, delete).
 description: "End-to-end evaluation of the launchdarkly-flag-command skill"
@@ -31,7 +31,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('list-flags') || tools.includes('get-flag');
+          const pass = tools.includes('get-flags');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_lookup_tool
         weight: 3
@@ -39,7 +39,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['create-flag', 'create-feature-flag', 'delete-flag', 'toggle-flag', 'update-feature-flag', 'update-flag-settings'];
+          const forbidden = ['create-flag', 'delete-flag', 'toggle-flag', 'update-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'No destructive tools' : 'Called: ' + called.join(', ') };
@@ -49,7 +49,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('get-flag');
+          const pass = tools.includes('get-flags');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_get_flag
         weight: 2
@@ -68,7 +68,7 @@ tests:
 
   # ------------------------------------------------------------------
   # Test 2: Disambiguation — ambiguous query returns candidate list
-  # The mock list-flags returns two backend-tagged flags. A vague query
+  # The mock get-flags returns two backend-tagged flags. A vague query
   # should trigger disambiguation rather than silent guessing.
   # ------------------------------------------------------------------
   - description: "Disambiguation: presents candidates when query is ambiguous"
@@ -80,7 +80,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('list-flags') || tools.includes('list-feature-flags');
+          const pass = tools.includes('get-flags');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_list_flags
         weight: 3
@@ -88,7 +88,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['create-flag', 'create-feature-flag', 'delete-flag', 'toggle-flag', 'update-feature-flag', 'update-flag-settings'];
+          const forbidden = ['create-flag', 'delete-flag', 'toggle-flag', 'update-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'No destructive tools' : 'Called: ' + called.join(', ') };
@@ -102,7 +102,7 @@ tests:
           The skill says: "If multiple plausible matches exist, return a short
           disambiguation list (key + name + state) and ask the user to pick."
           Evaluate:
-          1. Did the agent search for flags using list-flags or list-feature-flags?
+          1. Did the agent search for flags using get-flags?
           2. Did it present multiple flag candidates rather than silently picking one?
           3. Was the response brief and operational?
           4. Did it avoid modifying any flags?
@@ -125,7 +125,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('list-flags') || tools.includes('get-flag');
+          const pass = tools.includes('get-flags');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_lookup_tool
         weight: 3
@@ -133,7 +133,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['create-flag', 'create-feature-flag', 'delete-flag', 'toggle-flag', 'update-feature-flag', 'update-flag-settings'];
+          const forbidden = ['create-flag', 'delete-flag', 'toggle-flag', 'update-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'No destructive tools' : 'Called: ' + called.join(', ') };

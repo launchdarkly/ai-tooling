@@ -6,8 +6,8 @@
 # flag-release records an automated rollout for an EXISTING flag guarding a PR.
 # It operates entirely through the LaunchDarkly MCP tools (no code exploration):
 # it previews each environment's policy with match-release-policies, captures the
-# human's release intent, and records the rollout with create-automated-rollout-
-# config — honoring a "hold" / notBefore by NOT recording a releasing plan for the
+# human's release intent, and records the rollout with
+# create-automated-rollout-config — honoring a "hold" / notBefore by NOT recording a releasing plan for the
 # held environments. It never creates flags or edits code.
 #
 # Single MCP-only provider (no builtins). The mocks return the guarding flag as
@@ -47,7 +47,7 @@ tests:
       user_request: >
         The guarding flag `new-checkout-flow` already exists (created OFF) for
         PR acme/storefront#482, project `default`. Record its automated release:
-        staging should release on merge, but hold production until 2026-09-01 —
+        staging should release on merge, but hold production until 2030-09-01 —
         legal hasn't signed off yet.
     assert:
       - type: javascript
@@ -88,7 +88,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -98,7 +98,7 @@ tests:
       - type: llm-rubric
         value: |
           The user asked to release `new-checkout-flow` for PR acme/storefront#482:
-          staging on merge, but HOLD production until 2026-09-01.
+          staging on merge, but HOLD production until 2030-09-01.
           Evaluate the response:
           1. Does it record/plan staging to release on merge?
           2. Does it explicitly HOLD production (leave it OFF, not released on merge)
@@ -110,10 +110,10 @@ tests:
         weight: 3
 
   # ==================================================================
-  # RELEASE ON MERGE (happy path) — staging simple, production policy.
+  # RELEASE ON MERGE (happy path) — staging immediate, production policy.
   # The skill should preview the policy, then record BOTH environments.
   # ==================================================================
-  - description: "Release on merge: previews the policy and records both staging (simple) and production (policy)"
+  - description: "Release on merge: previews the policy and records both staging (immediate) and production (policy)"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -145,7 +145,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -158,8 +158,8 @@ tests:
           staging and production, releasing on merge, choosing each environment's
           setup based on what its release policy would do.
           Evaluate the response:
-          1. Did it record both environments with a sensible release type (simple or
-             policy) for each?
+          1. Did it record both environments with a sensible release for each
+             (immediate, or releaseType "policy")?
           2. Does it explain what happens on merge for each environment, grounded in
              the previewed release policy (e.g. production follows a guarded rollout)?
           3. Did it avoid turning the flag on by hand?
@@ -209,7 +209,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -244,7 +244,7 @@ tests:
       user_request: >
         The flag `checkout-redesign` already exists (created OFF) for PR
         acme/store#900, project `default`. Record its automated release for
-        `production`, but do not release it until 2026-10-01 — we're still finalizing
+        `production`, but do not release it until 2030-10-01 — we're still finalizing
         rollout sign-off.
     assert:
       - type: javascript
@@ -273,7 +273,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -283,10 +283,10 @@ tests:
       - type: llm-rubric
         value: |
           The user asked to record the release for `checkout-redesign` (PR
-          acme/store#900) for production, but NOT to release it until 2026-10-01.
+          acme/store#900) for production, but NOT to release it until 2030-10-01.
           Evaluate the response:
           1. Does it hold production — not recording it to release on merge (before
-             the date), and stating it is held until 2026-10-01?
+             the date), and stating it is held until 2030-10-01?
           2. Does it avoid inventing a hold/date field the tool doesn't have, and
              avoid silently releasing production on merge?
           3. Did it avoid turning the flag on by hand?
@@ -335,7 +335,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };

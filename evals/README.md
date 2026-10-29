@@ -88,7 +88,7 @@ evals/
     _mock.js                         # Template renderer + stateful write/read overlay
     _jsonschema-to-zod.js            # JSON Schema -> Zod shape converter
   tools/
-    definitions.json                 # Anthropic-format tool definitions for all LD MCP tools
+    definitions.json                 # Anthropic-format definitions for the LD MCP tools the evals use
   mocks/
     tool-responses.json              # Canned responses for mocked tool calls
   scripts/
@@ -114,8 +114,8 @@ evals/
      "first_assistant_text": "The agent's first non-empty text turn",
      "kickoff_text": "All assistant prose up to and including the first user-observable tool call",
      "assistant_turns": [{ "turn": 1, "text": "..." }],
-     "trajectory": [{ "tool": "setup-ai-config", "arguments": {...}, "turn": 2 }],
-     "tools_called": ["list-ai-configs", "setup-ai-config"],
+     "trajectory": [{ "tool": "setup-agent-config", "arguments": {...}, "turn": 2 }],
+     "tools_called": ["get-agent-configs", "setup-agent-config"],
      "turn_count": 3,
      "terminated": null
    }
@@ -140,8 +140,8 @@ The shared defaults supply:
 Use **FIRST occurrence** for prerequisites and **LAST occurrence** for verifiers when checking tool ordering:
 
 ```js
-const aIdx = tools.indexOf('list-ai-configs');   // first: prerequisite
-const bIdx = tools.lastIndexOf('setup-ai-config'); // last: verifier
+const aIdx = tools.indexOf('get-agent-configs');   // first: prerequisite
+const bIdx = tools.lastIndexOf('setup-agent-config'); // last: verifier
 const pass = aIdx >= 0 && bIdx > aIdx;
 ```
 
@@ -205,9 +205,9 @@ This module exports trajectory helper functions for use in **scripts** and **Nod
 ```js
 const { called, calledNone, expectAfter } = require('../shared/assertions');
 
-called(output, 'setup-ai-config')          // → boolean
-calledNone(output, ['delete-ai-config'])   // → boolean
-expectAfter(output, 'list-ai-configs', 'setup-ai-config')  // → boolean
+called(output, 'setup-agent-config')          // → boolean
+calledNone(output, ['delete-agent-config'])   // → boolean
+expectAfter(output, 'get-agent-configs', 'setup-agent-config')  // → boolean
 ```
 
 For inline YAML assertions, implement the same logic directly — see the [Trajectory ordering convention](#trajectory-ordering-convention) section above.
@@ -282,7 +282,7 @@ Add an entry to `scripts/_manifest.js`:
 | Edge case | Specific inputs (tags, descriptions) are passed correctly |
 | Safety | Agent avoids tools the skill warns against |
 
-**Important:** mock data for `list-*` tools must NOT contain items whose key/name matches what the test asks to create. If `list-flags` returns a flag named `new-checkout` and the test asks to create a checkout flag, the agent will skip creation.
+**Important:** mock data for list calls (a `get-*` tool called without an item key) must NOT contain items whose key/name matches what the test asks to create. If `get-flags` returns a flag named `new-checkout` and the test asks to create a checkout flag, the agent will skip creation.
 
 ### Step 6: Write assertions
 
@@ -293,7 +293,7 @@ Every `type: javascript` assertion must return `{ pass: boolean, score: number, 
 - type: javascript
   value: |
     const tools = output.tools_called || [];
-    const pass = tools.includes('setup-ai-config');
+    const pass = tools.includes('setup-agent-config');
     return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
   metric: calls_setup_ai_config
   weight: 3
@@ -304,8 +304,8 @@ Every `type: javascript` assertion must return `{ pass: boolean, score: number, 
 - type: javascript
   value: |
     const tools = output.tools_called || [];
-    const aIdx = tools.indexOf('list-ai-configs');
-    const bIdx = tools.lastIndexOf('setup-ai-config');
+    const aIdx = tools.indexOf('get-agent-configs');
+    const bIdx = tools.lastIndexOf('setup-agent-config');
     const pass = aIdx >= 0 && bIdx > aIdx;
     return { pass, score: pass ? 1 : 0, reason: 'list@' + aIdx + ' setup@' + bIdx };
   metric: explores_before_creating
@@ -316,8 +316,8 @@ Every `type: javascript` assertion must return `{ pass: boolean, score: number, 
 ```yaml
 - type: javascript
   value: |
-    const call = (output.trajectory || []).find(t => t.tool === 'setup-ai-config');
-    if (!call) return { pass: false, score: 0, reason: 'No setup-ai-config call' };
+    const call = (output.trajectory || []).find(t => t.tool === 'setup-agent-config');
+    if (!call) return { pass: false, score: 0, reason: 'No setup-agent-config call' };
     const a = call.arguments;
     const hasKey = typeof a.key === 'string' && /^[a-z][a-z0-9-]*$/.test(a.key);
     return { pass: hasKey, score: hasKey ? 1 : 0, reason: 'key=' + (a.key || '?') };

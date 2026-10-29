@@ -18,12 +18,13 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Required MCP tools:**
 - `create-metric` — create the metric
-- `get-metric` — verify it after creation
-- `get-environment` — fetch the client-side SDK key when instrumenting
+- `get-metrics` — verify it after creation
+- `get-environment` — fetch the client-side ID when instrumenting browser or mobile code
+- `get-sdk-key` — fetch the server-side SDK key when instrumenting server code
 
 **Optional MCP tools (enhance workflow):**
-- `list-metrics` — check for existing metrics with the same event key and understand naming conventions
-- `list-metric-events` — discover which event keys have recent activity before committing to one (custom metrics only)
+- `get-metrics` — check for existing metrics with the same event key and understand naming conventions
+- `get-metric-events` — discover which event keys have recent activity before committing to one (custom metrics only)
 
 ## Two Different "Projects" — Never Confuse Them
 
@@ -71,22 +72,22 @@ When `pageview` or `click` would work, suggest it over `custom` — it requires 
   - `canonical` — matches the canonical URL
   - `regex` — full regex pattern
 - For `click` metrics, also ask for the CSS selector (e.g. `.checkout-btn`, `#submit`).
-- Skip `list-metric-events` — these metrics don't use event keys.
+- Skip `get-metric-events` — these metrics don't use event keys.
 - Skip to Step 3.
 
 **For `custom` metrics — check events first, instrument if needed:**
 
-Call `list-metric-events` immediately to see which event keys are already flowing:
+Call `get-metric-events` immediately to see which event keys are already flowing:
 
 ```
-list-metric-events(projectKey, environmentKey?)
+get-metric-events(projectKey, environmentKey?)
 ```
 
 **Case A — the event key is already in the list:** Confirm the key with the user and proceed to Step 3. No instrumentation needed.
 
 **Case B — the event key is NOT in the list:** The metric can't measure anything without events. **Instrument the event now before creating the metric.** Do not simply warn and ask whether to proceed — treat instrumentation as the default next action.
 
-Follow the instrumentation sub-workflow below, then re-check `list-metric-events` to confirm events are flowing before moving to Step 3. Only skip instrumentation if the user explicitly says they want to create the metric first and wire the event up later — in that case, remind them at the end that the metric will produce no data until the event is tracked.
+Follow the instrumentation sub-workflow below, then re-check `get-metric-events` to confirm events are flowing before moving to Step 3. Only skip instrumentation if the user explicitly says they want to create the metric first and wire the event up later — in that case, remind them at the end that the metric will produce no data until the event is tracked.
 
 ### Step 2b: Instrument the Event (when events aren't flowing)
 
@@ -98,25 +99,22 @@ Locate the function or handler where the event naturally occurs (e.g. a checkout
 **2. Determine the event key.**
 If the user hasn't specified one, propose a descriptive kebab-case key that matches what the code is doing (e.g. `checkout-completed`, `signup-submitted`). Confirm with the user before using it.
 
-**3. Fetch the client-side SDK key.**
-Ask the user which environment they want to connect to (e.g. "test", "production", "staging") — just the environment name. Then call:
+**3. Fetch the SDK credential.**
+Ask the user which environment they want to connect to (e.g. "test", "production", "staging") — just the environment name. Then fetch the credential that matches where the code runs:
 
-```
-get-environment(projectKey, environmentKey)
-```
-
-Use the `clientSideId` from the response.
+- Browser code (React, Vue, plain JS): call `get-environment(projectKey, environmentKey)` and use the `clientSideId` from the response.
+- Server code (Node.js and other server SDKs): call `get-sdk-key(projectKey, environmentKey)` and use the SDK key it returns. Never put a server-side SDK key in browser code.
 
 **4. Write the environment file.**
 Check whether a `.env` file (or equivalent — `.env.local`, `.env.development`, etc.) already exists.
 
 - If the file **does not exist**, create it.
-- If the file **exists and already contains the key** (e.g. `VITE_LD_CLIENT_SIDE_ID`), compare the stored value to the `clientSideId` returned by `get-environment`. If they differ, surface the discrepancy to the user:
+- If the file **exists and already contains the key** (e.g. `VITE_LD_CLIENT_SIDE_ID`), compare the stored value to the one fetched in step 3. If they differ, surface the discrepancy to the user:
   > "Your `.env` already has `VITE_LD_CLIENT_SIDE_ID=<old>`, but `get-environment` returned `<new>` for the `<env>` environment. Should I update it?"
   Do not silently keep the old value — a mismatched client-side ID means events will be sent to the wrong project or environment.
 - If the file exists but the key is absent, add it without touching other values.
 
-Use the variable name appropriate to the project's build tool (e.g. `VITE_LD_CLIENT_SIDE_ID` for Vite, `REACT_APP_LD_CLIENT_SIDE_ID` for CRA, `NEXT_PUBLIC_LD_CLIENT_SIDE_ID` for Next.js).
+Use the variable name appropriate to the project's build tool (e.g. `VITE_LD_CLIENT_SIDE_ID` for Vite, `REACT_APP_LD_CLIENT_SIDE_ID` for CRA, `NEXT_PUBLIC_LD_CLIENT_SIDE_ID` for Next.js). For a server SDK key, use a server-only name such as `LAUNCHDARKLY_SDK_KEY`.
 
 **4b. Set the SDK base URL if the user is not on app.launchdarkly.com.**
 The SDK defaults to `app.launchdarkly.com` for all traffic. If the user is on a different LaunchDarkly deployment (e.g. an internal staging environment like catamorphic, or a dedicated instance), events and flag evaluations will silently go to the wrong host.
@@ -154,7 +152,7 @@ Check `package.json` (or the equivalent dependency file) for an existing LD SDK.
 - Browser JS → `launchdarkly-js-client-sdk`
 - Node.js server → `@launchdarkly/node-server-sdk`
 
-Initialize the SDK at the app's entry point (e.g. wrap the React root with `LDProvider`, configure `LDClient.init()` in the server entry, etc.). Pass the client-side ID from the env file. Use an anonymous user/context as the default unless the app already manages user context.
+Initialize the SDK at the app's entry point (e.g. wrap the React root with `LDProvider`, configure `LDClient.init()` in the server entry, etc.). Pass the credential from the env file: the client-side ID for a browser SDK, the SDK key for a server SDK. Use an anonymous user/context as the default unless the app already manages user context.
 
 **6. Add the `track()` call.**
 In the location identified in step 1, add the call immediately before or after the action completes:
@@ -165,11 +163,11 @@ In the location identified in step 1, add the call immediately before or after t
 Use optional chaining (`ldClient?.track(...)`) in client-side code where the client may not yet be initialized.
 
 **7. Verify events are flowing.**
-After the instrumentation changes are made, remind the user to run the app and trigger the event at least once. Then call `list-metric-events` again to confirm the key appears before proceeding to metric creation.
+After the instrumentation changes are made, remind the user to run the app and trigger the event at least once. Then call `get-metric-events` again to confirm the key appears before proceeding to metric creation.
 
 ### Step 3: Check for Existing Metrics
 
-Before creating anything, use `list-metrics` to scan the project:
+Before creating anything, use `get-metrics` to scan the project:
 
 1. **Check for duplicates.** Search for metrics with the same event key, URL pattern, or similar names. Avoid creating a second metric that measures the same thing — instead, flag the existing metric and ask the user if they want to reuse it.
 2. **Learn the naming convention.** Are metric keys `kebab-case` or `snake_case`? Are there common tag patterns? Match what already exists.
@@ -255,12 +253,12 @@ create-metric(
 
 ### Step 6: Verify
 
-Use `get-metric` to confirm the metric was created with the right configuration:
+Use `get-metrics` to confirm the metric was created with the right configuration:
 
 1. **Key and name match** what was requested.
 2. **kind is correct** — `custom`, `pageview`, or `click`.
 3. **measureType is correct** — double-check by reading back the `measureType` field, not just `isNumeric`.
-4. **eventKey / urls / selector** are set to the intended values.
+4. **eventKey** is set to the intended value for a custom metric. `get-metrics` does not return `urls` or `selector`, so for pageview and click metrics report the values you sent.
 5. **successCriteria** is correct.
 
 Surface a summary to the user:
@@ -272,10 +270,10 @@ Surface a summary to the user:
   Measures: occurrence (conversion rate)
   Goal:     Higher is better
 
-View in LaunchDarkly: {_links.ui from the create-metric response}
+View in LaunchDarkly: {metric link on the LaunchDarkly host this MCP server is connected to}
 ```
 
-The `create-metric` tool returns a `_links.ui` field with the correct URL for the environment being used. Always use that value — never hard-code `app.launchdarkly.com`.
+`create-metric` returns no UI link. Build it from the LaunchDarkly host the MCP server names in its instructions — never hard-code `app.launchdarkly.com`.
 
 ## Measure Type Reference
 

@@ -299,7 +299,7 @@ tests:
           const traj = output.trajectory || [];
           const continued = traj.some(t => {
             const tool = String(t.tool);
-            if (tool === 'create-flag' || tool === 'get-environments') return true;
+            if (tool === 'create-flag' || tool === 'get-sdk-key' || tool === 'get-environment') return true;
             return tool.includes('ask-question') &&
               /key|account|flag|flip/i.test(JSON.stringify(t.arguments || {}));
           });
@@ -347,7 +347,7 @@ tests:
           const traj = output.trajectory || [];
           const bad = traj.filter(t => {
             const tool = String(t.tool);
-            if (tool === 'create-flag' || tool === 'get-environments') return true;
+            if (tool === 'create-flag' || tool === 'get-sdk-key' || tool === 'get-environment') return true;
             return tool.includes('ask-question') &&
               /sdk.?key|client.?side.?id|mobile.?key|secret|account|which package/i.test(JSON.stringify(t.arguments || {}));
           });

@@ -62,7 +62,7 @@ const path = require("node:path");
 
 const { z } = require("zod");
 
-const { renderMockResponse, createMockState } = require("./_mock");
+const { renderMockResponse, createMockState, templateKey } = require("./_mock");
 const { inputSchemaToZodShape } = require("./_jsonschema-to-zod");
 
 const DEFAULT_MAX_TURNS = 15;
@@ -262,7 +262,7 @@ class ClaudeSkillAgentSdk {
             def.description,
             inputSchemaToZodShape(def.input_schema),
             async (args) => {
-              const template = mockTemplates[def.name];
+              const template = mockTemplates[templateKey(def.name, args)];
               const mock = template
                 ? renderMockResponse(template, args, def.name, mockState)
                 : { error: `No mock configured for tool: ${def.name}` };

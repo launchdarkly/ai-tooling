@@ -12,7 +12,7 @@
  *
  *   2. Stateful overlay keeps an in-memory map of configs per `callApi`
  *      invocation. Write tools (create/setup/update) record into state; read
- *      tools (get-ai-config, get-ai-config-health) build their response from
+ *      tools (get-agent-configs with a configKey) build their response from
  *      state when one exists, falling back to the template otherwise. This
  *      prevents the agent from believing its own writes failed when the static
  *      template returns generic placeholder data.
@@ -36,6 +36,8 @@ function buildReplacements(input) {
     mode: safe.mode || "completion",
     toolDescription: safe.description || "A tool",
     projectKey: safe.projectKey || "my-project",
+    newProjectKey: safe.key || "new-project",
+    newProjectName: safe.name || "New Project",
     environmentKey: safe.environmentKey || safe.env || "production",
     metricKey: safe.metricKey || safe.key || "unknown-metric",
     metricName: safe.metricName || safe.name || "Unknown Metric",
@@ -130,15 +132,41 @@ function createMockState() {
 }
 
 /**
+ * Template key for a call. A tool that both lists and gets (get-flags,
+ * get-agent-configs, ...) has one template per mode, keyed `<tool>#<mode>`.
+ */
+function templateKey(toolName, input) {
+  const safe = input || {};
+  switch (toolName) {
+    case "get-flags":
+      return safe.flagKey ? "get-flags#flagKey" : toolName;
+    case "get-agent-configs":
+      if (!safe.configKey) return toolName;
+      return safe.section === "health" ? "get-agent-configs#health" : "get-agent-configs#configKey";
+    case "get-ai-tools":
+      return safe.toolKey ? "get-ai-tools#toolKey" : toolName;
+    case "get-projects":
+      return safe.projectKey ? "get-projects#projectKey" : toolName;
+    case "get-experiments":
+      return safe.experimentKey ? "get-experiments#experimentKey" : toolName;
+    case "create-agent-config-variation":
+      return safe.sourceVariationKey ? "create-agent-config-variation#clone" : toolName;
+    default:
+      return toolName;
+  }
+}
+
+/**
  * Render a mock response for `toolName` given `input` (raw tool arguments).
  * `state` is the per-invocation map from `createMockState()`.
  * `templates` is the full parsed mocks/tool-responses.json.
  */
 function renderMockResponse(template, input, toolName, state) {
   const replacements = buildReplacements(input);
+  const mode = templateKey(toolName, input);
 
   // ---------- stateful reads ----------
-  if (toolName === "get-ai-config") {
+  if (mode === "get-agent-configs#configKey") {
     const key = input.configKey || input.key;
     if (key) {
       if (!state.configs[key] && SEED_CONFIGS[key]) {
@@ -148,7 +176,7 @@ function renderMockResponse(template, input, toolName, state) {
     }
   }
 
-  if (toolName === "get-ai-config-health") {
+  if (mode === "get-agent-configs#health") {
     const key = input.configKey || input.key;
     if (key && state.configs[key]) {
       const cfg = state.configs[key];
@@ -170,7 +198,7 @@ function renderMockResponse(template, input, toolName, state) {
     }
   }
 
-  if (toolName === "list-ai-configs") {
+  if (mode === "get-agent-configs") {
     // Merge state configs into the static template list for consistent reads.
     // State entries always win over the static template for the same key, so
     // an agent-created (or updated) config is reflected immediately.
@@ -197,7 +225,7 @@ function renderMockResponse(template, input, toolName, state) {
     return staticList;
   }
 
-  if (toolName === "get-flag" || toolName === "get-feature-flag") {
+  if (mode === "get-flags#flagKey") {
     const key = input.flagKey || input.key;
     if (key && state.flags[key]) return state.flags[key];
 
@@ -221,7 +249,7 @@ function renderMockResponse(template, input, toolName, state) {
   }
 
   // ---------- stateful writes ----------
-  if (toolName === "setup-ai-config") {
+  if (mode === "setup-agent-config") {
     const cfg = {
       key: input.key,
       name: input.name,
@@ -248,7 +276,7 @@ function renderMockResponse(template, input, toolName, state) {
     return cfg;
   }
 
-  if (toolName === "create-ai-config") {
+  if (mode === "create-agent-config") {
     const cfg = {
       key: input.key,
       name: input.name,
@@ -262,7 +290,7 @@ function renderMockResponse(template, input, toolName, state) {
     return cfg;
   }
 
-  if (toolName === "create-ai-config-variation") {
+  if (mode === "create-agent-config-variation") {
     const cfg = state.configs[input.configKey];
     const variation = {
       key: input.key,
@@ -281,7 +309,7 @@ function renderMockResponse(template, input, toolName, state) {
       cfg.variations = [...(cfg.variations || []), variation];
     } else {
       // Parent config not in state — create a minimal stub so the variation
-      // is reachable via get-ai-config and list-ai-configs. The real API
+      // is reachable via get-agent-configs. The real API
       // would 404 here; the mock recovers gracefully.
       state.configs[input.configKey] = {
         key: input.configKey,
@@ -296,7 +324,7 @@ function renderMockResponse(template, input, toolName, state) {
     return { configKey: input.configKey, variation };
   }
 
-  if (toolName === "update-ai-config") {
+  if (mode === "update-agent-config") {
     const cfg = state.configs[input.key || input.configKey];
     if (cfg) {
       const CONFIG_FIELDS = ["name", "description", "tags", "archived"];
@@ -308,7 +336,7 @@ function renderMockResponse(template, input, toolName, state) {
     return walk(template, replacements);
   }
 
-  if (toolName === "update-ai-config-variation") {
+  if (mode === "update-agent-config-variation") {
     const cfg = state.configs[input.configKey];
     if (cfg) {
       const VARIATION_FIELDS = [
@@ -327,7 +355,7 @@ function renderMockResponse(template, input, toolName, state) {
     return walk(template, replacements);
   }
 
-  if (toolName === "clone-ai-config-variation") {
+  if (mode === "create-agent-config-variation#clone") {
     const configKey = input.configKey;
     if (!state.configs[configKey] && SEED_CONFIGS[configKey]) {
       state.configs[configKey] = JSON.parse(JSON.stringify(SEED_CONFIGS[configKey]));
@@ -357,7 +385,7 @@ function renderMockResponse(template, input, toolName, state) {
     return walk(template, replacements);
   }
 
-  if (toolName === "create-flag" || toolName === "create-feature-flag") {
+  if (mode === "create-flag") {
     // Fail-closed test hook: a fixture that sets projectKey "restricted" makes
     // flag creation fail (permission denied), so an eval can assert the skill
     // stops rather than proceeding to wire code or record a release.
@@ -378,4 +406,4 @@ function renderMockResponse(template, input, toolName, state) {
   return walk(template, replacements);
 }
 
-module.exports = { renderMockResponse, createMockState };
+module.exports = { renderMockResponse, createMockState, templateKey };

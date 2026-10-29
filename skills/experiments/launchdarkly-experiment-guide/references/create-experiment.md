@@ -14,7 +14,7 @@ which checks for the *specific* create tools — a flags-only MCP does not quali
    present these calls for them to run later and stop.
 
 You need these values, gathered in earlier steps:
-- `projectKey`, `environmentKey` (from `get-project`, or `get-environment` for one environment).
+- `projectKey`, `environmentKey` (from `get-projects`, or `get-environment` for one environment).
 - Primary metric key (reused or newly created).
 - Flag key, the variation IDs for control/treatment, the targeting `ruleId`
   (fallthrough rule id is the string `"fallthrough"`), and current
@@ -61,12 +61,12 @@ You need these values, gathered in earlier steps:
 }
 ```
 
-3. **Verify** — `get-experiment`; confirm the experiment exists with a
+3. **Verify** — `get-experiments`; confirm the experiment exists with a
    `not_started` iteration.
 
 Create the experiment as a draft. Start it only after the flag and tracking
 code are deployed and the user says yes again. Starting
-(`start-experiment-iteration`) requires the flag to be on, a
+(`start-experiment-iteration`, with `confirm: true`) requires the flag to be on, a
 `randomizationUnit`, and at least one non-zero allocation.
 
 Rules that matter: exactly one treatment has `baseline: true`; allocations sum

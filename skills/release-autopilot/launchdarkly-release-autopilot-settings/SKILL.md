@@ -17,10 +17,9 @@ You're using a skill that configures Release Autopilot (GitHub App code automati
 This skill requires the remotely hosted LaunchDarkly MCP server.
 
 **Required MCP tools:**
-- `get-release-autopilot-settings` / `update-release-autopilot-settings`
-- `list-release-autopilot-github-repos` (GitHub App install — mappable repos)
-- `list-release-autopilot-repo-settings` (already mapped)
-- `update-release-autopilot-repo-settings` / `get-release-autopilot-repo-settings` / `delete-release-autopilot-repo-settings`
+- `get-release-autopilot`: account settings plus a page of GitHub App install repos, each with `mapped` and its effective settings. Pass `repo` for one repository, or `mapped: true` / `mapped: false` to filter.
+- `update-release-autopilot`: `accountWide: true` changes account settings; `accountWide: false` with `repo` maps or overrides one repository.
+- `delete-release-autopilot-repo-settings`: unmap one repository.
 
 If these tools are missing, stop. Do not invent REST calls, numeric GitHub ids, or "fixes" by guessing settings.
 
@@ -35,17 +34,17 @@ Release Autopilot settings are in alpha: the underlying endpoints are gated by a
 5. **Discover, then map.** Pass `owner/name`. Never ask for a numeric GitHub id. Prefer `git remote` of the current workspace when they say "this repo" / "this PR"; if remotes disagree (fork vs upstream), ask which one. `owner/name` resolves against the GitHub App install list only — a repo outside the install cannot be resolved or acted on, because Release Autopilot works through the App. A 404 saying the repo is not on the install, or that the App is not installed, is the answer; do not retry with other spellings or look the repo up elsewhere.
 6. **`projectKey` on first map.** Required when creating a mapping; later updates can omit it.
 7. **Omit `autoCleanup`.** Not part of Release Autopilot settings yet. Never send it; never copy it from a response into a PATCH.
-8. **GitHub connect is a browser link.** If `list-release-autopilot-github-repos` returns `githubConnectUrl`, give the user that exact URL and wait until they say they finished. Then call `list-release-autopilot-github-repos` again. Do not install or authorize GitHub yourself. `flow=install` is Install GitHub App. `flow=authorize` is Authorize GitHub. Both are the same pages as the integration drawer. The user must already be logged into LaunchDarkly in that browser.
+8. **GitHub connect is a browser link.** If `get-release-autopilot` returns `githubConnectUrl`, give the user that exact URL and wait until they say they finished. Then call `get-release-autopilot` again. Do not install or authorize GitHub yourself. `flow=install` is Install GitHub App. `flow=authorize` is Authorize GitHub. Both are the same pages as the integration drawer. The user must already be logged into LaunchDarkly in that browser.
 
 ## Confirm before write
 
-**STOP.** Do not call `update-release-autopilot-settings`, `update-release-autopilot-repo-settings`, or `delete-release-autopilot-repo-settings` until the user has answered yes to the proposal in this turn. A yes from an earlier turn, or a vague "fix it" / "go ahead" that does not name the setting, is not enough.
+**STOP.** Do not call `update-release-autopilot` or `delete-release-autopilot-repo-settings` until the user has answered yes to the proposal in this turn. A yes from an earlier turn, or a vague "fix it" / "go ahead" that does not name the setting, is not enough.
 
-1. Read current state first (`get-release-autopilot-settings`, and repo get/list if the change is repo-scoped).
-2. State **now** vs **proposed**, in one or two sentences. Include blast radius. For a map, state inherited auto-flagging **and** auto-releasing from the account (read `get-release-autopilot-settings` first).
+1. Read current state first (`get-release-autopilot`, with `repo` if the change is repo-scoped).
+2. State **now** vs **proposed**, in one or two sentences. Include blast radius. For a map, state inherited auto-flagging **and** auto-releasing from the account (read them from `get-release-autopilot` first).
 3. Wait. Do not batch the write in the same tool round as the question.
 
-**Account change** (any field on `update-release-autopilot-settings`, including turning things on):
+**Account change** (`update-release-autopilot` with `accountWide: true`, any field, including turning things on):
 
 > Auto-flagging is ON for this account. Turn it OFF for all mapped repos? Auto-flagging pull requests will stop until it is turned back on.
 
@@ -55,7 +54,7 @@ Release Autopilot settings are in alpha: the underlying endpoints are gated by a
 
 Same pattern for auto-releasing, and say that auto-releasing can ship.
 
-**Map or change one repo** (`update-release-autopilot-repo-settings`):
+**Map or change one repo** (`update-release-autopilot` with `accountWide: false`):
 
 Always name **both** inherited account capabilities in the proposal. Omitted overrides inherit auto-flagging **and** auto-releasing; do not confirm a map that only mentions auto-flagging.
 
@@ -82,8 +81,8 @@ Use this when the user asks why a PR was not classified, not auto-flagged, or Re
 
 Identify the GitHub repo (`owner/name`) from the PR URL, `git remote`, or the name they gave. If you cannot identify one repo, ask. Do not diagnose a different repo.
 
-1. **Is auto-flagging on for the account?** `get-release-autopilot-settings`. If `autoFlagging.enabled` is false, that is the answer: account gate is off, so no repo can auto-flag. Stop.
-2. **Is this repo mapped to a project?** `get-release-autopilot-repo-settings` with `repo: "owner/name"` (or `list-release-autopilot-repo-settings` and find it). If the error or `list-release-autopilot-github-repos` includes `githubConnectUrl`, read `flow`:
+1. **Is auto-flagging on for the account?** `get-release-autopilot`. If `autoFlagging.enabled` is false, that is the answer: account gate is off, so no repo can auto-flag. Stop.
+2. **Is this repo mapped to a project?** `get-release-autopilot` with `repo: "owner/name"`; check `mapped` on the returned repository. If the error or response includes `githubConnectUrl`, read `flow`:
    - `flow=install`: the GitHub App is not installed, so Release Autopilot never sees the PR. That is the answer. Give the user the link and stop.
    - `flow=authorize`: this member has not authorized GitHub, so `owner/name` cannot be looked up. That is not why Release Autopilot skipped the PR. Say so, give the user the link, and resume at this step after they finish. Do not report it as the fix.
 
@@ -96,21 +95,20 @@ If all three look fine (account on, repo mapped, repo auto-flagging effective on
 - Point them at the Release Autopilot runbooks. These are internal LaunchDarkly Confluence pages (PD space) while Release Autopilot is in alpha; there is no public docs URL yet. Classification can still fail for reasons this MCP surface cannot see (GitHub App install on the wrong org, PR not in an installed repo, workflow/app permissions, classifier skip rules).
   - [Flag Classification (ODD) Runbook](https://launchdarkly.atlassian.net/wiki/spaces/PD/pages/5377097848/WIP+Flag+Classification+ODD+Runbook) — the classifier itself: verdicts (`not-suited`, `already-flagged`), escalations, and the per-PR ledger that records why a PR got the verdict it did.
   - [GitHub App Runbook](https://launchdarkly.atlassian.net/wiki/spaces/PD/pages/5157388373/GitHub+App+Runbook) — the PR event never reaching Release Autopilot: install scope, permissions, webhooks.
-- Optional reads: `list-release-autopilot-github-repos` to confirm the repo is on the install list; `autoFlagging.approvalRequired` if they expected a PR and one exists but is waiting on approval.
+- Optional reads: `get-release-autopilot` with `repo` to confirm the repo is on the install list (`visibleOnInstall`); `autoFlagging.approvalRequired` if they expected a PR and one exists but is waiting on approval.
 
 ## Configure settings
 
 ### Step 1: Read current settings
 
-1. `get-release-autopilot-settings`
-2. `list-release-autopilot-repo-settings`
-3. `list-release-autopilot-github-repos` (optional `projectKey`; install is account-wide)
+1. `get-release-autopilot` with no filter: account settings and the first page of install repos (optional `projectKey`; install is account-wide). Page with `offset` while `hasMore` is true.
+2. `get-release-autopilot` with `repo: "owner/name"` for each repo the user named.
 
 If `githubConnectUrl` is present, give the user that link and stop this turn. Do not map until a later call omits the URL.
 
 ### Step 2: Account defaults (if needed)
 
-If an account PATCH is needed, follow [Confirm before write](#confirm-before-write), then `update-release-autopilot-settings` with **only** the confirmed fields:
+If an account PATCH is needed, follow [Confirm before write](#confirm-before-write), then `update-release-autopilot` with `accountWide: true`, `confirm: true`, and **only** the confirmed fields:
 
 - `autoFlagging.enabled` / `autoFlagging.approvalRequired` (approval is only valid here)
 - `autoReleasing.enabled`
@@ -119,7 +117,7 @@ Do not send `autoCleanup`. Requires permission to update account Release Autopil
 
 ### Step 3: Map or override a repository
 
-Only for repos the user named. Follow [Confirm before write](#confirm-before-write), then `update-release-autopilot-repo-settings`:
+Only for repos the user named. Follow [Confirm before write](#confirm-before-write), then `update-release-autopilot` with `accountWide: false` and `confirm: true`:
 
 1. Prefer `repo: "owner/name"`.
 2. Include `projectKey` when creating a mapping.
@@ -129,11 +127,11 @@ Requires permission to update Release Autopilot repo settings on the mapped proj
 
 ### Step 4: Verify (after a confirmed write)
 
-- `get-release-autopilot-repo-settings` / `get-release-autopilot-settings` as appropriate.
+- `get-release-autopilot` (with `repo` for a repo-scoped change).
 - Effective `enabled` must match the proposal (account off ⇒ repo cannot be on).
-- Mapped repos appear in `list-release-autopilot-repo-settings`.
+- Mapped repos appear with `mapped: true` in `get-release-autopilot`.
 
-To unmap: [Confirm before write](#confirm-before-write), then `delete-release-autopilot-repo-settings`.
+To unmap: [Confirm before write](#confirm-before-write), then `delete-release-autopilot-repo-settings` with `repo` and `confirm: true`.
 
 ## Out of scope
 
