@@ -47,7 +47,7 @@ tests:
       user_request: >
         The guarding flag `new-checkout-flow` already exists (created OFF) for
         PR acme/storefront#482, project `default`. Record its automated release:
-        staging should release on merge, but hold production until 2026-09-01 —
+        staging should release on merge, but hold production until 2030-09-01 —
         legal hasn't signed off yet.
     assert:
       - type: javascript
@@ -98,7 +98,7 @@ tests:
       - type: llm-rubric
         value: |
           The user asked to release `new-checkout-flow` for PR acme/storefront#482:
-          staging on merge, but HOLD production until 2026-09-01.
+          staging on merge, but HOLD production until 2030-09-01.
           Evaluate the response:
           1. Does it record/plan staging to release on merge?
           2. Does it explicitly HOLD production (leave it OFF, not released on merge)
@@ -244,7 +244,7 @@ tests:
       user_request: >
         The flag `checkout-redesign` already exists (created OFF) for PR
         acme/store#900, project `default`. Record its automated release for
-        `production`, but do not release it until 2026-10-01 — we're still finalizing
+        `production`, but do not release it until 2030-10-01 — we're still finalizing
         rollout sign-off.
     assert:
       - type: javascript
@@ -283,10 +283,10 @@ tests:
       - type: llm-rubric
         value: |
           The user asked to record the release for `checkout-redesign` (PR
-          acme/store#900) for production, but NOT to release it until 2026-10-01.
+          acme/store#900) for production, but NOT to release it until 2030-10-01.
           Evaluate the response:
           1. Does it hold production — not recording it to release on merge (before
-             the date), and stating it is held until 2026-10-01?
+             the date), and stating it is held until 2030-10-01?
           2. Does it avoid inventing a hold/date field the tool doesn't have, and
              avoid silently releasing production on merge?
           3. Did it avoid turning the flag on by hand?

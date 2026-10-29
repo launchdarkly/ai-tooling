@@ -210,7 +210,7 @@ tests:
           const a = call.arguments || {};
           // React app -> the flag must be client-side available to be read in the browser.
           const csa = a.clientSideAvailability || {};
-          const clientSide = csa.usingEnvironmentId === true || a.clientSide === true;
+          const clientSide = csa.usingEnvironmentId === true;
           return { pass: clientSide, score: clientSide ? 1 : 0.5, reason: `clientSideAvailability=${JSON.stringify(a.clientSideAvailability)}` };
         metric: client_side_available
         weight: 2

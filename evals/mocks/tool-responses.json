@@ -129,10 +129,10 @@
     "maintainer": null
   },
   "toggle-flag": {
+    "env": "{{environmentKey}}",
     "key": "{{flagKey}}",
-    "previousState": false,
-    "newState": true,
-    "environment": "production"
+    "on": true,
+    "previousState": false
   },
   "get-flag-health": {
     "key": "{{flagKey}}",
@@ -502,18 +502,53 @@
     "note": "Advisory recommendation recorded. This tool does not create, modify, toggle, or delete any feature flag."
   },
   "match-release-policies": {
-    "environmentKey": "{{environmentKey}}",
-    "flagKey": "{{flagKey}}",
+    "matchingPolicies": [
+      {
+        "key": "guarded-default",
+        "name": "Guarded rollout",
+        "rank": 1,
+        "releaseMethod": "guarded-release",
+        "scope": {
+          "environmentKeys": [
+            "production"
+          ],
+          "flagTagKeys": []
+        },
+        "guardedReleaseConfig": {
+          "metricKeys": [
+            "error-rate",
+            "latency-p95"
+          ],
+          "metricGroupKeys": []
+        }
+      }
+    ],
     "winningPolicy": {
       "key": "guarded-default",
-      "name": "Guarded rollout"
+      "name": "Guarded rollout",
+      "rank": 1,
+      "releaseMethod": "guarded-release",
+      "scope": {
+        "environmentKeys": [
+          "production"
+        ],
+        "flagTagKeys": []
+      },
+      "guardedReleaseConfig": {
+        "metricKeys": [
+          "error-rate",
+          "latency-p95"
+        ],
+        "metricGroupKeys": []
+      }
     },
-    "winningReleaseMethod": "guarded",
-    "autoAttachedMetricKeys": [
-      "error-rate",
-      "latency-p95"
-    ],
-    "autoAttachedMetricGroupKeys": []
+    "warnings": [],
+    "criteria": {
+      "projectKey": "{{projectKey}}",
+      "environmentKey": "{{environmentKey}}",
+      "flagKey": "{{flagKey}}",
+      "flagTags": null
+    }
   },
   "get-release-policies": {
     "policies": [
@@ -521,20 +556,24 @@
         "key": "guarded-default",
         "name": "Guarded rollout",
         "rank": 1,
-        "releaseMethod": "guarded",
+        "releaseMethod": "guarded-release",
         "scope": {
           "environmentKeys": [
             "production"
           ],
           "flagTagKeys": []
         },
-        "guardrailMetricKeys": [
-          "error-rate",
-          "latency-p95"
-        ]
+        "guardedReleaseConfig": {
+          "metricKeys": [
+            "error-rate",
+            "latency-p95"
+          ],
+          "metricGroupKeys": []
+        }
       }
     ],
-    "totalCount": 1
+    "count": 1,
+    "warnings": []
   },
   "create-automated-rollout-config": {
     "created": true,
@@ -579,7 +618,6 @@
     "measureType": "occurrence",
     "successCriteria": "HigherThanBaseline",
     "eventKey": "{{metricKey}}",
-    "_id": "metric-0001",
     "tags": []
   },
   "create-experiment": {
@@ -592,16 +630,16 @@
       "hypothesis": "{{hypothesis}}",
       "treatments": [
         {
-          "_id": "treat-control",
           "name": "Control",
           "baseline": true,
-          "allocationPercent": 50
+          "allocationPercent": 50,
+          "id": "treat-control"
         },
         {
-          "_id": "treat-treatment",
           "name": "Treatment",
           "baseline": false,
-          "allocationPercent": 50
+          "allocationPercent": 50,
+          "id": "treat-treatment"
         }
       ]
     }
@@ -622,16 +660,16 @@
       "hypothesis": "{{hypothesis}}",
       "treatments": [
         {
-          "_id": "treat-control",
           "name": "Control",
           "baseline": true,
-          "allocationPercent": 50
+          "allocationPercent": 50,
+          "id": "treat-control"
         },
         {
-          "_id": "treat-treatment",
           "name": "Treatment",
           "baseline": false,
-          "allocationPercent": 50
+          "allocationPercent": 50,
+          "id": "treat-treatment"
         }
       ]
     }
@@ -646,11 +684,10 @@
     }
   },
   "get-sdk-key": {
-    "environmentKey": "{{environmentKey}}",
     "sdkKey": "sdk-prod-abcdef12-3456-7890-abcd-ef1234567890"
   },
   "get-experiments": {
-    "items": [
+    "experiments": [
       {
         "key": "{{experimentKey}}",
         "name": "{{experimentName}}",
@@ -660,16 +697,16 @@
           "hypothesis": "{{hypothesis}}",
           "treatments": [
             {
-              "_id": "treat-control",
               "name": "Control",
               "baseline": true,
-              "allocationPercent": 50
+              "allocationPercent": 50,
+              "id": "treat-control"
             },
             {
-              "_id": "treat-treatment",
               "name": "Treatment",
               "baseline": false,
-              "allocationPercent": 50
+              "allocationPercent": 50,
+              "id": "treat-treatment"
             }
           ]
         }

@@ -251,7 +251,7 @@ tests:
           const envs = new Set(
             traj
               .filter((t) => t.tool === 'get-flags')
-              .map((t) => (t.arguments || {}).environmentKey || (t.arguments || {}).env)
+              .map((t) => (t.arguments || {}).env)
               .filter(Boolean)
           );
           const pass = envs.size >= 2;
