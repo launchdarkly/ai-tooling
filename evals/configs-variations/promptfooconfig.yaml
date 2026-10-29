@@ -129,9 +129,9 @@ tests:
     assert:
       - type: javascript
         value: |
-          const tools = output.tools_called || [];
-          const getIdx = tools.indexOf('get-agent-configs');
-          const createIdx = tools.lastIndexOf('create-agent-config-variation');
+          const traj = output.trajectory || [];
+          const getIdx = traj.findIndex(t => t.tool === 'get-agent-configs');
+          const createIdx = traj.findIndex(t => t.tool === 'create-agent-config-variation' && !(t.arguments && t.arguments.sourceVariationKey));
           const pass = getIdx >= 0 && createIdx >= 0 && getIdx < createIdx;
           return { pass, score: pass ? 1 : 0, reason: 'get-agent-configs@' + getIdx + ' create-variation@' + createIdx };
         metric: fetches_before_creating
@@ -139,8 +139,8 @@ tests:
 
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'create-agent-config-variation');
-          if (!call) return { pass: false, score: 0, reason: 'No create-agent-config-variation call' };
+          const call = (output.trajectory || []).find(t => t.tool === 'create-agent-config-variation' && !(t.arguments && t.arguments.sourceVariationKey));
+          if (!call) return { pass: false, score: 0, reason: 'No from-scratch create-agent-config-variation call' };
           const key = call.arguments.modelConfigKey || '';
           const pass = /^[A-Za-z]+\..+$/.test(key);
           return { pass, score: pass ? 1 : 0, reason: 'modelConfigKey=' + key };
