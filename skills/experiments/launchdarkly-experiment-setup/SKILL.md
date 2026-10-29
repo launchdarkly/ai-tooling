@@ -270,7 +270,7 @@ Example: swap the treatment allocation and add a metric in a single call.
 
 ### Step 7: Stop the Iteration
 
-When the results support a decision, or the user has made a call, stop the iteration. For a frequentist experiment that decision is statistical significance. For a Bayesian experiment it is the probability to beat baseline or the probability to be best. Quote only the statistic for the methodology in use. **A winning treatment is required to stop** — LaunchDarkly does not let you end an iteration without declaring a winner. Pass the winning treatment's id (returned in `get-experiments` as `id` on each treatment) plus a `winningReason`.
+When the results support a decision, or the user has made a call, stop the iteration. For a frequentist experiment that decision is statistical significance. For a Bayesian experiment it is the probability to beat baseline or the probability to be best. Quote only the statistic for the methodology in use. **A winning treatment is required to stop** — LaunchDarkly does not let you end an iteration without declaring a winner. Pass the winning treatment's id (returned as `id` on each treatment when `get-experiments` is called with `experimentKey` and `environmentKey`) plus a `winningReason`.
 
 If the experiment was inconclusive or no variation beat the control, declare the **baseline/control treatment as the winner** and say so in `winningReason` (e.g. "Inconclusive — keeping control"). There is no "stop without a winner" path.
 

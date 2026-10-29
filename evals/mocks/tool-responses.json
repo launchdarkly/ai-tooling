@@ -623,56 +623,92 @@
   "create-experiment": {
     "key": "{{experimentKey}}",
     "name": "{{experimentName}}",
-    "_id": "exp-0001",
-    "environmentKey": "{{environmentKey}}",
+    "description": "",
     "currentIteration": {
+      "id": "iter-0001",
       "status": "not_started",
+      "canReshuffleTraffic": false,
       "hypothesis": "{{hypothesis}}",
       "treatments": [
         {
+          "id": "treat-control",
           "name": "Control",
           "baseline": true,
-          "allocationPercent": 50,
-          "id": "treat-control"
+          "allocationPercent": 50
         },
         {
+          "id": "treat-treatment",
           "name": "Treatment",
           "baseline": false,
-          "allocationPercent": 50,
-          "id": "treat-treatment"
+          "allocationPercent": 50
         }
-      ]
-    }
+      ],
+      "metrics": []
+    },
+    "createdAt": "2026-10-01T00:00:00Z",
+    "dataCollection": "not started \u2014 this experiment is a draft. It is not collecting data and is not affecting any end users yet.",
+    "designUrl": "https://app.launchdarkly.com/projects/{{projectKey}}/experiments/{{experimentKey}}/design?selected-env={{environmentKey}}",
+    "nextSteps": "Summarize the experiment design for the user. Starting the experiment requires their explicit confirmation; do not call start-experiment-iteration until they ask for it."
   },
   "start-experiment-iteration": {
     "key": "{{experimentKey}}",
-    "environmentKey": "{{environmentKey}}",
+    "name": "{{experimentName}}",
+    "description": "",
     "currentIteration": {
-      "status": "running"
-    }
+      "id": "iter-0001",
+      "status": "running",
+      "canReshuffleTraffic": false,
+      "hypothesis": "{{hypothesis}}",
+      "treatments": [
+        {
+          "id": "treat-control",
+          "name": "Control",
+          "baseline": true,
+          "allocationPercent": 50
+        },
+        {
+          "id": "treat-treatment",
+          "name": "Treatment",
+          "baseline": false,
+          "allocationPercent": 50
+        }
+      ],
+      "metrics": [],
+      "startDate": "2026-10-28T00:00:00Z"
+    },
+    "createdAt": "2026-10-01T00:00:00Z",
+    "dataCollection": "running \u2014 the experiment is collecting data and allocating live end-user traffic across its treatments.",
+    "designUrl": "https://app.launchdarkly.com/projects/{{projectKey}}/experiments/{{experimentKey}}/design?selected-env={{environmentKey}}",
+    "resultsUrl": "https://app.launchdarkly.com/projects/{{projectKey}}/experiments/{{experimentKey}}/results?selected-env={{environmentKey}}"
   },
   "get-experiments#experimentKey": {
     "key": "{{experimentKey}}",
     "name": "{{experimentName}}",
-    "environmentKey": "{{environmentKey}}",
+    "description": "",
     "currentIteration": {
+      "id": "iter-0001",
       "status": "not_started",
+      "canReshuffleTraffic": false,
       "hypothesis": "{{hypothesis}}",
       "treatments": [
         {
+          "id": "treat-control",
           "name": "Control",
           "baseline": true,
-          "allocationPercent": 50,
-          "id": "treat-control"
+          "allocationPercent": 50
         },
         {
+          "id": "treat-treatment",
           "name": "Treatment",
           "baseline": false,
-          "allocationPercent": 50,
-          "id": "treat-treatment"
+          "allocationPercent": 50
         }
-      ]
-    }
+      ],
+      "metrics": []
+    },
+    "createdAt": "2026-10-01T00:00:00Z",
+    "dataCollection": "not started \u2014 this experiment is a draft. It is not collecting data and is not affecting any end users yet.",
+    "designUrl": "https://app.launchdarkly.com/projects/{{projectKey}}/experiments/{{experimentKey}}/design?selected-env={{environmentKey}}"
   },
   "get-environment": {
     "key": "{{environmentKey}}",
@@ -691,24 +727,12 @@
       {
         "key": "{{experimentKey}}",
         "name": "{{experimentName}}",
-        "environmentKey": "{{environmentKey}}",
+        "description": "",
         "currentIteration": {
+          "id": "iter-0001",
           "status": "not_started",
-          "hypothesis": "{{hypothesis}}",
-          "treatments": [
-            {
-              "name": "Control",
-              "baseline": true,
-              "allocationPercent": 50,
-              "id": "treat-control"
-            },
-            {
-              "name": "Treatment",
-              "baseline": false,
-              "allocationPercent": 50,
-              "id": "treat-treatment"
-            }
-          ]
+          "canReshuffleTraffic": false,
+          "hypothesis": "{{hypothesis}}"
         }
       }
     ],
