@@ -154,7 +154,7 @@ This immediately stops the progressive rollout and locks the flag at its current
 | Flag is off | Turn it on first with `toggle-flag` (`on: true`, `confirm: true`) — rollouts require the flag to be on |
 | Active rollout exists | Stop it first with `stop-guarded-rollout` before starting a new one |
 | No suitable metrics | Create metrics first with `create-metric` |
-| Approval required | If the environment requires approvals, the tool will return an approval URL |
+| Approval required | The tool returns `requiresApproval: true` and how to submit the change with `create-approval-request`; share that request's `approvalRequest.url` |
 
 ## What NOT to Do
 

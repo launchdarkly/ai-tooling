@@ -21,7 +21,7 @@ The `search-sessions` tool returns sessions with user details and core attribute
 
 **Fetching a specific session by secure_id.** Use a wide time window (you often don't know when the session happened):
 ```
-{"startDate": "2026-01-01T00:00:00Z", "query": "secure_id=LWK4jxZch4GMmVYJ0rW3R6CNymSy", "count": 1}
+{"projectKey": "my-project", "startDate": "2026-01-01T00:00:00Z", "query": "secure_id=LWK4jxZch4GMmVYJ0rW3R6CNymSy", "count": 1}
 ```
 
 **Relating events within a session.** Session filters like `visited-url=*/a* visited-url=*/b*` only check that both matched, in any order. To ask about order, absence, or which events happened together, wrap each event in `span(...)` or `log(...)` and join the blocks with `THEN`, `AND`, or `OR`, for example `span(view_name="/pricing") THEN span(view_name="/checkout")`. Load `relationship-search.md` for the full syntax.

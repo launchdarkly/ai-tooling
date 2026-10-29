@@ -41,7 +41,7 @@ See [Approval Workflows](approval-workflows.md) for the complete reference.
 
 ## For Percentage Rollouts
 
-- [ ] Weights sum to exactly 100% (100000 in the API)
+- [ ] Weights sum to exactly 100 (`update-rollout` takes percentages; semantic-patch `rolloutWeights` use 100000)
 - [ ] The rollout is on the default rule (fallthrough) unless intentionally on a specific rule
 - [ ] Individual targets and higher-priority rules aren't silently overriding the rollout for some users
 - [ ] Consider starting small (1-5%) for high-risk features

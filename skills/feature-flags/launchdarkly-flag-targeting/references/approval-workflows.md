@@ -7,7 +7,7 @@ Some LaunchDarkly environments require approval before changes take effect. This
 Any mutation tool response may include these fields when a change is blocked:
 
 - `requiresApproval: true`: the change was blocked and needs approval
-- `approvalUrl`: a URL where the approval can be reviewed (if available)
+- `environmentKey`: the environment that requires approval
 - `message`: a human-readable explanation
 - `instructions`: the semantic patch instructions that were attempted (use these to create an approval request)
 
@@ -74,11 +74,11 @@ Input:
 ```
 
 The response shows:
-- `status`: pending, completed, or failed
+- `status`: pending, scheduled, completed, or failed
 - `reviewStatus`: pending, approved, or declined
 - `reviews`: list of reviewer actions with status and comments
 - `description`: what the change does
-- `instructionCount`: number of instructions in the request
+- `instructions`: the semantic patch instructions in the request
 
 ## Applying Approved Requests
 

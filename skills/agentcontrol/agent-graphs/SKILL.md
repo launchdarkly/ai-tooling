@@ -139,7 +139,7 @@ Use `create-agent-graph` with:
 | Config doesn't exist yet | Create it first with `create-agent-config` before referencing in a graph |
 | Circular routing | Allowed but warn user — ensure there's a termination condition in the agent logic |
 | Single-node graph | Valid but unusual — consider if a graph is actually needed |
-| Updating edges | Use `update-agent-graph` — provide the complete new edge list |
+| Updating edges | Use `update-agent-graph` with `confirm: true` — provide the complete new edge list |
 
 ## What NOT to Do
 

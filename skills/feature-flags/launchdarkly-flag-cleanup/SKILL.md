@@ -167,7 +167,7 @@ Before considering the job done:
 ## After Cleanup
 
 Once the PR is merged and deployed:
-1. **Archive the flag in LaunchDarkly** using `archive-flag`. Archival is reversible; deletion is not. Always archive first.
+1. **Archive the flag in LaunchDarkly** using `archive-flag` (with `confirm: true`, after the user agrees). Archival is reversible; deletion is not. Always archive first.
 2. **Notify other teams** if `get-removal-readiness` reported code references in other repositories.
 3. **If the flag had targeting changes pending,** they can be ignored: the flag is being removed.
 

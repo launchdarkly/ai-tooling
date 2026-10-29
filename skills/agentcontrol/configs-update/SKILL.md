@@ -56,7 +56,7 @@ Then use `get-agent-configs` to review the full detail:
 - Add or replace tags
 - Archive with `archived: true` (reversible)
 
-**Update a variation** -- Use `update-agent-config-variation`:
+**Update a variation** -- Use `update-agent-config-variation` (requires `confirm: true`; pass it after the user agrees):
 - Switch model (provide new `modelConfigKey` and `modelName`)
 - Change instructions or messages
 - Tune parameters (temperature, max_tokens, etc.)

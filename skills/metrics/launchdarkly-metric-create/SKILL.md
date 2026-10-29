@@ -258,7 +258,7 @@ Use `get-metrics` to confirm the metric was created with the right configuration
 1. **Key and name match** what was requested.
 2. **kind is correct** — `custom`, `pageview`, or `click`.
 3. **measureType is correct** — double-check by reading back the `measureType` field, not just `isNumeric`.
-4. **eventKey / urls / selector** are set to the intended values.
+4. **eventKey** is set to the intended value for a custom metric. `get-metrics` does not return `urls` or `selector`, so for pageview and click metrics report the values you sent.
 5. **successCriteria** is correct.
 
 Surface a summary to the user:
@@ -270,10 +270,10 @@ Surface a summary to the user:
   Measures: occurrence (conversion rate)
   Goal:     Higher is better
 
-View in LaunchDarkly: {_links.ui from the create-metric response}
+View in LaunchDarkly: {metric link on the LaunchDarkly host this MCP server is connected to}
 ```
 
-The `create-metric` tool returns a `_links.ui` field with the correct URL for the environment being used. Always use that value — never hard-code `app.launchdarkly.com`.
+`create-metric` returns no UI link. Build it from the LaunchDarkly host the MCP server names in its instructions — never hard-code `app.launchdarkly.com`.
 
 ## Measure Type Reference
 

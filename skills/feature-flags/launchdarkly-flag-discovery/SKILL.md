@@ -44,7 +44,7 @@ Adapt your approach to the user's goal:
 **For a broad audit:**
 - Use `get-flags` scoped to a critical environment (default to `production`).
 - Note the total count: this tells you the scale of the flag surface area.
-- Filter by `state` (active, inactive, launched, new) to segment the landscape.
+- Filter by `state` (`live`, `deprecated`, `archived`) to segment the landscape. Lifecycle status (new, active, launched, inactive) comes from `get-flag-status-across-envs`.
 - Filter by `type` (temporary vs permanent): temporary flags are the primary cleanup targets.
 
 **For cleanup planning:**

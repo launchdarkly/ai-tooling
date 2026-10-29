@@ -66,7 +66,7 @@ You need these values, gathered in earlier steps:
 
 Create the experiment as a draft. Start it only after the flag and tracking
 code are deployed and the user says yes again. Starting
-(`start-experiment-iteration`) requires the flag to be on, a
+(`start-experiment-iteration`, with `confirm: true`) requires the flag to be on, a
 `randomizationUnit`, and at least one non-zero allocation.
 
 Rules that matter: exactly one treatment has `baseline: true`; allocations sum

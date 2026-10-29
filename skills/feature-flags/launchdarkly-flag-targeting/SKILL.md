@@ -81,7 +81,7 @@ Before applying changes, especially in production, run through the [Safety Check
 1. **Right environment?** Double-check you're targeting the intended environment.
 2. **Approval required?** Some environments require approval workflows. If any mutation tool returns `requiresApproval: true`:
    - Inform the user that this environment requires approvals.
-   - Share the `approvalUrl` if provided.
+   - After you create an approval request, share its `approvalRequest.url`.
    - Offer to create an approval request using `create-approval-request` with the same instructions (returned in the `instructions` field of the response).
    - Do NOT attempt to bypass approval or auto-approve.
    - See [Approval Workflows](references/approval-workflows.md) for the full process.

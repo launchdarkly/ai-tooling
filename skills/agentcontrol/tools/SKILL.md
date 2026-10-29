@@ -97,7 +97,7 @@ If you observe a UI-clear bug where attaching tools wipes other fields, **do not
 
 ## Per-provider schema at the call site
 
-LaunchDarkly stores the tool schema once — the flat `{type, name, description, parameters}` shape you passed to `create-ai-tool`. Your application reads it back via `config.model.parameters.tools` (completion mode) or `agent_config.model.parameters.tools` (agent mode), then converts to the shape the provider SDK expects. LaunchDarkly never makes the provider call; your code does. The handlers that implement each tool also stay in application code — LaunchDarkly stores the schema, your application owns the behavior.
+LaunchDarkly stores the tool schema once — the JSON Schema you passed as `schema` to `create-ai-tool`, with the tool's `key` and `description`. Your application reads it back via `config.model.parameters.tools` (completion mode) or `agent_config.model.parameters.tools` (agent mode), then converts to the shape the provider SDK expects. LaunchDarkly never makes the provider call; your code does. The handlers that implement each tool also stay in application code — LaunchDarkly stores the schema, your application owns the behavior.
 
 | Provider / framework | Target shape | Where it goes on the call |
 |---|---|---|

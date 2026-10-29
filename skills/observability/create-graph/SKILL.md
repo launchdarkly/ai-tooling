@@ -70,7 +70,7 @@ When asked to duplicate or copy a graph, call `get-dashboards` to retrieve the f
 
 ## Common mistakes
 
-- Using lowercase `sessions` for `productType`. It's `Sessions` — PascalCase. See `enums.md`.
+- Using `Events` for product-analytics custom events. Those are `PAEvents`; `Events` is the legacy session_events source. See `enums.md`.
 - Omitting `column` on a `Count` expression. The API requires it; pass empty string `""`.
 - Using `count_distinct` or `Count_distinct`. It's `CountDistinct` — PascalCase, no underscore.
 - Building a query without `get-keys` first and getting empty results because the attribute name was wrong.

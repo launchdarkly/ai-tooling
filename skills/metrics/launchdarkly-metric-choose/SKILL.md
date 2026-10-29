@@ -80,6 +80,8 @@ Organize into two groups:
 | **Healthy** | Event key appears in `get-metric-events` | Safe to recommend |
 | **At-risk** | Event key absent from `get-metric-events` | Warn: may not produce data |
 
+Pageview and click metrics have no custom event key, so `get-metric-events` cannot vouch for them. List them separately as "not checked" rather than at-risk.
+
 Show this inventory before recommending — it may reveal that a metric the user has in mind has no events flowing.
 
 ### Step 4: Recommend

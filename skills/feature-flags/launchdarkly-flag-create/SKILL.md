@@ -110,8 +110,8 @@ If the user wants to change flag metadata (not targeting), use `update-flag`. Su
 | Update description | `{kind: "updateDescription", value: "New description"}` |
 | Add tags | `{kind: "addTags", values: ["tag1", "tag2"]}` |
 | Remove tags | `{kind: "removeTags", values: ["old-tag"]}` |
-| Mark as temporary | `{kind: "markTemporary"}` |
-| Mark as permanent | `{kind: "markPermanent"}` |
+| Mark as temporary | `{kind: "makeFlagTemporary"}` |
+| Mark as permanent | `{kind: "makeFlagPermanent"}` |
 
 Multiple instructions can be batched in a single call. These changes are project-wide, not environment-specific.
 

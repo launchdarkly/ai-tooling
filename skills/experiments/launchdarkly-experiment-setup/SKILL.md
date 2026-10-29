@@ -131,7 +131,7 @@ Create the metric and the experiment only after the user explicitly approves a c
 
 ### Step 2: Identify the Targeting Rule
 
-You need the `ruleId` and current `flagConfigVersion` of the flag rule that will drive the experiment. Use `get-flags` on the flag (or its environment-scoped status) to find them. The fallthrough rule's id is the string `"fallthrough"`.
+You need the `ruleId` and current `flagConfigVersion` of the flag rule that will drive the experiment. Call `get-flags` with `flagKey` and `env` to find them. The fallthrough rule's id is the string `"fallthrough"`.
 
 ### Step 3: Create the Experiment
 
@@ -216,7 +216,7 @@ Before starting, the API requires that:
 
 If the primary metric is a custom event, call `get-metric-events` again right before starting. If the event is arriving, start as normal once the flag is on. If it still is not arriving, the experiment can start but results will stay empty until the event arrives, so ask whether to start anyway.
 
-If the flag is off in that environment when the user says to start, don't change the flag. Tell the user the flag must be on in that environment, and that turning it on starts serving its variations to users there. Ask whether they want to turn it on themselves or have you do it, and wait for an explicit answer before calling any tool that changes the flag. Once the flag is on, call `get-flags` again to get the current `flagConfigVersion`, update the draft to use it, and tell the user you did, before starting.
+If the flag is off in that environment when the user says to start, don't change the flag. Tell the user the flag must be on in that environment, and that turning it on starts serving its variations to users there. Ask whether they want to turn it on themselves or have you do it, and wait for an explicit answer before calling any tool that changes the flag. Once the flag is on, call `get-flags` again to get the current `flagConfigVersion`, update the draft with `update-experiment` (with `confirm: true`) to use it, and tell the user you did, before starting.
 
 If the flag is off and the custom event still is not arriving, raise both in one message, the flag question and whether to start anyway, and wait for that one answer. Do not ask them separately.
 
@@ -270,7 +270,7 @@ Example: swap the treatment allocation and add a metric in a single call.
 
 ### Step 7: Stop the Iteration
 
-When the results support a decision, or the user has made a call, stop the iteration. For a frequentist experiment that decision is statistical significance. For a Bayesian experiment it is the probability to beat baseline or the probability to be best. Quote only the statistic for the methodology in use. **A winning treatment is required to stop** — LaunchDarkly does not let you end an iteration without declaring a winner. Pass the winning treatment's id (returned in `get-experiments` as `_id` on each treatment) plus a `winningReason`.
+When the results support a decision, or the user has made a call, stop the iteration. For a frequentist experiment that decision is statistical significance. For a Bayesian experiment it is the probability to beat baseline or the probability to be best. Quote only the statistic for the methodology in use. **A winning treatment is required to stop** — LaunchDarkly does not let you end an iteration without declaring a winner. Pass the winning treatment's id (returned in `get-experiments` as `id` on each treatment) plus a `winningReason`.
 
 If the experiment was inconclusive or no variation beat the control, declare the **baseline/control treatment as the winner** and say so in `winningReason` (e.g. "Inconclusive — keeping control"). There is no "stop without a winner" path.
 
@@ -307,10 +307,10 @@ Name the decision statistic in `winningReason`. Frequentist: significance, or th
 | User has not said to start | Leave the iteration in `not_started`. `start-experiment-iteration` and `save-and-start-experiment-iteration` stay uncalled. |
 | Flag is off when the user says to start | Don't change the flag; ask first. See Step 4. |
 | Flag has no variations to compare | Add variations only when the user explicitly asks. Otherwise say which variations exist and ask. |
-| You don't know the flag's `ruleId` / `flagConfigVersion` | Use `get-flags` or `get-flag-status-across-envs`. The fallthrough rule's id is the string `"fallthrough"`. |
+| You don't know the flag's `ruleId` / `flagConfigVersion` | Use `get-flags` with `flagKey` and `env`. The fallthrough rule's id is the string `"fallthrough"`. |
 | Experiment already exists | Use `get-experiments` to find it, then `get-experiments` with `experimentKey` for details. |
 | Need to change locked fields mid-experiment | Use `save-and-start-experiment-iteration` (single call) rather than stopping and recreating by hand. |
-| `update-experiment` returns `skipped` for a field | Inspect the `currentStatus` and `allowedFields` in the response — that field isn't mutable in the current iteration status. Either stop the iteration first or use `save-and-start-experiment-iteration`. |
+| `update-experiment` returns `skipped` for a field | Each `skipped` entry gives the `field` and a `reason`; when nothing applied, the response also has `currentStatus` and `allowedFields`. The field isn't mutable in the current iteration status. Either stop the iteration first or use `save-and-start-experiment-iteration`. |
 
 ## What NOT to Do
 

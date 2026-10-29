@@ -13,11 +13,11 @@ Load this file when you need aggregation across a large dataset — unique users
 
 The `search-aggregations` tool returns bucketed aggregated values, suitable for charting and analysis.
 
-- `productType` is required; one of `errors`, `traces`, `logs`, `sessions` (`requests` is accepted as an alias for `traces`).
+- `productType` is required; one of `errors`, `traces`, `logs`, `sessions`, `metrics`, `paevents`, or `events` (`requests` is accepted as an alias for `traces`).
 - `startDate` is required; ISO format.
 - `endDate` defaults to now.
 - `query` is an attribute filter — e.g. `error EXISTS AND service_name=foo`.
-- `groupBy` is an attribute to group results by (e.g. `message`, `service_name`). Single field.
+- `groupBy` is an attribute to group results by (e.g. `message`, `service_name`), or an array of attributes for a composite group (e.g. `["service_name", "level"]`).
 
 Note: across **different** product types, the same attribute keys work — query `search-aggregations` with `productType="sessions"` and `groupBy="identifier"` for session-grouping analogous to `productType="logs"` with `groupBy="level"`.
 
