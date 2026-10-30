@@ -65,12 +65,15 @@ tests:
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
-        - ["Require approval"]
         - ["acme/demo"]
         - ["default"]
         - ["LaunchDarkly's"]
         - ["Looks good"]
     assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
+        metric: never_sends_approval
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noCleanupQuestion
         metric: no_unpicked_cleanup
@@ -266,7 +269,6 @@ tests:
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
-        - ["Require approval"]
         - ["Need an org owner"]
     assert:
       - type: javascript
@@ -301,12 +303,15 @@ tests:
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
-        - ["Require approval"]
         - ["acme/demo"]
         - ["default"]
         - ["LaunchDarkly's"]
         - ["Looks good"]
     assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
+        metric: never_sends_approval
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noAccountWrite
         metric: no_account_write
@@ -345,7 +350,6 @@ tests:
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
-        - ["Require approval"]
         - ["LaunchDarkly's"]
         - ["Change something"]
     assert:
@@ -536,6 +540,10 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
+        metric: never_sends_approval
+        weight: 3
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noIntro
         metric: no_intro
         weight: 2
@@ -573,7 +581,6 @@ tests:
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
-        - ["Require approval"]
         - ["LaunchDarkly's"]
         - ["Looks good"]
     assert:
@@ -609,11 +616,14 @@ tests:
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging", "Auto-cleanup"]
-        - ["Require approval"]
         - ["LaunchDarkly's"]
         - ["Done"]
         - ["Looks good"]
     assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
+        metric: never_sends_approval
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noArchivalQuestion
         metric: no_unpicked_archival
@@ -665,7 +675,6 @@ tests:
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
-        - ["Require approval"]
         - ["Done"]
         - ["A different one"]
     assert:
@@ -752,11 +761,14 @@ tests:
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging", "Auto-archival"]
-        - ["Require approval"]
         - ["LaunchDarkly's"]
         - ["Done"]
         - ["Looks good"]
     assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
+        metric: never_sends_approval
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noCleanupQuestion
         metric: no_unpicked_cleanup

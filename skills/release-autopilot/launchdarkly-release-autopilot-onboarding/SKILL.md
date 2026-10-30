@@ -52,7 +52,7 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 ## Core Principles
 
 1. **Only set up what they picked.** Release setup matters only for auto-releasing. If the user picks auto-flagging only, skip Step 6.
-2. **Least privilege by default.** Recommend auto-flagging with approval required. Auto-releasing is opt-in and you must say it can ship code.
+2. **Least privilege by default.** Recommend auto-flagging, which always waits for a person to approve its proposed change. Auto-releasing is opt-in and you must say it can ship code.
 3. **Gather, confirm, then write.** No write happens before [Step 7](#step-7-confirm-the-plan). The confirmation lists every write with its current and proposed state. This holds in every mode, including Resume and requests that already state every answer: a restated pick is an answer, never approval. Step 1's reads, including the role check, always run first.
 4. **Don't ask what the account already answers.** If live state already settles a question, state the answer and move on.
 5. **Never act in the user's browser.** GitHub install, GitHub authorization, release policy edits, and bring-your-own-key setup are browser steps. Give the exact link and wait for the user to say they finished.
@@ -63,7 +63,7 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 - Use product words ("auto-flagging", "release policy", "approval") in every message, including questions, checklists, and the final summary. Never show tool names, field names (`githubRepoId`, `autoReleasing.enabled`), HTTP status codes, step numbers, or this skill's mode names ("preview mode", "policy mode", "plan mode"); say "Here's what would change", "your account uses release policies", and "Verification", not "Step 9".
 - Say "Release Autopilot" only in the welcome. After that, name the capability ("auto-flagging", "auto-releasing", "auto-cleanup", "auto-archival"), or say "these capabilities". The exceptions are the resume phrase "continue Release Autopilot setup", the name of the settings skill, and "the Release Autopilot add-on".
 - Name repos as `owner/name`. Show a repository ID only for a mapped repo with no name.
-- Describe each change in words ("Turn on auto-flagging, with approval required"), never as a tool call or a field and value, not even in parentheses for an admin. If a check after a write disagrees with it, name the change that could not be confirmed and where to check it in the LaunchDarkly UI.
+- Describe each change in words ("Turn on auto-flagging for the account"), never as a tool call or a field and value, not even in parentheses for an admin. If a check after a write disagrees with it, name the change that could not be confirmed and where to check it in the LaunchDarkly UI.
 - Every browser step (GitHub, bring your own key, Lifecycle or release settings) must be done while signed in as the member from Step 1. Say so when you give the link.
 - State only what the reads show. Do not guess at causes (such as "installs can take a few minutes to propagate"), and do not invent UI locations: give only the pages this skill names. For an account change left for an admin, tell them to run [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md).
 - Keep each message to the current step, and do not narrate tool calls.
@@ -121,10 +121,7 @@ Use `AskUserQuestion` with header "Capabilities", `multiSelect: true`:
 - label: "Auto-cleanup", description: "On a schedule, opens pull requests that remove the code for flags that are ready for removal. This removes code"
 - label: "Auto-archival", description: "Archives flags that are ready to archive, after safety checks and a grace period"
 
-Ask about approval only if the user picked auto-flagging **and** the account does not already have auto-flagging on with approval required. If it already does, say "Auto-flagging already requires approval for every mapped repo. Say 'change approval' if you want to turn it off," and move on unless they say so. Otherwise, or if they ask to change it, ask header "Approval":
-
-- label: "Require approval (Recommended)", description: "A person approves each auto-flagging PR before any code changes. This is an account setting, so it applies to every mapped repo"
-- label: "No approval", description: "Auto-flagging changes PRs without an approval step, in every mapped repo"
+Do not ask about approval. Auto-flagging always waits for a person: it posts its proposed change on the pull request, and nothing changes until someone replies `@launchdarkly approve` (or `approve flag`) or presses Approve on the check. If the user picked auto-flagging, say that in one sentence. Never send `approvalRequired`; the backend does not read it today, so turning it off would not skip that step.
 
 Auto-cleanup and auto-archival are opt-in like auto-releasing: never recommend them by default. If the user picks no capability, stop and tell them there is nothing to set up.
 
@@ -249,7 +246,7 @@ If there are no writes, say so, list the follow-ups, and stop.
 
 ```
 - [ ] Map acme/demo to project default, with auto-releasing off for this repository
-- [ ] Turn on auto-flagging for the account, with approval required
+- [ ] Turn on auto-flagging for the account
 ```
 
 **Setup mode:** use `AskUserQuestion` with header "Confirm":
@@ -280,7 +277,7 @@ If a write fails with 403, the member lacks that permission. Report which write 
 
 If any change was left for an admin or failed, lead with "Partly set up: waiting on an admin" and the admin checklist, and never call the setup complete. Then report a short checklist with each item marked verified, reported by the user (browser steps the user did in this flow), or already set up (steps the flow skipped because they were already done), then the follow-ups. Tell the user how to see it work; if a change is waiting on an admin, make that conditional ("Once an admin turns on auto-flagging, open a pull request…"):
 
-- Open a pull request in a mapped repo. Auto-flagging reads it within a few minutes. With approval required, the auto-flagging PR waits for approval.
+- Open a pull request in a mapped repo. Auto-flagging reads it within a few minutes and posts its proposed change on the PR; nothing changes until someone replies `@launchdarkly approve` or presses Approve on the check.
 - If a PR is not classified, use [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md#why-didnt-my-pr-get-classified) to diagnose it.
 
 ## Edge Cases
@@ -298,7 +295,7 @@ More cases: [references/edge-cases.md](references/edge-cases.md).
 ## What NOT to Do
 
 - Don't write before Step 7's "Looks good", or at all in Preview mode.
-- Don't turn on auto-releasing, or turn off approval, unless the user picked it.
+- Don't turn on auto-releasing unless the user picked it, and never send `approvalRequired`.
 - Don't map unpicked repos, iterate over the install list, or remap a repo to another project.
 - Don't act in the user's browser, change release policies, or report a browser step as verified.
 

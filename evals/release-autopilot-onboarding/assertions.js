@@ -311,3 +311,13 @@ module.exports.noUnconfirmedWrites = (output) => {
   if (writes(output).length === 0) return result(true, "no writes");
   return module.exports.confirmsBeforeWriting(output);
 };
+
+// The agent backend ignores approvalRequired; auto-flagging always waits for
+// "@launchdarkly approve". The skill never sends the field.
+module.exports.neverSendsApproval = (output) => {
+  const bad = writes(output).filter((t) => {
+    const a = t.arguments || {};
+    return (a.autoFlagging && "approvalRequired" in a.autoFlagging) || (a.autoReleasing && "approvalRequired" in a.autoReleasing);
+  });
+  return result(bad.length === 0, bad.length ? `sent approvalRequired via ${bad[0].tool}` : "never sent approvalRequired");
+};

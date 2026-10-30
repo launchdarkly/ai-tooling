@@ -115,7 +115,7 @@ If `githubConnectUrl` is present, give the user that link and stop this turn. Do
 
 If an account PATCH is needed, follow [Confirm before write](#confirm-before-write), then `update-release-autopilot-settings` with **only** the confirmed fields:
 
-- `autoFlagging.enabled` / `autoFlagging.approvalRequired` (approval is only valid here)
+- `autoFlagging.enabled` / `autoFlagging.approvalRequired` (approval is only valid here). The agent backend does not read `approvalRequired` today: every auto-flagging proposal waits for `@launchdarkly approve` either way. If a user asks to turn approval off, tell them it currently has no effect before proposing the change.
 - `autoReleasing.enabled`
 
 Do not send `autoCleanup`. Requires permission to update account Release Autopilot settings.
