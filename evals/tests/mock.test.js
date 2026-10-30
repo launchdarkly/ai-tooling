@@ -4,6 +4,9 @@ const assert = require("node:assert/strict");
 const { renderMockResponse, createMockState } = require("../providers/_mock");
 
 const TEMPLATES = require("../mocks/tool-responses.json");
+// These four tools' default templates live with the experiment-setup suite.
+// The sentinel branches in _mock.js still override them.
+const SUITE_TEMPLATES = require("../experiment-setup/mocks.json");
 
 // ---------------------------------------------------------------------------
 // createMockState
@@ -421,4 +424,225 @@ test("update-ai-config uses template substitution", () => {
   }, "update-ai-config", state);
   assert.equal(result.key, "bot");
   assert.equal(result.name, "Bot");
+});
+
+// ---------------------------------------------------------------------------
+// experiment-setup sentinels
+// ---------------------------------------------------------------------------
+
+test("experiment-setup suite files own the four tools the shared catalog no longer has", () => {
+  const sharedDefs = require("../tools/definitions.json").map((def) => def.name);
+  const suiteDefs = require("../experiment-setup/tools.json").map((def) => def.name);
+  const owned = [
+    "get-flag-status-across-envs",
+    "list-metric-events",
+    "search-contexts",
+    "save-and-start-experiment-iteration",
+  ];
+  for (const name of owned) {
+    assert.equal(sharedDefs.includes(name), false);
+    assert.equal(TEMPLATES[name], undefined);
+    assert.equal(suiteDefs.includes(name), true);
+    assert.ok(SUITE_TEMPLATES[name]);
+  }
+});
+
+test("save-and-start returns the suite template when no sentinel matches", () => {
+  const state = createMockState();
+  const result = renderMockResponse(SUITE_TEMPLATES["save-and-start-experiment-iteration"], {
+    projectKey: "my-project",
+    environmentKey: "production",
+    experimentKey: "checkout-running",
+  }, "save-and-start-experiment-iteration", state);
+  assert.equal(result.key, "checkout-running");
+  assert.equal(result.currentIteration.status, "running");
+});
+
+test("get-flag-status-across-envs defaults to active in test and production", () => {
+  const state = createMockState();
+  const result = renderMockResponse(SUITE_TEMPLATES["get-flag-status-across-envs"], {
+    projectKey: "payments",
+    flagKey: "billing-v2",
+  }, "get-flag-status-across-envs", state);
+  assert.deepEqual(
+    result.environments.map((env) => [env.key, env.status]),
+    [["test", "active"], ["production", "active"]],
+  );
+  assert.deepEqual(result.summary.active, ["test", "production"]);
+  assert.deepEqual(result.summary.inactive, []);
+  assert.equal(
+    result.environments.some((env) => /federal/i.test(env.key)),
+    false,
+  );
+});
+
+test("get-flag-status-across-envs reports checkout-inactive as inactive in production", () => {
+  const state = createMockState();
+  const result = renderMockResponse(SUITE_TEMPLATES["get-flag-status-across-envs"], {
+    projectKey: "mixed-contexts",
+    flagKey: "checkout-inactive",
+  }, "get-flag-status-across-envs", state);
+  const production = result.environments.find((env) => env.key === "production");
+  assert.equal(production.status, "inactive");
+  assert.deepEqual(result.summary.inactive, ["production"]);
+});
+
+test("get-flag returns checkout-active on, serving one variation", () => {
+  const state = createMockState();
+  const result = renderMockResponse(TEMPLATES["get-flag"], {
+    projectKey: "only-user",
+    flagKey: "checkout-active",
+    environmentKey: "production",
+  }, "get-flag", state);
+  assert.equal(result.environment.on, true);
+  assert.equal(result.environment.version, 7);
+  assert.equal(result.environment.fallthrough.variation, 0);
+  assert.equal(result.environment.fallthrough.rollout, undefined);
+  assert.equal(result.variations[0].name, "Current checkout");
+});
+
+test("get-flag returns not-found for missing-checkout", () => {
+  const state = createMockState();
+  const result = renderMockResponse(TEMPLATES["get-flag"], {
+    projectKey: "my-project",
+    flagKey: "missing-checkout",
+  }, "get-flag", state);
+  assert.equal(result.status, 404);
+});
+
+test("get-flag returns a stored flag before the missing-checkout not-found branch", () => {
+  const state = createMockState();
+  renderMockResponse(TEMPLATES["create-flag"], {
+    key: "missing-checkout",
+    name: "Missing",
+  }, "create-flag", state);
+  const result = renderMockResponse(TEMPLATES["get-flag"], {
+    flagKey: "missing-checkout",
+  }, "get-flag", state);
+  assert.equal(result.key, "missing-checkout");
+  assert.equal(result.error, undefined);
+});
+
+test("list-flags query missing-checkout returns similar keys only", () => {
+  const state = createMockState();
+  const result = renderMockResponse(TEMPLATES["list-flags"], {
+    projectKey: "my-project",
+    query: "missing-checkout",
+  }, "list-flags", state);
+  const keys = result.flags.map((flag) => flag.key);
+  assert.deepEqual(keys, ["checkout-flow", "new-checkout"]);
+});
+
+test("list-flags query containing checkout returns similar keys and omits missing-checkout", () => {
+  const state = createMockState();
+  const result = renderMockResponse(TEMPLATES["list-flags"], {
+    projectKey: "my-project",
+    query: "Checkout",
+  }, "list-flags", state);
+  const keys = result.flags.map((flag) => flag.key);
+  assert.deepEqual(keys, ["checkout-flow", "new-checkout"]);
+  assert.equal(keys.includes("missing-checkout"), false);
+});
+
+test("list-flags without that query keeps the shared flag list", () => {
+  const state = createMockState();
+  const result = renderMockResponse(TEMPLATES["list-flags"], {
+    projectKey: "web-app",
+    query: "search-v2",
+  }, "list-flags", state);
+  assert.deepEqual(
+    result.flags.map((flag) => flag.key),
+    ["enable-notifications", "search-v2"],
+  );
+});
+
+test("search-contexts suggests user only when no other kind is stored", () => {
+  const state = createMockState();
+  const users = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
+    projectKey: "only-user",
+    environmentKey: "production",
+    kind: "user",
+  }, "search-contexts", state);
+  const others = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
+    projectKey: "only-user",
+    environmentKey: "production",
+    filter: 'kind notEquals "user"',
+  }, "search-contexts", state);
+  assert.equal(users.totalCount, 1);
+  assert.equal(users.items[0].kind, "user");
+  assert.equal(others.totalCount, 0);
+});
+
+test("search-contexts with no kind filter lists every stored kind", () => {
+  const state = createMockState();
+  const onlyUser = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
+    projectKey: "only-user",
+    environmentKey: "production",
+  }, "search-contexts", state);
+  assert.deepEqual(onlyUser.items.map((item) => item.kind), ["user"]);
+  assert.equal(onlyUser.totalCount, 1);
+
+  const mixed = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
+    projectKey: "mixed-contexts",
+    environmentKey: "production",
+  }, "search-contexts", state);
+  assert.deepEqual(
+    mixed.items.map((item) => item.kind).sort(),
+    ["organization", "user"],
+  );
+  assert.equal(mixed.totalCount, 2);
+});
+
+test("search-contexts on mixed-contexts returns another kind", () => {
+  const state = createMockState();
+  const others = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
+    projectKey: "mixed-contexts",
+    environmentKey: "production",
+    filter: 'kind notEquals "user"',
+  }, "search-contexts", state);
+  assert.ok(others.totalCount > 0);
+  assert.equal(others.items[0].kind, "organization");
+});
+
+test("list-metric-events default includes similar keys and omits cta-clicked", () => {
+  const state = createMockState();
+  const result = renderMockResponse(SUITE_TEMPLATES["list-metric-events"], {
+    projectKey: "my-project",
+  }, "list-metric-events", state);
+  const keys = result.events.map((event) => event.key);
+  assert.deepEqual(keys, [
+    "checkout-completed",
+    "page-load-ms",
+    "cta-click",
+    "cta-clicked-v2",
+  ]);
+});
+
+test("list-metric-events query cta-clicked returns similar keys only", () => {
+  const state = createMockState();
+  const result = renderMockResponse(SUITE_TEMPLATES["list-metric-events"], {
+    projectKey: "my-project",
+    environmentKey: "production",
+    query: "cta-clicked",
+  }, "list-metric-events", state);
+  assert.deepEqual(
+    result.events.map((event) => event.key),
+    ["cta-click", "cta-clicked-v2"],
+  );
+});
+
+test("get-experiment returns a running iteration for checkout-running", () => {
+  const state = createMockState();
+  const running = renderMockResponse(TEMPLATES["get-experiment"], {
+    projectKey: "my-project",
+    environmentKey: "production",
+    experimentKey: "checkout-running",
+  }, "get-experiment", state);
+  const draft = renderMockResponse(TEMPLATES["get-experiment"], {
+    projectKey: "my-project",
+    environmentKey: "production",
+    experimentKey: "checkout-draft",
+  }, "get-experiment", state);
+  assert.equal(running.currentIteration.status, "running");
+  assert.equal(draft.currentIteration.status, "not_started");
 });
