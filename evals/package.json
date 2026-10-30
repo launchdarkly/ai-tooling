@@ -29,6 +29,8 @@
     "eval:experiment-guide:single": "promptfoo eval -c shared/defaults.yaml -c experiment-guide/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:experiment-setup": "promptfoo eval -c shared/defaults.yaml -c experiment-setup/promptfooconfig.yaml --env-file .env --no-cache -o experiment-setup/results.json",
     "eval:experiment-setup:single": "promptfoo eval -c shared/defaults.yaml -c experiment-setup/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
+    "eval:experiment-orchestration": "promptfoo eval -c shared/defaults.yaml -c experiment-orchestration/promptfooconfig.yaml --env-file .env --no-cache -o experiment-orchestration/results.json",
+    "eval:experiment-orchestration:single": "promptfoo eval -c shared/defaults.yaml -c experiment-orchestration/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "fixture:from-pr": "node scripts/build-pr-fixture.js",
     "eval:all": "node scripts/aggregate.js --run",
     "eval:aggregate": "node scripts/aggregate.js",

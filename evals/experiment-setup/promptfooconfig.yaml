@@ -23,11 +23,11 @@ providers:
       # No case scripts an answer. An unscripted ask-question call returns the
       # first option, which can approve a create, so leave the tool off.
       expose_ask_question: false
-      # Send /<slug> and user_request as one turn. initialPrompt would
-      # deliver the request as a second turn and abort in-flight tool calls.
-      # The skills list only supplies the name and description.
+      # Paste SKILL.md into the agent instructions. A slash-command first turn
+      # arrives before the request and aborts in-flight tool calls, and the
+      # skills list only supplies the name and description.
       force_skill_invocation: false
-      inline_skill_invocation: true
+      inline_skill: true
 
 tests:
   # ------------------------------------------------------------------
