@@ -218,7 +218,7 @@ To create a plan, follow [references/release-plans.md](references/release-plans.
 Only if the user picked auto-cleanup.
 
 
-Auto-cleanup is the per-project **Automated flag cleanup** setting, on the Lifecycle settings page (or the Vega settings page, for accounts where Vega has its own project settings). The MCP settings tools do not manage it yet, so never send `autoCleanup`; this is a browser step. If a later version of `get-release-autopilot-settings` returns `autoCleanup` and the update tool accepts it, set it there instead. For each project from Step 4, follow [references/auto-cleanup.md](references/auto-cleanup.md), then ask header "Auto-cleanup", with the link in the question text:
+Auto-cleanup is the per-project **Automated flag cleanup** setting, on the Lifecycle settings page (or the Vega settings page, for accounts where Vega has its own project settings). The MCP settings tools do not manage it yet, so never send `autoCleanup`; this is a browser step. If a later version of `get-release-autopilot-settings` returns `autoCleanup` and the update tool accepts it, set it there instead. For each project from Step 4, the link is exactly `/projects/{projectKey}/settings/lifecycle` on their LaunchDarkly instance (or `/projects/{projectKey}/settings/vega` if that page has no "Automated flag cleanup" section). Follow [references/auto-cleanup.md](references/auto-cleanup.md), then ask header "Auto-cleanup", with the link in the question text:
 
 - label: "Done", description: "I turned on automated flag cleanup for every project"
 - label: "Later", description: "Skip this. I'll turn it on from Lifecycle settings later"
@@ -230,7 +230,7 @@ Record the answer as reported by the user, and list "Done" under browser steps i
 Only if the user picked auto-archival.
 
 
-Auto-archival is the per-project **Automatic archival** setting on the Lifecycle settings page. No MCP tool manages it, so this is a browser step. For each project from Step 4, follow [references/auto-archival.md](references/auto-archival.md), then ask header "Auto-archival", with the link in the question text:
+Auto-archival is the per-project **Automatic archival** setting on the Lifecycle settings page. No MCP tool manages it, so this is a browser step. For each project from Step 4, the link is exactly `/projects/{projectKey}/settings/lifecycle` on their LaunchDarkly instance. Follow [references/auto-archival.md](references/auto-archival.md), then ask header "Auto-archival", with the link in the question text:
 
 - label: "Done", description: "I turned on automatic archival for every project"
 - label: "Later", description: "Skip this, or the section isn't there yet. I'll turn it on from Lifecycle settings later"

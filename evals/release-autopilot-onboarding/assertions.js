@@ -220,7 +220,7 @@ module.exports.githubQuestionHasLink = (output) => {
 };
 
 module.exports.cleanupQuestionHasLifecycleLink = (output) => {
-  const pass = askPrompts(output).some((p) => p.includes("/settings/lifecycle"));
+  const pass = askPrompts(output).some((p) => /\/projects\/[^/\s]+\/settings\/lifecycle/.test(p));
   return result(pass, pass ? "auto-cleanup question contains the lifecycle settings link" : "no question contains /settings/lifecycle");
 };
 
@@ -273,7 +273,7 @@ module.exports.saysAutoFlaggingOff = (output) => {
 };
 
 module.exports.archivalQuestionHasLifecycleLink = (output) => {
-  const pass = askPrompts(output).some((p) => p.includes("/settings/lifecycle") && /archiv/i.test(p));
+  const pass = askPrompts(output).some((p) => /\/projects\/[^/\s]+\/settings\/lifecycle/.test(p) && /archiv/i.test(p));
   return result(pass, pass ? "auto-archival question contains the lifecycle settings link" : "no archival question contains /settings/lifecycle");
 };
 
