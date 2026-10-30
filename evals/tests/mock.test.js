@@ -4,6 +4,9 @@ const assert = require("node:assert/strict");
 const { renderMockResponse, createMockState } = require("../providers/_mock");
 
 const TEMPLATES = require("../mocks/tool-responses.json");
+// These four tools' default templates live with the experiment-setup suite.
+// The sentinel branches in _mock.js still override them.
+const SUITE_TEMPLATES = require("../experiment-setup/mocks.json");
 
 // ---------------------------------------------------------------------------
 // createMockState
@@ -427,9 +430,37 @@ test("update-ai-config uses template substitution", () => {
 // experiment-setup sentinels
 // ---------------------------------------------------------------------------
 
+test("experiment-setup suite files own the four tools the shared catalog no longer has", () => {
+  const sharedDefs = require("../tools/definitions.json").map((def) => def.name);
+  const suiteDefs = require("../experiment-setup/tools.json").map((def) => def.name);
+  const owned = [
+    "get-flag-status-across-envs",
+    "list-metric-events",
+    "search-contexts",
+    "save-and-start-experiment-iteration",
+  ];
+  for (const name of owned) {
+    assert.equal(sharedDefs.includes(name), false);
+    assert.equal(TEMPLATES[name], undefined);
+    assert.equal(suiteDefs.includes(name), true);
+    assert.ok(SUITE_TEMPLATES[name]);
+  }
+});
+
+test("save-and-start returns the suite template when no sentinel matches", () => {
+  const state = createMockState();
+  const result = renderMockResponse(SUITE_TEMPLATES["save-and-start-experiment-iteration"], {
+    projectKey: "my-project",
+    environmentKey: "production",
+    experimentKey: "checkout-running",
+  }, "save-and-start-experiment-iteration", state);
+  assert.equal(result.key, "checkout-running");
+  assert.equal(result.currentIteration.status, "running");
+});
+
 test("get-flag-status-across-envs defaults to active in test and production", () => {
   const state = createMockState();
-  const result = renderMockResponse(TEMPLATES["get-flag-status-across-envs"], {
+  const result = renderMockResponse(SUITE_TEMPLATES["get-flag-status-across-envs"], {
     projectKey: "payments",
     flagKey: "billing-v2",
   }, "get-flag-status-across-envs", state);
@@ -447,7 +478,7 @@ test("get-flag-status-across-envs defaults to active in test and production", ()
 
 test("get-flag-status-across-envs reports checkout-inactive as inactive in production", () => {
   const state = createMockState();
-  const result = renderMockResponse(TEMPLATES["get-flag-status-across-envs"], {
+  const result = renderMockResponse(SUITE_TEMPLATES["get-flag-status-across-envs"], {
     projectKey: "mixed-contexts",
     flagKey: "checkout-inactive",
   }, "get-flag-status-across-envs", state);
@@ -527,12 +558,12 @@ test("list-flags without that query keeps the shared flag list", () => {
 
 test("search-contexts suggests user only when no other kind is stored", () => {
   const state = createMockState();
-  const users = renderMockResponse(TEMPLATES["search-contexts"], {
+  const users = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
     projectKey: "only-user",
     environmentKey: "production",
     kind: "user",
   }, "search-contexts", state);
-  const others = renderMockResponse(TEMPLATES["search-contexts"], {
+  const others = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
     projectKey: "only-user",
     environmentKey: "production",
     filter: 'kind notEquals "user"',
@@ -544,14 +575,14 @@ test("search-contexts suggests user only when no other kind is stored", () => {
 
 test("search-contexts with no kind filter lists every stored kind", () => {
   const state = createMockState();
-  const onlyUser = renderMockResponse(TEMPLATES["search-contexts"], {
+  const onlyUser = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
     projectKey: "only-user",
     environmentKey: "production",
   }, "search-contexts", state);
   assert.deepEqual(onlyUser.items.map((item) => item.kind), ["user"]);
   assert.equal(onlyUser.totalCount, 1);
 
-  const mixed = renderMockResponse(TEMPLATES["search-contexts"], {
+  const mixed = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
     projectKey: "mixed-contexts",
     environmentKey: "production",
   }, "search-contexts", state);
@@ -564,7 +595,7 @@ test("search-contexts with no kind filter lists every stored kind", () => {
 
 test("search-contexts on mixed-contexts returns another kind", () => {
   const state = createMockState();
-  const others = renderMockResponse(TEMPLATES["search-contexts"], {
+  const others = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
     projectKey: "mixed-contexts",
     environmentKey: "production",
     filter: 'kind notEquals "user"',
@@ -575,7 +606,7 @@ test("search-contexts on mixed-contexts returns another kind", () => {
 
 test("list-metric-events default includes similar keys and omits cta-clicked", () => {
   const state = createMockState();
-  const result = renderMockResponse(TEMPLATES["list-metric-events"], {
+  const result = renderMockResponse(SUITE_TEMPLATES["list-metric-events"], {
     projectKey: "my-project",
   }, "list-metric-events", state);
   const keys = result.events.map((event) => event.key);
@@ -589,7 +620,7 @@ test("list-metric-events default includes similar keys and omits cta-clicked", (
 
 test("list-metric-events query cta-clicked returns similar keys only", () => {
   const state = createMockState();
-  const result = renderMockResponse(TEMPLATES["list-metric-events"], {
+  const result = renderMockResponse(SUITE_TEMPLATES["list-metric-events"], {
     projectKey: "my-project",
     environmentKey: "production",
     query: "cta-clicked",
