@@ -77,13 +77,13 @@ Prompts often live outside `.py` / `.ts` source. **Open every plausible config f
 | **Pydantic / Settings** | classes with `prompt_*` fields backed by env vars or YAML overlays (Hydra / OmegaConf / Dynaconf) |
 | **Helm / k8s ConfigMap** | prompts stored as values overrides — search `values*.yaml` and `templates/*configmap*.yaml` |
 
-**For each hit, record**: file path, line range, the key holding the prompt, the loader call site that reads it, and any template placeholder syntax (Mustache vs Jinja vs Python `.format()`). The placeholder rewrite in Stage 2 sub-step 5 needs to know the source syntax to convert it to Mustache.
+**For each hit, record**: file path, line range, the key holding the prompt, the loader call site that reads it, and any template placeholder syntax (Mustache vs Jinja vs Python `.format()`). The placeholder rewrite in Stage 2 sub-step 5 needs to know the source syntax to convert it to `{{name}}`.
 
-If a fallback file is already in use (see [fallback-defaults-pattern.md](fallback-defaults-pattern.md) — JSON/YAML loaded at startup), distinguish it from prompts that flow into the provider call. The fallback path is intentional infrastructure; only the latter migrates into the config.
+If the app already loads a fallback config file at startup, distinguish it from prompts that flow into the provider call. Only the latter migrates into the config; the fallback stays as the code path that runs when `invoke()` raises (see [fallback-defaults-pattern.md](fallback-defaults-pattern.md)).
 
 ### 5. Template placeholders in prompts
 
-Anything the app currently interpolates into a prompt at runtime must be rewritten to Mustache `{{ variable }}` syntax in Stage 2 so the fallback path renders identically to the LD-served path. Grep for:
+Anything the app currently interpolates into a prompt at runtime must be rewritten to `{{variable}}` syntax, with no spaces inside the braces, in Stage 2. The SDK fills only `{{name}}` and `{{dotted.name}}`; `{{ name }}` reaches the model as literal text. Grep for:
 
 | Shape | Example | Grep |
 |-------|---------|------|
@@ -92,8 +92,10 @@ Anything the app currently interpolates into a prompt at runtime must be rewritt
 | Python printf-style | `"%(topic)s"` / `"%s"` with `%` substitution | `%(` in prompt strings |
 | JS/TS template literals in prompt strings | `` `You are... ${var}.` `` | backtick-wrapped prompt constants |
 | Hand-rolled `str.replace` | `PROMPT.replace("__VAR__", value)` | `\.replace(` on prompt strings |
+| Mustache or Jinja with spaces | `{{ user_name }}` | `\{\{ ` and ` \}\}` |
+| Legacy context variable | `{{ldctx.name}}` | `ldctx` |
 
-Record placeholder name + where the runtime value comes from (env var, function arg, `datetime.now()`, etc.). These get routed through `variables={...}` on `completion_config` / `agent_config` calls in Stage 2, and the literal prompt string gets rewritten to `{{ placeholder }}`. Leaving a non-Mustache placeholder in the fallback is a silent regression mode: LaunchDarkly-served prompts interpolate correctly, the fallback ships unrendered.
+Record placeholder name + where the runtime value comes from (env var, function arg, `datetime.now()`, etc.). In Stage 2 these values are passed as the third argument to `invoke()`, and the prompt in the config is written as `{{placeholder}}`. Context attributes are available as `{{ldContext.attr}}`; the legacy name `ldctx` is not filled. A placeholder that isn't rewritten is a silent failure: the model receives the literal braces.
 
 ### 6. Hardcoded app-scoped knobs
 
@@ -103,15 +105,16 @@ Configuration that governs *tool* or *app* behavior rather than *model* behavior
 - Environment variables read inside tool implementations
 - Constants declared in `tools.py` or a config module that a tool reads at call time
 
-If a value changes agent behavior between variations — it belongs in the config. Stage 2 sub-step 5 (fallback) puts these in `ModelConfig(custom={...})`, **not** `parameters` (which is forwarded to the provider SDK and will crash on unknown kwargs). Tools read them via `ai_config.model.get_custom("key")`.
+If a value changes agent behavior between variations, it belongs in the config's `model.custom`, **not** `model.parameters`. Handler packages forward parameters to the provider SDK, which rejects unknown keys. A custom handler reads knobs from `ld_config["model"].get("custom", {})`; code outside a handler reads them from `(await inspect_config(key, context))["config"]["model"]["custom"]`. Keep the current values as defaults in code so the fallback path behaves the same.
 
 ### 7. Existing LaunchDarkly SDK usage
 
-If `LDClient` / `ldclient` is already initialized in the codebase, **reuse it** — do not create a second base client in Stage 2. Grep for:
+If `LDClient` / `ldclient` is already initialized in the codebase, **reuse it**: pass it to `init_client(client=ldclient.get())` in Python or `initClient(ldClient)` in Node.js rather than creating a second client. Grep for:
 
 - Python: `import ldclient`, `ldclient.set_config`, `ldclient.get()`
 - TypeScript/JS: `@launchdarkly/node-server-sdk`, `init(LD_SDK_KEY)`, `@launchdarkly/react-client-sdk`
-- Environment variables: `LD_SDK_KEY`, `LAUNCHDARKLY_SDK_KEY`, `LAUNCHDARKLY_API_KEY`
+- Environment variables: `LD_SDK_KEY`, `LAUNCHDARKLY_SDK_KEY`, `LAUNCHDARKLY_API_KEY`. The AI SDK reads `LD_SDK_KEY`; flag any other name for renaming or explicit passing.
+- Legacy AI SDK: `from ldai`, `LDAIClient`, `@launchdarkly/server-sdk-ai`, `completion_config`, `completionConfig`, `agent_config`, `create_tracker`, `createTracker`, `track_metrics_of`, `trackMetricsOf`. Every hit is a Stage 1 target.
 
 ### 8. Mode decision: completion or agent
 
@@ -125,7 +128,7 @@ Walk the decision tree once per call site, using the call shape as the primary s
 | CrewAI `Agent(role=..., goal=..., backstory=...)` | **agent** |
 | Custom react loop: LLM-call → tool-call → LLM-call | **agent** |
 
-**Default to completion mode** when unclear — it is more flexible and is the only mode that supports judges attached via the LaunchDarkly UI (Stage 5).
+**Default to completion mode** when unclear. A completion-mode handler still runs tool loops when tools are attached, and judges can be attached to configs in either mode (Stage 5).
 
 ### 9. Monorepo / multi-service scope
 
@@ -133,25 +136,25 @@ If the repo contains multiple services, **ask the user which service to instrume
 
 ## SDK routing table
 
-Feeds into Stage 2 (install + wrap). Quoted from the `ai-configs-relaunch-guides/AGENT-SETUP-PROMPT.md` SDK routing table.
+Feeds into Stage 2 (install + wrap). The current AI SDKs exist for Python and Node.js.
 
-| Language | Base SDK | AI SDK | Docs |
-|----------|----------|--------|------|
-| Node.js / TypeScript | `@launchdarkly/node-server-sdk` | `@launchdarkly/server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/node-js |
-| Python | `launchdarkly-server-sdk` | `launchdarkly-server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/python |
-| Go | `github.com/launchdarkly/go-server-sdk/v7` | `github.com/launchdarkly/go-server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/go |
-| Ruby | `launchdarkly-server-sdk` | `launchdarkly-server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/ruby |
-| .NET | `LaunchDarkly.ServerSdk` | `LaunchDarkly.ServerSdk.Ai` | https://docs.launchdarkly.com/sdk/ai/dotnet |
+| Language | Core package | Docs |
+|----------|--------------|------|
+| Python | `launchdarkly-ai-server` (bundles `launchdarkly-server-sdk`) | https://launchdarkly.com/docs/sdk/ai/python |
+| Node.js / TypeScript | `@launchdarkly/ai-node` (bundles `@launchdarkly/node-server-sdk`) | https://launchdarkly.com/docs/sdk/ai/node-js |
+| Go, Ruby, .NET | Legacy AI SDKs only; out of scope for this skill | https://launchdarkly.com/docs/sdk/ai |
 
-**Node.js provider-specific helper packages** (optional, for auto-tracking in Stage 4):
+**Handler packages.** Pick one per provider and mode found in §2 and §8. Python names start with `launchdarkly-ai-`; Node.js names start with `@launchdarkly/ai-`.
 
-| Provider | Package | Helper |
-|----------|---------|--------|
-| OpenAI | `@launchdarkly/server-sdk-ai-openai` | `getAIMetricsFromResponse` + `trackMetricsOf` |
-| LangChain / LangGraph | `@launchdarkly/server-sdk-ai-langchain` | `createLangChainModel(config)` (forwards all variation parameters and handles provider-name mapping) + `getAIMetricsFromResponse` with `trackMetricsOf` |
-| Vercel AI SDK | `@launchdarkly/server-sdk-ai-vercel` | `getAIMetricsFromResponse` + `trackMetricsOf`, or `VercelRunnerFactory.createVercelModel(aiConfig)` for a managed runner |
+| Provider in the app | Completion mode | Agent mode |
+|---|---|---|
+| OpenAI | `openai-messages` | `openai-agents` |
+| Anthropic | `claude-messages` | `claude-agents` |
+| LangChain / LangGraph, any model | `langchain-messages` | `langchain-agents` |
+| Bedrock, Gemini, Vertex | `langchain-messages` with a model factory, or a custom handler | `langchain-agents`, or a custom agent handler |
+| Azure OpenAI, LiteLLM, custom HTTP, other frameworks | Custom handler with `create_handler` / `createHandler` | Custom agent handler |
 
-Python currently ships helper packages for OpenAI (`ldai_openai`) and LangChain (`ldai_langchain`). The LangChain Python package exposes `create_langchain_model(config)` (builds a LangChain chat model from the config, forwarding every variation parameter and mapping LD provider names to LangChain equivalents), `convert_messages_to_langchain`, and `get_ai_metrics_from_response` — the same package covers LangGraph. Use `create_langchain_model(config)` + `track_metrics_of_async(get_ai_metrics_from_response, lambda: llm.ainvoke(messages))` as the canonical single-call pattern. See [langchain-tracking.md](../../built-in-metrics/references/langchain-tracking.md) for both LangChain and LangGraph patterns and [sdk-ai-tracker-patterns.md](sdk-ai-tracker-patterns.md) for the full tracker-method matrix.
+No handler factory accepts a pre-built provider client, so any app that configures its client specially (Azure endpoints, proxies, custom base URLs) needs a custom handler that reuses that client. See [sdk-ai-tracker-patterns.md](sdk-ai-tracker-patterns.md) for what the SDK records and the `built-in-metrics` skill's per-provider references for handler code.
 
 ## Phase 1 output format
 
@@ -181,10 +184,10 @@ Scope:                       <single service / monorepo: picked "service-x">
 Coverage totals:             N hardcoded code targets · M externalized prompt files · K registry pulls
 
 Proposed plan:
-  Stage 1 (Audit):    Read-only manifest of hardcoded targets; flag placeholders for Mustache rewrite and knobs for model.custom
-  Stage 2 (Wrap):     Install SDK, create config 'chat-assistant', inline fallback mirrors current values (Mustache syntax), rewrite the call site
-  Stage 3 (Tools):    Skipped (no function calling) / Attach 2 tools via tools
-  Stage 4 (Tracking): Inline tracker wiring (track_duration + track_tokens + track_success/error) — run-scoped tracker for agent loops
+  Stage 1 (Audit):    Read-only manifest of hardcoded targets; flag placeholders for {{name}} rewrite and knobs for model.custom
+  Stage 2 (Wrap):     Install SDK + OpenAI handler package, create config 'chat-assistant', route the call through invoke(), keep the original call as fallback
+  Stage 3 (Tools):    Skipped (no function calling) / Attach 2 tools via tools, pass tool_handlers
+  Stage 4 (Metrics):  Confirm automatic metrics on the Monitoring tab; add thumbs-up/down feedback events
   Stage 5 (Evals):    Attach built-in 'accuracy' judge at 0.25 sampling via online-evals
 ```
 
