@@ -500,12 +500,29 @@
       ]
     },
     {
+      "name": "should-i-auto-approve",
+      "description": "Rates a committed code change's review risk as low, medium or high by a fixed decision graph (low can be approved without a human; medium and high need one), from checked answers to narrow questions about the change. Use only when your instructions or the user name should-i-auto-approve. Advisory and read-only: it never approves, comments on, or changes a pull request.",
+      "path": "skills/feature-flags/should-i-auto-approve",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-i-auto-approve` JSON block.",
+      "tags": [
+        "launchdarkly",
+        "code-review",
+        "pull-request",
+        "ci",
+        "advisory",
+        "risk-assessment",
+        "auto-approval"
+      ]
+    },
+    {
       "name": "should-i-flag",
-      "description": "should-flag-change v2 (preview): a decision-tree version that decides whether a committed code change should ship behind a LaunchDarkly feature flag, with checked evidence and a structured advisory recommendation. Use only when your instructions or the user name should-i-flag; the default for this task is should-flag-change (v1). Read-only: it never creates or modifies flags.",
+      "description": "should-flag-change v2 (preview): a decision-tree version that decides whether a committed code change should ship behind a LaunchDarkly feature flag, with checked evidence and a structured advisory recommendation. Use only when your instructions or the user name should-i-flag; the default for this task is should-flag-change (v1). When they do, run it on every change, including test-only, docs, dependency and already-flagged ones: those finish in a minute or two, and its verdict, not your own read of the diff, is the decision. Read-only: it never creates or modifies flags.",
       "path": "skills/feature-flags/should-i-flag",
       "version": "0.1.0",
       "license": "Apache-2.0",
-      "compatibility": "Advisory and read-only. Needs a git checkout with the change committed, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run, it hands off to the should-flag-change skill. Returns a structured verdict as a `recommend-flag` block.",
+      "compatibility": "Advisory and read-only. Needs a git checkout with the change committed (shallow is fine; a --filter partial clone is filled in from its remote), a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run, it hands off to the should-flag-change skill. Returns a structured verdict as a `recommend-flag` block.",
       "tags": [
         "launchdarkly",
         "feature-flags",
