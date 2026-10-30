@@ -131,7 +131,7 @@ Only if the user picked auto-flagging, auto-releasing, or auto-cleanup. Auto-arc
 
 Skip this step without mentioning GitHub if Step 1 returned `installed: true`, `userAuthorized: true`, and no `githubConnectUrl`.
 
-**Preview mode:** do not ask the user to install or authorize. List "Connect GitHub" in the Step 7 checklist with the link. Repo mapping cannot be planned until GitHub is connected, so skip Step 4 and any release setup that depends on it; list "After GitHub is connected: map the repos" in the checklist, and continue with the steps that do not need GitHub.
+**Preview mode:** do not ask the user to install or authorize. List "Connect GitHub" in the Step 7 checklist with the link. Repo mapping cannot be planned until GitHub is connected, so skip Step 4 and any release setup that depends on it; list "After GitHub is connected: map the repos" in the checklist. If the user picked auto-releasing, also list "After mapping: choose environments and check the release policies (or release plans) for project {projectKey}", because auto-releasing needs that before it can work. Continue with the steps that do not need GitHub.
 
 Otherwise read the URL's `flow`:
 

@@ -21,6 +21,20 @@ function isConfirmQuestion(step) {
   return labels.some((l) => l.includes("looks good"));
 }
 
+// Index of the last confirm question before `limit` whose answer was "Looks good",
+// or -1. Showing the confirm question is not approval; only that answer is.
+function approvedConfirmBefore(steps, limit) {
+  for (let i = limit - 1; i >= 0; i--) {
+    const step = steps[i];
+    if (!isConfirmQuestion(step)) continue;
+    const ok = ((step.arguments && step.arguments.options) || [])
+      .filter((o) => String(o.label || "").toLowerCase().includes("looks good"))
+      .map((o) => o.id);
+    if ((step.selected || []).some((id) => ok.includes(id))) return i;
+  }
+  return -1;
+}
+
 module.exports.noWrites = (output) => {
   const w = writes(output);
   return result(w.length === 0, w.length ? `wrote: ${w.map((t) => t.tool).join(", ")}` : "no writes");
@@ -356,13 +370,25 @@ module.exports.pausesBeforeMapping = (output) => {
   return result(pass, `repo questions: ${repoQ.length}; resume phrase in final message: ${resume}`);
 };
 
-// Policy mode: exactly one release-plans lookup (the 403 is account-wide) and
-// at least one release-policies lookup.
-module.exports.policyLookupPath = (output) => {
-  const plans = traj(output).filter((t) => t.tool === "list-release-plans").length;
-  const policies = traj(output).filter((t) => t.tool === "list-release-policies").length;
-  return result(plans === 1 && policies >= 1, `release-plans lookups: ${plans}, release-policies lookups: ${policies}`);
+// Release setup lookups for one project, valid for both modes. Every
+// release-plans call names the project and one of its environments. If the
+// first call is the account-wide 403, there is exactly one plans call and a
+// release-policies lookup for the project (release policies, today). If it
+// succeeds, no policy lookup is required (environment release plans, at GA).
+const releaseSetupLookups = (projectKey, envs) => (output) => {
+  const steps = traj(output);
+  const plans = steps.filter((t) => t.tool === "list-release-plans");
+  if (!plans.length) return result(false, "never checked release plans");
+  const badPlan = plans.find((t) => (t.arguments || {}).projectKey !== projectKey || !envs.includes((t.arguments || {}).environmentKey));
+  if (badPlan) return result(false, `release-plans lookup with ${JSON.stringify(badPlan.arguments)}`);
+  const forbidden = /403|not allow/i.test(String(plans[0].mock_response_preview || ""));
+  if (!forbidden) return result(true, `release plans available; ${plans.length} lookup(s) for ${projectKey}`);
+  const policies = steps.filter((t) => t.tool === "list-release-policies");
+  const okPolicies = policies.filter((t) => (t.arguments || {}).projectKey === projectKey);
+  const pass = plans.length === 1 && okPolicies.length >= 1 && okPolicies.length === policies.length;
+  return result(pass, `release-plans lookups: ${plans.length}; release-policies lookups for ${projectKey}: ${okPolicies.length} of ${policies.length}`);
 };
+module.exports.releaseSetupLookupsDefault = releaseSetupLookups("default", ["test", "production"]);
 
 // A browser step question: a "Done" option and a settings topic (by link or by
 // words), so a pre-confirm question without the right link is still caught.
@@ -377,9 +403,8 @@ module.exports.browserStepsAfterConfirm = (output) => {
   const steps = traj(output);
   const browser = steps.findIndex(isBrowserStepQuestion);
   if (browser === -1) return result(false, "no browser step question");
-  const confirm = steps.findIndex(isConfirmQuestion);
-  const pass = confirm !== -1 && confirm < browser;
-  return result(pass, `confirm at ${confirm}, first browser step at ${browser}`);
+  const approved = approvedConfirmBefore(steps, browser);
+  return result(approved !== -1, approved !== -1 ? `approved at ${approved}, first browser step at ${browser}` : `browser step at ${browser} without a "Looks good" answer before it`);
 };
 
 // Preview never asks the user to change something in the browser, and lists it.
@@ -412,4 +437,13 @@ module.exports.storefrontAutoFlaggingOn = (output) => {
 module.exports.byokQuestionHasVegaLink = (output) => {
   const pass = askPrompts(output).some((p) => /\/projects\/[^/\s]+\/settings\/vega/.test(p));
   return result(pass, pass ? "bring-your-own-key question contains the Vega settings link" : "no question contains /projects/{key}/settings/vega");
+};
+
+// Preview with GitHub disconnected and auto-releasing picked lists the
+// deferred release setup, not only repo mapping.
+module.exports.previewListsDeferredReleaseSetup = (output) => {
+  const text = finalText(output).toLowerCase();
+  const mapping = /map/.test(text) && /github/.test(text);
+  const release = /environment/.test(text) && /release (polic|plan)/.test(text);
+  return result(mapping && release, `lists mapping after GitHub: ${mapping}; lists environments and release policies/plans: ${release}`);
 };

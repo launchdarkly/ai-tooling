@@ -150,8 +150,8 @@ tests:
         metric: no_unpicked_archival
         weight: 3
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:policyLookupPath
-        metric: plans_403_account_wide
+        value: file://../release-autopilot-onboarding/assertions.js:releaseSetupLookupsDefault
+        metric: release_setup_lookups
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:skippedGithubNotReported
@@ -435,6 +435,10 @@ tests:
         - ["Leave rules"]
         - ["Looks good"]
     assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:releaseSetupLookupsDefault
+        metric: release_setup_lookups
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noCleanupQuestion
         metric: no_unpicked_cleanup
@@ -979,3 +983,39 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
         metric: repo_override_unpicked
         weight: 2
+
+  # ------------------------------------------------------------------
+  # Preview, GitHub disconnected, auto-releasing picked: the checklist
+  # lists GitHub, the later repo mapping, and the later release setup
+  # (environments and release policies or plans). No writes.
+  # ------------------------------------------------------------------
+  - providers: ["mcp-auto"]
+    description: "Preview, GitHub disconnected, auto-releasing: lists deferred mapping and release setup"
+    vars:
+      user_request: "Do a dry run: preview what you'd change to set up Release Autopilot auto-flagging and auto-releasing for project default. Don't change anything."
+      max_turns: 18
+      mock_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: true }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        list-release-autopilot-github-repos:
+          installed: false
+          userAuthorized: false
+          repositories: []
+          totalCount: 0
+          githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=install"
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:previewListsDeferredReleaseSetup
+        metric: deferred_release_setup
+        weight: 4
