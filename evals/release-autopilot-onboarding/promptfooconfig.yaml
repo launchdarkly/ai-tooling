@@ -944,3 +944,38 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+
+  # ------------------------------------------------------------------
+  # Bring your own key is a browser change: it comes after "Looks good",
+  # with the project's Vega settings link in the question.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Bring your own key: Vega settings step comes after confirm"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default, using our own Anthropic key."
+      max_turns: 22
+      mock_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: true }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-flagging"]
+        - ["Bring your own key"]
+        - ["Looks good"]
+        - ["Done"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:browserStepsAfterConfirm
+        metric: browser_after_confirm
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:byokQuestionHasVegaLink
+        metric: vega_link_in_question
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
+        metric: repo_override_unpicked
+        weight: 2

@@ -364,8 +364,13 @@ module.exports.policyLookupPath = (output) => {
   return result(plans === 1 && policies >= 1, `release-plans lookups: ${plans}, release-policies lookups: ${policies}`);
 };
 
+// A browser step question: a "Done" option and a settings topic (by link or by
+// words), so a pre-confirm question without the right link is still caught.
+const BROWSER_TOPIC = /settings\/(lifecycle|vega)|lifecycle settings|vega settings|own key|api key|flag cleanup|automatic archival|auto-archival|auto-cleanup/i;
 const isBrowserStepQuestion = (t) => t.tool === "ask-question" &&
-  /\/projects\/[^/\s]+\/settings\/(lifecycle|vega)/.test(String((t.arguments && t.arguments.prompt) || ""));
+  ((t.arguments && t.arguments.options) || []).some((o) => /^done\b/i.test(String(o.label || ""))) &&
+  BROWSER_TOPIC.test(String((t.arguments && t.arguments.prompt) || "")) &&
+  !/github/i.test(String((t.arguments && t.arguments.prompt) || ""));
 
 // Browser steps that change settings come only after "Looks good".
 module.exports.browserStepsAfterConfirm = (output) => {
@@ -388,12 +393,23 @@ module.exports.previewListsBrowserSteps = (output) => {
 module.exports.noGithubOrMapping = (output) => {
   const steps = traj(output);
   const repoWrites = steps.filter((t) => /^(update|delete)-release-autopilot-repo-settings$/.test(t.tool)).length;
-  const ghQ = steps.filter((t) => t.tool === "ask-question" && /github|repo/i.test(String((t.arguments && t.arguments.prompt) || ""))).length;
-  return result(repoWrites === 0 && ghQ === 0, `repo writes: ${repoWrites}; GitHub or repo questions: ${ghQ}`);
+  const ghQ = steps.filter((t) => t.tool === "ask-question" && (
+    /github/i.test(String((t.arguments && t.arguments.prompt) || "")) ||
+    ((t.arguments && t.arguments.options) || []).some((o) => /^[\w.-]+\/[\w.-]+$/.test(String(o.label || "")))
+  )).length;
+  return result(repoWrites === 0 && ghQ === 0, `repo writes: ${repoWrites}; GitHub or repo-picker questions: ${ghQ}`);
 };
 
 module.exports.storefrontAutoFlaggingOn = (output) => {
-  const maps = traj(output).filter((t) => t.tool === "update-release-autopilot-repo-settings" && (t.arguments || {}).repo === "acme/storefront");
-  const on = maps.some((m) => m.arguments.autoFlagging && m.arguments.autoFlagging.enabled === true);
-  return result(on, on ? "turned auto-flagging on for acme/storefront" : "did not clear the repo's auto-flagging override");
+  const steps = traj(output);
+  const w = steps.findIndex((t) => t.tool === "update-release-autopilot-repo-settings" && (t.arguments || {}).repo === "acme/storefront" &&
+    t.arguments.autoFlagging && t.arguments.autoFlagging.enabled === true);
+  if (w === -1) return result(false, "did not clear the repo's auto-flagging override");
+  const verified = steps.slice(w + 1).some((t) => t.tool === "get-release-autopilot-repo-settings" && (t.arguments || {}).repo === "acme/storefront");
+  return result(verified, verified ? "turned auto-flagging on for acme/storefront and read it back" : "turned it on but never verified the repo's effective value");
+};
+
+module.exports.byokQuestionHasVegaLink = (output) => {
+  const pass = askPrompts(output).some((p) => /\/projects\/[^/\s]+\/settings\/vega/.test(p));
+  return result(pass, pass ? "bring-your-own-key question contains the Vega settings link" : "no question contains /projects/{key}/settings/vega");
 };

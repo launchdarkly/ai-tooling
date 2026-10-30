@@ -131,7 +131,7 @@ Only if the user picked auto-flagging, auto-releasing, or auto-cleanup. Auto-arc
 
 Skip this step without mentioning GitHub if Step 1 returned `installed: true`, `userAuthorized: true`, and no `githubConnectUrl`.
 
-**Preview mode:** do not ask the user to install or authorize. List "Connect GitHub" in the Step 7 checklist with the link, and continue with what the reads show.
+**Preview mode:** do not ask the user to install or authorize. List "Connect GitHub" in the Step 7 checklist with the link. Repo mapping cannot be planned until GitHub is connected, so skip Step 4 and any release setup that depends on it; list "After GitHub is connected: map the repos" in the checklist, and continue with the steps that do not need GitHub.
 
 Otherwise read the URL's `flow`:
 
@@ -165,7 +165,7 @@ Only if the user picked auto-flagging or auto-releasing. If they picked only aut
 
    If a repo the user wants is not on the list, its owner decides the fix: a listed owner means the App needs access to that repo, and a new owner means an org owner must install the App there (no `githubConnectUrl` appears for this case). See [references/edge-cases.md](references/edge-cases.md). Wait for "Done" and list again.
 2. **Choose a project for each repo.** Each repo maps to one LaunchDarkly project, which is where auto-flagging creates flags and metrics for that repo. If `list-projects` is available, offer the projects as options. Otherwise ask for the project key.
-3. **Check existing mappings** with the join from Step 1 (an unmapped repo returns 404, which is expected). Already mapped to the chosen project with matching capabilities: write nothing. Mapped to the chosen project with an unpicked capability on: record an override that turns it off. Mapped to the chosen project with a picked capability effectively off because of a repo override: record a repo write that turns it on (`{ "enabled": true }`), plus the account write if the account has it off, and say so in Step 7. Mapped to a different project: never remap here; send the user to the settings skill to unmap first. Details: [references/edge-cases.md](references/edge-cases.md#existing-mappings).
+3. **Check existing mappings** with the join from Step 1 (an unmapped repo returns 404, which is expected). Already mapped to the chosen project with matching capabilities: write nothing. Mapped to the chosen project with an unpicked capability on: record an override that turns it off. Mapped to the chosen project with a picked capability effectively off because of a repo override: record a repo write that turns it on (`{ "enabled": true }`), plus the account write if the account has it off, and say so in Step 7. The exception is a capability that cannot work yet, such as auto-releasing in a project with no complete release policy (Step 6): keep it off. Mapped to a different project: never remap here; send the user to the settings skill to unmap first. Details: [references/edge-cases.md](references/edge-cases.md#existing-mappings).
 4. **Say what starts when.** If the account already has a capability on, mapping a repo starts that automation in the repo as soon as Step 8 maps it.
 
 ### Step 5: Choose the AI model account
@@ -231,7 +231,7 @@ Only if the user picked auto-archival. Record it for each project. It is a brows
 List every write in the order you will make it. For each write, state the current and the proposed state and the blast radius, using the wording rules from the settings skill's [Confirm before write](../launchdarkly-release-autopilot-settings/SKILL.md#confirm-before-write):
 
 1. **Metrics and release plans** (release plans only): one line per metric to create and per environment, with the plan name, steps, advancement, and metrics.
-2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; this project has no release policy yet)."
+2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; this project has no release policy yet)." For a picked capability that a repo override kept off, say the write turns it back on: "Auto-flagging: off → on for this repository (it was turned off for this repository only)."
 3. **Account settings**: only fields that change. If auto-releasing turns on, say it can ship code.
    For a member who is not an admin or owner, list account writes under "Needs an admin" instead, and say an admin can make them with the settings skill. Do not name a settings page; there is none to point to.
 4. **Browser steps after these changes**: bring your own key, auto-cleanup, and auto-archival, one line per project with its link. GitHub, if the user connected it in Step 3, is marked as reported, not verified.
@@ -260,7 +260,7 @@ Make only the writes in the confirmed plan, in this order. Stop at the first fai
 
 1. Release plans only: metrics recorded in Step 6, created in LaunchDarkly with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md). Skip its instrumentation steps.
 2. Release plans only: `create-release-plan` for each new plan.
-3. `update-release-autopilot-repo-settings` for each repo, with `repo: "owner/name"` and `projectKey`. For each capability the user did not pick, or that cannot work yet, send `{ "enabled": false }` for it, so the repo does not inherit it from the account.
+3. `update-release-autopilot-repo-settings` for each repo, with `repo: "owner/name"` and `projectKey`. For each capability the user did not pick, or that cannot work yet, send `{ "enabled": false }` for it, so the repo does not inherit it from the account. For a picked capability that a repo override keeps off, send `{ "enabled": true }` for it.
 4. `update-release-autopilot-settings` with only the confirmed fields. Never send `autoCleanup`.
 
 The order matters. When the plan creates release plans, they come first, so that no release can start without the plan the user chose. The account gates come last because turning a capability on starts automation in every mapped repo that inherits it.
