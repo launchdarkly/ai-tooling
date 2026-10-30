@@ -191,7 +191,7 @@
       "name": "flag-and-release-change",
       "description": "Drive a pull request's change end to end: decide it's flag-worthy, create the guarding flag, wire the new code path behind it on the PR branch, and record an automated release so the change ships safely when the PR merges. A portable orchestrator that composes should-flag-change, launchdarkly-flag-create, and flag-release. Keywords: flag a PR, wrap change in a flag, dark launch, kill switch, auto-release, automated rollout, end-to-end flag workflow.",
       "path": "skills/feature-flags/flag-and-release-change",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server and a git CLI with access to the PR's repository",
       "tags": [
@@ -209,9 +209,9 @@
     },
     {
       "name": "flag-release",
-      "description": "Record an automated rollout for an existing LaunchDarkly flag that guards a pull request's change, so the change releases safely when the PR merges. Honors a stated release intent (release now / hold / notBefore / segment / prerequisite) and defers per-environment to the project's release policies. Use as the release step once the guarding flag exists and its code is wired. Keywords: record release, automated rollout, release policy, guarded rollout, staged rollout, simple vs policy, release intent, hold release, dark launch.",
+      "description": "Record an automated rollout for an existing LaunchDarkly flag that guards a pull request's change, so the change releases safely when the PR merges. Honors a stated release intent (release now / hold / notBefore / segment / prerequisite) and grounds each environment's rollout in the project's configured release policies via match-release-policies \u2014 never inventing methods, stages, or metrics, and stopping when a policy is missing or incomplete. Use as the release step once the guarding flag exists and its code is wired. Keywords: record release, automated rollout, release policy, match release policies, guarded rollout, staged rollout, simple vs policy, release intent, hold release, dark launch.",
       "path": "skills/feature-flags/flag-release",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Operates on a flag that already exists; does not create flags or edit code.",
       "tags": [
