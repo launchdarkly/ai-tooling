@@ -30,7 +30,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 - `list-release-policies`
 
 **Used when available:**
-- `list-release-plans` / `create-release-plan` / `list-metrics`: environment release plans (see [Check whether the account uses release plans](#check-whether-the-account-uses-release-plans))
+- `list-release-plans` / `create-release-plan` / `list-metrics`: environment release plans (see [Release setup](#release-setup))
 - `list-projects` / `get-project`: offer project and environment keys as options instead of asking for free text
 
 If a required tool is missing, stop and tell the user which one. Do not invent REST calls. If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
@@ -134,10 +134,14 @@ Otherwise read the URL's `flow`:
 - `flow=install`: the LaunchDarkly GitHub App is not installed on their GitHub organization. None of these capabilities can see a pull request until it is.
 - `flow=authorize`: the App is installed, but this member has not authorized GitHub, so repos cannot be listed.
 
-Give the user the exact URL. The link acts on whatever LaunchDarkly session the browser has, so tell them to open it while signed in as the member from Step 1 (for example, "Open it while signed in to LaunchDarkly as admin@acme.example"). To install, they must be a GitHub organization owner, or they must request the install from one. Then ask header "GitHub", with the URL in the question text (for example, "Open https://… to install the LaunchDarkly GitHub App. Done?"):
+Give the user the exact URL. The link acts on whatever LaunchDarkly session the browser has, so tell them to open it while signed in as the member from Step 1 (for example, "Open it while signed in to LaunchDarkly as admin@acme.example"). Then ask header "GitHub", with the URL in the question text. The options depend on the flow:
 
-- label: "Done", description: "I finished the GitHub step"
-- label: "Need an org owner", description: "I can't install the App myself. Pause setup here"
+- `flow=install`: to install, they must be a GitHub organization owner, or request the install from one. Question: "Open https://… to install the LaunchDarkly GitHub App. Done?"
+  - label: "Done", description: "I installed the App"
+  - label: "Need an org owner", description: "I can't install the App myself. Pause setup here"
+- `flow=authorize`: the App is already installed, so no org owner is needed. They authorize with a GitHub account that is a member of the organization where the App is installed. Question: "Open https://… and authorize with a GitHub account in the organization that installed the App. Done?"
+  - label: "Done", description: "I authorized GitHub"
+  - label: "I can't authorize", description: "My GitHub account can't see that organization's install"
 
 On "Done", call `list-release-autopilot-github-repos` again. If it still returns `githubConnectUrl`, do not repeat the link. The most common cause is a browser signed in to a different LaunchDarkly account or member, so the App was installed there. Ask header "Browser account", with this connection's email in the question text (for example, "This connection is signed in as admin@acme.example. Which account is your browser signed in to?"):
 
@@ -145,7 +149,7 @@ On "Done", call `list-release-autopilot-github-repos` again. If it still returns
 - label: "A different one", description: "My browser is signed in to another account or member"
 - label: "Not sure", description: "I need to check"
 
-For "A different one" or "Not sure", tell them to check at `/profile`, sign in as the member from Step 1, open the link again, and finish there; then list again. For "The same", check the other causes in [references/github-troubleshooting.md](references/github-troubleshooting.md). On "Need an org owner", summarize the decisions so far, repeat the exact URL for the org owner, tell the user to say "continue Release Autopilot setup" after the App is installed, and stop.
+For "A different one" or "Not sure", tell them to check at `/profile`, sign in as the member from Step 1, open the link again, and finish there; then list again. For "The same", check the other causes in [references/github-troubleshooting.md](references/github-troubleshooting.md). On "Need an org owner", summarize the decisions so far, repeat the exact URL for the org owner, tell the user to say "continue Release Autopilot setup" after the App is installed, and stop. On "I can't authorize", tell them to sign in to GitHub with an account that is a member of that organization (or ask an org owner to add theirs), open the link again, and continue; see the GitHub-identity cause in [references/github-troubleshooting.md](references/github-troubleshooting.md).
 
 ### Step 4: Map repositories
 
@@ -174,27 +178,31 @@ Record the answer as reported by the user, not as verified.
 
 Run each part of this step only for a capability the user picked in Step 2, and skip the step if they picked none of them. Never walk the user through a capability they did not pick:
 
-- Auto-releasing picked: the release setup below.
+- Auto-releasing picked: [Release setup](#release-setup).
 - Auto-cleanup picked: [Auto-cleanup](#auto-cleanup).
 - Auto-archival picked: [Auto-archival](#auto-archival).
 
+#### Release setup
+
+Only if the user picked auto-releasing. Otherwise skip to [Auto-cleanup](#auto-cleanup) or [Auto-archival](#auto-archival), and do not ask about environments or look up release plans or policies.
+
 For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-project`, or ask). Then check once per account whether it uses release plans or release policies.
 
-#### Check whether the account uses release plans
+##### Check whether the account uses release plans
 
 Call `list-release-plans` for the first chosen environment.
 
 - **Release policies** if the call returns 403 `Plan does not allow this operation`, or if `list-release-plans` is not available. The 403 is account-wide, so do not call it for other environments. This is the mode for every account today: auto-releasing requires a complete release policy for each environment.
 - **Release plans** if the call succeeds. Environment release plans replace release policies by general availability.
 
-#### Release policies (today)
+##### Release policies (today)
 
 Call `list-release-policies` for the project and show the user what it returns, including any `warnings`. Record no plan writes. This skill does not change policies.
 
 - No warnings for the chosen environments: say that auto-releasing in this project uses those policies.
 - Any warning, such as `missing_policy` or `incomplete_policy`: auto-releasing cannot work there yet. Tell the user to add or complete a release policy in the project's release settings (`/projects/{projectKey}/settings/releases` on their LaunchDarkly instance). Record a repo override that keeps auto-releasing off for each repo in that project, and say in Step 7 that they can turn it on with the settings skill once the policy is complete.
 
-#### Release plans (by GA)
+##### Release plans (by GA)
 
 For each chosen environment, call `list-release-plans`. If a complete plan exists, show its name, phases, and metrics, and ask header "Plan":
 

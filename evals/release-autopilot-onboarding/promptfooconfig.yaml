@@ -621,6 +621,10 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noReleaseSetup
+        metric: no_release_setup
+        weight: 3
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
         metric: never_sends_approval
         weight: 3
@@ -766,6 +770,10 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noReleaseSetup
+        metric: no_release_setup
+        weight: 3
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
         metric: never_sends_approval
         weight: 3
@@ -789,3 +797,39 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:noAutoCleanup
         metric: no_auto_cleanup
         weight: 2
+
+  # ------------------------------------------------------------------
+  # The App is installed but this member has not authorized GitHub. The
+  # question is about authorizing (no org-owner pause), and nothing is
+  # written while GitHub is not connected.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Authorize flow: asks to authorize, no org-owner option, zero writes"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for my repos."
+      max_turns: 12
+      mock_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: true }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        list-release-autopilot-github-repos:
+          installed: true
+          userAuthorized: false
+          repositories: []
+          totalCount: 0
+          githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=authorize"
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-flagging"]
+        - ["I can't authorize"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:authorizeQuestionNoOrgOwner
+        metric: authorize_question
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 3

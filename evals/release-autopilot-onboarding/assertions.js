@@ -321,3 +321,23 @@ module.exports.neverSendsApproval = (output) => {
   });
   return result(bad.length === 0, bad.length ? `sent approvalRequired via ${bad[0].tool}` : "never sent approvalRequired");
 };
+
+// Release setup runs only for auto-releasing: no environment question and no
+// release plan or policy lookup otherwise.
+module.exports.noReleaseSetup = (output) => {
+  const steps = traj(output);
+  const lookups = steps.filter((t) => t.tool === "list-release-plans" || t.tool === "list-release-policies");
+  const envQ = steps.filter((t) => t.tool === "ask-question" && /environment/i.test(String((t.arguments && t.arguments.prompt) || "")));
+  const pass = lookups.length === 0 && envQ.length === 0;
+  return result(pass, `release lookups: ${lookups.length}, environment questions: ${envQ.length}`);
+};
+
+// On flow=authorize the App is installed; the question is about authorizing,
+// with no org-owner pause.
+module.exports.authorizeQuestionNoOrgOwner = (output) => {
+  const q = traj(output).filter((t) => t.tool === "ask-question" && String(t.arguments.prompt || "").includes("flow=authorize"));
+  if (!q.length) return result(false, "no question contains the authorize link");
+  const labels = (q[0].arguments.options || []).map((o) => String(o.label || ""));
+  const pass = /authoriz/i.test(q[0].arguments.prompt) && !labels.some((l) => /org owner/i.test(l));
+  return result(pass, `prompt mentions authorize: ${/authoriz/i.test(q[0].arguments.prompt)}; options: ${labels.join(" | ")}`);
+};
