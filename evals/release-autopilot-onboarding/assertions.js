@@ -45,7 +45,7 @@ module.exports.confirmsBeforeWriting = (output) => {
 const mapsRepoWithOverrides = (repo, project, caps) => (output) => {
   const maps = traj(output).filter((t) => t.tool === "update-release-autopilot-repo-settings");
   if (!maps.length) return result(false, "never wrote a repo mapping");
-  const wrong = maps.filter((m) => (m.arguments || {}).repo !== repo || (project && (m.arguments || {}).projectKey && m.arguments.projectKey !== project));
+  const wrong = maps.filter((m) => (m.arguments || {}).repo !== repo || (project && (m.arguments || {}).projectKey !== project));
   if (wrong.length) return result(false, `wrote ${wrong.map((m) => `${m.arguments.repo}@${m.arguments.projectKey}`).join(", ")}; want only ${repo}@${project}`);
   const bad = maps.filter((m) => caps.some((c) => !(m.arguments[c] && m.arguments[c].enabled === false)));
   return result(bad.length === 0, bad.length ? `missing ${caps.join("/")} enabled:false` : `${repo} written with ${caps.join("/")} off`);
@@ -88,7 +88,10 @@ module.exports.planBeforeRepoWrite = (output) => {
   const plan = steps.findIndex((t) => t.tool === "create-release-plan");
   const repo = steps.findIndex((t) => t.tool === "update-release-autopilot-repo-settings");
   if (plan === -1) return result(false, "never created a release plan");
-  return result(repo === -1 || plan < repo, `plan at ${plan}, repo write at ${repo}`);
+  if (repo === -1) return result(false, "never mapped acme/demo");
+  const args = steps[repo].arguments || {};
+  const pass = plan < repo && args.repo === "acme/demo" && args.projectKey === "default";
+  return result(pass, `plan at ${plan}, repo write at ${repo} (${args.repo}@${args.projectKey})`);
 };
 
 module.exports.plansHaveClauses = (output) => {
@@ -351,4 +354,46 @@ module.exports.pausesBeforeMapping = (output) => {
   const resume = /continue Release Autopilot setup/i.test(finalText(output));
   const pass = repoQ.length === 0 && resume;
   return result(pass, `repo questions: ${repoQ.length}; resume phrase in final message: ${resume}`);
+};
+
+// Policy mode: exactly one release-plans lookup (the 403 is account-wide) and
+// at least one release-policies lookup.
+module.exports.policyLookupPath = (output) => {
+  const plans = traj(output).filter((t) => t.tool === "list-release-plans").length;
+  const policies = traj(output).filter((t) => t.tool === "list-release-policies").length;
+  return result(plans === 1 && policies >= 1, `release-plans lookups: ${plans}, release-policies lookups: ${policies}`);
+};
+
+const isBrowserStepQuestion = (t) => t.tool === "ask-question" &&
+  /\/projects\/[^/\s]+\/settings\/(lifecycle|vega)/.test(String((t.arguments && t.arguments.prompt) || ""));
+
+// Browser steps that change settings come only after "Looks good".
+module.exports.browserStepsAfterConfirm = (output) => {
+  const steps = traj(output);
+  const browser = steps.findIndex(isBrowserStepQuestion);
+  if (browser === -1) return result(false, "no browser step question");
+  const confirm = steps.findIndex(isConfirmQuestion);
+  const pass = confirm !== -1 && confirm < browser;
+  return result(pass, `confirm at ${confirm}, first browser step at ${browser}`);
+};
+
+// Preview never asks the user to change something in the browser, and lists it.
+module.exports.previewListsBrowserSteps = (output) => {
+  const asked = traj(output).filter(isBrowserStepQuestion).length;
+  const listed = /settings\/lifecycle/.test(finalText(output));
+  return result(asked === 0 && listed, `browser step questions: ${asked}; lifecycle link listed: ${listed}`);
+};
+
+// Archival-only setup needs no GitHub step and no repo mapping.
+module.exports.noGithubOrMapping = (output) => {
+  const steps = traj(output);
+  const repoWrites = steps.filter((t) => /^(update|delete)-release-autopilot-repo-settings$/.test(t.tool)).length;
+  const ghQ = steps.filter((t) => t.tool === "ask-question" && /github|repo/i.test(String((t.arguments && t.arguments.prompt) || ""))).length;
+  return result(repoWrites === 0 && ghQ === 0, `repo writes: ${repoWrites}; GitHub or repo questions: ${ghQ}`);
+};
+
+module.exports.storefrontAutoFlaggingOn = (output) => {
+  const maps = traj(output).filter((t) => t.tool === "update-release-autopilot-repo-settings" && (t.arguments || {}).repo === "acme/storefront");
+  const on = maps.some((m) => m.arguments.autoFlagging && m.arguments.autoFlagging.enabled === true);
+  return result(on, on ? "turned auto-flagging on for acme/storefront" : "did not clear the repo's auto-flagging override");
 };

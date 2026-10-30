@@ -2,7 +2,7 @@
 
 ## Preview
 
-- Run Steps 1–7 with live reads, and make no writes.
+- Run Steps 1–7 with live reads, and make no writes. Never ask the user to install GitHub or change a setting in the browser; list those steps in the checklist.
 - In Step 1, leave out the "Change one setting" option, because that hand-off writes.
 - In Step 7, show the plan as a checklist under "Changes an admin would make", one line per change, and stop without asking for confirmation.
 - A member whose role is `reader` or `no_access` is always in Preview.

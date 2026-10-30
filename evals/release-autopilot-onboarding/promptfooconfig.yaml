@@ -150,7 +150,7 @@ tests:
         metric: no_unpicked_archival
         weight: 3
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:releasePlansCalledAtMostOnce
+        value: file://../release-autopilot-onboarding/assertions.js:policyLookupPath
         metric: plans_403_account_wide
         weight: 3
       - type: javascript
@@ -621,6 +621,10 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:browserStepsAfterConfirm
+        metric: browser_after_confirm
+        weight: 3
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noReleaseSetup
         metric: no_release_setup
         weight: 3
@@ -770,6 +774,10 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:browserStepsAfterConfirm
+        metric: browser_after_confirm
+        weight: 3
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noReleaseSetup
         metric: no_release_setup
         weight: 3
@@ -836,4 +844,103 @@ tests:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noWrites
         metric: no_writes
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Auto-archival only: project-level, no GitHub, no repo mapping. The
+  # Lifecycle settings step comes after "Looks good".
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Archival only: no GitHub or repo mapping, browser step after confirm"
+    vars:
+      user_request: "Set up Release Autopilot auto-archival for project default."
+      max_turns: 16
+      mock_overrides:
+        get-release-autopilot-settings:
+          autoFlagging: { enabled: false, approvalRequired: true }
+          autoReleasing: { enabled: false }
+          version: 1
+        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        list-release-autopilot-github-repos:
+          installed: false
+          userAuthorized: false
+          repositories: []
+          totalCount: 0
+          githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=install"
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-archival"]
+        - ["default"]
+        - ["Looks good"]
+        - ["Done"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noGithubOrMapping
+        metric: no_github_or_mapping
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:browserStepsAfterConfirm
+        metric: browser_after_confirm
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:archivalQuestionHasLifecycleLink
+        metric: lifecycle_link_in_question
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Preview with auto-cleanup picked: no writes, no browser changes asked
+  # for, and the cleanup step is listed with its link.
+  # ------------------------------------------------------------------
+  - providers: ["mcp-auto"]
+    description: "Preview with auto-cleanup: lists the browser step, asks for no browser change"
+    vars:
+      user_request: "Do a dry run: preview what you'd change to set up Release Autopilot auto-flagging and auto-cleanup for acme/demo in project default. Don't change anything."
+      max_turns: 20
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-cleanup"]
+        - ["LaunchDarkly's"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:previewListsBrowserSteps
+        metric: preview_lists_browser_steps
+        weight: 4
+
+  # ------------------------------------------------------------------
+  # acme/storefront is mapped with auto-flagging turned off by a repo
+  # override, and the account has it on. Picking auto-flagging must clear
+  # that override, not leave the repo opted out.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Picked capability off by a repo override: turns it on for the repo"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/storefront in project default. I don't want auto-releasing."
+      max_turns: 22
+      mock_overrides:
+        list-release-autopilot-repo-settings:
+          repos:
+            - githubRepoId: 101
+              projectKey: default
+              autoFlagging: { enabled: false, approvalRequired: true, enabledOverride: true }
+              autoReleasing: { enabled: false, enabledOverride: true }
+          totalCount: 1
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+        - ["LaunchDarkly's"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:storefrontAutoFlaggingOn
+        metric: clears_repo_override
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
         weight: 3
