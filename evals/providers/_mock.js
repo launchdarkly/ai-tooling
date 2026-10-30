@@ -12,7 +12,7 @@
  *
  *   2. Stateful overlay keeps an in-memory map of configs per `callApi`
  *      invocation. Write tools (create/setup/update) record into state; read
- *      tools (get-ai-config, get-ai-config-health) build their response from
+ *      tools (get-agentcontrol-config, get-agentcontrol-config-health) build their response from
  *      state when one exists, falling back to the template otherwise. This
  *      prevents the agent from believing its own writes failed when the static
  *      template returns generic placeholder data.
@@ -189,7 +189,7 @@ function renderMockResponse(template, input, toolName, state) {
   }
 
   // ---------- stateful reads ----------
-  if (toolName === "get-ai-config") {
+  if (toolName === "get-agentcontrol-config") {
     const key = input.configKey || input.key;
     if (key) {
       if (!state.configs[key] && SEED_CONFIGS[key]) {
@@ -199,7 +199,7 @@ function renderMockResponse(template, input, toolName, state) {
     }
   }
 
-  if (toolName === "get-ai-config-health") {
+  if (toolName === "get-agentcontrol-config-health") {
     const key = input.configKey || input.key;
     if (key && state.configs[key]) {
       const cfg = state.configs[key];
@@ -221,7 +221,7 @@ function renderMockResponse(template, input, toolName, state) {
     }
   }
 
-  if (toolName === "list-ai-configs") {
+  if (toolName === "list-agentcontrol-configs") {
     // Merge state configs into the static template list for consistent reads.
     // State entries always win over the static template for the same key, so
     // an agent-created (or updated) config is reflected immediately.
@@ -272,7 +272,7 @@ function renderMockResponse(template, input, toolName, state) {
   }
 
   // ---------- stateful writes ----------
-  if (toolName === "setup-ai-config") {
+  if (toolName === "setup-agentcontrol-config") {
     const cfg = {
       key: input.key,
       name: input.name,
@@ -299,7 +299,7 @@ function renderMockResponse(template, input, toolName, state) {
     return cfg;
   }
 
-  if (toolName === "create-ai-config") {
+  if (toolName === "create-agentcontrol-config") {
     const cfg = {
       key: input.key,
       name: input.name,
@@ -313,7 +313,7 @@ function renderMockResponse(template, input, toolName, state) {
     return cfg;
   }
 
-  if (toolName === "create-ai-config-variation") {
+  if (toolName === "create-agentcontrol-config-variation") {
     const cfg = state.configs[input.configKey];
     const variation = {
       key: input.key,
@@ -332,7 +332,7 @@ function renderMockResponse(template, input, toolName, state) {
       cfg.variations = [...(cfg.variations || []), variation];
     } else {
       // Parent config not in state — create a minimal stub so the variation
-      // is reachable via get-ai-config and list-ai-configs. The real API
+      // is reachable via get-agentcontrol-config and list-agentcontrol-configs. The real API
       // would 404 here; the mock recovers gracefully.
       state.configs[input.configKey] = {
         key: input.configKey,
@@ -347,7 +347,7 @@ function renderMockResponse(template, input, toolName, state) {
     return { configKey: input.configKey, variation };
   }
 
-  if (toolName === "update-ai-config") {
+  if (toolName === "update-agentcontrol-config") {
     const cfg = state.configs[input.key || input.configKey];
     if (cfg) {
       const CONFIG_FIELDS = ["name", "description", "tags", "archived"];
@@ -359,7 +359,7 @@ function renderMockResponse(template, input, toolName, state) {
     return walk(template, replacements);
   }
 
-  if (toolName === "update-ai-config-variation") {
+  if (toolName === "update-agentcontrol-config-variation") {
     const cfg = state.configs[input.configKey];
     if (cfg) {
       const VARIATION_FIELDS = [
@@ -378,7 +378,7 @@ function renderMockResponse(template, input, toolName, state) {
     return walk(template, replacements);
   }
 
-  if (toolName === "clone-ai-config-variation") {
+  if (toolName === "clone-agentcontrol-config-variation") {
     const configKey = input.configKey;
     if (!state.configs[configKey] && SEED_CONFIGS[configKey]) {
       state.configs[configKey] = JSON.parse(JSON.stringify(SEED_CONFIGS[configKey]));

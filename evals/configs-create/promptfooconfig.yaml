@@ -5,8 +5,8 @@
 #
 # The configs-create skill guides the agent through choosing agent vs
 # completion mode, creating a config + variation, and verifying the setup.
-# The recommended path is setup-ai-config (one-step); the agent may also
-# use create-ai-config + create-ai-config-variation for more control.
+# The recommended path is setup-agentcontrol-config (one-step); the agent may also
+# use create-agentcontrol-config + create-agentcontrol-config-variation for more control.
 description: "End-to-end evaluation of the configs-create skill"
 
 prompts:
@@ -22,10 +22,10 @@ tests:
   # ------------------------------------------------------------------
   # Test 1: Happy path — LangGraph agent bot
   # The most common use case: a user building a LangGraph agent wants
-  # to create a config in agent mode. The skill should call setup-ai-config
+  # to create a config in agent mode. The skill should call setup-agentcontrol-config
   # with agent mode and reasonable defaults.
   # ------------------------------------------------------------------
-  - description: "Happy path: creates agent-mode config for a LangGraph chatbot using setup-ai-config"
+  - description: "Happy path: creates agent-mode config for a LangGraph chatbot using setup-agentcontrol-config"
     vars:
       user_request: >
         Create a config for my customer support bot. It uses LangGraph and
@@ -36,7 +36,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('setup-ai-config') || tools.includes('create-ai-config');
+          const pass = tools.includes('setup-agentcontrol-config') || tools.includes('create-agentcontrol-config');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_create_tool
         weight: 3
@@ -44,8 +44,8 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const setup = traj.find(t => t.tool === 'setup-ai-config');
-          const create = traj.find(t => t.tool === 'create-ai-config');
+          const setup = traj.find(t => t.tool === 'setup-agentcontrol-config');
+          const create = traj.find(t => t.tool === 'create-agentcontrol-config');
           const call = setup || create;
           if (!call) return { pass: false, score: 0, reason: 'No create tool called' };
           const a = call.arguments || {};
@@ -60,8 +60,8 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const setup = traj.find(t => t.tool === 'setup-ai-config');
-          const create = traj.find(t => t.tool === 'create-ai-config');
+          const setup = traj.find(t => t.tool === 'setup-agentcontrol-config');
+          const create = traj.find(t => t.tool === 'create-agentcontrol-config');
           const call = setup || create;
           if (!call) return { pass: false, score: 0, reason: 'No create tool called' };
           const a = call.arguments || {};
@@ -73,7 +73,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['delete-ai-config', 'delete-ai-config-variation'];
+          const forbidden = ['delete-agentcontrol-config', 'delete-agentcontrol-config-variation'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'No destructive tools' : 'Called: ' + called.join(', ') };
@@ -111,8 +111,8 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const setup = traj.find(t => t.tool === 'setup-ai-config');
-          const create = traj.find(t => t.tool === 'create-ai-config');
+          const setup = traj.find(t => t.tool === 'setup-agentcontrol-config');
+          const create = traj.find(t => t.tool === 'create-agentcontrol-config');
           const call = setup || create;
           if (!call) return { pass: false, score: 0, reason: 'No create tool called' };
           const a = call.arguments || {};
@@ -124,8 +124,8 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const setup = traj.find(t => t.tool === 'setup-ai-config');
-          const create = traj.find(t => t.tool === 'create-ai-config');
+          const setup = traj.find(t => t.tool === 'setup-agentcontrol-config');
+          const create = traj.find(t => t.tool === 'create-agentcontrol-config');
           const call = setup || create;
           if (!call) return { pass: false, score: 0, reason: 'No create tool called' };
           const a = call.arguments || {};
@@ -138,7 +138,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('setup-ai-config') || tools.includes('create-ai-config');
+          const pass = tools.includes('setup-agentcontrol-config') || tools.includes('create-agentcontrol-config');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_create_tool
         weight: 3
@@ -157,10 +157,10 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const aIdx = tools.indexOf('list-ai-configs');
-          const bIdx = tools.lastIndexOf('setup-ai-config') === -1
-            ? tools.lastIndexOf('create-ai-config')
-            : tools.lastIndexOf('setup-ai-config');
+          const aIdx = tools.indexOf('list-agentcontrol-configs');
+          const bIdx = tools.lastIndexOf('setup-agentcontrol-config') === -1
+            ? tools.lastIndexOf('create-agentcontrol-config')
+            : tools.lastIndexOf('setup-agentcontrol-config');
           const created = bIdx >= 0;
           // Either explored first OR went straight to creation (both are valid)
           const pass = created;
@@ -171,7 +171,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('setup-ai-config') || tools.includes('create-ai-config');
+          const pass = tools.includes('setup-agentcontrol-config') || tools.includes('create-agentcontrol-config');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_create_tool
         weight: 3
@@ -191,7 +191,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('setup-ai-config') || tools.includes('create-ai-config');
+          const pass = tools.includes('setup-agentcontrol-config') || tools.includes('create-agentcontrol-config');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_create_tool
         weight: 3
