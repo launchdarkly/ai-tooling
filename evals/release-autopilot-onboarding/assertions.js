@@ -341,3 +341,14 @@ module.exports.authorizeQuestionNoOrgOwner = (output) => {
   const pass = /authoriz/i.test(q[0].arguments.prompt) && !labels.some((l) => /org owner/i.test(l));
   return result(pass, `prompt mentions authorize: ${/authoriz/i.test(q[0].arguments.prompt)}; options: ${labels.join(" | ")}`);
 };
+
+// While GitHub is disconnected the wizard pauses: no repo question, and the
+// final message gives the resume phrase.
+module.exports.pausesBeforeMapping = (output) => {
+  const repoQ = traj(output).filter((t) => t.tool === "ask-question" &&
+    ((t.arguments && t.arguments.options) || []).some((o) => /\w+\/\w+/.test(String(o.label || ""))) &&
+    /repo/i.test(String((t.arguments && t.arguments.prompt) || "")));
+  const resume = /continue Release Autopilot setup/i.test(finalText(output));
+  const pass = repoQ.length === 0 && resume;
+  return result(pass, `repo questions: ${repoQ.length}; resume phrase in final message: ${resume}`);
+};

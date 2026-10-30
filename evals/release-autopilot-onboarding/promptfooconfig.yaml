@@ -804,7 +804,7 @@ tests:
   # written while GitHub is not connected.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Authorize flow: asks to authorize, no org-owner option, zero writes"
+    description: "Authorize flow: asks to authorize, no org-owner option, pauses on failure, zero writes"
     vars:
       user_request: "Set up Release Autopilot auto-flagging for my repos."
       max_turns: 12
@@ -825,6 +825,10 @@ tests:
         - ["Auto-flagging"]
         - ["I can't authorize"]
     assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:pausesBeforeMapping
+        metric: pauses_before_mapping
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:authorizeQuestionNoOrgOwner
         metric: authorize_question

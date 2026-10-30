@@ -149,7 +149,9 @@ On "Done", call `list-release-autopilot-github-repos` again. If it still returns
 - label: "A different one", description: "My browser is signed in to another account or member"
 - label: "Not sure", description: "I need to check"
 
-For "A different one" or "Not sure", tell them to check at `/profile`, sign in as the member from Step 1, open the link again, and finish there; then list again. For "The same", check the other causes in [references/github-troubleshooting.md](references/github-troubleshooting.md). On "Need an org owner", summarize the decisions so far, repeat the exact URL for the org owner, tell the user to say "continue Release Autopilot setup" after the App is installed, and stop. On "I can't authorize", tell them to sign in to GitHub with an account that is a member of that organization (or ask an org owner to add theirs), open the link again, and continue; see the GitHub-identity cause in [references/github-troubleshooting.md](references/github-troubleshooting.md).
+For "A different one" or "Not sure", tell them to check at `/profile`, sign in as the member from Step 1, open the link again, and finish there; then list again. For "The same", check the other causes in [references/github-troubleshooting.md](references/github-troubleshooting.md). On "Need an org owner", summarize the decisions so far, repeat the exact URL for the org owner, tell the user to say "continue Release Autopilot setup" after the App is installed, and stop. On "I can't authorize", pause the same way: summarize the decisions so far, tell them to sign in to GitHub with an account that is a member of that organization (or ask an org owner to add theirs), repeat the exact URL, tell them to say "continue Release Autopilot setup" once they have authorized, and stop. See the GitHub-identity cause in [references/github-troubleshooting.md](references/github-troubleshooting.md).
+
+Never go on to Step 4 while `list-release-autopilot-github-repos` still returns `githubConnectUrl`: an empty repo list then means GitHub is not connected, not that the repo's organization lacks the App.
 
 ### Step 4: Map repositories
 
