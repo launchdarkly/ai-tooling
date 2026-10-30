@@ -19,7 +19,7 @@ This skill teaches agents how to:
 
 The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot settings tools (`get-release-autopilot-settings`, `list-release-autopilot-github-repos`, `update-release-autopilot-repo-settings`, and siblings). If `list-release-autopilot-github-repos` returns `githubConnectUrl`, give the user that link. This skill does not complete GitHub OAuth itself.
 
-Release Autopilot settings are in alpha. The endpoints behind these tools are gated by an alpha feature flag, so accounts outside the alpha get 404s.
+The endpoints behind these tools require the Release Autopilot add-on, so accounts without it enabled get 404s.
 
 ## Usage
 
@@ -37,6 +37,7 @@ Which GitHub repos are mapped for Release Autopilot, and which can I map?
 
 ## Related
 
+- [LaunchDarkly Release Autopilot Onboarding](../launchdarkly-release-autopilot-onboarding/): step-by-step first-time setup
 - [LaunchDarkly Flag Create](../../feature-flags/launchdarkly-flag-create/): Create flags after Release Autopilot is mapped
 - [LaunchDarkly MCP Server](https://github.com/launchdarkly/mcp-server)
 - [LaunchDarkly Docs](https://docs.launchdarkly.com)

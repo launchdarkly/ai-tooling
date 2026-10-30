@@ -1,11 +1,11 @@
 ---
 name: launchdarkly-release-autopilot-settings
-description: "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR."
+description: "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, review release policies), use launchdarkly-release-autopilot-onboarding instead."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.3.0-experimental"
+  version: "1.4.0-experimental"
 ---
 
 # LaunchDarkly Release Autopilot Settings
@@ -24,7 +24,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 
 If these tools are missing, stop. Do not invent REST calls, numeric GitHub ids, or "fixes" by guessing settings.
 
-Release Autopilot settings are in alpha: the underlying endpoints are gated by an alpha feature flag. If every Release Autopilot tool returns 404, the account is not in the alpha — tell the user rather than retrying or falling back to REST.
+The underlying endpoints require the Release Autopilot add-on. If every Release Autopilot tool returns 404, the account does not have the Release Autopilot add-on enabled — tell the user "Your account does not have the Release Autopilot add-on enabled," rather than retrying or falling back to REST.
 
 ## Core Principles
 
@@ -73,12 +73,15 @@ After they confirm, apply **only** the fields in the proposal. Then verify (do n
 
 ## Choose a workflow
 
-- **"Why didn't Release Autopilot classify / auto-flag my PR?"** (or similar) → [Why didn't my PR get classified?](#why-didnt-my-pr-get-classified) first. Do not write settings in that workflow.
+Route on what the user asked for, not on account state. Check these in order:
+
+- **"Why didn't Release Autopilot classify / auto-flag my PR?"** (or similar) → [Why didn't my PR get classified?](#why-didnt-my-pr-get-classified), even on an account with nothing set up. Do not write settings in that workflow.
+- **First-time setup** ("set up Release Autopilot", "onboard us", "get started") → [`launchdarkly-release-autopilot-onboarding`](../launchdarkly-release-autopilot-onboarding/SKILL.md). It gathers every decision first and confirms one plan.
 - Configure / map / turn on / unmap → [Configure settings](#configure-settings).
 
 ## Why didn't my PR get classified?
 
-Use this when the user asks why a PR was not classified, not auto-flagged, or Release Autopilot ignored the PR. **Read-only.** Check in this order. Stop at the first failure and tell them how to fix it (then [Confirm before write](#confirm-before-write) if they ask you to apply the fix).
+Use this when the user asks why a PR was not classified, not auto-flagged, or Release Autopilot ignored the PR. **Read-only.** Check in this order. Stop at the first failure and tell them how to fix it (then [Confirm before write](#confirm-before-write) if they ask you to apply the fix). If the answer is that auto-flagging is off for the account or the repo is not mapped, and nothing is set up yet, offer [`launchdarkly-release-autopilot-onboarding`](../launchdarkly-release-autopilot-onboarding/SKILL.md) as the way to set it up.
 
 Identify the GitHub repo (`owner/name`) from the PR URL, `git remote`, or the name they gave. If you cannot identify one repo, ask. Do not diagnose a different repo.
 
@@ -93,7 +96,7 @@ Identify the GitHub repo (`owner/name`) from the PR URL, `git remote`, or the na
 If all three look fine (account on, repo mapped, repo auto-flagging effective on):
 
 - Do **not** flip settings to "try something."
-- Point them at the Release Autopilot runbooks. These are internal LaunchDarkly Confluence pages (PD space) while Release Autopilot is in alpha; there is no public docs URL yet. Classification can still fail for reasons this MCP surface cannot see (GitHub App install on the wrong org, PR not in an installed repo, workflow/app permissions, classifier skip rules).
+- Point them at the Release Autopilot runbooks. These are internal LaunchDarkly Confluence pages (PD space); there is no public docs URL yet. Classification can still fail for reasons this MCP surface cannot see (GitHub App install on the wrong org, PR not in an installed repo, workflow/app permissions, classifier skip rules).
   - [Flag Classification (ODD) Runbook](https://launchdarkly.atlassian.net/wiki/spaces/PD/pages/5377097848/WIP+Flag+Classification+ODD+Runbook) — the classifier itself: verdicts (`not-suited`, `already-flagged`), escalations, and the per-PR ledger that records why a PR got the verdict it did.
   - [GitHub App Runbook](https://launchdarkly.atlassian.net/wiki/spaces/PD/pages/5157388373/GitHub+App+Runbook) — the PR event never reaching Release Autopilot: install scope, permissions, webhooks.
 - Optional reads: `list-release-autopilot-github-repos` to confirm the repo is on the install list; `autoFlagging.approvalRequired` if they expected a PR and one exists but is waiting on approval.
@@ -112,7 +115,7 @@ If `githubConnectUrl` is present, give the user that link and stop this turn. Do
 
 If an account PATCH is needed, follow [Confirm before write](#confirm-before-write), then `update-release-autopilot-settings` with **only** the confirmed fields:
 
-- `autoFlagging.enabled` / `autoFlagging.approvalRequired` (approval is only valid here)
+- `autoFlagging.enabled` / `autoFlagging.approvalRequired` (approval is only valid here). The agent backend does not read `approvalRequired` today: every auto-flagging proposal waits for `@launchdarkly approve` either way. If a user asks to turn approval off, tell them it currently has no effect before proposing the change.
 - `autoReleasing.enabled`
 
 Do not send `autoCleanup`. Requires permission to update account Release Autopilot settings.
@@ -139,6 +142,6 @@ To unmap: [Confirm before write](#confirm-before-write), then `delete-release-au
 
 - Auto-cleanup
 - Completing GitHub OAuth inside the tool. Hand the user `githubConnectUrl` instead.
-- Vega BYOK
+- Vega inference and bring-your-own-key setup, and environment release plans. The [onboarding skill](../launchdarkly-release-autopilot-onboarding/SKILL.md) guides both.
 - Observability MCP (`github_repositories`) — do not require a second MCP server just to map a repo
 - Changing classification rules, GitHub App permissions, or org install scope via this skill

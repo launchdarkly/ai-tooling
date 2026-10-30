@@ -67,6 +67,15 @@
  *                                 successive `ask-question` calls; an empty
  *                                 array is a dismissed question (no selection).
  *                                 Calls past the end get the first option.
+ *   mock_ask_question_match     - when true, each `ask-question` call takes the first
+ *                                 unused scripted answer whose entries all match its
+ *                                 options (by id or label), instead of the next one in
+ *                                 order. Entries match an option by id, or else by
+ *                                 label (case-insensitive substring), so tests can
+ *                                 steer by label when the agent picks the ids. Use
+ *                                 for flows that may skip questions. A call with no match gets
+ *                                 its first option and is recorded with
+ *                                 `scripted: false`
  *   mock_files                  - optional object mapping relative file paths to
  *                                 string content, written into the isolated cwd
  *                                 before the agent runs
@@ -80,6 +89,8 @@
  * Environment variables:
  *   AGENT_MODEL          - SUT model (default claude-sonnet-4-6).
  *   ANTHROPIC_API_KEY    - Auth for the SDK's child Claude Code process.
+ *   CLAUDE_CODE_OAUTH_TOKEN - Alternative auth from `claude setup-token`, for
+ *                          running evals on a Claude subscription without an API key.
  *   SKILL_EVAL_DEBUG=1   - Dump every SDK message to a temp file for inspection.
  */
 
@@ -106,6 +117,45 @@ const SKILLS_ROOT = path.join(REPO_ROOT, "skills");
 const toolDefs = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../tools/definitions.json"), "utf-8"),
 );
+
+/**
+ * Resolve a scripted answer to an option id. Exact id wins; otherwise the
+ * first option whose label contains the answer (case-insensitive). Unmatched
+ * answers pass through unchanged.
+ */
+function matchOption(want, options) {
+  const list = Array.isArray(options) ? options : [];
+  if (list.some((o) => o.id === want)) return want;
+  const needle = String(want).toLowerCase();
+  const hit = list.find((o) => String(o.label || "").toLowerCase().includes(needle));
+  return hit ? hit.id : want;
+}
+
+/**
+ * Choose the scripted answer for the `idx`-th ask-question call. In order
+ * mode, take answers[idx] as written. In match mode, take the first unused
+ * answer whose entries all resolve to the call's options (by id or label),
+ * mark it used, and return the matched ids. Returns undefined when no
+ * scripted answer applies.
+ */
+function pickAnswer(answers, idx, options, matchMode, used) {
+  const resolves = (ans) =>
+    Array.isArray(ans) &&
+    ans.length > 0 &&
+    ans.every((want) => (options || []).some((o) => o.id === matchOption(want, options)));
+  let chosen;
+  if (matchMode) {
+    const hit = answers.findIndex((ans, i) => !used.has(i) && resolves(ans));
+    if (hit === -1) return undefined;
+    used.add(hit);
+    chosen = answers[hit];
+    return chosen.map((want) => matchOption(want, options));
+  }
+  // Order mode is unchanged: the scripted answer is returned as written,
+  // and an explicit [] is a dismissed question (no selection).
+  chosen = answers[idx];
+  return Array.isArray(chosen) ? chosen : undefined;
+}
 
 const mockTemplates = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../mocks/tool-responses.json"), "utf-8"),
@@ -286,9 +336,14 @@ class ClaudeSkillAgentSdk {
   }
 
   async callApi(_prompt, context) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return { error: "ANTHROPIC_API_KEY environment variable is not set" };
+    // Either an API key or a Claude subscription token (`claude setup-token`)
+    // authenticates the SDK's child Claude Code process. The isolated config
+    // dir hides the interactive /login, so one of these must be in the env.
+    if (!process.env.ANTHROPIC_API_KEY && !process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+      return {
+        error:
+          "Set ANTHROPIC_API_KEY, or CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`",
+      };
     }
 
     const userRequest =
@@ -313,6 +368,8 @@ class ClaudeSkillAgentSdk {
       : [];
     const mockFiles = context?.vars?.mock_files || {};
     const mockOverrides = context?.vars?.mock_overrides || {};
+    const matchAnswers = context?.vars?.mock_ask_question_match === true;
+    const usedAnswers = new Set();
 
     let userMessage = userRequest;
     if (codebaseContext) {
@@ -349,7 +406,11 @@ class ClaudeSkillAgentSdk {
               const template = this.mockTemplates[def.name];
               let mock;
               if (override !== undefined) {
-                mock = renderOverride(override, args);
+                // Release Autopilot tools keep their recorded state under an
+                // override (an error override on a write is not recorded).
+                mock = /release-autopilot|release-plan/.test(def.name)
+                  ? renderMockResponse(override, args, def.name, mockState)
+                  : renderOverride(override, args);
               } else if (template) {
                 mock = renderMockResponse(template, args, def.name, mockState);
               } else {
@@ -399,11 +460,11 @@ class ClaudeSkillAgentSdk {
             },
             async (args) => {
               const idx = askQuestionCallCount++;
-              const override = askQuestionAnswers[idx];
+              const picked = pickAnswer(askQuestionAnswers, idx, args.options, matchAnswers, usedAnswers);
+              const scripted = picked !== undefined;
               let selected;
-              // An explicit [] is a dismissed question: no selection.
-              if (Array.isArray(override)) {
-                selected = override;
+              if (scripted) {
+                selected = picked;
               } else if (Array.isArray(args.options) && args.options.length > 0) {
                 selected = [args.options[0].id];
               } else {
@@ -415,6 +476,8 @@ class ClaudeSkillAgentSdk {
                 tool: "ask-question",
                 arguments: args,
                 turn: currentTurn,
+                scripted,
+                selected,
                 mock_response_preview: previewMock(response),
               });
 
@@ -684,3 +747,5 @@ module.exports.filterToolDefs = filterToolDefs;
 module.exports.mergeToolDefs = mergeToolDefs;
 module.exports.skillInstructions = skillInstructions;
 module.exports.overrideFor = overrideFor;
+module.exports.matchOption = matchOption;
+module.exports.pickAnswer = pickAnswer;

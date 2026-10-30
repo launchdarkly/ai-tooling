@@ -25,6 +25,8 @@
     "eval:flag-and-release-change:single": "promptfoo eval -c shared/defaults.yaml -c flag-and-release-change/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:onboarding": "promptfoo eval -c shared/defaults.yaml -c onboarding/promptfooconfig.yaml --env-file .env --no-cache -o onboarding/results.json",
     "eval:onboarding:single": "promptfoo eval -c shared/defaults.yaml -c onboarding/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
+    "eval:release-autopilot-onboarding": "promptfoo eval -c shared/defaults.yaml -c release-autopilot-onboarding/promptfooconfig.yaml --env-file .env --no-cache -o release-autopilot-onboarding/results.json",
+    "eval:release-autopilot-onboarding:single": "promptfoo eval -c shared/defaults.yaml -c release-autopilot-onboarding/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:experiment-guide": "promptfoo eval -c shared/defaults.yaml -c experiment-guide/promptfooconfig.yaml --env-file .env --no-cache -o experiment-guide/results.json",
     "eval:experiment-guide:single": "promptfoo eval -c shared/defaults.yaml -c experiment-guide/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:experiment-orchestration": "promptfoo eval -c shared/defaults.yaml -c experiment-orchestration/promptfooconfig.yaml --env-file .env --no-cache -o experiment-orchestration/results.json",
