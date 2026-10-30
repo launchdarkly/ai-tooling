@@ -431,7 +431,7 @@
       "name": "launchdarkly-release-autopilot-onboarding",
       "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), review release policies (release plans by GA), and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
-      "version": "0.2.0-experimental",
+      "version": "0.3.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [

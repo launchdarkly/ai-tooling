@@ -21,6 +21,20 @@ function isConfirmQuestion(step) {
   return labels.some((l) => l.includes("looks good"));
 }
 
+// Index of the last confirm question before `limit` whose answer was "Looks good",
+// or -1. Showing the confirm question is not approval; only that answer is.
+function approvedConfirmBefore(steps, limit) {
+  for (let i = limit - 1; i >= 0; i--) {
+    const step = steps[i];
+    if (!isConfirmQuestion(step)) continue;
+    const ok = ((step.arguments && step.arguments.options) || [])
+      .filter((o) => String(o.label || "").toLowerCase().includes("looks good"))
+      .map((o) => o.id);
+    if ((step.selected || []).some((id) => ok.includes(id))) return i;
+  }
+  return -1;
+}
+
 module.exports.noWrites = (output) => {
   const w = writes(output);
   return result(w.length === 0, w.length ? `wrote: ${w.map((t) => t.tool).join(", ")}` : "no writes");
@@ -45,7 +59,7 @@ module.exports.confirmsBeforeWriting = (output) => {
 const mapsRepoWithOverrides = (repo, project, caps) => (output) => {
   const maps = traj(output).filter((t) => t.tool === "update-release-autopilot-repo-settings");
   if (!maps.length) return result(false, "never wrote a repo mapping");
-  const wrong = maps.filter((m) => (m.arguments || {}).repo !== repo || (project && (m.arguments || {}).projectKey && m.arguments.projectKey !== project));
+  const wrong = maps.filter((m) => (m.arguments || {}).repo !== repo || (project && (m.arguments || {}).projectKey !== project));
   if (wrong.length) return result(false, `wrote ${wrong.map((m) => `${m.arguments.repo}@${m.arguments.projectKey}`).join(", ")}; want only ${repo}@${project}`);
   const bad = maps.filter((m) => caps.some((c) => !(m.arguments[c] && m.arguments[c].enabled === false)));
   return result(bad.length === 0, bad.length ? `missing ${caps.join("/")} enabled:false` : `${repo} written with ${caps.join("/")} off`);
@@ -88,7 +102,10 @@ module.exports.planBeforeRepoWrite = (output) => {
   const plan = steps.findIndex((t) => t.tool === "create-release-plan");
   const repo = steps.findIndex((t) => t.tool === "update-release-autopilot-repo-settings");
   if (plan === -1) return result(false, "never created a release plan");
-  return result(repo === -1 || plan < repo, `plan at ${plan}, repo write at ${repo}`);
+  if (repo === -1) return result(false, "never mapped acme/demo");
+  const args = steps[repo].arguments || {};
+  const pass = plan < repo && args.repo === "acme/demo" && args.projectKey === "default";
+  return result(pass, `plan at ${plan}, repo write at ${repo} (${args.repo}@${args.projectKey})`);
 };
 
 module.exports.plansHaveClauses = (output) => {
@@ -351,4 +368,82 @@ module.exports.pausesBeforeMapping = (output) => {
   const resume = /continue Release Autopilot setup/i.test(finalText(output));
   const pass = repoQ.length === 0 && resume;
   return result(pass, `repo questions: ${repoQ.length}; resume phrase in final message: ${resume}`);
+};
+
+// Release setup lookups for one project, valid for both modes. Every
+// release-plans call names the project and one of its environments. If the
+// first call is the account-wide 403, there is exactly one plans call and a
+// release-policies lookup for the project (release policies, today). If it
+// succeeds, no policy lookup is required (environment release plans, at GA).
+const releaseSetupLookups = (projectKey, envs) => (output) => {
+  const steps = traj(output);
+  const plans = steps.filter((t) => t.tool === "list-release-plans");
+  if (!plans.length) return result(false, "never checked release plans");
+  const badPlan = plans.find((t) => (t.arguments || {}).projectKey !== projectKey || !envs.includes((t.arguments || {}).environmentKey));
+  if (badPlan) return result(false, `release-plans lookup with ${JSON.stringify(badPlan.arguments)}`);
+  const forbidden = /403|not allow/i.test(String(plans[0].mock_response_preview || ""));
+  if (!forbidden) return result(true, `release plans available; ${plans.length} lookup(s) for ${projectKey}`);
+  const policies = steps.filter((t) => t.tool === "list-release-policies");
+  const okPolicies = policies.filter((t) => (t.arguments || {}).projectKey === projectKey);
+  const pass = plans.length === 1 && okPolicies.length >= 1 && okPolicies.length === policies.length;
+  return result(pass, `release-plans lookups: ${plans.length}; release-policies lookups for ${projectKey}: ${okPolicies.length} of ${policies.length}`);
+};
+module.exports.releaseSetupLookupsDefault = releaseSetupLookups("default", ["test", "production"]);
+
+// A browser step question: a "Done" option and a settings topic (by link or by
+// words), so a pre-confirm question without the right link is still caught.
+const BROWSER_TOPIC = /settings\/(lifecycle|vega)|lifecycle settings|vega settings|own key|api key|flag cleanup|automatic archival|auto-archival|auto-cleanup/i;
+const isBrowserStepQuestion = (t) => t.tool === "ask-question" &&
+  ((t.arguments && t.arguments.options) || []).some((o) => /^done\b/i.test(String(o.label || ""))) &&
+  BROWSER_TOPIC.test(String((t.arguments && t.arguments.prompt) || "")) &&
+  !/github/i.test(String((t.arguments && t.arguments.prompt) || ""));
+
+// Browser steps that change settings come only after "Looks good".
+module.exports.browserStepsAfterConfirm = (output) => {
+  const steps = traj(output);
+  const browser = steps.findIndex(isBrowserStepQuestion);
+  if (browser === -1) return result(false, "no browser step question");
+  const approved = approvedConfirmBefore(steps, browser);
+  return result(approved !== -1, approved !== -1 ? `approved at ${approved}, first browser step at ${browser}` : `browser step at ${browser} without a "Looks good" answer before it`);
+};
+
+// Preview never asks the user to change something in the browser, and lists it.
+module.exports.previewListsBrowserSteps = (output) => {
+  const asked = traj(output).filter(isBrowserStepQuestion).length;
+  const listed = /settings\/lifecycle/.test(finalText(output));
+  return result(asked === 0 && listed, `browser step questions: ${asked}; lifecycle link listed: ${listed}`);
+};
+
+// Archival-only setup needs no GitHub step and no repo mapping.
+module.exports.noGithubOrMapping = (output) => {
+  const steps = traj(output);
+  const repoWrites = steps.filter((t) => /^(update|delete)-release-autopilot-repo-settings$/.test(t.tool)).length;
+  const ghQ = steps.filter((t) => t.tool === "ask-question" && (
+    /github/i.test(String((t.arguments && t.arguments.prompt) || "")) ||
+    ((t.arguments && t.arguments.options) || []).some((o) => /^[\w.-]+\/[\w.-]+$/.test(String(o.label || "")))
+  )).length;
+  return result(repoWrites === 0 && ghQ === 0, `repo writes: ${repoWrites}; GitHub or repo-picker questions: ${ghQ}`);
+};
+
+module.exports.storefrontAutoFlaggingOn = (output) => {
+  const steps = traj(output);
+  const w = steps.findIndex((t) => t.tool === "update-release-autopilot-repo-settings" && (t.arguments || {}).repo === "acme/storefront" &&
+    t.arguments.autoFlagging && t.arguments.autoFlagging.enabled === true);
+  if (w === -1) return result(false, "did not clear the repo's auto-flagging override");
+  const verified = steps.slice(w + 1).some((t) => t.tool === "get-release-autopilot-repo-settings" && (t.arguments || {}).repo === "acme/storefront");
+  return result(verified, verified ? "turned auto-flagging on for acme/storefront and read it back" : "turned it on but never verified the repo's effective value");
+};
+
+module.exports.byokQuestionHasVegaLink = (output) => {
+  const pass = askPrompts(output).some((p) => /\/projects\/[^/\s]+\/settings\/vega/.test(p));
+  return result(pass, pass ? "bring-your-own-key question contains the Vega settings link" : "no question contains /projects/{key}/settings/vega");
+};
+
+// Preview with GitHub disconnected and auto-releasing picked lists the
+// deferred release setup, not only repo mapping.
+module.exports.previewListsDeferredReleaseSetup = (output) => {
+  const text = finalText(output).toLowerCase();
+  const mapping = /map/.test(text) && /github/.test(text);
+  const release = /environment/.test(text) && /release (polic|plan)/.test(text);
+  return result(mapping && release, `lists mapping after GitHub: ${mapping}; lists environments and release policies/plans: ${release}`);
 };
