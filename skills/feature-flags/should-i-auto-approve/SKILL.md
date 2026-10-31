@@ -5,8 +5,8 @@ license: Apache-2.0
 compatibility: "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-i-auto-approve` JSON block."
 metadata:
   author: launchdarkly
-  version: "0.1.0"
-  graph: "e0f1846b4950"
+  version: "0.2.0"
+  graph: "7421cf8d910a"
 ---
 
 # Can This Change Be Approved Without a Human?
@@ -97,6 +97,8 @@ git -C <REPO_PATH> grep -n <pattern> <head>
 - **Answer every question**, even when an earlier answer already decides the
   rating: the answers are kept, and re-walked when the graph changes.
 - Follow each question's procedure, not your own view of the change's risk.
+  A bug or a missing test you find doesn't change an answer unless the
+  question asks about it; mention it in your report instead.
 - Give `true`, `false`, or `"unresolved"` (only when that question's
   "Unresolved when" actually holds; say which part), with evidence: the files
   and lines or symbols that decide it, in one or two sentences.
@@ -162,6 +164,8 @@ Print, in a few short lines, using only what `decide` printed:
    change led there, in terms of its code.
 2. `UNCLEAR, BUT IT DIDN'T MATTER`, if present.
 3. Anything from step 1 to act on: LaunchDarkly state that couldn't be read.
+4. A defect you found while answering (a bug, a missing test for changed
+   behavior), in one line, if any. It doesn't change the rating.
 
 Then copy the `should-i-auto-approve` block **verbatim** as the last thing in
 your output. Never edit its fields.
