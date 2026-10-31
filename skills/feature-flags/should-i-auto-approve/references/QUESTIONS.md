@@ -69,6 +69,9 @@ persisted model definition whose change alters the schema an ORM
 auto-migrates (GORM model structs, for example).
 paths.py gives the path list; a reader confirms a model-file hunk
 changes a persisted field (a method-only change to a model file is NO).
+An API schema (a GraphQL schema.graphqls, an OpenAPI spec or api.yaml)
+is NO: it is a contract, not a database schema; the code behind it is
+asked at the C questions.
 
 **Unresolved when:** A model file changed and paths.py cannot tell whether a persisted field
 changed; the reader then answers.
@@ -158,14 +161,26 @@ props, a new hook) counts only if it does nothing when the flag is off.
 **Unresolved when:** The flag's production state could not be read, or the flag key is
 computed at runtime.
 
-## C5: Does every behavior-carrying hunk only add logging, metrics, traces, or spans, without changing control flow, return values, or stored data?
+## C5: Does every behavior-carrying hunk change only telemetry -- what the code adds or reports to logging, metrics, traces, spans or error tracking -- without changing control flow, return values, or stored data?
 
-YES if each behavior-carrying hunk adds a log line, a metric, a span or
-span attribute, or an analytics event emission, and removing it would
-leave every other output identical. A changed or removed existing
-event, a new required property on an existing event, a new exporter or
-sampling rule, or telemetry that adds a network call on the request
-path is NO.
+YES if each behavior-carrying hunk does one of these, and every other
+output (what the code returns, raises, renders, sends to callers or
+users, or writes) stays identical:
+  - adds a log line, a metric, a span or span attribute, or an
+    analytics event emission;
+  - changes how our own monitoring sees something that already
+    happens: whether an error is sent to error tracking (trackError,
+    Sentry, RUM), its severity or log level, a log message's text or
+    fields, or the tags or attributes on an existing metric or span. This holds in shared helpers too: a change
+    to what a shared error or logging helper reports is telemetry,
+    not shared logic.
+NO for a changed or removed existing product analytics event
+(exposure, usage or other events that customers' data, experiments or
+billing are built from), a new required property on an existing
+analytics event, a new exporter or sampling rule, telemetry that adds
+a network call on the request path, or any hunk whose telemetry value
+is also read by product logic (a rate limiter, a quota, a routing
+decision).
 
 **Unresolved when:** The telemetry call's cost or failure mode (does it throw, does it block)
 is defined outside the tree.
@@ -195,6 +210,9 @@ already handled.
 NO for a net-new path (a new endpoint, a function only the PR's feature
 calls), for presentation-only changes to a shared UI component (layout,
 styling, labels), and for logic only one feature calls (that is C7).
+Count callers, not where the code lives: a function in a shared
+package or component whose callers at merge_base all belong to one
+feature is NO.
 
 **Unresolved when:** The callers are dispatched dynamically and cannot be counted from the
 tree.
@@ -240,6 +258,6 @@ show.
 - **low**: Ships, but changes no runtime behavior: formatting, rename, or regenerated output with unchanged inputs.
 - **low**: Copy change only.
 - **low**: Net-new behavior reachable only behind a flag serving its default (off) in every production environment.
-- **low**: Additive telemetry only.
+- **low**: Telemetry only: what our own monitoring records or reports, nothing else.
 - **low**: A patch-level bump of an existing dependency, nothing else.
 - **low**: A contained change: a failure would show where it happens, the changed behavior runs in one feature only, and a revert undoes it.
