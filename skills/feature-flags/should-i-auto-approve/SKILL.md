@@ -6,7 +6,7 @@ compatibility: "Advisory and read-only. Needs a git checkout with the change com
 metadata:
   author: launchdarkly
   version: "0.2.0"
-  graph: "7421cf8d910a"
+  graph: "4b80092a1012"
 ---
 
 # Can This Change Be Approved Without a Human?
