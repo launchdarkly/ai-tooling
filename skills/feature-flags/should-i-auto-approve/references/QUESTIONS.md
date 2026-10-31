@@ -213,6 +213,10 @@ styling, labels), and for logic only one feature calls (that is C7).
 Count callers, not where the code lives: a function in a shared
 package or component whose callers at merge_base all belong to one
 feature is NO.
+Count every caller at merge_base: don't set a caller aside because the
+inputs it passes today never reach the changed branch. Whether the hunk
+changes what the function accepts, rejects or returns is judged on the
+function's inputs, not caller by caller.
 
 **Unresolved when:** The callers are dispatched dynamically and cannot be counted from the
 tree.
