@@ -12,7 +12,8 @@ rating.
 - **Needs** a git checkout with the change committed and its merge base,
   `python3` (3.10+, standard library only) and `git`.
 - **Output:** a short report ending in a `should-i-auto-approve` JSON block (`rating`,
-  `terminal`, `steps`, `values`, `graph`).
+  `terminal`, `steps`, `values`, `graph`, and the approval `gates` with
+  `auto_approve`).
 - **Shadow mode:** told to run in shadow mode, the agent prints the report and
   does nothing else with it.
 
