@@ -167,6 +167,36 @@ this question is about the code that sends events.
 **Unresolved when:** Whether the changed call reaches a product analytics emitter depends on
 a wrapper the tree does not show.
 
+## B7: Does a shipping hunk change the name, value, derivation or emission of a telemetry attribute that a product view displays to customers?
+
+Telemetry a product view displays is product data, not monitoring: a
+span, span event, metric or log attribute that a page customers use
+reads and shows (a trace or conversation view, an evaluation result,
+a cost or usage rollup). The view usually lives in another repository,
+so two things point to one:
+  - `start` lists, as `hint_B7`, changed lines that name an attribute
+    the product's views are known to read;
+  - the PR's title or description says a product view, dashboard or
+    another repository's page reads what the change emits. A claim that
+    raises the risk can be taken as given; confirm only that the change
+    really emits or alters the attributes it names.
+
+YES if a shipping hunk adds, removes or renames such an attribute,
+changes the value written into it or how that value is derived (a new
+unit or scale, a label computed differently, a fallback), or changes
+when the span, event or metric carrying it is emitted or which ones
+carry it.
+
+NO when the attribute is read only by our own monitoring (error
+tracking, log search, operational dashboards: that is C5); when the
+key appears only in text the program does not emit (a description, a
+comment, documentation); and when every such hunk only moves or
+reformats code that emits the same attributes with the same values.
+Name the attribute, the hunk and what reads it in the evidence.
+
+**Unresolved when:** Whether the attribute is emitted depends on an exporter or wrapper the
+tree does not show.
+
 ## C1: Does at least one changed file end up inside a deployed runtime artifact? (from the changed paths)
 
 Tests, fixtures, stories, docs, lockfiles,
@@ -224,7 +254,8 @@ users, or writes) stays identical:
     fields, or the tags or attributes on an existing metric or span. This holds in shared helpers too: a change
     to what a shared error or logging helper reports is telemetry,
     not shared logic.
-NO for a changed or removed existing product analytics event
+NO for telemetry a product view displays to customers (that is B7),
+for a changed or removed existing product analytics event
 (exposure, usage or other events that customers' data, experiments or
 billing are built from), a new required property on an existing
 analytics event, a new exporter or sampling rule, telemetry that adds
@@ -356,6 +387,7 @@ and the change.
 - **medium**: Touches middleware, authentication, authorization, session or crypto code without changing access.
 - **medium**: Changes the shared analytics event catalog, which the repository's approval policy never auto-approves.
 - **medium**: Changes what a product analytics event sends (its emission, properties or values), which the repository's approval policy never auto-approves.
+- **medium**: Changes telemetry a product view displays to customers (an attribute's name, value, derivation or emission).
 - **medium**: Changes how existing logic that more than one feature relies on behaves (a validation, a query parser or builder, a request helper, a database write), with no flag.
 - **medium**: Behavior change whose failure would be silent, spread beyond its surface, or not undone by a revert.
 - **low**: Nothing ships: tests, docs, comments, stories, or other files outside the runtime.
