@@ -150,7 +150,7 @@ tests:
         metric: no_unpicked_archival
         weight: 3
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:releaseSetupLookupsDefault
+        value: file://../release-autopilot-onboarding/assertions.js:releaseSetupLookupsTestProduction
         metric: release_setup_lookups
         weight: 3
       - type: javascript
@@ -436,7 +436,7 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:releaseSetupLookupsDefault
+        value: file://../release-autopilot-onboarding/assertions.js:releaseSetupLookupsProduction
         metric: release_setup_lookups
         weight: 3
       - type: javascript
