@@ -3,6 +3,11 @@
 # Run with shared defaults:
 #   promptfoo eval -c shared/defaults.yaml -c should-flag-change/promptfooconfig.yaml
 #
+# Covers the should-flag-change skill's no-checkout path
+# (references/NO_CHECKOUT.md), the judgment procedure it follows when its
+# decision tree can't run. The tree itself needs a real git checkout and isn't
+# exercised here.
+#
 # The should-flag-change skill is an ADVISORY, READ-ONLY skill. Given a code
 # change (a <git_diff> block, optionally plus surrounding source), it decides
 # whether the change should ship behind a LaunchDarkly feature flag and ends by
@@ -28,7 +33,7 @@
 description: "End-to-end evaluation of the should-flag-change skill"
 
 prompts:
-  - file://../../skills/feature-flags/should-flag-change/SKILL.md
+  - file://../../skills/feature-flags/should-flag-change/references/NO_CHECKOUT.md
 
 providers:
   - id: file://../providers/claude-skill-agent-sdk.js
@@ -36,11 +41,13 @@ providers:
     config:
       skill_slug: should-flag-change
       allow_builtins: false
+      skill_body: references/NO_CHECKOUT.md
   - id: file://../providers/claude-skill-agent-sdk.js
     label: agentic
     config:
       skill_slug: should-flag-change
       allow_builtins: true
+      skill_body: references/NO_CHECKOUT.md
 
 # Suite-wide contract checks applied to every fixture (concatenated with the
 # shared defaults). These enforce the skill's two hard invariants directly,

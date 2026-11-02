@@ -30,6 +30,11 @@
  *   expose_ask_question    - Default false. When true, expose a second in-process
  *                            MCP server with an `ask-question` tool that records
  *                            calls into the trajectory and returns a canned answer.
+ *   skill_body             - Optional. A file, relative to the skill directory,
+ *                            whose content replaces SKILL.md's body (the
+ *                            frontmatter is kept). For a suite that covers one
+ *                            path of a skill held in a reference page, which a
+ *                            run without built-in tools couldn't open.
  *
  * Test-level vars:
  *   user_request                - the user turn the agent sees
@@ -103,12 +108,26 @@ function resolveSkillSource(slug) {
  *     .isolated-claude-config/
  *     .mcp.json               (empty stub so SDK doesn't walk up to real .mcp.json)
  */
-function createInvocationCwd(slug, skillSource) {
+function createInvocationCwd(slug, skillSource, skillBody) {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), `ld-eval-${slug}-`));
 
   const skillsDir = path.join(cwd, ".claude", "skills");
   fs.mkdirSync(skillsDir, { recursive: true });
-  fs.symlinkSync(skillSource, path.join(skillsDir, slug), "dir");
+  if (skillBody) {
+    const skillMd = fs.readFileSync(path.join(skillSource, "SKILL.md"), "utf-8");
+    const frontmatter = skillMd.match(/^---\n[\s\S]*?\n---\n/);
+    if (!frontmatter) {
+      throw new Error(`claude-skill-agent-sdk: no frontmatter in ${slug}/SKILL.md`);
+    }
+    const body = fs.readFileSync(path.join(skillSource, skillBody), "utf-8");
+    fs.mkdirSync(path.join(skillsDir, slug));
+    fs.writeFileSync(
+      path.join(skillsDir, slug, "SKILL.md"),
+      `${frontmatter[0]}\n${body}`,
+    );
+  } else {
+    fs.symlinkSync(skillSource, path.join(skillsDir, slug), "dir");
+  }
 
   const isolatedConfig = path.join(cwd, ".isolated-claude-config");
   fs.mkdirSync(isolatedConfig, { recursive: true });
@@ -180,6 +199,7 @@ class ClaudeSkillAgentSdk {
     this.exposeMcpTools = config.expose_mcp_tools !== false;
     this.forceSkillInvocation = Boolean(config.force_skill_invocation);
     this.exposeAskQuestion = Boolean(config.expose_ask_question);
+    this.skillBody = config.skill_body || null;
 
     const source = resolveSkillSource(this.skillSlug);
     if (!source) {
@@ -229,6 +249,7 @@ class ClaudeSkillAgentSdk {
     const { cwd, isolatedConfig } = createInvocationCwd(
       this.skillSlug,
       this.skillSource,
+      this.skillBody,
     );
     scaffoldMockFiles(cwd, mockFiles);
 

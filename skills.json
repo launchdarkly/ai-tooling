@@ -483,11 +483,11 @@
     },
     {
       "name": "should-flag-change",
-      "description": "Decide whether a given code change should be placed behind a LaunchDarkly feature flag. Use when a developer asks whether a change should be behind a flag, when reviewing a diff or pull request, or when running in CI on a PR. Reads the diff and surrounding code, then emits a structured advisory recommendation. Read-only: it never creates or modifies flags.",
+      "description": "Decide whether a committed code change should ship behind a LaunchDarkly feature flag. Use when a developer asks whether a change should be behind a flag, when reviewing a diff or pull request, or when running in CI on a PR. Runs a fixed decision tree over the change and the code around it, with checked evidence, and emits a structured advisory recommendation. Run it on every change, including test-only, docs, dependency and already-flagged ones: those finish in a minute or two, and its verdict, not your own read of the diff, is the decision. Read-only: it never creates or modifies flags.",
       "path": "skills/feature-flags/should-flag-change",
-      "version": "0.4.0-experimental",
+      "version": "0.5.0",
       "license": "Apache-2.0",
-      "compatibility": "Advisory and read-only. Works on all platforms. Does NOT require the LaunchDarkly MCP server. Reads code with standard file tools (Read/Grep/Glob) and returns a structured verdict via the `recommend-flag` tool.",
+      "compatibility": "Advisory and read-only. Needs a git checkout with the change committed (shallow is fine; a --filter partial clone is filled in from its remote), a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run (no shell, no checkout), it decides by judgment instead, from references/NO_CHECKOUT.md. Returns a structured verdict as a `recommend-flag` block.",
       "tags": [
         "launchdarkly",
         "feature-flags",
@@ -503,7 +503,7 @@
       "name": "should-i-auto-approve",
       "description": "Rates a committed code change's review risk as low, medium or high by a fixed decision graph (low can be approved without a human; medium and high need one), from checked answers to narrow questions about the change. Use only when your instructions or the user name should-i-auto-approve. Advisory and read-only: it never approves, comments on, or changes a pull request.",
       "path": "skills/feature-flags/should-i-auto-approve",
-      "version": "0.2.0",
+      "version": "0.5.0",
       "license": "Apache-2.0",
       "compatibility": "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-i-auto-approve` JSON block.",
       "tags": [
@@ -514,24 +514,6 @@
         "advisory",
         "risk-assessment",
         "auto-approval"
-      ]
-    },
-    {
-      "name": "should-i-flag",
-      "description": "should-flag-change v2 (preview): a decision-tree version that decides whether a committed code change should ship behind a LaunchDarkly feature flag, with checked evidence and a structured advisory recommendation. Use only when your instructions or the user name should-i-flag; the default for this task is should-flag-change (v1). When they do, run it on every change, including test-only, docs, dependency and already-flagged ones: those finish in a minute or two, and its verdict, not your own read of the diff, is the decision. Read-only: it never creates or modifies flags.",
-      "path": "skills/feature-flags/should-i-flag",
-      "version": "0.1.0",
-      "license": "Apache-2.0",
-      "compatibility": "Advisory and read-only. Needs a git checkout with the change committed (shallow is fine; a --filter partial clone is filled in from its remote), a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run, it hands off to the should-flag-change skill. Returns a structured verdict as a `recommend-flag` block.",
-      "tags": [
-        "launchdarkly",
-        "feature-flags",
-        "feature-management",
-        "code-review",
-        "pull-request",
-        "ci",
-        "advisory",
-        "risk-assessment"
       ]
     },
     {
