@@ -32,6 +32,10 @@ providers:
       # Sentinel responses still come from the shared mock renderer.
       tool_definitions: experiment-setup/tools.json
       tool_mocks: experiment-setup/mocks.json
+      # In the shared catalog, but not a hosted MCP tool and it has no mock.
+      # A call returns "no mock configured", and the agent can then treat a
+      # lifecycle status of active as the flag being on.
+      exclude_mcp_tools: [get-feature-flag]
 
 tests:
   # ------------------------------------------------------------------
