@@ -7,9 +7,10 @@ the agent answers the rest from the code, each by its procedure.
 
 YES if any changed path is one of:
   APPROVAL_POLICY.md (any directory), CODEOWNERS (any location),
-  .cursor/BUGBOT.md or any file under .cursor/rules/ or a
-  .cursor/automations/ directory, a GitHub ruleset or branch-protection
-  definition (terraform or JSON describing repository rules).
+  a .cursor/BUGBOT.md (any directory) or any file under a
+  .cursor/rules/, .cursor/automations/ or .cursor/approval-policies/
+  directory, a GitHub ruleset or branch-protection definition
+  (terraform or JSON describing repository rules).
 CI workflow definitions are NOT this predicate (see B1): they are
 never low, but a workflow edit does not let a change approve itself.
 
