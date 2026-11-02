@@ -1,7 +1,7 @@
 {
   "name": "launchdarkly-release-autopilot-settings",
   "description": "Configure LaunchDarkly Release Autopilot settings via MCP, or diagnose why a PR was not classified",
-  "version": "1.3.0-experimental",
+  "version": "1.4.0-experimental",
   "author": "LaunchDarkly",
   "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],

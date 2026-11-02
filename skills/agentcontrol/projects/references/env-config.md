@@ -18,7 +18,7 @@ def save_sdk_key_to_env(
     project_key: str,
     environment: str = "production",
     env_file: str = ".env",
-    var_name: str = "LAUNCHDARKLY_SDK_KEY"
+    var_name: str = "LD_SDK_KEY"
 ):
     """Save SDK key to .env file."""
     # Get the SDK key
@@ -58,7 +58,7 @@ async function saveSdkKeyToEnv(
   projectKey: string,
   environment: string = 'production',
   envFile: string = '.env',
-  varName: string = 'LAUNCHDARKLY_SDK_KEY'
+  varName: string = 'LD_SDK_KEY'
 ): Promise<void> {
   const pm = new ProjectManager();
   const sdkKey = await pm.getSdkKey(projectKey, environment);
@@ -140,7 +140,7 @@ def save_to_aws_secrets(project_key: str, environment: str, secret_name: str):
         secrets = {}
     
     # Update with new key
-    secrets['LAUNCHDARKLY_SDK_KEY'] = sdk_key
+    secrets['LD_SDK_KEY'] = sdk_key
     
     # Save back
     client.put_secret_value(
@@ -345,24 +345,25 @@ def rotate_sdk_key(project_key: str, environment: str):
 After saving SDK keys, verify they work:
 
 ```python
-def verify_sdk_key(sdk_key: str):
-    """Verify SDK key works by testing connection."""
-    import ldclient
-    from ldclient.config import Config
-    
-    config = Config(sdk_key)
-    client = ldclient.get()
-    
-    if client.is_initialized():
-        print("✓ SDK key is valid and working")
-        return True
-    else:
-        print("✗ SDK key failed to initialize")
-        return False
+async def verify_sdk_key(sdk_key: str) -> bool:
+    """Verify an SDK key by initializing the AI SDK with it.
+
+    Run in a standalone script. Inside an app that already called init_client,
+    sdk_key is ignored and shutdown() closes the app's client.
+    """
+    from launchdarkly_ai_server import init_client, get_client, shutdown
+
+    await init_client({"sdkKey": sdk_key})
+    ok = get_client().is_initialized()
+    print("✓ SDK key is valid and working" if ok else "✗ SDK key failed to initialize")
+    await shutdown()
+    return ok
 ```
+
+Run it with `asyncio.run(verify_sdk_key(key))`. It needs `launchdarkly-server-sdk` and `launchdarkly-ai-server`.
 
 ## Next Steps
 
-- [Integrate SDK in your application](../sdk/SKILL.md)
+- [Integrate SDK in your application](../../../onboarding/sdk-install/SKILL.md)
 - [Set up project cloning](project-cloning.md)
 - [Build automation scripts](iac-automation.md)

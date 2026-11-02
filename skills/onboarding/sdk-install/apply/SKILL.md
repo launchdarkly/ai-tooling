@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires integration plan and LaunchDarkly credentials (see parent onboarding)
 metadata:
   author: launchdarkly
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Apply code changes (SDK install)
@@ -28,7 +28,7 @@ After installation, verify the dependency appears in the lock file or dependency
 
 ### Permission before changing other dependencies
 
-**Allowed without asking for extra permission (beyond normal repo-edit consent):** Installing **only** the LaunchDarkly SDK package(s) named in the recipe(s) for this integration (e.g. one server SDK, **or** the **exact server + client pair** listed in a dual-SDK plan -- **both** packages count as in-scope LD installs). Use the **minimum** install each recipe specifies (exact package names).
+**Allowed without asking for extra permission (beyond normal repo-edit consent):** Installing **only** the LaunchDarkly SDK package(s) named in the recipe(s) for this integration (e.g. one server SDK, **or** the **exact server + client pair** listed in a dual-SDK plan -- **both** packages count as in-scope LD installs). When the user asked for observability or session replay, the plugin package(s) from [Observability plugin](../../references/sdk/observability-plugin.md) are in scope too. Use the **minimum** install each recipe specifies (exact package names).
 
 **Requires explicit user approval *before* you run any command or edit manifests:** Any change beyond that scope, including but not limited to:
 
@@ -146,6 +146,8 @@ Initialization shape **depends on which SDK was chosen** during detection and pl
 Wire credentials using Step 2: server SDKs use `LAUNCHDARKLY_SDK_KEY`; client/browser SDKs use the client-side ID with the **bundler-prefixed** env names from Step 2 where applicable.
 
 Add imports and init to the **application entrypoint** for **that** track (or the target package's entrypoint in a monorepo -- see [Detect repository stack](../detect/SKILL.md)). **Dual SDK:** server init goes in the **server** entrypoint from the plan; client/provider init goes in the **client** entrypoint -- **never** a single shared block that pretends to cover both unless the official docs for that stack explicitly prescribe one pattern for both.
+
+**Observability plugin:** When the plan includes it, add the plugin(s) to the `plugins` option of the client you just initialized, following [Observability plugin](../../references/sdk/observability-plugin.md). Do not create a second client or a second credential.
 
 ### Key principles
 

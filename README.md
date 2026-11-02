@@ -28,6 +28,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 
 | Skill | Description |
 |-------|-------------|
+| `release-autopilot/launchdarkly-release-autopilot-onboarding` | Step-by-step setup: pick capabilities, connect the GitHub App, map repos, choose inference, review release setup |
 | `release-autopilot/launchdarkly-release-autopilot-settings` | Turn on GitHub App auto-flagging / auto-releasing, map `owner/name` repos, or diagnose why a PR was not classified (confirm before every write) |
 
 ### AgentControl
@@ -49,6 +50,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 
 | Skill | Description |
 |-------|-------------|
+| `experiments/launchdarkly-experiment-guide` | Guided experiment setup: find what to test, propose a hypothesis and metric, wire the flag, then draft and create the experiment |
 | `experiments/launchdarkly-experiment-setup` | Set up experiments with metrics, treatments, and data collection |
 
 ### Metrics
@@ -58,6 +60,12 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `metrics/launchdarkly-metric-choose` | Select the right metric type for an experiment |
 | `metrics/launchdarkly-metric-create` | Create metrics and instrument tracking events |
 | `metrics/launchdarkly-metric-instrument` | Add tracking calls to code for existing metrics |
+
+### AWS DevOps Agent
+
+| Skill | Description |
+|-------|-------------|
+| `aws-devops-agent/experiment-orchestration` | Take a product goal through a LaunchDarkly experiment and a rollout (guarded, if the plan has it) in AWS DevOps Agent. `ldcli aws-devops-agent setup` installs it with the `experiment-orchestrator` custom agent. See [`skills/aws-devops-agent`](skills/aws-devops-agent/README.md). |
 
 ## Install as a Claude Code Plugin
 

@@ -1,10 +1,10 @@
 ---
 name: projects
 description: Guide for setting up LaunchDarkly projects in your codebase. Helps you assess your stack, choose the right approach, and integrate project management that makes sense for your architecture.
-compatibility: Requires LaunchDarkly API access token with projects:write permission or LaunchDarkly MCP server.
+compatibility: Requires the remotely hosted LaunchDarkly MCP server. Code that creates projects itself (scripts, IaC, admin tools) needs an API access token with projects:write permission.
 metadata:
   author: launchdarkly
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # LaunchDarkly Projects Setup
@@ -13,9 +13,8 @@ You're using a skill that will guide you through setting up LaunchDarkly project
 
 ## Prerequisites
 
-**Choose one:**
-- LaunchDarkly API access token with `projects:write` permission
-- LaunchDarkly MCP server configured in your environment
+- The remotely hosted LaunchDarkly MCP server configured in your environment
+- An API access token with `projects:write` permission, only if you're building code that creates projects (scripts, IaC, admin tools)
 
 ## Core Principles
 
@@ -26,9 +25,11 @@ You're using a skill that will guide you through setting up LaunchDarkly project
 
 ## API Access
 
-Prefer the LaunchDarkly MCP server tools: they authenticate via OAuth and need no token. If a step has no MCP equivalent and you must call the REST API directly, ask the user to paste an API access token for this session and substitute it for `{api_token}` in the examples below. Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+When you create or inspect a project yourself, use the LaunchDarkly MCP server tools: `create-project`, `get-project`, and `list-projects`. They authenticate via OAuth and need no token.
 
-See [Quick Start](references/quick-start.md) for API usage patterns.
+The MCP tools don't return server-side SDK keys, only client-side IDs and mobile keys. To get the SDK key the app needs, ask the user to copy it from **Project settings → Environments**, or, if they'd rather, to paste an API access token for this session so you can fetch it through the REST API ([Quick Start](references/quick-start.md)). Do not search environment variables, `.env` files, or agent/MCP config files for credentials.
+
+The reference guides call the REST API because they build code that runs without the agent.
 
 ## What Are Projects?
 
@@ -72,7 +73,7 @@ Based on your exploration, determine the right approach:
 
 | Scenario | Recommended Path |
 |----------|------------------|
-| New project, no LaunchDarkly integration | **Quick Setup** - Create project and save SDK keys |
+| New project, no LaunchDarkly integration | **Quick Setup** - Create the project with `create-project`, then save its SDK keys |
 | Existing LaunchDarkly usage | **Add to Existing** - Create new project or use existing |
 | Multiple services/microservices | **Multi-Project** - Create projects per service |
 | Multi-region or multi-tenant | **Project Cloning** - Clone template project |
@@ -112,6 +113,7 @@ Follow the chosen reference guide to implement project management. Key considera
 
 3. **SDK Key Management:**
    - Extract and store SDK keys for each environment
+   - Save the key the application uses as `LD_SDK_KEY`. The Python and Node.js AI SDKs read that variable and initialize on the first AI call. They don't read `LAUNCHDARKLY_SDK_KEY`.
    - Use the same pattern as other secrets in your codebase
    - Consider separate keys for test/staging/production
 
@@ -124,7 +126,7 @@ Follow the chosen reference guide to implement project management. Key considera
 
 After creating the project, verify it works:
 
-1. **Fetch to confirm it exists.** Prefer the MCP `get-project` tool over raw `curl` — it returns a typed object you can inspect directly. If you must call the REST API:
+1. **Fetch to confirm it exists.** Call the `get-project` MCP tool and check that the project has its environments. Code without MCP access can call the REST API instead:
    ```bash
    curl -X GET "https://app.launchdarkly.com/api/v2/projects/{projectKey}?expand=environments" \
      -H "Authorization: {api_token}"
@@ -132,19 +134,33 @@ After creating the project, verify it works:
    **Do not pipe the response straight into a `.environments.items[]`-style `jq` filter.** The shape of `environments` varies by `expand` parameter — sometimes it's `{items: [...]}`, sometimes a bare array — and a hand-rolled filter will fail with `Cannot index array with string "items"`. Run `jq -e .` first to inspect the actual shape, or use `jq '.environments | if type == "object" then .items else . end'` to handle both.
 
 2. **Test SDK integration:**
-   Run a quick verification to ensure the SDK key works:
+   Put the key in `.env` as `LD_SDK_KEY`, then initialize the AI SDK from the project directory. Python needs `pip install launchdarkly-server-sdk launchdarkly-ai-server python-dotenv`:
    ```python
-   import ldclient
-   from ldclient.config import Config
+   import asyncio
+   from dotenv import load_dotenv
+   from launchdarkly_ai_server import init_client, get_client, shutdown
 
-   ldclient.set_config(Config("{sdk_key}"))
-   # SDK initializes successfully
+   load_dotenv()
 
-   # Always flush events before closing — trailing events are at risk of being
-   # lost otherwise, in short-lived scripts and long-running services alike.
-   ldclient.get().flush()
-   ldclient.get().close()
+   async def main():
+       await init_client()
+       print("SDK initialized:", get_client().is_initialized())
+       # shutdown() flushes pending events before closing the connection.
+       await shutdown()
+
+   asyncio.run(main())
    ```
+   Node.js needs `npm install @launchdarkly/ai-node dotenv`:
+   ```javascript
+   import 'dotenv/config';
+   import { initClient, shutdown } from '@launchdarkly/ai-node';
+
+   // Resolves once connected; throws LDTimeoutError if the key is invalid
+   await initClient();
+   console.log('SDK initialized: true');
+   await shutdown();
+   ```
+   A valid key prints `SDK initialized: True` (Python) or `true` (Node.js). With an invalid key, Python logs `HTTP error 401 (invalid SDK key)` and prints `False`, and Node.js throws `LDTimeoutError` after 10 seconds. With no key, both raise an error that asks for `LD_SDK_KEY`.
 
 3. **Report results:**
    - ✓ Project exists and has environments
@@ -218,13 +234,13 @@ ai-apac           → Asia-Pacific Region
 After setting up projects:
 
 1. **Create configs** - Use the `configs-create` skill
-2. **Set up SDK Integration** - Use the `sdk` skill
+2. **Set up SDK Integration** - Use the `sdk-install` skill
 3. **Configure Targeting** - Use the `configs-targeting` skill
 
 ## Related Skills
 
 - `configs-create` - Create configs in projects
-- `sdk` - Integrate SDK in your application
+- `sdk-install` - Integrate SDK in your application
 - `configs-targeting` - Configure config targeting
 - `configs-variations` - Manage config variations
 

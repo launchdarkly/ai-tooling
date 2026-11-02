@@ -104,7 +104,7 @@
       "name": "apply",
       "description": "Apply LaunchDarkly SDK onboarding: install dependency (or dual-SDK pair), configure env and secrets with consent, add init at entrypoint(s), verify compile. Nested under sdk-install; next is run.",
       "path": "skills/onboarding/sdk-install/apply",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "Apache-2.0",
       "compatibility": "Requires integration plan and LaunchDarkly credentials (see parent onboarding)"
     },
@@ -165,19 +165,27 @@
     },
     {
       "name": "custom-metrics",
-      "description": "Create, track, retrieve, update, and delete custom business metrics for configs. Covers full lifecycle: define metric kinds via API, emit events via SDK, and query results.",
+      "description": "Create, track, retrieve, update, and delete custom business metrics for configs. Covers full lifecycle: define metrics with the LaunchDarkly MCP server, emit events via SDK, and query results.",
       "path": "skills/agentcontrol/custom-metrics",
-      "version": "1.0.0-experimental",
+      "version": "1.1.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the LaunchDarkly server SDK and a LaunchDarkly API token with the `writer` role for metric management."
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server to create and read metrics. Updating or deleting a metric needs a LaunchDarkly API token with the `writer` role. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js)."
     },
     {
       "name": "detect",
       "description": "Detect repository stack for LaunchDarkly SDK onboarding: languages, frameworks, package managers, monorepo targets, entrypoints, existing LD usage. Nested under sdk-install; next is plan.",
       "path": "skills/onboarding/sdk-install/detect",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "Apache-2.0",
       "compatibility": "Requires access to the project repository"
+    },
+    {
+      "name": "experiment-orchestration",
+      "description": "Takes a product goal through a LaunchDarkly experiment and, if it wins, a guarded rollout (or a regular rollout on plans without guarded rollouts). Uses GitHub for the code change and deployment when it is connected to the agent space; otherwise hands those steps to a person.",
+      "path": "skills/aws-devops-agent/experiment-orchestration",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server in an AWS DevOps Agent space. GitHub is optional."
     },
     {
       "name": "flag-and-release-change",
@@ -224,15 +232,34 @@
       "name": "investigate",
       "description": "Analyzes observability data \u2014 logs, traces, errors, sessions, and metrics \u2014 to find root cause and actionable evidence. Use when the user reports a bug, an unexpected behavior, or asks about patterns across application data.",
       "path": "skills/observability/investigate",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+    },
+    {
+      "name": "launchdarkly-experiment-guide",
+      "description": "Guide a developer from 'I don't know what to test' to a ready-to-create LaunchDarkly experiment. Use when someone wants to run an experiment or A/B test but doesn't have a metric, a flag, or a hypothesis yet, or isn't sure what to measure. Scans the codebase and the connected LaunchDarkly account, proposes a hypothesis and metric from real context, wires up the flag and tracking code, then drafts the experiment and offers to create it. Built for engineers without a data-science or product-analytics background.",
+      "path": "skills/experiments/launchdarkly-experiment-guide",
+      "version": "0.1.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Uses the LaunchDarkly MCP server when it is configured; otherwise falls back to the LaunchDarkly REST API (needs a LaunchDarkly API token). Reads the local codebase and git history.",
+      "tags": [
+        "launchdarkly",
+        "experimentation",
+        "ab-testing",
+        "experiments",
+        "metrics",
+        "feature-flags",
+        "hypothesis",
+        "guided",
+        "mcp"
+      ]
     },
     {
       "name": "launchdarkly-experiment-setup",
       "description": "Set up and run experiments in LaunchDarkly. Create experiments with metrics, treatments, and flag config, start iterations to collect data, swap design between iterations, and stop with a winner.",
       "path": "skills/experiments/launchdarkly-experiment-setup",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
@@ -401,10 +428,30 @@
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
+      "name": "launchdarkly-release-autopilot-onboarding",
+      "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), review release policies (release plans by GA), and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
+      "path": "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
+      "version": "0.2.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "release-autopilot",
+        "onboarding",
+        "github",
+        "auto-flagging",
+        "auto-releasing",
+        "auto-cleanup",
+        "auto-archival",
+        "release-plans",
+        "mcp"
+      ]
+    },
+    {
       "name": "launchdarkly-release-autopilot-settings",
-      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR.",
+      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, review release policies), use launchdarkly-release-autopilot-onboarding instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-settings",
-      "version": "1.3.0-experimental",
+      "version": "1.4.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -420,7 +467,7 @@
       "name": "mcp-configure",
       "description": "Configure the LaunchDarkly hosted MCP server during onboarding. Use when the parent LaunchDarkly onboarding skill reaches the MCP offer, after the first flag works. Supports Cursor, Claude Code, Windsurf, GitHub Copilot, and other MCP-compatible agents. OAuth authentication; no API keys for the hosted server.",
       "path": "skills/onboarding/mcp-configure",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "Apache-2.0",
       "compatibility": "Requires an MCP-compatible coding agent and a LaunchDarkly account"
     },
@@ -436,7 +483,7 @@
       "name": "onboarding",
       "description": "Scripted onboarding for LaunchDarkly: quiet execution, fixed sequence, SDK install, first flag with a live reveal, MCP offered afterwards. Enforces step completion before advancing and redirects drift. Use when adding LaunchDarkly, setting up or integrating feature flags in a project, SDK integration, or 'onboard me'.",
       "path": "skills/onboarding",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "license": "Apache-2.0",
       "compatibility": "Requires an MCP-capable coding agent and `npx` on PATH for optional skill installs. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.",
       "tags": [
@@ -454,14 +501,14 @@
       "name": "online-evals",
       "description": "Attach judges to config variations for automatic LLM-as-a-judge evaluation. Create custom judges, configure sampling rates, and monitor quality scores.",
       "path": "skills/agentcontrol/online-evals",
-      "version": "0.1.0",
-      "compatibility": "Requires LaunchDarkly API access token with ai-configs:write permission. SDK versions Python v0.20.0+ or Node.js v0.20.0+ for automatic metric recording and the consolidated `track_judge_result` / `trackJudgeResult` API."
+      "version": "0.2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Scripted setup without MCP needs an API access token with ai-configs:write permission. SDK examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js)."
     },
     {
       "name": "plan",
       "description": "Generate a minimal LaunchDarkly SDK integration plan from detected stack: choose SDK type(s), dual-SDK server+client when required, files to change, env conventions. Nested under sdk-install; follows detect, precedes apply.",
       "path": "skills/onboarding/sdk-install/plan",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "Apache-2.0",
       "compatibility": "Requires completed or equivalent detect context (see sibling detect skill)"
     },
@@ -469,14 +516,14 @@
       "name": "projects",
       "description": "Guide for setting up LaunchDarkly projects in your codebase. Helps you assess your stack, choose the right approach, and integrate project management that makes sense for your architecture.",
       "path": "skills/agentcontrol/projects",
-      "version": "0.4.0",
-      "compatibility": "Requires LaunchDarkly API access token with projects:write permission or LaunchDarkly MCP server."
+      "version": "0.5.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Code that creates projects itself (scripts, IaC, admin tools) needs an API access token with projects:write permission."
     },
     {
       "name": "sdk-install",
       "description": "Install and initialize the correct LaunchDarkly SDK during onboarding by running nested skills in order: detect, plan, apply. Parent onboarding Step 4 is first flag.",
       "path": "skills/onboarding/sdk-install",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "Apache-2.0",
       "compatibility": "Requires a supported language/framework in the project. SDK credentials are required by [Apply](apply/SKILL.md), not for [Detect](detect/SKILL.md) / [Plan](plan/SKILL.md) alone (see parent onboarding **Prerequisites**)."
     },

@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires an MCP-compatible coding agent and a LaunchDarkly account
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # LaunchDarkly MCP Server Configuration (onboarding)
@@ -80,17 +80,17 @@ After writing the config, some agents need extra steps. **Do not** send users th
 
 **Claude Code:**
 
-- Authorization happens automatically on first MCP tool call via OAuth prompt. File-based setup: [Claude Code MCP doc](https://docs.claude.com/en/docs/claude-code/mcp).
+- Claude Code loads MCP servers only when a session starts, so a server added mid-session is not available yet. The user quits, resumes the session with `claude --continue`, then runs `/mcp`, selects the LaunchDarkly server, and authenticates. File-based setup: [Claude Code MCP doc](https://docs.claude.com/en/docs/claude-code/mcp).
 
 **GitHub Copilot:**
 
 - Click **Save** after adding the MCP configuration in repo settings. Use the [GitHub Copilot MCP doc](https://docs.github.com/en/copilot/customizing-copilot/extending-copilot-coding-agent-with-mcp) for the exact **Settings** path on github.com.
 
-### Step 5: Verify MCP Tools (No Mandatory Restart)
+### Step 5: Verify MCP Tools
 
-Restart is no longer required for Cursor or Claude Code after enabling an MCP server. Probe for tools immediately after the user confirms they've enabled and authorized the server.
+Cursor does not need a restart after enabling an MCP server. Claude Code does: it loads MCP servers only at session start (see Step 4). Probe for tools immediately after the user confirms they've enabled and authorized the server.
 
-1. **Tell the user to enable and authorize the server.** In Cursor: toggle on the LaunchDarkly server in MCP settings and click **Connect**. In Claude Code: the OAuth prompt appears on first tool call. Do **not** tell them to restart yet.
+1. **Tell the user to enable and authorize the server.** In Cursor: toggle on the LaunchDarkly server in MCP settings and click **Connect**. In Claude Code: quit, resume with `claude --continue`, then authenticate the server from `/mcp`. Do **not** tell Cursor users to restart yet.
 
 2. **Probe immediately.** After the user confirms the server is enabled, call a lightweight MCP tool (e.g. `list-feature-flags` with the user's project key). Do not ask the user whether MCP is working — just try it.
    - **Success** (normal response, even an empty flag list): MCP is live. Continue.
@@ -98,7 +98,7 @@ Restart is no longer required for Cursor or Claude Code after enabling an MCP se
    - **Tool not found or timeout** (tool not recognized, connection refused, no response): the editor hasn't picked up the server yet. Go to step 3b.
 
 3a. **Auth failure path.** The MCP server is reachable but OAuth is incomplete or expired — restarting the editor won't help.
-   - Tell the user: "The MCP server responded but authorization failed. In Cursor: open MCP settings, find the LaunchDarkly server, and click **Connect** to re-authorize. In Claude Code: the next MCP tool call should re-trigger the OAuth prompt."
+   - Tell the user: "The MCP server responded but authorization failed. In Cursor: open MCP settings, find the LaunchDarkly server, and click **Connect** to re-authorize. In Claude Code: run `/mcp`, select the LaunchDarkly server, and authenticate."
    - Use [MCP UI links](references/mcp-ui-links.md) to give the user a direct shortcut to their agent's MCP settings.
    - Re-probe after the user confirms they re-authorized.
    - If the re-probe succeeds: continue with onboarding.
@@ -106,7 +106,7 @@ Restart is no longer required for Cursor or Claude Code after enabling an MCP se
 
 3b. **Server-not-found path.** The editor likely hasn't loaded the new MCP config yet.
    - Tell the user: "The MCP tools aren't visible yet. Some editors need a restart to pick up new MCP servers. Restart your editor and say **'continue LaunchDarkly onboarding'** when you're back — I'll resume from here."
-   - Be specific about how to restart: "Restart Cursor" / "reload Claude Code" / "refresh the Copilot agent" depending on what you detected in Step 1.
+   - Be specific about how to restart: "Restart Cursor" / "quit Claude Code and resume with `claude --continue`" / "refresh the Copilot agent" depending on what you detected in Step 1.
 
 4. **On resume after restart:** The parent onboarding skill detects live state, so no log file is needed. When the next turn starts:
    - Re-probe for MCP tools silently.
@@ -147,7 +147,7 @@ Restart is no longer required for Cursor or Claude Code after enabling an MCP se
 - Don't configure a local npx-based server. Always use the hosted server.
 - Don't ask for or store API keys. The hosted server uses OAuth.
 - Don't auto-migrate from the deprecated `mcp/aiconfigs` — always ask via the blocking question.
-- Don't suggest restart as the first step — probe for tools immediately after the user enables the server.
+- Don't suggest restart as the first step in Cursor — probe for tools immediately after the user enables the server.
 - Don't suggest restart for auth errors (401/403) — the server was found, so a restart won't help. Guide the user to re-authorize instead.
 
 ## References

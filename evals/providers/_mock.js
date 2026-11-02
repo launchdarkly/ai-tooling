@@ -37,6 +37,11 @@ function buildReplacements(input) {
     toolDescription: safe.description || "A tool",
     projectKey: safe.projectKey || "my-project",
     environmentKey: safe.environmentKey || safe.env || "production",
+    metricKey: safe.metricKey || safe.key || "unknown-metric",
+    metricName: safe.metricName || safe.name || "Unknown Metric",
+    experimentKey: safe.experimentKey || safe.key || "unknown-experiment",
+    experimentName: safe.experimentName || safe.name || "Unknown Experiment",
+    hypothesis: safe.hypothesis || (safe.iteration && safe.iteration.hypothesis) || "",
   };
 }
 
@@ -121,6 +126,9 @@ function createMockState() {
   return {
     configs: {},      // configKey -> config object
     flags: {},        // flagKey -> flag object
+    raSettings: null, // Release Autopilot account settings written this run
+    raRepos: {},      // owner/name -> Release Autopilot repo settings written this run
+    raPlans: {},      // environmentKey -> release plans created this run
   };
 }
 
@@ -129,8 +137,56 @@ function createMockState() {
  * `state` is the per-invocation map from `createMockState()`.
  * `templates` is the full parsed mocks/tool-responses.json.
  */
+function mergeDeep(base, patch) {
+  const out = { ...(base || {}) };
+  for (const [k, v] of Object.entries(patch || {})) {
+    out[k] = v && typeof v === "object" && !Array.isArray(v) ? mergeDeep(out[k], v) : v;
+  }
+  return out;
+}
+
+// Release Autopilot settings and release plans: writes are recorded so that
+// later reads (the skill's verify step) reflect them instead of the template.
+function renderReleaseAutopilot(template, input, toolName, state, replacements) {
+  const args = input || {};
+  if (toolName === "update-release-autopilot-settings") {
+    state.raSettings = mergeDeep(state.raSettings, args);
+    return { ...state.raSettings };
+  }
+  if (toolName === "get-release-autopilot-settings" && state.raSettings) {
+    return mergeDeep(walk(template, replacements), state.raSettings);
+  }
+  if (toolName === "update-release-autopilot-repo-settings" && args.repo) {
+    const { repo, githubRepoId, ...rest } = args;
+    state.raRepos[repo] = mergeDeep(state.raRepos[repo] || { repo }, rest);
+    return { ...state.raRepos[repo] };
+  }
+  if (toolName === "get-release-autopilot-repo-settings" && args.repo && state.raRepos[args.repo]) {
+    return { ...state.raRepos[args.repo] };
+  }
+  if (toolName === "create-release-plan" && args.environmentKey) {
+    const plan = { key: args.key, name: args.name, environmentKey: args.environmentKey, progressiveRelease: args.progressiveRelease };
+    (state.raPlans[args.environmentKey] = state.raPlans[args.environmentKey] || []).push(plan);
+    return plan;
+  }
+  if (toolName === "list-release-plans" && state.raPlans[args.environmentKey]) {
+    const items = state.raPlans[args.environmentKey];
+    return { items, totalCount: items.length };
+  }
+  return undefined;
+}
+
 function renderMockResponse(template, input, toolName, state) {
   const replacements = buildReplacements(input);
+
+  // An error template on a write (for example a 403 override) wins over
+  // stateful handling, so the failed write is not recorded. Reads still use
+  // state: the unmapped-repo read template is itself a 404 error.
+  const failedWrite = /^(update|create|delete)-/.test(toolName) && template && template.error;
+  if (state && state.raRepos && !failedWrite) {
+    const ra = renderReleaseAutopilot(template, input, toolName, state, replacements);
+    if (ra !== undefined) return ra;
+  }
 
   // ---------- stateful reads ----------
   if (toolName === "get-ai-config") {
@@ -373,4 +429,43 @@ function renderMockResponse(template, input, toolName, state) {
   return walk(template, replacements);
 }
 
-module.exports = { renderMockResponse, createMockState };
+/**
+ * Pick a test's override for `toolName`, if the test set one through the
+ * `mock_overrides` var. An object value answers every call; an array answers
+ * successive calls in order and repeats its last entry. An object with
+ * `by_arg` answers by the value of that tool argument: `cases[value]`, else
+ * `default`. Returns undefined when the test has no override for the call, so
+ * the caller falls back to the shared template.
+ */
+function resolveMockOverride(overrides, toolName, callIndex, args) {
+  if (!overrides || typeof overrides !== "object") return undefined;
+  if (!Object.prototype.hasOwnProperty.call(overrides, toolName)) return undefined;
+  const value = overrides[toolName];
+  if (Array.isArray(value)) {
+    if (value.length === 0) return undefined;
+    return value[Math.min(callIndex, value.length - 1)];
+  }
+  if (value && typeof value === "object" && typeof value.by_arg === "string") {
+    const key = args ? args[value.by_arg] : undefined;
+    const cases = value.cases || {};
+    if (key !== undefined && Object.prototype.hasOwnProperty.call(cases, key)) return cases[key];
+    return value.default;
+  }
+  return value;
+}
+
+/**
+ * Render an override with the same `{{placeholder}}` substitution as the
+ * shared templates, but without the stateful overlay: an override is exactly
+ * what the test wants the tool to return.
+ */
+function renderOverride(template, input) {
+  return walk(template, buildReplacements(input));
+}
+
+module.exports = {
+  renderMockResponse,
+  createMockState,
+  resolveMockOverride,
+  renderOverride,
+};
