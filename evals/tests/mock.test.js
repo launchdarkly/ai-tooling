@@ -493,3 +493,15 @@ test("create-project echoes the new project's key and name", () => {
   assert.equal(result.key, "agents");
   assert.equal(result.name, "Agents");
 });
+
+test("update-agent-config targeting echoes the fallthrough variation key", () => {
+  const state = createMockState();
+  const result = renderMockResponse(TEMPLATES["update-agent-config#targeting"], {
+    resource: "targeting",
+    configKey: "bot",
+    env: "production",
+    fallthrough: { variationKey: "candidate" },
+    confirm: true,
+  }, "update-agent-config", state);
+  assert.equal(result.fallthrough.variationKey, "candidate");
+});

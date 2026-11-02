@@ -27,7 +27,11 @@ function buildReplacements(input) {
     flagName: safe.flagName || safe.name || "Unknown Flag",
     configKey: safe.configKey || "unknown-config",
     configName: safe.configName || safe.name || "Unknown Config",
-    variationKey: safe.variationKey || safe.sourceVariationKey || "default",
+    variationKey:
+      safe.variationKey ||
+      (safe.fallthrough && safe.fallthrough.variationKey) ||
+      safe.sourceVariationKey ||
+      "default",
     variationName: safe.variationName || "Default",
     toolKey: safe.toolKey || safe.key || "unknown-tool",
     modelConfigKey: safe.modelConfigKey || "OpenAI.gpt-4o",
