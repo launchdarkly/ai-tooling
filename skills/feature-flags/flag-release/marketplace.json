@@ -1,7 +1,7 @@
 {
   "name": "flag-release",
-  "description": "Record an automated rollout for an existing LaunchDarkly flag guarding a PR, honoring release intent and per-environment release policies",
-  "version": "0.1.0",
+  "description": "Record an automated rollout for an existing LaunchDarkly flag guarding a PR, honoring release intent and grounding each environment's rollout in the configured release policies (via match-release-policies) rather than inventing rollout details",
+  "version": "0.2.0",
   "author": "LaunchDarkly",
   "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],

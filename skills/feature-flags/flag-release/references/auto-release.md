@@ -29,9 +29,15 @@ Always call `match-release-policies` before recommending a `policy` environment,
 - **Before the flag exists** — pass `projectKey`, `environmentKey`, and the proposed `flagTags`. This does client-side matching against the project's policies and previews the winner.
 - **After the flag exists** — pass `projectKey`, `environmentKey`, and `flagKey`. This hits the server-side release-settings endpoint and returns the authoritative resolved policy.
 
-It returns the `winningPolicy`, the `winningReleaseMethod` (immediate / progressive / guarded), and any `autoAttachedMetricKeys` / `autoAttachedMetricGroupKeys`. Use `list-release-policies` to see every policy in the project and what each attaches.
+It returns the `winningPolicy`, the `winningReleaseMethod` (immediate / progressive / guarded), any `autoAttachedMetricKeys` / `autoAttachedMetricGroupKeys`, and a `warnings` list. Use `list-release-policies` to see every policy in the project and what each attaches.
 
-**If nothing matches**, `policy` falls back to project defaults (often an immediate release). Tell the user — they may want to pick `simple` instead, or set up a release policy first.
+**Read `warnings` — they are a stop signal, not a fallback.** A non-empty `warnings` list means:
+- `missing_policy` — nothing matched this environment. Do NOT assume a project default; surface the warning and stop for clarification. The user may want `simple` instead, or to set up a release policy first — proceed only if they accept the manual follow-up.
+- `incomplete_policy` — a policy matched but can't govern a rollout as-is (e.g. a guarded/progressive policy with no stages, or a guarded policy with no metrics). Surface it and stop; don't claim a clean rollout. Fix the policy, or use `simple` / an explicit override.
+
+Never present an environment with warnings as a clean `policy` rollout, and never fabricate the missing detail.
+
+**Re-run on refinement.** The result is a preview of the *current* policy; `policy` re-resolves at merge. If a refinement changes the flag, its tags, or the environment set, call `match-release-policies` again for the affected environments — don't carry a stale preview forward.
 
 **A guarded release is only as good as its metrics.** If a `policy` env resolves to a **guarded** method, check that `autoAttachedMetricKeys` is non-empty and actually relevant to this change — a guarded rollout with no meaningful metric guards nothing. Watch for the **net-new path** case (from `should-flag-change`'s output, if present): when the flag-off control renders nothing, feature-specific before/after comparisons are "one-armed" and can't detect a regression, so a guarded release must lean on existing global/service metrics. If the attached metrics can't compare treatment vs. control for this change, say so and recommend `simple` for that env (or point the user at metric setup) rather than presenting a guarded rollout that can't actually guard.
 

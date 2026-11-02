@@ -1,7 +1,7 @@
 {
   "name": "flag-and-release-change",
   "description": "End-to-end PR orchestrator: decide, create and wire the guarding flag, and record its automated release (composes should-flag-change, launchdarkly-flag-create, and flag-release)",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "LaunchDarkly",
   "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],
