@@ -18,13 +18,14 @@ test("createMockState returns fresh empty state each call", () => {
 });
 
 // ---------------------------------------------------------------------------
-// setup-agent-config (stateful write)
+// create-agent-config with a first variation (stateful write)
 // ---------------------------------------------------------------------------
 
-test("setup-agent-config stores config in state and returns it", () => {
+test("create-agent-config with a first variation stores config in state and returns it", () => {
   const state = createMockState();
-  const result = renderMockResponse(TEMPLATES["setup-agent-config"], {
-    key: "my-bot",
+  const result = renderMockResponse(TEMPLATES["create-agent-config#with-variation"], {
+    resource: "config",
+    configKey: "my-bot",
     name: "My Bot",
     mode: "agent",
     variationKey: "v1",
@@ -32,7 +33,7 @@ test("setup-agent-config stores config in state and returns it", () => {
     modelConfigKey: "Anthropic.claude-sonnet-4-6",
     modelName: "claude-sonnet-4-6",
     instructions: "Be helpful.",
-  }, "setup-agent-config", state);
+  }, "create-agent-config", state);
 
   assert.equal(result.key, "my-bot");
   assert.equal(result.mode, "agent");
@@ -48,7 +49,8 @@ test("setup-agent-config stores config in state and returns it", () => {
 test("create-agent-config stores config with empty variations", () => {
   const state = createMockState();
   renderMockResponse(TEMPLATES["create-agent-config"], {
-    key: "new-config",
+    resource: "config",
+    configKey: "new-config",
     name: "New Config",
     mode: "completion",
   }, "create-agent-config", state);
@@ -58,50 +60,54 @@ test("create-agent-config stores config with empty variations", () => {
 });
 
 // ---------------------------------------------------------------------------
-// create-agent-config-variation
+// create-agent-config resource=variation
 // ---------------------------------------------------------------------------
 
-test("create-agent-config-variation appends to existing config", () => {
+test("create-agent-config resource=variation appends to existing config", () => {
   const state = createMockState();
   renderMockResponse(TEMPLATES["create-agent-config"], {
-    key: "my-config", name: "My Config", mode: "agent",
+    resource: "config",
+    configKey: "my-config", name: "My Config", mode: "agent",
   }, "create-agent-config", state);
 
-  renderMockResponse(TEMPLATES["create-agent-config-variation"], {
+  renderMockResponse(TEMPLATES["create-agent-config#variation"], {
+    resource: "variation",
     configKey: "my-config",
-    key: "v1",
-    name: "Variation 1",
+    variationKey: "v1",
+    variationName: "Variation 1",
     modelConfigKey: "OpenAI.gpt-4o",
     modelName: "gpt-4o",
     instructions: "Help the user.",
-  }, "create-agent-config-variation", state);
+  }, "create-agent-config", state);
 
   assert.equal(state.configs["my-config"].variations.length, 1);
   assert.equal(state.configs["my-config"].variations[0].key, "v1");
 });
 
-test("create-agent-config-variation creates stub when parent config missing", () => {
+test("create-agent-config resource=variation creates stub when parent config missing", () => {
   const state = createMockState();
-  renderMockResponse(TEMPLATES["create-agent-config-variation"], {
+  renderMockResponse(TEMPLATES["create-agent-config#variation"], {
+    resource: "variation",
     configKey: "orphan-config",
-    key: "v1",
-    name: "V1",
+    variationKey: "v1",
+    variationName: "V1",
     modelConfigKey: "OpenAI.gpt-4o",
     modelName: "gpt-4o",
-  }, "create-agent-config-variation", state);
+  }, "create-agent-config", state);
 
   assert.ok(state.configs["orphan-config"], "stub config should be created");
   assert.equal(state.configs["orphan-config"].variations.length, 1);
 });
 
 // ---------------------------------------------------------------------------
-// update-agent-config-variation
+// update-agent-config resource=variation
 // ---------------------------------------------------------------------------
 
-test("update-agent-config-variation patches only variation fields", () => {
+test("update-agent-config resource=variation patches only variation fields", () => {
   const state = createMockState();
-  renderMockResponse(TEMPLATES["setup-agent-config"], {
-    key: "bot",
+  renderMockResponse(TEMPLATES["create-agent-config#with-variation"], {
+    resource: "config",
+    configKey: "bot",
     name: "Bot",
     mode: "agent",
     variationKey: "default",
@@ -109,14 +115,15 @@ test("update-agent-config-variation patches only variation fields", () => {
     modelConfigKey: "OpenAI.gpt-4o",
     modelName: "gpt-4o",
     instructions: "Original.",
-  }, "setup-agent-config", state);
+  }, "create-agent-config", state);
 
-  renderMockResponse(TEMPLATES["update-agent-config-variation"], {
+  renderMockResponse(TEMPLATES["update-agent-config#variation"], {
+    resource: "variation",
     configKey: "bot",
     variationKey: "default",
     modelConfigKey: "OpenAI.gpt-4o-mini",
     modelName: "gpt-4o-mini",
-  }, "update-agent-config-variation", state);
+  }, "update-agent-config", state);
 
   const v = state.configs["bot"].variations[0];
   assert.equal(v.modelConfigKey, "OpenAI.gpt-4o-mini");
@@ -127,15 +134,16 @@ test("update-agent-config-variation patches only variation fields", () => {
   assert.ok(!("variationKey" in v), "variationKey must not appear on variation");
 });
 
-test("update-agent-config-variation is a no-op when config not in state", () => {
+test("update-agent-config resource=variation is a no-op when config not in state", () => {
   const state = createMockState();
   // Should not throw
   assert.doesNotThrow(() =>
-    renderMockResponse(TEMPLATES["update-agent-config-variation"], {
+    renderMockResponse(TEMPLATES["update-agent-config#variation"], {
+      resource: "variation",
       configKey: "nonexistent",
       variationKey: "default",
       modelConfigKey: "OpenAI.gpt-4o-mini",
-    }, "update-agent-config-variation", state)
+    }, "update-agent-config", state)
   );
   assert.deepEqual(state.configs, {});
 });
@@ -146,11 +154,12 @@ test("update-agent-config-variation is a no-op when config not in state", () => 
 
 test("get-agent-configs returns state config when present", () => {
   const state = createMockState();
-  renderMockResponse(TEMPLATES["setup-agent-config"], {
-    key: "bot", name: "Bot", mode: "agent",
+  renderMockResponse(TEMPLATES["create-agent-config#with-variation"], {
+    resource: "config",
+    configKey: "bot", name: "Bot", mode: "agent",
     variationKey: "default", variationName: "Default",
     modelConfigKey: "OpenAI.gpt-4o", modelName: "gpt-4o",
-  }, "setup-agent-config", state);
+  }, "create-agent-config", state);
 
   const result = renderMockResponse(TEMPLATES["get-agent-configs#configKey"], {
     configKey: "bot",
@@ -194,15 +203,16 @@ test("get-agent-configs returns static list when state is empty", () => {
 test("get-agent-configs merges state configs, state wins for duplicate keys", () => {
   const state = createMockState();
   // write over a seed key
-  renderMockResponse(TEMPLATES["setup-agent-config"], {
-    key: "support-chatbot",
+  renderMockResponse(TEMPLATES["create-agent-config#with-variation"], {
+    resource: "config",
+    configKey: "support-chatbot",
     name: "My Custom Chatbot",
     mode: "completion",
     variationKey: "default",
     variationName: "Default",
     modelConfigKey: "OpenAI.gpt-4o",
     modelName: "gpt-4o",
-  }, "setup-agent-config", state);
+  }, "create-agent-config", state);
 
   const result = renderMockResponse(TEMPLATES["get-agent-configs"], {}, "get-agent-configs", state);
   const entry = result.configs.find((c) => c.key === "support-chatbot");
@@ -216,7 +226,8 @@ test("get-agent-configs merges state configs, state wins for duplicate keys", ()
 test("get-agent-configs adds newly created configs not in static list", () => {
   const state = createMockState();
   renderMockResponse(TEMPLATES["create-agent-config"], {
-    key: "brand-new", name: "Brand New", mode: "agent",
+    resource: "config",
+    configKey: "brand-new", name: "Brand New", mode: "agent",
   }, "create-agent-config", state);
 
   const result = renderMockResponse(TEMPLATES["get-agent-configs"], {}, "get-agent-configs", state);
@@ -231,12 +242,13 @@ test("get-agent-configs adds newly created configs not in static list", () => {
 
 test("get-agent-configs reflects state when config is present", () => {
   const state = createMockState();
-  renderMockResponse(TEMPLATES["setup-agent-config"], {
-    key: "bot", name: "Bot", mode: "agent",
+  renderMockResponse(TEMPLATES["create-agent-config#with-variation"], {
+    resource: "config",
+    configKey: "bot", name: "Bot", mode: "agent",
     variationKey: "default", variationName: "Default",
     modelConfigKey: "OpenAI.gpt-4o", modelName: "gpt-4o",
     instructions: "Be helpful.",
-  }, "setup-agent-config", state);
+  }, "create-agent-config", state);
 
   const health = renderMockResponse(TEMPLATES["get-agent-configs#health"], {
     configKey: "bot",
@@ -261,26 +273,28 @@ test("get-agent-configs falls back to template for unknown key", () => {
 });
 
 // ---------------------------------------------------------------------------
-// create-agent-config-variation
+// create-agent-config resource=variation
 // ---------------------------------------------------------------------------
 
-test("create-agent-config-variation appends cloned variation to state", () => {
+test("create-agent-config resource=variation appends cloned variation to state", () => {
   const state = createMockState();
-  renderMockResponse(TEMPLATES["setup-agent-config"], {
-    key: "my-bot", name: "My Bot", mode: "agent",
+  renderMockResponse(TEMPLATES["create-agent-config#with-variation"], {
+    resource: "config",
+    configKey: "my-bot", name: "My Bot", mode: "agent",
     variationKey: "default", variationName: "Default",
     modelConfigKey: "OpenAI.gpt-4o", modelName: "gpt-4o",
     instructions: "Original instructions.",
-  }, "setup-agent-config", state);
+  }, "create-agent-config", state);
 
-  const result = renderMockResponse(TEMPLATES["create-agent-config-variation#clone"], {
+  const result = renderMockResponse(TEMPLATES["create-agent-config#variation-clone"], {
+    resource: "variation",
     configKey: "my-bot",
     sourceVariationKey: "default",
-    key: "cost-test",
-    name: "Cost Test",
+    variationKey: "cost-test",
+    variationName: "Cost Test",
     modelConfigKey: "OpenAI.gpt-4o-mini",
     modelName: "gpt-4o-mini",
-  }, "create-agent-config-variation", state);
+  }, "create-agent-config", state);
 
   assert.equal(result.created.key, "cost-test");
   assert.equal(result.created.modelConfigKey, "OpenAI.gpt-4o-mini");
@@ -289,21 +303,23 @@ test("create-agent-config-variation appends cloned variation to state", () => {
   assert.equal(state.configs["my-bot"].variations[1].key, "cost-test");
 });
 
-test("create-agent-config-variation reflects in subsequent get-agent-configs", () => {
+test("create-agent-config resource=variation reflects in subsequent get-agent-configs", () => {
   const state = createMockState();
-  renderMockResponse(TEMPLATES["setup-agent-config"], {
-    key: "bot", name: "Bot", mode: "agent",
+  renderMockResponse(TEMPLATES["create-agent-config#with-variation"], {
+    resource: "config",
+    configKey: "bot", name: "Bot", mode: "agent",
     variationKey: "default", variationName: "Default",
     modelConfigKey: "OpenAI.gpt-4o", modelName: "gpt-4o",
     instructions: "Help.",
-  }, "setup-agent-config", state);
+  }, "create-agent-config", state);
 
-  renderMockResponse(TEMPLATES["create-agent-config-variation#clone"], {
+  renderMockResponse(TEMPLATES["create-agent-config#variation-clone"], {
+    resource: "variation",
     configKey: "bot",
     sourceVariationKey: "default",
-    key: "new-var",
-    name: "New Variation",
-  }, "create-agent-config-variation", state);
+    variationKey: "new-var",
+    variationName: "New Variation",
+  }, "create-agent-config", state);
 
   const cfg = renderMockResponse(TEMPLATES["get-agent-configs#configKey"], {
     configKey: "bot",
@@ -313,14 +329,15 @@ test("create-agent-config-variation reflects in subsequent get-agent-configs", (
   assert.ok(cfg.variations.find((v) => v.key === "new-var"), "cloned variation should appear in get-agent-configs");
 });
 
-test("create-agent-config-variation works with SEED_CONFIGS source", () => {
+test("create-agent-config resource=variation works with SEED_CONFIGS source", () => {
   const state = createMockState();
-  const result = renderMockResponse(TEMPLATES["create-agent-config-variation#clone"], {
+  const result = renderMockResponse(TEMPLATES["create-agent-config#variation-clone"], {
+    resource: "variation",
     configKey: "support-chatbot",
     sourceVariationKey: "default",
-    key: "experimental",
-    name: "Experimental",
-  }, "create-agent-config-variation", state);
+    variationKey: "experimental",
+    variationName: "Experimental",
+  }, "create-agent-config", state);
 
   assert.equal(result.created.key, "experimental");
   assert.equal(result.source.key, "default");
@@ -328,20 +345,22 @@ test("create-agent-config-variation works with SEED_CONFIGS source", () => {
   assert.equal(state.configs["support-chatbot"].variations.length, 2);
 });
 
-test("create-agent-config-variation falls back to template when source variation not found", () => {
+test("create-agent-config resource=variation falls back to template when source variation not found", () => {
   const state = createMockState();
   renderMockResponse(TEMPLATES["create-agent-config"], {
-    key: "my-config", name: "My Config", mode: "agent",
+    resource: "config",
+    configKey: "my-config", name: "My Config", mode: "agent",
   }, "create-agent-config", state);
 
   // source variation doesn't exist — should fall back to template render, not throw
   assert.doesNotThrow(() =>
-    renderMockResponse(TEMPLATES["create-agent-config-variation#clone"], {
+    renderMockResponse(TEMPLATES["create-agent-config#variation-clone"], {
+      resource: "variation",
       configKey: "my-config",
       sourceVariationKey: "nonexistent",
-      key: "new-var",
-      name: "New",
-    }, "create-agent-config-variation", state)
+      variationKey: "new-var",
+      variationName: "New",
+    }, "create-agent-config", state)
   );
 });
 
@@ -407,7 +426,8 @@ test("get-flags returns the opposite fallthrough (variation 0) for a federal env
 test("template substitution fills {{configKey}} and {{configName}}", () => {
   const state = createMockState();
   const result = renderMockResponse(TEMPLATES["create-agent-config"], {
-    key: "my-config",
+    resource: "config",
+    configKey: "my-config",
     name: "My Config",
     mode: "completion",
   }, "create-agent-config", state);
@@ -434,7 +454,11 @@ test("templateKey picks the single-item template when a key is passed", () => {
   assert.equal(templateKey("get-flags", { flagKey: "f" }), "get-flags#flagKey");
   assert.equal(templateKey("get-agent-configs", { configKey: "c" }), "get-agent-configs#configKey");
   assert.equal(templateKey("get-agent-configs", { configKey: "c", section: "health" }), "get-agent-configs#health");
-  assert.equal(templateKey("create-agent-config-variation", { sourceVariationKey: "v" }), "create-agent-config-variation#clone");
+  assert.equal(templateKey("create-agent-config", { resource: "variation", variationKey: "n", sourceVariationKey: "v" }), "create-agent-config#variation-clone");
+  assert.equal(templateKey("create-agent-config", { resource: "variation", variationKey: "n" }), "create-agent-config#variation");
+  assert.equal(templateKey("create-agent-config", { resource: "config", variationKey: "n" }), "create-agent-config#with-variation");
+  assert.equal(templateKey("update-agent-config", { resource: "targeting" }), "update-agent-config#targeting");
+  assert.equal(templateKey("delete-agent-config", { resource: "variation" }), "delete-agent-config#variation");
   assert.equal(templateKey("toggle-flag", { flagKey: "f" }), "toggle-flag");
 });
 
@@ -446,7 +470,12 @@ test("every templateKey mode has a template", () => {
     ["get-ai-tools", { toolKey: "t" }],
     ["get-projects", { projectKey: "p" }],
     ["get-experiments", { experimentKey: "e" }],
-    ["create-agent-config-variation", { sourceVariationKey: "v" }],
+    ["create-agent-config", { resource: "variation", sourceVariationKey: "v" }],
+    ["create-agent-config", { resource: "variation" }],
+    ["create-agent-config", { resource: "config", variationKey: "v" }],
+    ["update-agent-config", { resource: "variation" }],
+    ["update-agent-config", { resource: "targeting" }],
+    ["delete-agent-config", { resource: "variation" }],
   ];
   for (const [tool, input] of modes) {
     assert.ok(TEMPLATES[templateKey(tool, input)], `${tool} ${JSON.stringify(input)}`);

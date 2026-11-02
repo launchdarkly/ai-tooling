@@ -17,15 +17,15 @@ You're using a skill that will guide you through testing and optimizing configs 
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Primary MCP tool:**
-- `create-agent-config-variation` -- clone a baseline variation with selective overrides (recommended for experimentation)
+- `create-agent-config` with `resource: "variation"` and `sourceVariationKey` -- clone a baseline variation with selective overrides (recommended for experimentation)
 
 **Alternative MCP tools (for more control):**
 - `get-agent-configs` -- review existing variations before adding new ones
-- `create-agent-config-variation` -- create new variations from scratch
+- `create-agent-config` with `resource: "variation"` -- create new variations from scratch
 
 **Optional MCP tools:**
-- `update-agent-config-variation` -- refine a variation after creation
-- `delete-agent-config-variation` -- remove variations that didn't work out
+- `update-agent-config` with `resource: "variation"` -- refine a variation after creation
+- `delete-agent-config` with `resource: "variation"` -- remove variations that didn't work out
 
 ## Core Principles
 
@@ -51,11 +51,12 @@ What's the problem? Cost, quality, speed, accuracy? How will you measure success
 
 ### Step 3: Create Variations (Recommended: Clone with Overrides)
 
-Use `create-agent-config-variation` to duplicate the baseline and override only what you're testing. The tool reads the source variation, merges your overrides, and creates the new variation. Everything you **don't** pass is inherited from the source automatically.
+Use `create-agent-config` with `resource: "variation"` and `sourceVariationKey` to duplicate the baseline and override only what you're testing. The tool reads the source variation, merges your overrides, and creates the new variation. Everything you **don't** pass is inherited from the source automatically.
 
 **Required fields:**
 - `sourceVariationKey` -- the baseline to clone from
-- `key` and `name` -- identifiers for the new variation (e.g., `gpt4o-mini-cost-test`)
+- `configKey` -- the config that holds the variations
+- `variationKey` and `variationName` -- identifiers for the new variation (e.g., `gpt4o-mini-cost-test`)
 
 **Override ONLY the fields you are testing.** Leave all other fields unset -- do not pass them even if you know their current values. The clone tool inherits them from the source. This enforces the one-variable-at-a-time principle:
 
@@ -67,11 +68,11 @@ The response returns both the source and created variation, so you can immediate
 
 ### Step 3 (Alternative): Create from Scratch
 
-If you need full control, use `get-agent-configs` first to review the current state, then `create-agent-config-variation` with all fields specified manually. Always fetch before creating so you understand the existing config's mode, model, and parameters.
+If you need full control, use `get-agent-configs` first to review the current state, then `create-agent-config` with `resource: "variation"` with all fields specified manually. Always fetch before creating so you understand the existing config's mode, model, and parameters.
 
 ### Step 4: Verify
 
-If you used `create-agent-config-variation`, the response includes both source and created variations for immediate comparison. Otherwise, use `get-agent-configs` to confirm.
+If you cloned with `sourceVariationKey`, the response includes both source and created variations for immediate comparison. Otherwise, use `get-agent-configs` to confirm.
 
 **Report results:**
 - Variations created with correct models and parameters
@@ -90,9 +91,9 @@ Required for models to display in the UI. Format: `{Provider}.{model-id}`:
 
 When the user wants to try a different model, prompt, or parameters, **always create a new variation alongside the baseline**. Never modify or delete the existing baseline variation. This applies even if the user says "replace" or "switch" -- the correct action is to create a new variation and let targeting/rollouts control traffic, not to edit the original.
 
-- Use `create-agent-config-variation` (optionally with `sourceVariationKey` to clone an existing one) to add the new variation
-- Do NOT use `update-agent-config-variation` on the baseline to change its model or instructions
-- Do NOT use `delete-agent-config-variation` on the baseline
+- Use `create-agent-config` with `resource: "variation"` (optionally with `sourceVariationKey` to clone an existing one) to add the new variation
+- Do NOT use `update-agent-config` with `resource: "variation"` on the baseline to change its model or instructions
+- Do NOT use `delete-agent-config` with `resource: "variation"` on the baseline
 - Explain to the user that keeping the baseline enables comparison and safe rollback
 
 ## What NOT to Do
@@ -102,7 +103,7 @@ When the user wants to try a different model, prompt, or parameters, **always cr
 - Don't forget modelConfigKey (variations without it show as "NO MODEL" in the UI)
 - Don't make decisions on small sample sizes
 - Don't modify or remove the baseline variation -- create new variations alongside it
-- Don't use `update-agent-config-variation` to "replace" a baseline -- create a new variation instead
+- Don't use `update-agent-config` with `resource: "variation"` to "replace" a baseline -- create a new variation instead
    
 ## More resources
 

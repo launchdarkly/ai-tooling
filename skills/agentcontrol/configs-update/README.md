@@ -6,8 +6,8 @@ An Agent Skill for updating, archiving, and deleting configs and their variation
 
 This skill teaches agents how to:
 - Assess config health using `get-agent-configs` with `section: "health"` before making changes
-- Update config metadata (name, description, tags) via `update-agent-config`
-- Modify variation instructions, messages, models, and parameters via `update-agent-config-variation`
+- Update config metadata (name, description, tags) via `update-agent-config` (`resource: "config"`)
+- Modify variation instructions, messages, models, and parameters via `update-agent-config` (`resource: "variation"`)
 - Archive configs (reversible) or delete them (permanent, irreversible)
 - Verify changes via `get-agent-configs`
 

@@ -24,7 +24,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 - `update-agent-graph` -- modify edges, root config, or description
 - `delete-agent-graph` -- permanently remove a graph
 - `get-agent-configs` -- inspect individual configs that serve as nodes
-- `create-agent-config` -- create new configs to use as graph nodes
+- `create-agent-config` (`resource: "config"`) -- create new configs to use as graph nodes
 
 ## Core Concepts
 
@@ -82,8 +82,8 @@ Before creating anything:
 ### Step 2: Ensure Nodes Exist
 
 Each node in the graph must be an existing config. If configs don't exist yet:
-1. Use `create-agent-config` to create each agent config
-2. Set up variations with appropriate models and prompts for each agent's role
+1. Use `create-agent-config` with `resource: "config"` to create each agent config
+2. Set up variations with appropriate models and prompts for each agent's role (`resource: "variation"`, or pass the first variation's fields in the same call)
 3. Verify each config exists with `get-agent-configs`
 
 ### Step 3: Create the Graph

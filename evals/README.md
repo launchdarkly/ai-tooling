@@ -114,8 +114,8 @@ evals/
      "first_assistant_text": "The agent's first non-empty text turn",
      "kickoff_text": "All assistant prose up to and including the first user-observable tool call",
      "assistant_turns": [{ "turn": 1, "text": "..." }],
-     "trajectory": [{ "tool": "setup-agent-config", "arguments": {...}, "turn": 2 }],
-     "tools_called": ["get-agent-configs", "setup-agent-config"],
+     "trajectory": [{ "tool": "create-agent-config", "arguments": {...}, "turn": 2 }],
+     "tools_called": ["get-agent-configs", "create-agent-config"],
      "turn_count": 3,
      "terminated": null
    }
@@ -141,7 +141,7 @@ Use **FIRST occurrence** for prerequisites and **LAST occurrence** for verifiers
 
 ```js
 const aIdx = tools.indexOf('get-agent-configs');   // first: prerequisite
-const bIdx = tools.lastIndexOf('setup-agent-config'); // last: verifier
+const bIdx = tools.lastIndexOf('create-agent-config'); // last: verifier
 const pass = aIdx >= 0 && bIdx > aIdx;
 ```
 
@@ -205,9 +205,9 @@ This module exports trajectory helper functions for use in **scripts** and **Nod
 ```js
 const { called, calledNone, expectAfter } = require('../shared/assertions');
 
-called(output, 'setup-agent-config')          // → boolean
+called(output, 'create-agent-config')          // → boolean
 calledNone(output, ['delete-agent-config'])   // → boolean
-expectAfter(output, 'get-agent-configs', 'setup-agent-config')  // → boolean
+expectAfter(output, 'get-agent-configs', 'create-agent-config')  // → boolean
 ```
 
 For inline YAML assertions, implement the same logic directly — see the [Trajectory ordering convention](#trajectory-ordering-convention) section above.
@@ -293,7 +293,7 @@ Every `type: javascript` assertion must return `{ pass: boolean, score: number, 
 - type: javascript
   value: |
     const tools = output.tools_called || [];
-    const pass = tools.includes('setup-agent-config');
+    const pass = tools.includes('create-agent-config');
     return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
   metric: calls_setup_ai_config
   weight: 3
@@ -305,7 +305,7 @@ Every `type: javascript` assertion must return `{ pass: boolean, score: number, 
   value: |
     const tools = output.tools_called || [];
     const aIdx = tools.indexOf('get-agent-configs');
-    const bIdx = tools.lastIndexOf('setup-agent-config');
+    const bIdx = tools.lastIndexOf('create-agent-config');
     const pass = aIdx >= 0 && bIdx > aIdx;
     return { pass, score: pass ? 1 : 0, reason: 'list@' + aIdx + ' setup@' + bIdx };
   metric: explores_before_creating
@@ -316,8 +316,8 @@ Every `type: javascript` assertion must return `{ pass: boolean, score: number, 
 ```yaml
 - type: javascript
   value: |
-    const call = (output.trajectory || []).find(t => t.tool === 'setup-agent-config');
-    if (!call) return { pass: false, score: 0, reason: 'No setup-agent-config call' };
+    const call = (output.trajectory || []).find(t => t.tool === 'create-agent-config');
+    if (!call) return { pass: false, score: 0, reason: 'No create-agent-config call' };
     const a = call.arguments;
     const hasKey = typeof a.key === 'string' && /^[a-z][a-z0-9-]*$/.test(a.key);
     return { pass: hasKey, score: hasKey ? 1 : 0, reason: 'key=' + (a.key || '?') };

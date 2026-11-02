@@ -25,11 +25,10 @@ function buildReplacements(input) {
   return {
     flagKey: safe.flagKey || safe.key || "unknown-flag",
     flagName: safe.flagName || safe.name || "Unknown Flag",
-    configKey: safe.configKey || safe.key || "unknown-config",
+    configKey: safe.configKey || "unknown-config",
     configName: safe.configName || safe.name || "Unknown Config",
-    variationKey:
-      safe.variationKey || safe.key || safe.sourceVariationKey || "default",
-    variationName: safe.variationName || safe.name || "Default",
+    variationKey: safe.variationKey || safe.sourceVariationKey || "default",
+    variationName: safe.variationName || "Default",
     toolKey: safe.toolKey || safe.key || "unknown-tool",
     modelConfigKey: safe.modelConfigKey || "OpenAI.gpt-4o",
     modelName: safe.modelName || "gpt-4o",
@@ -149,8 +148,19 @@ function templateKey(toolName, input) {
       return safe.projectKey ? "get-projects#projectKey" : toolName;
     case "get-experiments":
       return safe.experimentKey ? "get-experiments#experimentKey" : toolName;
-    case "create-agent-config-variation":
-      return safe.sourceVariationKey ? "create-agent-config-variation#clone" : toolName;
+    case "create-agent-config":
+      if (safe.resource === "variation") {
+        return safe.sourceVariationKey
+          ? "create-agent-config#variation-clone"
+          : "create-agent-config#variation";
+      }
+      return safe.variationKey ? "create-agent-config#with-variation" : toolName;
+    case "update-agent-config":
+      if (safe.resource === "variation") return "update-agent-config#variation";
+      if (safe.resource === "targeting") return "update-agent-config#targeting";
+      return toolName;
+    case "delete-agent-config":
+      return safe.resource === "variation" ? "delete-agent-config#variation" : toolName;
     default:
       return toolName;
   }
@@ -167,7 +177,7 @@ function renderMockResponse(template, input, toolName, state) {
 
   // ---------- stateful reads ----------
   if (mode === "get-agent-configs#configKey") {
-    const key = input.configKey || input.key;
+    const key = input.configKey;
     if (key) {
       if (!state.configs[key] && SEED_CONFIGS[key]) {
         state.configs[key] = JSON.parse(JSON.stringify(SEED_CONFIGS[key]));
@@ -177,7 +187,7 @@ function renderMockResponse(template, input, toolName, state) {
   }
 
   if (mode === "get-agent-configs#health") {
-    const key = input.configKey || input.key;
+    const key = input.configKey;
     if (key && state.configs[key]) {
       const cfg = state.configs[key];
       return {
@@ -249,9 +259,9 @@ function renderMockResponse(template, input, toolName, state) {
   }
 
   // ---------- stateful writes ----------
-  if (mode === "setup-agent-config") {
+  if (mode === "create-agent-config#with-variation") {
     const cfg = {
-      key: input.key,
+      key: input.configKey,
       name: input.name,
       mode: input.mode,
       description: input.description || "",
@@ -272,13 +282,13 @@ function renderMockResponse(template, input, toolName, state) {
         },
       ],
     };
-    state.configs[input.key] = cfg;
+    state.configs[input.configKey] = cfg;
     return cfg;
   }
 
   if (mode === "create-agent-config") {
     const cfg = {
-      key: input.key,
+      key: input.configKey,
       name: input.name,
       mode: input.mode,
       description: input.description || "",
@@ -286,15 +296,15 @@ function renderMockResponse(template, input, toolName, state) {
       archived: false,
       variations: [],
     };
-    state.configs[input.key] = cfg;
+    state.configs[input.configKey] = cfg;
     return cfg;
   }
 
-  if (mode === "create-agent-config-variation") {
+  if (mode === "create-agent-config#variation") {
     const cfg = state.configs[input.configKey];
     const variation = {
-      key: input.key,
-      name: input.name,
+      key: input.variationKey,
+      name: input.variationName,
       modelConfigKey: input.modelConfigKey,
       modelName: input.modelName,
       ...(input.instructions !== undefined
@@ -325,7 +335,7 @@ function renderMockResponse(template, input, toolName, state) {
   }
 
   if (mode === "update-agent-config") {
-    const cfg = state.configs[input.key || input.configKey];
+    const cfg = state.configs[input.configKey];
     if (cfg) {
       const CONFIG_FIELDS = ["name", "description", "tags", "archived"];
       for (const k of CONFIG_FIELDS) {
@@ -336,11 +346,11 @@ function renderMockResponse(template, input, toolName, state) {
     return walk(template, replacements);
   }
 
-  if (mode === "update-agent-config-variation") {
+  if (mode === "update-agent-config#variation") {
     const cfg = state.configs[input.configKey];
     if (cfg) {
       const VARIATION_FIELDS = [
-        "key", "name", "modelConfigKey", "modelName",
+        "modelConfigKey", "modelName",
         "instructions", "messages", "parameters", "tools", "status",
       ];
       cfg.variations = (cfg.variations || []).map((v) => {
@@ -349,13 +359,14 @@ function renderMockResponse(template, input, toolName, state) {
         for (const k of VARIATION_FIELDS) {
           if (input[k] !== undefined) patch[k] = input[k];
         }
+        if (input.variationName !== undefined) patch.name = input.variationName;
         return { ...v, ...patch };
       });
     }
     return walk(template, replacements);
   }
 
-  if (mode === "create-agent-config-variation#clone") {
+  if (mode === "create-agent-config#variation-clone") {
     const configKey = input.configKey;
     if (!state.configs[configKey] && SEED_CONFIGS[configKey]) {
       state.configs[configKey] = JSON.parse(JSON.stringify(SEED_CONFIGS[configKey]));
@@ -368,8 +379,8 @@ function renderMockResponse(template, input, toolName, state) {
       if (sourceVariation) {
         const newVariation = {
           ...sourceVariation,
-          key: input.key,
-          name: input.name !== undefined ? input.name : sourceVariation.name,
+          key: input.variationKey,
+          name: input.variationName !== undefined ? input.variationName : sourceVariation.name,
           ...(input.modelConfigKey !== undefined ? { modelConfigKey: input.modelConfigKey } : {}),
           ...(input.modelName !== undefined ? { modelName: input.modelName } : {}),
           ...(input.instructions !== undefined ? { instructions: input.instructions } : {}),

@@ -34,11 +34,11 @@ tests:
     assert:
       - type: javascript
         value: |
-          const tools = output.tools_called || [];
-          const createIdx = tools.indexOf('create-ai-tool');
-          const attachIdx = tools.lastIndexOf('update-agent-config-variation');
+          const traj = output.trajectory || [];
+          const createIdx = traj.findIndex(t => t.tool === 'create-ai-tool');
+          const attachIdx = traj.findLastIndex(t => t.tool === 'update-agent-config' && t.arguments && t.arguments.resource === 'variation');
           const pass = createIdx >= 0 && attachIdx > createIdx;
-          return { pass, score: pass ? 1 : 0, reason: 'create-ai-tool@' + createIdx + ' update-agent-config-variation@' + attachIdx };
+          return { pass, score: pass ? 1 : 0, reason: 'create-ai-tool@' + createIdx + ' update-agent-config resource=variation@' + attachIdx };
         metric: create_before_attach
         weight: 3
 
@@ -56,8 +56,8 @@ tests:
 
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'update-agent-config-variation');
-          if (!call) return { pass: false, score: 0, reason: 'No update-agent-config-variation call' };
+          const call = (output.trajectory || []).find(t => t.tool === 'update-agent-config' && t.arguments && t.arguments.resource === 'variation');
+          if (!call) return { pass: false, score: 0, reason: 'No update-agent-config resource=variation call' };
           const attachedTools = call.arguments.tools || [];
           const pass = Array.isArray(attachedTools) && attachedTools.length >= 1;
           return { pass, score: pass ? 1 : 0, reason: 'tools=' + JSON.stringify(attachedTools) };
@@ -71,7 +71,7 @@ tests:
           1. Did it create the tool first with create-ai-tool?
           2. Did the tool schema use raw JSON Schema format (type: object, properties)?
           3. Did the schema include both requested parameters (query, limit)?
-          4. Did it attach the tool via update-agent-config-variation?
+          4. Did it attach the tool via update-agent-config resource=variation?
           Score 1.0 if all four are met, deduct 0.25 for each miss.
         metric: workflow_quality
         weight: 2
@@ -181,9 +181,9 @@ tests:
     assert:
       - type: javascript
         value: |
-          const tools = output.tools_called || [];
-          const createIdx = tools.indexOf('create-ai-tool');
-          const attachIdx = tools.lastIndexOf('update-agent-config-variation');
+          const traj = output.trajectory || [];
+          const createIdx = traj.findIndex(t => t.tool === 'create-ai-tool');
+          const attachIdx = traj.findLastIndex(t => t.tool === 'update-agent-config' && t.arguments && t.arguments.resource === 'variation');
           const pass = createIdx >= 0 && attachIdx > createIdx;
           return { pass, score: pass ? 1 : 0, reason: 'create-ai-tool@' + createIdx + ' update@' + attachIdx };
         metric: create_before_attach
@@ -205,7 +205,7 @@ tests:
           attachment. Evaluate:
           1. Did the agent create the tool first with create-ai-tool?
           2. Did the tool include a location parameter as requested?
-          3. Did it attach via update-agent-config-variation?
+          3. Did it attach via update-agent-config resource=variation?
           4. Did it NOT try to reference a tool that doesn't exist yet?
         metric: workflow_quality
         weight: 2

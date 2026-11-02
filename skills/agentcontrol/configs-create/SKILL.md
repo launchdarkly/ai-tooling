@@ -19,11 +19,11 @@ You're using a skill that will guide you through creating a config in LaunchDark
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Primary MCP tool:**
-- `setup-agent-config` -- create a config with its first variation in one step (recommended)
+- `create-agent-config` with `resource: "config"` -- create a config with its first variation in one step (recommended): pass `variationKey`, `variationName`, `modelConfigKey`, `modelName`, and `instructions` or `messages` along with the config fields
 
-**Alternative MCP tools (for more control):**
-- `create-agent-config` -- create just the config shell (key, name, mode)
-- `create-agent-config-variation` -- add a variation with model, prompts, and parameters
+**Alternative MCP calls (for more control):**
+- `create-agent-config` with `resource: "config"` -- create just the config shell (`configKey`, `name`, `mode`)
+- `create-agent-config` with `resource: "variation"` -- add a variation with model, prompts, and parameters
 - `get-agent-configs` -- verify the config was created correctly
 
 **Optional MCP tools (enhance workflow):**
@@ -61,18 +61,19 @@ This choice is about **input schema and framework compatibility**, not execution
 
 ### Step 3: Create the Config (Recommended: One Step)
 
-Use `setup-agent-config` to create the config and its first variation in one call. This is the recommended approach: it handles creation, variation setup, and verification automatically.
+Use `create-agent-config` with `resource: "config"` and the first variation's fields to create both in one call. This is the recommended approach: it handles creation, variation setup, and verification automatically.
 
 **Config fields:**
-- `key` -- unique identifier (lowercase, hyphens)
-- `name` -- human-readable name
+- `resource` -- `"config"`
+- `configKey` -- unique identifier (lowercase, hyphens)
+- `name` -- the config's human-readable name
 - `mode` -- `"agent"` or `"completion"`
 - Optional: `description`, `tags`
 
 **Variation fields:**
 - `variationKey`, `variationName` -- identifiers for the first variation
 - `modelConfigKey` -- must be `Provider.model-id` format (e.g., `OpenAI.gpt-4o`, `Anthropic.claude-sonnet-4-5`)
-- `modelName` -- the model identifier (e.g., `gpt-4o`). **Always pass this in the initial call** — leaving it off produces a variation that displays "NO MODEL" and forces a second PATCH to set it. The field is `modelName`; it is **not** `name` or `model.name` on this endpoint.
+- `modelName` -- the model identifier (e.g., `gpt-4o`). **Always pass this in the initial call** — leaving it off produces a variation that displays "NO MODEL" and forces a second PATCH to set it. The field is `modelName`; it is **not** `name` or `model.name` on this endpoint, and `name` is only ever the config's name.
 
 **For agent mode**, provide:
 - `instructions` -- a string with the agent's system instructions
@@ -80,7 +81,7 @@ Use `setup-agent-config` to create the config and its first variation in one cal
 Example agent-mode call:
 ```json
 {
-  "projectKey": "my-project", "key": "support-agent", "name": "Support Agent",
+  "projectKey": "my-project", "resource": "config", "configKey": "support-agent", "name": "Support Agent",
   "mode": "agent", "variationKey": "default", "variationName": "Default",
   "modelConfigKey": "OpenAI.gpt-4o", "modelName": "gpt-4o",
   "instructions": "You are a customer support agent. Help users resolve their issues."
@@ -93,7 +94,7 @@ Example agent-mode call:
 Example completion-mode call:
 ```json
 {
-  "projectKey": "my-project", "key": "product-descriptions", "name": "Product Descriptions",
+  "projectKey": "my-project", "resource": "config", "configKey": "product-descriptions", "name": "Product Descriptions",
   "mode": "completion", "variationKey": "default", "variationName": "Default",
   "modelConfigKey": "Anthropic.claude-sonnet-4-5", "modelName": "claude-sonnet-4-5",
   "messages": [
@@ -112,15 +113,15 @@ The tool returns the full verified config detail with the variation attached.
 
 If the user asks for more control or a step-by-step approach, use the individual tools:
 
-1. `create-agent-config` -- create the config shell
-2. `create-agent-config-variation` -- add the variation with model, prompts, and parameters
+1. `create-agent-config` with `resource: "config"` and no `variationKey` -- create the config shell
+2. `create-agent-config` with `resource: "variation"`, `configKey`, `variationKey`, `variationName`, model, and prompts -- add the variation
 3. `get-agent-configs` -- verify the result
 
 **Execute all three steps without stopping to ask for details.** Infer the variation key (`default`), name (`Default`), instructions/messages, and model from the user's request context. If the user asked for GPT-4o agent mode, you have enough to complete the entire flow. Only ask clarifying questions if the mode or model is truly ambiguous.
 
 ### Step 4: Verify
 
-If you used `setup-agent-config`, verification is automatic: the response includes the full config with variations. Check:
+If you created the config with its first variation in one call, verification is automatic: the response includes the full config with variations. Check:
 
 1. Config exists with the correct mode
 2. Variation has a model assigned (not "NO MODEL")
@@ -137,7 +138,7 @@ If you used `setup-agent-config`, verification is automatic: the response includ
 
 ### Step 5: Make the variation servable
 
-`setup-agent-config` and `create-agent-config-variation` create the variation but **do not promote it to fallthrough**. The new config will return `enabled=False` to every consumer until targeting is updated. This is the single most common "I created a config but my SDK still gets the fallback" failure. **The workflow is not complete until this step is done.**
+`create-agent-config` creates the variation but **do not promote it to fallthrough**. The new config will return `enabled=False` to every consumer until targeting is updated. This is the single most common "I created a config but my SDK still gets the fallback" failure. **The workflow is not complete until this step is done.**
 
 #### What to tell the user
 
@@ -159,15 +160,15 @@ Print this checklist verbatim to the user after Step 4, then wait for confirmati
 
 #### Direct shortcut if the user wants to flip targeting without invoking the sibling skill
 
-`configs-targeting` is the canonical path — it handles percentage rollouts, targeted rules, and individual targets. For the simplest case ("promote the new variation to fallthrough in one environment"), call `update-agent-config-rollout` after the user agrees:
+`configs-targeting` is the canonical path — it handles percentage rollouts, targeted rules, and individual targets. For the simplest case ("promote the new variation to fallthrough in one environment"), call `update-agent-config` with `resource: "targeting"` and a `fallthrough` after the user agrees:
 
 ```json
 {
   "projectKey": "{projectKey}",
   "configKey": "{configKey}",
+  "resource": "targeting",
   "env": "{envKey}",
-  "rolloutType": "variation",
-  "variationKey": "{variationKey}",
+  "fallthrough": {"variationKey": "{variationKey}"},
   "confirm": true
 }
 ```
@@ -185,14 +186,14 @@ Required for models to display in the UI. Format: `{Provider}.{model-id}`
 - `Anthropic.claude-sonnet-4-5`
 - `Anthropic.claude-3-5-sonnet`
 
-The `create-agent-config-variation` tool validates this format and rejects invalid values.
+`create-agent-config` validates this format and rejects invalid values.
 
 ## Edge Cases
 
 | Situation | Action |
 |-----------|--------|
 | Config already exists | Ask if user wants to update instead |
-| Variation shows "NO MODEL" | Use `update-agent-config-variation` to set modelConfigKey |
+| Variation shows "NO MODEL" | Use `update-agent-config` with `resource: "variation"` to set `modelConfigKey` |
 | Need to attach tools | Create tools first (`tools` skill), then update the variation |
 
 ## What NOT to Do

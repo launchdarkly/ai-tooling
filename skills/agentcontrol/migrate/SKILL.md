@@ -338,7 +338,7 @@ Skip this step if the audited app has no function calling / tools. Otherwise:
 
    For LangChain/LangGraph tools defined with `@tool`, extract the schema via `tool.args_schema.model_json_schema()` (or the equivalent Pydantic `model_json_schema()` call). For plain async callables used as tools (common in custom StateGraph shapes), LangChain infers the schema from the function signature at bind time — extract it via `StructuredTool.from_function(fn).args_schema.model_json_schema()`. Do not hand-write the schema.
 
-2. **Hand off to `tools`.** Print the extracted tool names, descriptions, and schemas, then tell the user: *"Run `/tools` with these tools and the variation key, then come back here."* The sibling skill creates tool definitions (`create-ai-tool`) and attaches them to the variation (`update-agent-config-variation`). Wait for the user to finish before proceeding to sub-step 3. Do not auto-invoke.
+2. **Hand off to `tools`.** Print the extracted tool names, descriptions, and schemas, then tell the user: *"Run `/tools` with these tools and the variation key, then come back here."* The sibling skill creates tool definitions (`create-ai-tool`) and attaches them to the variation (`update-agent-config` with `resource: "variation"`). Wait for the user to finish before proceeding to sub-step 3. Do not auto-invoke.
 
 3. **Replace the hardcoded tools array at the call site** with a read from `config.tools` (or the SDK equivalent for your language). Load the actual implementation functions dynamically from the tool names — see [agent-mode-frameworks.md](references/agent-mode-frameworks.md) for the dynamic-tool-factory pattern from the devrel agents tutorial.
 
@@ -533,7 +533,7 @@ These are ordered by how likely they are to show up as a first-run failure. The 
 
 - Don't skip Step 1 even when the user says "just wrap it." Without the audit, the fallback will drift from the hardcoded behavior.
 - Don't delegate to `configs-create` before extracting the prompt and model — the delegate needs them as inputs.
-- Don't try to attach tools during initial `setup-agent-config`. Tool attachment is a separate step owned by `tools`.
+- Don't try to attach tools while creating the config with `create-agent-config`. Tool attachment is a separate step owned by `tools`.
 - Don't claim you "delegated to `configs-create`" or any other sibling skill. This skill does not auto-invoke. At each handoff, print the inputs and tell the user to run the sibling slash-command, then wait. Anything else misleads the user about what just happened.
 - Don't skip the `/configs-targeting` step between Stage 2 and Stage 4. A freshly created variation returns `enabled=False` until targeting promotes it to fallthrough — Stage 2 verification will silently take the fallback path on every request.
 - Don't attempt a multi-agent graph migration in one pass. Migrate a single agent first; use [agent-graph-reference.md](references/agent-graph-reference.md) as the next-step read.

@@ -1,26 +1,30 @@
 [
   {
     "name": "get-flags",
-    "description": "Without flagKey: search and browse feature flags; returns a paginated summary per flag (key, name, description, kind, tags, temporary, archived, deprecated, maintainer, and whether targeting is on) in one environment. Always set env to the environment the user named. With flagKey: get one flag scoped to env, with the full targeting tree (rules, individual targets, fallthrough, prerequisites) and variations. Each rule and each clause carries an `_id`; pass them as ruleId and clauseId to update-targeting-rules (addValuesToClause, removeValuesFromClause, updateClause) or create-approval-request to edit a clause in place.",
+    "description": "Without flagKey: search and browse feature flags; returns a paginated summary per flag (key, name, kind, tags, temporary, archived, deprecated, maintainer, and whether targeting is on) in one environment. Set includeDescription to also return each flag's description. Always set env to the environment the user named. With flagKey: get one flag scoped to env, with the full targeting tree (rules, individual targets, fallthrough, prerequisites) and variations. Each rule and each clause carries an `_id`; pass them as ruleId and clauseId to update-targeting-rules (addValuesToClause, removeValuesFromClause, updateClause) or create-approval-request to edit a clause in place.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "env": {
-          "type": "string",
-          "description": "Environment key. Always set to the environment the user named."
+          "description": "Environment key. Always set to the environment the user named.",
+          "type": "string"
         },
         "expand": {
-          "type": "string",
-          "description": "Only with flagKey. A comma-separated list of fields to expand in the response."
+          "description": "Only with flagKey. A comma-separated list of fields to expand in the response.",
+          "type": "string"
         },
         "flagKey": {
-          "type": "string",
-          "description": "The feature flag key. Omit to list flags; pass to get one flag."
+          "description": "The feature flag key. Omit to list flags; pass to get one flag.",
+          "type": "string"
+        },
+        "includeDescription": {
+          "description": "Only without flagKey. Return each flag's description. Off by default.",
+          "type": "boolean"
         },
         "limit": {
-          "type": "integer",
+          "maximum": 100,
           "minimum": 1,
-          "maximum": 100
+          "type": "integer"
         },
         "maintainerId": {
           "type": "string"
@@ -29,54 +33,54 @@
           "type": "string"
         },
         "offset": {
-          "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "type": "integer"
         },
         "projectKey": {
-          "type": "string",
-          "description": "The project key"
+          "description": "The project key",
+          "type": "string"
         },
         "query": {
           "type": "string"
         },
         "sdkAvailability": {
-          "type": "string",
           "enum": [
             "client",
             "mobile",
             "anyClient",
             "server"
-          ]
+          ],
+          "type": "string"
         },
         "sort": {
-          "type": "string",
           "enum": [
             "creationDate",
             "-creationDate",
             "name",
             "-name"
-          ]
+          ],
+          "type": "string"
         },
         "state": {
-          "type": "string",
           "enum": [
             "live",
             "deprecated",
             "archived"
-          ]
+          ],
+          "type": "string"
         },
         "tags": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "type": {
-          "type": "string",
           "enum": [
             "temporary",
             "permanent"
-          ]
+          ],
+          "type": "string"
         },
         "view": {
           "type": "string"
@@ -85,17 +89,17 @@
       "required": [
         "projectKey"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "create-flag",
     "description": "Create a new feature flag in a project. Defaults to a boolean temporary flag. After creation the flag is off in all environments. Multivariate flags require defaults. If the response has needsTeamMaintainer, the flag was not created: ask the user which of the returned teams should own it, then retry with maintainerTeamKey. Set defaults.offVariation to the index of the value your code falls back to, so the new flag behaves like the code while off and needs no approval to stay that way. defaults.onVariation is the index served when targeting is on. To change them later, call update-off-variation (envs [\"*\"], fallthroughVariationIndex) and update-flag with updateDefaultVariation for new environments.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "clientSideAvailability": {
-          "type": "object",
+          "additionalProperties": false,
           "properties": {
             "usingEnvironmentId": {
               "type": "boolean"
@@ -104,28 +108,28 @@
               "type": "boolean"
             }
           },
-          "additionalProperties": false
+          "type": "object"
         },
         "customProperties": {
           "type": "object"
         },
         "defaults": {
-          "type": "object",
+          "additionalProperties": false,
           "properties": {
             "offVariation": {
-              "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "type": "integer"
             },
             "onVariation": {
-              "type": "integer",
-              "minimum": 0
+              "minimum": 0,
+              "type": "integer"
             }
           },
           "required": [
             "onVariation",
             "offVariation"
           ],
-          "additionalProperties": false
+          "type": "object"
         },
         "description": {
           "type": "string"
@@ -134,11 +138,11 @@
           "type": "string"
         },
         "kind": {
-          "type": "string",
           "enum": [
             "boolean",
             "multivariate"
-          ]
+          ],
+          "type": "string"
         },
         "maintainerId": {
           "type": "string"
@@ -150,27 +154,27 @@
           "type": "string"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "tags": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "temporary": {
           "type": "boolean"
         },
         "variations": {
-          "type": "array",
-          "items": true
+          "items": true,
+          "type": "array"
         },
         "viewKeys": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -178,60 +182,13 @@
         "key",
         "name"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "update-flag",
     "description": "Update a flag's top-level settings and variations without changing environment targeting. It takes no environment: names, descriptions, tags, maintainers, and variations are project-wide, so never ask for one. Accepted instruction kinds: updateName, updateDescription, addTags and removeTags (values array), makeFlagTemporary, makeFlagPermanent, updateMaintainerMember, updateMaintainerTeam, addCustomProperties, replaceCustomProperties, removeCustomProperties, updateDefaultVariation, addVariation, updateVariation. updateDefaultVariation takes OnVariationValue and/or OffVariationValue (PascalCase), the variation values themselves, not indexes; for example {\"kind\":\"updateDefaultVariation\",\"OnVariationValue\":true,\"OffVariationValue\":false}. Repeating an addVariation with the same value, name and description is a no-op; the same value with a different name or description is rejected (use updateVariation). Turning a flag on or off is environment-scoped: use toggle-flag, not turnFlagOn or turnFlagOff here. Pass either instructions or variationJsonSchema, never both; make two separate calls.",
     "input_schema": {
-      "type": "object",
-      "properties": {
-        "comment": {
-          "type": "string",
-          "description": "Optional audit comment."
-        },
-        "dryRun": {
-          "type": "boolean",
-          "description": "If true, the patch will be validated but not persisted. Returns a preview of the flag after the patch is applied."
-        },
-        "flagKey": {
-          "type": "string",
-          "description": "The feature flag key. The key identifies the flag in your code.",
-          "format": "string"
-        },
-        "instructions": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "kind"
-            ],
-            "additionalProperties": true
-          },
-          "description": "Metadata-only semantic patch instructions.",
-          "minItems": 1
-        },
-        "projectKey": {
-          "type": "string",
-          "description": "The project key",
-          "format": "string"
-        },
-        "variationJsonSchema": {
-          "type": "object",
-          "description": "JSON schema that replaces the flag's variation schema.",
-          "additionalProperties": true
-        }
-      },
-      "required": [
-        "flagKey",
-        "projectKey"
-      ],
       "additionalProperties": false,
       "oneOf": [
         {
@@ -244,25 +201,72 @@
             "variationJsonSchema"
           ]
         }
-      ]
+      ],
+      "properties": {
+        "comment": {
+          "description": "Optional audit comment.",
+          "type": "string"
+        },
+        "dryRun": {
+          "description": "If true, the patch will be validated but not persisted. Returns a preview of the flag after the patch is applied.",
+          "type": "boolean"
+        },
+        "flagKey": {
+          "description": "The feature flag key. The key identifies the flag in your code.",
+          "format": "string",
+          "type": "string"
+        },
+        "instructions": {
+          "description": "Metadata-only semantic patch instructions.",
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "kind": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "projectKey": {
+          "description": "The project key",
+          "format": "string",
+          "type": "string"
+        },
+        "variationJsonSchema": {
+          "additionalProperties": true,
+          "description": "JSON schema that replaces the flag's variation schema.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "flagKey",
+        "projectKey"
+      ],
+      "type": "object"
     }
   },
   {
     "name": "toggle-flag",
     "description": "Turn a feature flag's targeting on or off in a specific environment.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "comment": {
           "type": "string"
         },
         "confirm": {
-          "type": "boolean",
-          "description": "Confirm this destructive operation."
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
         },
         "env": {
-          "type": "string",
-          "description": "Environment key. If the user hasn't named one, ask; don't guess."
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "flagKey": {
           "type": "string"
@@ -271,8 +275,8 @@
           "type": "boolean"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         }
       },
       "required": [
@@ -282,26 +286,26 @@
         "on",
         "confirm"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "get-flag-health",
-    "description": "Get a combined flag health view with lifecycle status, last request time, targeting summary, age, and temporary state.",
+    "description": "Get a combined flag health view with lifecycle status, last request time, targeting summary, age, and temporary state. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
-          "type": "string",
-          "description": "the project key"
+        "env": {
+          "description": "the environment key",
+          "type": "string"
         },
         "flagKey": {
-          "type": "string",
-          "description": "the feature flag key"
+          "description": "the feature flag key",
+          "type": "string"
         },
-        "env": {
-          "type": "string",
-          "description": "the environment key"
+        "projectKey": {
+          "description": "the project key",
+          "type": "string"
         }
       },
       "required": [
@@ -309,50 +313,54 @@
         "flagKey",
         "env"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "get-flag-status-across-envs",
-    "description": "Check a flag's lifecycle status across all environments. Use before cleanup to verify the flag is inactive everywhere.",
+    "description": "Check a flag's lifecycle status (new, active, inactive or launched) and when it was last evaluated. Without env, it covers the project's critical environments when the project has any (the result then has criticalEnvironmentsOnly=true), otherwise every environment. Set allEnvs=true for every environment, for example before cleanup to verify the flag is inactive everywhere. Each environment's `default` is the fallback value the SDK passed when it evaluated the flag, not the value the flag serves; use get-flags with flagKey and env to see what an environment serves.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
+        "allEnvs": {
+          "description": "Include every environment instead of only the project's critical environments. Ignored when env is set.",
+          "type": "boolean"
+        },
         "env": {
-          "type": "string",
           "description": "Optional environment filter",
-          "format": "string"
+          "format": "string",
+          "type": "string"
         },
         "flagKey": {
-          "type": "string",
           "description": "The feature flag key",
-          "format": "string"
+          "format": "string",
+          "type": "string"
         },
         "projectKey": {
-          "type": "string",
           "description": "The project key",
-          "format": "string"
+          "format": "string",
+          "type": "string"
         }
       },
       "required": [
         "flagKey",
         "projectKey"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "get-agent-configs",
     "description": "Without configKey: search and browse AgentControl Configs (query, tags, view, sort, limit, offset). With configKey: get one config; section is config (default, with variations), health (missing variations, models, prompts, tool references), status (lifecycle across every environment; no env needed), or targeting (one environment; requires env).",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "configKey": {
           "type": "string"
         },
         "env": {
-          "type": "string",
-          "description": "Required for section=targeting; not used by the other sections."
+          "description": "Required for section=targeting; not used by the other sections.",
+          "type": "string"
         },
         "limit": {
           "type": "integer"
@@ -361,36 +369,36 @@
           "type": "integer"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "query": {
           "type": "string"
         },
         "section": {
-          "type": "string",
           "description": "Only with configKey. Defaults to config.",
           "enum": [
             "config",
             "health",
             "status",
             "targeting"
-          ]
+          ],
+          "type": "string"
         },
         "sort": {
-          "type": "string",
           "enum": [
             "creationDate",
             "-creationDate",
             "name",
             "-name"
-          ]
+          ],
+          "type": "string"
         },
         "tags": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "view": {
           "type": "string"
@@ -399,136 +407,175 @@
       "required": [
         "projectKey"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "create-agent-config",
-    "description": "Create an AgentControl Config shell. For mode judge, isInverted is required: true if a lower evaluation metric value is better.",
+    "description": "Create an AgentControl Config or one of its variations. resource is required. configKey always names the config and variationKey and variationName always name a variation. resource=config creates the config (configKey, name, mode); pass variationKey, variationName, modelConfigKey, modelName, and instructions or messages to also create its first variation. For mode judge, evaluationMetricKey and isInverted are required (isInverted: true if a lower metric value is better). resource=variation adds variationKey and variationName to configKey, with model and prompts, or clones sourceVariationKey (omitted model, prompts, tools, and skills are copied from it).",
     "input_schema": {
-      "type": "object",
-      "properties": {
-        "description": {
-          "type": "string"
-        },
-        "evaluationMetricKey": {
-          "type": "string"
-        },
-        "isInverted": {
-          "type": "boolean",
-          "description": "Required when mode is judge. True when a lower evaluation metric value is better. False when a higher value is better."
-        },
-        "key": {
-          "type": "string"
-        },
-        "mode": {
-          "type": "string",
-          "enum": [
-            "agent",
-            "completion",
-            "judge"
-          ]
-        },
-        "name": {
-          "type": "string"
-        },
-        "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
-        },
-        "tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "dependentRequired": {
+            "instructions": [
+              "variationKey"
+            ],
+            "messages": [
+              "variationKey"
+            ],
+            "modelConfigKey": [
+              "variationKey"
+            ],
+            "modelName": [
+              "variationKey"
+            ],
+            "parameters": [
+              "variationKey"
+            ],
+            "tools": [
+              "variationKey"
+            ],
+            "variationName": [
+              "variationKey"
+            ]
+          },
+          "dependentSchemas": {
+            "variationKey": {
+              "anyOf": [
+                {
+                  "required": [
+                    "instructions"
+                  ]
+                },
+                {
+                  "required": [
+                    "messages"
+                  ]
+                }
+              ],
+              "required": [
+                "variationName",
+                "modelConfigKey",
+                "modelName"
+              ]
+            }
+          },
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "judge"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "properties": {
+            "resource": {
+              "const": "config"
+            }
+          },
+          "propertyNames": {
+            "enum": [
+              "projectKey",
+              "resource",
+              "configKey",
+              "name",
+              "mode",
+              "description",
+              "tags",
+              "evaluationMetricKey",
+              "isInverted",
+              "viewKeys",
+              "variationKey",
+              "variationName",
+              "modelConfigKey",
+              "modelName",
+              "instructions",
+              "messages",
+              "parameters",
+              "tools"
+            ]
+          },
+          "required": [
+            "configKey",
+            "name",
+            "mode"
+          ],
+          "then": {
+            "required": [
+              "evaluationMetricKey",
+              "isInverted"
+            ]
           }
         },
-        "viewKeys": {
-          "type": "array",
-          "items": {
-            "type": "string"
+        {
+          "else": {
+            "anyOf": [
+              {
+                "required": [
+                  "instructions"
+                ]
+              },
+              {
+                "required": [
+                  "messages"
+                ]
+              }
+            ],
+            "required": [
+              "modelConfigKey",
+              "modelName"
+            ]
+          },
+          "if": {
+            "required": [
+              "sourceVariationKey"
+            ]
+          },
+          "properties": {
+            "resource": {
+              "const": "variation"
+            }
+          },
+          "propertyNames": {
+            "enum": [
+              "projectKey",
+              "resource",
+              "configKey",
+              "variationKey",
+              "variationName",
+              "sourceVariationKey",
+              "modelConfigKey",
+              "modelName",
+              "instructions",
+              "messages",
+              "parameters",
+              "tools",
+              "skills",
+              "judgeConfiguration"
+            ]
+          },
+          "required": [
+            "configKey",
+            "variationKey",
+            "variationName"
+          ],
+          "then": {
+            "not": {
+              "required": [
+                "judgeConfiguration"
+              ]
+            }
           }
         }
-      },
-      "required": [
-        "projectKey",
-        "key",
-        "name",
-        "mode"
       ],
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "update-agent-config",
-    "description": "Update AgentControl Config metadata or archive status.",
-    "input_schema": {
-      "type": "object",
       "properties": {
-        "archived": {
-          "type": "boolean"
-        },
         "configKey": {
+          "description": "The config's key: the new config (resource=config) or the config to add the variation to (resource=variation).",
           "type": "string"
         },
-        "description": {
-          "type": "string"
-        },
-        "isInverted": {
-          "type": "boolean",
-          "description": "True when a lower evaluation metric value is better. False when a higher value is better."
-        },
-        "name": {
-          "type": "string"
-        },
-        "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
-        },
-        "tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "required": [
-        "projectKey",
-        "configKey"
-      ],
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "delete-agent-config",
-    "description": "Permanently delete an AgentControl Config. Requires confirm=true.",
-    "input_schema": {
-      "type": "object",
-      "properties": {
-        "configKey": {
-          "type": "string"
-        },
-        "confirm": {
-          "type": "boolean"
-        },
-        "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
-        }
-      },
-      "required": [
-        "projectKey",
-        "configKey",
-        "confirm"
-      ],
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "setup-agent-config",
-    "description": "Create an AgentControl Config and its first variation.",
-    "input_schema": {
-      "type": "object",
-      "properties": {
         "description": {
           "type": "string"
         },
@@ -536,19 +583,18 @@
           "type": "string"
         },
         "instructions": {
+          "description": "The variation's system prompt.",
           "type": "string"
         },
         "isInverted": {
-          "type": "boolean",
-          "description": "Required when mode is judge. True when a lower evaluation metric value is better. False when a higher value is better."
+          "description": "True when a lower evaluation metric value is better. False when a higher value is better.",
+          "type": "boolean"
         },
-        "key": {
-          "type": "string"
+        "judgeConfiguration": {
+          "type": "object"
         },
         "messages": {
-          "type": "array",
           "items": {
-            "type": "object",
             "properties": {
               "content": {
                 "type": "string"
@@ -560,43 +606,79 @@
             "required": [
               "role",
               "content"
-            ]
-          }
+            ],
+            "type": "object"
+          },
+          "type": "array"
         },
         "mode": {
-          "type": "string",
           "enum": [
             "agent",
             "completion",
             "judge"
-          ]
+          ],
+          "type": "string"
         },
         "modelConfigKey": {
+          "description": "Provider.model-id, e.g. OpenAI.gpt-4o.",
+          "pattern": "^[^.]+\\..+",
           "type": "string"
         },
         "modelName": {
           "type": "string"
         },
         "name": {
+          "description": "resource=config: the config's name.",
           "type": "string"
         },
         "parameters": {
           "type": "object"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "resource": {
+          "description": "config: a new config, optionally with its first variation. variation: a new variation on configKey.",
+          "enum": [
+            "config",
+            "variation"
+          ],
+          "type": "string"
+        },
+        "skills": {
+          "description": "Agent skills to attach, as {key, version} from get-agent-skills. On update, the array replaces the attached skills; [] detaches them all.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "version": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "key",
+              "version"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "sourceVariationKey": {
+          "description": "resource=variation: clone this variation.",
+          "type": "string"
         },
         "tags": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "tools": {
-          "type": "array",
           "items": {
-            "type": "object",
             "properties": {
               "key": {
                 "type": "string"
@@ -608,194 +690,141 @@
             "required": [
               "key",
               "version"
-            ]
-          }
+            ],
+            "type": "object"
+          },
+          "type": "array"
         },
         "variationKey": {
+          "description": "The new variation's key (resource=config: its first variation).",
           "type": "string"
         },
         "variationName": {
+          "description": "The new variation's name.",
           "type": "string"
         },
         "viewKeys": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         }
       },
       "required": [
         "projectKey",
-        "key",
-        "name",
-        "mode",
-        "variationKey",
-        "variationName",
-        "modelConfigKey",
-        "modelName"
+        "resource"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
-    "name": "create-agent-config-variation",
-    "description": "Create an AgentControl Config variation with model and prompts, or clone one by passing sourceVariationKey (omitted model, prompts, and tools are copied from it). Pass the new variation's key as `key`; `variationKey` is only for update and delete.",
+    "name": "update-agent-config",
+    "description": "Update an AgentControl Config. resource is required and picks what changes. resource=config: metadata or archive status. resource=variation: one variation's name (variationName), model, prompts, tools, or skills, by variationKey. resource=targeting: one environment's targeting, in a single write: on turns targeting on or off; fallthrough sets the default for contexts no rule matches ({\"variationKey\":\"candidate\"} serves one variation, {\"weights\":[{\"variationKey\":\"a\",\"percent\":50},{\"variationKey\":\"b\",\"percent\":50}]} splits traffic); targetingInstructions changes rules and individual targets with kinds addRule, removeRule, reorderRules, replaceRules, updateRuleDescription, addClauses, removeClauses, addValuesToClause, removeValuesFromClause, updateClause, addTargets, removeTargets, clearTargets, and replaceTargets; rule kinds take ruleId, and each kind takes variationKey where it serves a variation. variation and targeting require confirm=true.",
     "input_schema": {
-      "type": "object",
-      "properties": {
-        "configKey": {
-          "type": "string"
-        },
-        "instructions": {
-          "type": "string"
-        },
-        "judgeConfiguration": {
-          "type": "object"
-        },
-        "key": {
-          "type": "string"
-        },
-        "messages": {
-          "type": "array",
-          "items": {
-            "type": "object"
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "minProperties": 4,
+          "properties": {
+            "resource": {
+              "const": "config"
+            }
+          },
+          "propertyNames": {
+            "enum": [
+              "projectKey",
+              "configKey",
+              "resource",
+              "name",
+              "description",
+              "tags",
+              "archived",
+              "isInverted"
+            ]
           }
         },
-        "modelConfigKey": {
-          "type": "string"
+        {
+          "minProperties": 6,
+          "properties": {
+            "confirm": {
+              "const": true
+            },
+            "resource": {
+              "const": "variation"
+            }
+          },
+          "propertyNames": {
+            "enum": [
+              "projectKey",
+              "configKey",
+              "resource",
+              "variationKey",
+              "confirm",
+              "variationName",
+              "description",
+              "modelConfigKey",
+              "modelName",
+              "instructions",
+              "messages",
+              "parameters",
+              "tools",
+              "skills",
+              "judgeConfiguration"
+            ]
+          },
+          "required": [
+            "variationKey",
+            "confirm"
+          ]
         },
-        "modelName": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "parameters": {
-          "type": "object"
-        },
-        "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
-        },
-        "sourceVariationKey": {
-          "type": "string"
-        },
-        "tools": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
+        {
+          "anyOf": [
+            {
+              "required": [
+                "on"
+              ]
+            },
+            {
+              "required": [
+                "fallthrough"
+              ]
+            },
+            {
+              "required": [
+                "targetingInstructions"
+              ]
+            }
+          ],
+          "properties": {
+            "confirm": {
+              "const": true
+            },
+            "resource": {
+              "const": "targeting"
+            }
+          },
+          "propertyNames": {
+            "enum": [
+              "projectKey",
+              "configKey",
+              "resource",
+              "env",
+              "confirm",
+              "on",
+              "fallthrough",
+              "targetingInstructions",
+              "comment"
+            ]
+          },
+          "required": [
+            "env",
+            "confirm"
+          ]
         }
-      },
-      "required": [
-        "projectKey",
-        "configKey",
-        "key",
-        "name"
       ],
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "update-agent-config-variation",
-    "description": "Update an AgentControl Config variation.",
-    "input_schema": {
-      "type": "object",
       "properties": {
-        "configKey": {
-          "type": "string"
-        },
-        "confirm": {
-          "type": "boolean",
-          "description": "Confirm this destructive operation."
-        },
-        "description": {
-          "type": "string"
-        },
-        "instructions": {
-          "type": "string"
-        },
-        "judgeConfiguration": {
-          "type": "object"
-        },
-        "messages": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        },
-        "modelConfigKey": {
-          "type": "string"
-        },
-        "modelName": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "parameters": {
-          "type": "object"
-        },
-        "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
-        },
-        "tools": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        },
-        "variationKey": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "projectKey",
-        "configKey",
-        "variationKey",
-        "confirm"
-      ],
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "delete-agent-config-variation",
-    "description": "Permanently delete an AgentControl Config variation. Requires confirm=true.",
-    "input_schema": {
-      "type": "object",
-      "properties": {
-        "configKey": {
-          "type": "string"
-        },
-        "confirm": {
+        "archived": {
           "type": "boolean"
-        },
-        "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
-        },
-        "variationKey": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "projectKey",
-        "configKey",
-        "variationKey",
-        "confirm"
-      ],
-      "additionalProperties": false
-    }
-  },
-  {
-    "name": "update-agent-config-rollout",
-    "description": "Update an AgentControl Config fallthrough variation or rollout.",
-    "input_schema": {
-      "type": "object",
-      "properties": {
-        "bucketBy": {
-          "type": "string"
         },
         "comment": {
           "type": "string"
@@ -804,84 +833,341 @@
           "type": "string"
         },
         "confirm": {
-          "type": "boolean",
-          "description": "Confirm this destructive operation."
+          "description": "Required true for resource=variation and resource=targeting.",
+          "type": "boolean"
         },
-        "contextKind": {
+        "description": {
           "type": "string"
         },
         "env": {
-          "type": "string",
-          "description": "Environment key. If the user hasn't named one, ask; don't guess."
-        },
-        "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
-        },
-        "rolloutType": {
-          "type": "string",
-          "enum": [
-            "variation",
-            "percentage"
-          ]
-        },
-        "variationKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
-        "weights": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "percent": {
-                "type": "number"
+        "fallthrough": {
+          "description": "The default for contexts no rule matches: {variationKey} serves one variation; {weights, contextKind?, bucketBy?} is a percentage rollout whose percents sum to 100.",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "variationKey": {
+                  "description": "A variation key or name.",
+                  "type": "string"
+                }
               },
-              "variationKey": {
+              "required": [
+                "variationKey"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "bucketBy": {
+                  "type": "string"
+                },
+                "contextKind": {
+                  "type": "string"
+                },
+                "weights": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "percent": {
+                        "maximum": 100,
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      "variationKey": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "variationKey",
+                      "percent"
+                    ],
+                    "type": "object"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "weights"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "instructions": {
+          "description": "The variation's system prompt.",
+          "type": "string"
+        },
+        "isInverted": {
+          "description": "True when a lower evaluation metric value is better. False when a higher value is better.",
+          "type": "boolean"
+        },
+        "judgeConfiguration": {
+          "type": "object"
+        },
+        "messages": {
+          "items": {
+            "properties": {
+              "content": {
+                "type": "string"
+              },
+              "role": {
                 "type": "string"
               }
             },
             "required": [
-              "variationKey",
-              "percent"
-            ]
-          }
+              "role",
+              "content"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "modelConfigKey": {
+          "description": "Provider.model-id, e.g. OpenAI.gpt-4o.",
+          "pattern": "^[^.]+\\..+",
+          "type": "string"
+        },
+        "modelName": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "on": {
+          "description": "resource=targeting: turn targeting on or off.",
+          "type": "boolean"
+        },
+        "parameters": {
+          "type": "object"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "resource": {
+          "description": "config: the config's metadata. variation: one variation. targeting: one environment's on/off, fallthrough, rules, and individual targets.",
+          "enum": [
+            "config",
+            "variation",
+            "targeting"
+          ],
+          "type": "string"
+        },
+        "skills": {
+          "description": "Agent skills to attach, as {key, version} from get-agent-skills. On update, the array replaces the attached skills; [] detaches them all.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "version": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "key",
+              "version"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "targetingInstructions": {
+          "description": "Semantic patch instructions for rules and individual targets. Each instruction or replaceRules rule takes variationKey (a variation key or name) or variationId. addTargets and removeTargets take contextKind, variationKey, and values (context keys), e.g. [{\"kind\":\"addTargets\",\"contextKind\":\"user\",\"variationKey\":\"candidate\",\"values\":[\"user-1\"]}].",
+          "items": {
+            "if": {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "addTargets",
+                    "removeTargets"
+                  ]
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "properties": {
+              "contextKind": {
+                "description": "addTargets and removeTargets: the context kind of values, e.g. user.",
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "addRule",
+                  "removeRule",
+                  "addClauses",
+                  "removeClauses",
+                  "reorderRules",
+                  "replaceRules",
+                  "updateRuleDescription",
+                  "addValuesToClause",
+                  "removeValuesFromClause",
+                  "updateClause",
+                  "addTargets",
+                  "removeTargets",
+                  "clearTargets",
+                  "replaceTargets"
+                ],
+                "type": "string"
+              },
+              "values": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "then": {
+              "required": [
+                "contextKind",
+                "values"
+              ]
+            },
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "tools": {
+          "items": {
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "key",
+              "version"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "variationKey": {
+          "description": "resource=variation: the variation to update.",
+          "type": "string"
+        },
+        "variationName": {
+          "description": "resource=variation: the variation's new name.",
+          "type": "string"
         }
       },
       "required": [
         "projectKey",
         "configKey",
-        "env",
-        "rolloutType",
+        "resource"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "delete-agent-config",
+    "description": "Permanently delete an AgentControl Config (resource=config) or one of its variations (resource=variation, with variationKey). Requires confirm=true.",
+    "input_schema": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "not": {
+            "required": [
+              "variationKey"
+            ]
+          },
+          "properties": {
+            "resource": {
+              "const": "config"
+            }
+          }
+        },
+        {
+          "properties": {
+            "resource": {
+              "const": "variation"
+            }
+          },
+          "required": [
+            "variationKey"
+          ]
+        }
+      ],
+      "properties": {
+        "configKey": {
+          "type": "string"
+        },
+        "confirm": {
+          "const": true,
+          "type": "boolean"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "resource": {
+          "enum": [
+            "config",
+            "variation"
+          ],
+          "type": "string"
+        },
+        "variationKey": {
+          "description": "resource=variation: the variation to delete.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "configKey",
+        "resource",
         "confirm"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "get-ai-tools",
     "description": "Without toolKey: list AI tool definitions in a project (limit). With toolKey: get one AI tool definition including its schema. With toolKey and section versions: list that tool's versions newest first, paged by limit and offset; when hasMore is true, pass nextOffset as offset. To attach a tool, put its key and version in a variation's tools array ({key, version}).",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "limit": {
           "type": "integer"
         },
         "offset": {
-          "type": "integer",
           "description": "Only with section=versions. Pass nextOffset from the previous page.",
-          "minimum": 0
+          "minimum": 0,
+          "type": "integer"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "section": {
-          "type": "string",
           "description": "Only with toolKey. Defaults to tool. versions pages by limit (1-100, default 25) and offset.",
           "enum": [
             "tool",
             "versions"
-          ]
+          ],
+          "type": "string"
         },
         "toolKey": {
           "type": "string"
@@ -890,18 +1176,18 @@
       "required": [
         "projectKey"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "create-ai-tool",
     "description": "Create an AI tool definition using raw JSON Schema. customParameters is application metadata that is not sent to the model.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "customParameters": {
-          "type": "object",
-          "description": "Application metadata, not sent to the model."
+          "description": "Application metadata, not sent to the model.",
+          "type": "object"
         },
         "description": {
           "type": "string"
@@ -910,17 +1196,17 @@
           "type": "string"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "schema": {
           "type": "object"
         },
         "tags": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -929,58 +1215,58 @@
         "description",
         "schema"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "get-environment",
     "description": "Get a LaunchDarkly environment's client-side ID, mobile key, and approval settings. Use this to initialize a browser or mobile SDK, or to check whether changes need approval: approvalSettings covers flags (required, minNumApprovals, canReviewOwnRequest, canApplyDeclinedChanges) and resourceApprovalSettings covers other kinds such as segment and aiconfig. requiredApprovalTags lists at most 25 tags; requiredApprovalTagCount gives the total when there are more. Does not return the server-side SDK key; use get-sdk-key for that.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "environmentKey": {
-          "type": "string",
-          "description": "Environment key. If the user hasn't named one, ask; don't guess."
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         }
       },
       "required": [
         "projectKey",
         "environmentKey"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "get-sdk-key",
     "description": "Return the server-side SDK key (sdk-...) for one environment. This is the only tool that returns that credential. Do not use get-environment, get-projects, get-keys, or get-sdk-active.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "environmentKey": {
-          "type": "string",
-          "description": "Environment key. If the user hasn't named one, ask; don't guess."
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         }
       },
       "required": [
         "projectKey",
         "environmentKey"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "get-projects",
     "description": "Without projectKey: list LaunchDarkly projects in the account; use to discover project keys before calling project-scoped tools. query searches name or key (case-insensitive), tags filters (all must match), sort is name or -name. If the user named no project, search once with query and ask the user when no single project clearly matches; do not page. Next page: offset + limit. With projectKey: get one project with its environments; use to retrieve environments or verify a project exists. Neither mode returns server-side SDK keys; use get-sdk-key.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "limit": {
           "type": "number"
@@ -989,34 +1275,34 @@
           "type": "number"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "query": {
           "type": "string"
         },
         "sort": {
-          "type": "string",
           "enum": [
             "name",
             "-name"
-          ]
+          ],
+          "type": "string"
         },
         "tags": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         }
       },
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "create-project",
     "description": "Create a new LaunchDarkly project. Returns the project with its environments, including each environment's client-side ID and mobile key. Does not return server-side SDK keys; use get-sdk-key. Project keys must be lowercase with hyphens, starting with a letter. Production and Test environments are created by default.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "key": {
           "type": "string"
@@ -1025,17 +1311,17 @@
           "type": "string"
         },
         "tags": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         }
       },
       "required": [
         "name",
         "key"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
@@ -1056,7 +1342,7 @@
             "already-flagged",
             "not-suited"
           ],
-          "description": "The finer-grained outcome. suggested = a new flag is warranted (pairs with recommend: true). reuse-existing = the change should be gated behind an EXISTING flag that already covers this same unreleased feature rather than a new one \u2014 set reuse_flag_key (pairs with recommend: true). already-flagged = the change is already protected by a flag in the diff or an off/mid-rollout ancestor gate (recommend: false). not-suited = there is genuinely nothing to flag: pure refactor, docs, tests, dependency bump, or build/CI/tooling change (recommend: false)."
+          "description": "The finer-grained outcome. suggested = a new flag is warranted (pairs with recommend: true). reuse-existing = the change should be gated behind an EXISTING flag that already covers this same unreleased feature rather than a new one — set reuse_flag_key (pairs with recommend: true). already-flagged = the change is already protected by a flag in the diff or an off/mid-rollout ancestor gate (recommend: false). not-suited = there is genuinely nothing to flag: pure refactor, docs, tests, dependency bump, or build/CI/tooling change (recommend: false)."
         },
         "reuse_flag_key": {
           "type": "string",
@@ -1100,177 +1386,205 @@
     "name": "match-release-policies",
     "description": "Resolve which release policy governs a flag or proposed tags.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "environmentKey": {
-          "type": "string",
-          "description": "Environment key. If the user hasn't named one, ask; don't guess."
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "flagKey": {
           "type": "string"
         },
         "flagTags": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         }
       },
       "required": [
         "projectKey",
         "environmentKey"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "get-release-policies",
     "description": "List release policies and guarded-rollout metric settings.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         }
       },
       "required": [
         "projectKey"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "create-automated-rollout-config",
-    "description": "Record an automated rollout config for a feature-flagged change. Use it only for AutomatedRollout requests. The guarding flag must already exist. repoFullName, prNumber, and prUrl are optional: pass the PR the user names or one you just filed, and omit them when there is none. Each environment either pins an override rollout or follows its release policy after the merge. Every listed environment releases on merge; to hold one, leave it out (no hold or date field exists). releaseType is only override or policy; immediate, progressive, and guarded are override.releaseMethod values. An immediate release passes only environmentKey, with no releaseType or override. Stages have exactly allocation and durationMillis; allocation is thousandths of a percent, so 10% over one hour is {\"allocation\":10000,\"durationMillis\":3600000}. The context kind field is override.rolloutContextKindKey. For policy environments the response can include warnings about a missing or incomplete policy: surface them in generated comments, do not describe the release as a clean policy rollout, and do not add tags to make a policy match. Returns created, config_id, flag_key, the normalized environments, and warnings.",
+    "description": "Record an automated rollout config for a feature-flagged change. Use it only for AutomatedRollout requests. The guarding flag must already exist. Pass repoFullName, prNumber, and prUrl for the PR the user names or you just filed; omit them when there is none. Each listed environment releases after the merge, pinned in override or by its release policy; to hold one, leave it out (no hold or date field exists). releaseType is only override or policy; immediate, progressive, and guarded are override.releaseMethod values. An immediate release passes only environmentKey, with no releaseType or override. triggerType flag_eval (default) starts on the flag's first evaluation; webhook waits for a CI/CD deploy signal. Stages have exactly allocation and durationMillis; allocation is thousandths of a percent, so 10% over one hour is {\"allocation\":10000,\"durationMillis\":3600000}. The context kind field is override.rolloutContextKindKey. Policy environments can return missing or incomplete policy warnings: surface them in generated comments, do not call the release a clean policy rollout, and do not add tags to make a policy match. Returns created, config_id, the config as stored, and warnings.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "endingVariationId": {
+          "description": "Variation a multi-variate flag rolls out to. Boolean flags default to true.",
           "type": [
             "string",
             "null"
-          ],
-          "description": "Variation a multi-variate flag rolls out to. Boolean flags default to true."
+          ]
         },
         "environments": {
-          "type": "array",
+          "description": "Per-environment rollout plan.",
           "items": {
-            "type": "object",
+            "additionalProperties": false,
             "properties": {
               "environmentKey": {
-                "type": "string",
-                "description": "Environment key."
+                "description": "Environment key.",
+                "type": "string"
               },
               "override": {
-                "type": "object",
+                "additionalProperties": false,
+                "description": "Inline rollout for releaseType override. For an immediate release, omit override and releaseType and pass only environmentKey.",
                 "properties": {
                   "metricGroupKeys": {
-                    "type": "array",
+                    "description": "Metric groups that gate a guarded rollout.",
                     "items": {
                       "type": "string"
                     },
-                    "description": "Metric groups that gate a guarded rollout."
+                    "type": "array"
                   },
                   "metricKeys": {
-                    "type": "array",
+                    "description": "Metrics that gate a guarded rollout. Guarded needs metricKeys or metricGroupKeys.",
                     "items": {
                       "type": "string"
                     },
-                    "description": "Metrics that gate a guarded rollout. Guarded needs metricKeys or metricGroupKeys."
+                    "type": "array"
                   },
                   "releaseMethod": {
-                    "type": "string",
                     "description": "immediate turns the flag on and takes no stages or metrics; progressive ramps through stages; guarded ramps through stages gated on metrics.",
                     "enum": [
                       "immediate",
                       "progressive",
                       "guarded"
-                    ]
+                    ],
+                    "type": "string"
                   },
                   "rollbackOnRegression": {
-                    "type": "boolean",
-                    "description": "Roll back automatically when a guarded metric regresses."
+                    "description": "Roll back automatically when a guarded metric regresses.",
+                    "type": "boolean"
                   },
                   "rolloutContextKindKey": {
-                    "type": "string",
-                    "description": "Context kind the rollout allocates by."
+                    "description": "Context kind the rollout allocates by.",
+                    "type": "string"
                   },
                   "stages": {
-                    "type": "array",
+                    "description": "Required for progressive and guarded. Allocations must be positive and strictly increasing. Guarded caps every stage at 50000 and promotes to 100% after the last stage, so do not add a 100000 stage; progressive usually ends at 100000. Each stage has exactly allocation and durationMillis, e.g. {\"allocation\":10000,\"durationMillis\":3600000} for 10% over one hour.",
                     "items": {
-                      "type": "object",
+                      "additionalProperties": false,
                       "properties": {
                         "allocation": {
-                          "type": "number",
-                          "description": "Thousandths of a percent: 100000 is 100%, 10000 is 10%, 1000 is 1%."
+                          "description": "Thousandths of a percent: 100000 is 100%, 10000 is 10%, 1000 is 1%.",
+                          "type": "number"
                         },
                         "durationMillis": {
-                          "type": "number",
-                          "description": "Monitoring window in milliseconds. Must be greater than 0 for every stage, including the last."
+                          "description": "Monitoring window in milliseconds. Must be greater than 0 for every stage, including the last.",
+                          "type": "number"
                         }
                       },
                       "required": [
                         "allocation",
                         "durationMillis"
                       ],
-                      "additionalProperties": false
+                      "type": "object"
                     },
-                    "description": "Required for progressive and guarded. Allocations must be positive and strictly increasing. Guarded caps every stage at 50000 and promotes to 100% after the last stage, so do not add a 100000 stage; progressive usually ends at 100000. Each stage has exactly allocation and durationMillis, e.g. {\"allocation\":10000,\"durationMillis\":3600000} for 10% over one hour."
+                    "type": "array"
                   }
                 },
-                "description": "Inline rollout for releaseType override. For an immediate release, omit override and releaseType and pass only environmentKey.",
                 "required": [
                   "releaseMethod"
                 ],
-                "additionalProperties": false
+                "type": "object"
               },
               "releaseType": {
-                "type": "string",
                 "description": "Only override or policy. override (default) pins the rollout in override; policy waits for the PR merge and the flag's first evaluation, then applies the environment's release policy; it releases on merge and never holds. Do not pass override with policy. immediate, progressive, and guarded are override.releaseMethod values.",
                 "enum": [
                   "override",
                   "policy"
-                ]
+                ],
+                "type": "string"
+              },
+              "triggerType": {
+                "description": "flag_eval (default) starts after the flag is seen evaluating; webhook waits for a CI/CD deploy signal.",
+                "enum": [
+                  "flag_eval",
+                  "webhook"
+                ],
+                "type": "string"
+              },
+              "waitBeforeReleaseMillis": {
+                "description": "Delay after the preceding environment finishes. Applies only to sequential configs and is dropped from the first sequential environment.",
+                "minimum": 0,
+                "type": "integer"
               }
             },
             "required": [
               "environmentKey"
             ],
-            "additionalProperties": false
+            "type": "object"
           },
-          "description": "Per-environment rollout plan."
+          "type": "array"
+        },
+        "executionMode": {
+          "description": "parallel (default) starts environments independently; sequential releases them in array order.",
+          "enum": [
+            "parallel",
+            "sequential"
+          ],
+          "type": "string"
         },
         "flagKey": {
-          "type": "string",
-          "description": "Key of the guarding flag, which must already exist."
+          "description": "Key of the guarding flag, which must already exist.",
+          "type": "string"
         },
         "prNumber": {
-          "type": "number",
-          "description": "Pull request number."
+          "description": "Pull request number.",
+          "type": "number"
         },
         "prUrl": {
-          "type": "string",
-          "description": "Full pull request URL."
+          "description": "Full pull request URL.",
+          "type": "string"
         },
         "projectKey": {
-          "type": "string",
-          "description": "LaunchDarkly project key."
+          "description": "LaunchDarkly project key.",
+          "type": "string"
         },
         "repoFullName": {
-          "type": "string",
-          "description": "GitHub repository as owner/repo."
+          "description": "GitHub repository as owner/repo.",
+          "type": "string"
+        },
+        "requiredApplicationKeys": {
+          "description": "SDK-reported application ids that must all evaluate the flag before release, so tests, jobs, and other apps do not trigger it. Pass only ids already instrumented in the repository's SDK configuration; never guess, and omit when there are none. Not a LaunchDarkly application object id.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "startingVariationId": {
+          "description": "Variation a multi-variate flag rolls out from. Boolean flags default to false; multi-variate flags need both variation IDs, and setting only one is rejected.",
           "type": [
             "string",
             "null"
-          ],
-          "description": "Variation a multi-variate flag rolls out from. Boolean flags default to false; multi-variate flags need both variation IDs, and setting only one is rejected."
+          ]
         }
       },
       "required": [
@@ -1278,20 +1592,20 @@
         "flagKey",
         "environments"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "get-metrics",
-    "description": "LaunchDarkly metrics used by experiments and guarded rollouts; for observability metric names in a time window, use get-keys with productType metrics. Without metricKey: list metrics in a project (query, tags, eventKind, isNumeric, hasConnections, maintainerIds, maintainerTeamKey, metricUsedIn, dataSourceKeys, versionIds, sort, limit, offset). With metricKey: get full details for one metric. To find which metric a metric version ID belongs to (experiments reference metrics by version), list with versionIds.",
+    "description": "LaunchDarkly metrics used by experiments and guarded rollouts; for observability metric names in a time window, use get-keys with productType metrics. Without metricKey: list metrics in a project (query, tags, eventKind, isNumeric, hasConnections, maintainerIds, maintainerTeamKey, metricUsedIn, dataSourceKeys, versionIds, sort, limit, offset). With metricKey: get full details for one metric. To find which metric a metric version ID belongs to (experiments reference metrics by version), list with versionIds. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "dataSourceKeys": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "eventKind": {
           "type": "string"
@@ -1306,10 +1620,10 @@
           "type": "integer"
         },
         "maintainerIds": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "maintainerTeamKey": {
           "type": "string"
@@ -1324,91 +1638,90 @@
           "type": "integer"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "query": {
           "type": "string"
         },
         "sort": {
-          "type": "string",
-          "description": "createdAt, name, connectionCount, or activeConnectionCount. Prefix with - for descending order."
+          "description": "createdAt, name, connectionCount, or activeConnectionCount. Prefix with - for descending order.",
+          "type": "string"
         },
         "tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "versionIds": {
-          "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Metric version IDs. Returns the metrics these versions belong to; each result carries its versionId."
+          "type": "array"
+        },
+        "versionIds": {
+          "description": "Metric version IDs. Returns the metrics these versions belong to; each result carries its versionId.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
         "projectKey"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "create-metric",
-    "description": "Create a custom, pageview, click, or trace metric. To count each unit's distinct values of a warehouse column, set measureType distinct and name the column in unitAggregationField; valueColumn is only for measureType value.",
+    "description": "Create a custom, pageview, click, or trace metric. To count each unit's distinct values of a warehouse column, set measureType distinct and name the column in unitAggregationField; valueColumn is only for measureType value. maintainerId sets the maintaining member. eventDefault.value is the number imputed for units that sent no event. This must be 0, and it applies only when disabled=false. When disabled=true, value is not sent. excludeUnitsWithoutEvents still sends eventDefault disabled true with no value. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "analysisUnits": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "dataSourceKey": {
           "type": "string"
         },
         "denominator": {
-          "type": "object",
+          "additionalProperties": false,
+          "description": "Denominator term of a ratio metric; the metric's own event is the numerator term. Custom metrics on a warehouse data source only: requires dataSourceKey.",
           "properties": {
             "dataSourceKey": {
-              "type": "string",
-              "description": "Warehouse data source of the denominator term. Omit to use the metric's dataSourceKey."
+              "description": "Warehouse data source of the denominator term. Omit to use the metric's dataSourceKey.",
+              "type": "string"
             },
             "eventName": {
-              "type": "string",
-              "description": "Event key of the denominator term."
+              "description": "Event key of the denominator term.",
+              "type": "string"
             },
             "filters": {
-              "type": "object",
               "description": "Count only events matching context attribute or event property clauses. Custom metrics only. A group joins clauses or further groups with and/or.",
               "oneOf": [
                 {
-                  "type": "object",
+                  "additionalProperties": false,
                   "properties": {
                     "negate": {
                       "type": "boolean"
                     },
                     "op": {
-                      "type": "string",
                       "enum": [
                         "and",
                         "or"
-                      ]
+                      ],
+                      "type": "string"
                     },
                     "type": {
-                      "type": "string",
                       "enum": [
                         "group"
-                      ]
+                      ],
+                      "type": "string"
                     },
                     "values": {
-                      "type": "array",
                       "items": {
                         "oneOf": [
                           {
-                            "type": "object",
+                            "additionalProperties": false,
                             "properties": {
                               "attribute": {
                                 "type": "string"
@@ -1420,24 +1733,24 @@
                                 "type": "boolean"
                               },
                               "op": {
-                                "type": "string",
-                                "description": "Clause operator, for example in."
+                                "description": "Clause operator, for example in.",
+                                "type": "string"
                               },
                               "type": {
-                                "type": "string",
                                 "enum": [
                                   "contextAttribute"
-                                ]
+                                ],
+                                "type": "string"
                               },
                               "values": {
-                                "type": "array",
                                 "items": {
                                   "type": [
                                     "string",
                                     "number",
                                     "boolean"
                                   ]
-                                }
+                                },
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -1448,10 +1761,10 @@
                               "values",
                               "negate"
                             ],
-                            "additionalProperties": false
+                            "type": "object"
                           },
                           {
-                            "type": "object",
+                            "additionalProperties": false,
                             "properties": {
                               "attribute": {
                                 "type": "string"
@@ -1460,24 +1773,24 @@
                                 "type": "boolean"
                               },
                               "op": {
-                                "type": "string",
-                                "description": "Clause operator, for example in."
+                                "description": "Clause operator, for example in.",
+                                "type": "string"
                               },
                               "type": {
-                                "type": "string",
                                 "enum": [
                                   "eventProperty"
-                                ]
+                                ],
+                                "type": "string"
                               },
                               "values": {
-                                "type": "array",
                                 "items": {
                                   "type": [
                                     "string",
                                     "number",
                                     "boolean"
                                   ]
-                                }
+                                },
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -1487,33 +1800,32 @@
                               "values",
                               "negate"
                             ],
-                            "additionalProperties": false
+                            "type": "object"
                           },
                           {
-                            "type": "object",
+                            "additionalProperties": false,
                             "properties": {
                               "negate": {
                                 "type": "boolean"
                               },
                               "op": {
-                                "type": "string",
                                 "enum": [
                                   "and",
                                   "or"
-                                ]
+                                ],
+                                "type": "string"
                               },
                               "type": {
-                                "type": "string",
                                 "enum": [
                                   "group"
-                                ]
+                                ],
+                                "type": "string"
                               },
                               "values": {
-                                "type": "array",
                                 "items": {
                                   "oneOf": [
                                     {
-                                      "type": "object",
+                                      "additionalProperties": false,
                                       "properties": {
                                         "attribute": {
                                           "type": "string"
@@ -1525,24 +1837,24 @@
                                           "type": "boolean"
                                         },
                                         "op": {
-                                          "type": "string",
-                                          "description": "Clause operator, for example in."
+                                          "description": "Clause operator, for example in.",
+                                          "type": "string"
                                         },
                                         "type": {
-                                          "type": "string",
                                           "enum": [
                                             "contextAttribute"
-                                          ]
+                                          ],
+                                          "type": "string"
                                         },
                                         "values": {
-                                          "type": "array",
                                           "items": {
                                             "type": [
                                               "string",
                                               "number",
                                               "boolean"
                                             ]
-                                          }
+                                          },
+                                          "type": "array"
                                         }
                                       },
                                       "required": [
@@ -1553,10 +1865,10 @@
                                         "values",
                                         "negate"
                                       ],
-                                      "additionalProperties": false
+                                      "type": "object"
                                     },
                                     {
-                                      "type": "object",
+                                      "additionalProperties": false,
                                       "properties": {
                                         "attribute": {
                                           "type": "string"
@@ -1565,24 +1877,24 @@
                                           "type": "boolean"
                                         },
                                         "op": {
-                                          "type": "string",
-                                          "description": "Clause operator, for example in."
+                                          "description": "Clause operator, for example in.",
+                                          "type": "string"
                                         },
                                         "type": {
-                                          "type": "string",
                                           "enum": [
                                             "eventProperty"
-                                          ]
+                                          ],
+                                          "type": "string"
                                         },
                                         "values": {
-                                          "type": "array",
                                           "items": {
                                             "type": [
                                               "string",
                                               "number",
                                               "boolean"
                                             ]
-                                          }
+                                          },
+                                          "type": "array"
                                         }
                                       },
                                       "required": [
@@ -1592,24 +1904,25 @@
                                         "values",
                                         "negate"
                                       ],
-                                      "additionalProperties": false
+                                      "type": "object"
                                     },
                                     {
-                                      "type": "object",
                                       "properties": {
                                         "type": {
-                                          "type": "string",
                                           "enum": [
                                             "group"
-                                          ]
+                                          ],
+                                          "type": "string"
                                         }
                                       },
                                       "required": [
                                         "type"
-                                      ]
+                                      ],
+                                      "type": "object"
                                     }
                                   ]
-                                }
+                                },
+                                "type": "array"
                               }
                             },
                             "required": [
@@ -1618,10 +1931,11 @@
                               "values",
                               "negate"
                             ],
-                            "additionalProperties": false
+                            "type": "object"
                           }
                         ]
-                      }
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
@@ -1630,10 +1944,10 @@
                     "values",
                     "negate"
                   ],
-                  "additionalProperties": false
+                  "type": "object"
                 },
                 {
-                  "type": "object",
+                  "additionalProperties": false,
                   "properties": {
                     "attribute": {
                       "type": "string"
@@ -1645,24 +1959,24 @@
                       "type": "boolean"
                     },
                     "op": {
-                      "type": "string",
-                      "description": "Clause operator, for example in."
+                      "description": "Clause operator, for example in.",
+                      "type": "string"
                     },
                     "type": {
-                      "type": "string",
                       "enum": [
                         "contextAttribute"
-                      ]
+                      ],
+                      "type": "string"
                     },
                     "values": {
-                      "type": "array",
                       "items": {
                         "type": [
                           "string",
                           "number",
                           "boolean"
                         ]
-                      }
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
@@ -1673,10 +1987,10 @@
                     "values",
                     "negate"
                   ],
-                  "additionalProperties": false
+                  "type": "object"
                 },
                 {
-                  "type": "object",
+                  "additionalProperties": false,
                   "properties": {
                     "attribute": {
                       "type": "string"
@@ -1685,24 +1999,24 @@
                       "type": "boolean"
                     },
                     "op": {
-                      "type": "string",
-                      "description": "Clause operator, for example in."
+                      "description": "Clause operator, for example in.",
+                      "type": "string"
                     },
                     "type": {
-                      "type": "string",
                       "enum": [
                         "eventProperty"
-                      ]
+                      ],
+                      "type": "string"
                     },
                     "values": {
-                      "type": "array",
                       "items": {
                         "type": [
                           "string",
                           "number",
                           "boolean"
                         ]
-                      }
+                      },
+                      "type": "array"
                     }
                   },
                   "required": [
@@ -1712,101 +2026,115 @@
                     "values",
                     "negate"
                   ],
-                  "additionalProperties": false
+                  "type": "object"
                 }
-              ]
+              ],
+              "type": "object"
             },
             "measureType": {
-              "type": "string",
               "description": "distinct counts each unit's unique values of the unitAggregationField column; it does not use valueColumn.",
               "enum": [
                 "count",
                 "occurrence",
                 "value",
                 "distinct"
-              ]
+              ],
+              "type": "string"
             },
             "unitAggregationField": {
-              "type": "string",
-              "description": "Required with measureType distinct: the warehouse column whose unique values are counted per unit, for example ORDER_ID."
+              "description": "Required with measureType distinct: the warehouse column whose unique values are counted per unit, for example ORDER_ID.",
+              "type": "string"
             },
             "valueAggregation": {
-              "type": "string",
               "enum": [
                 "sum",
                 "average"
-              ]
+              ],
+              "type": "string"
             },
             "valueColumn": {
               "type": "string"
             },
             "windowEndOffset": {
-              "type": "integer",
-              "description": "End of the measurement window, in milliseconds after the unit's first exposure."
+              "description": "End of the measurement window, in milliseconds after the unit's first exposure.",
+              "type": "integer"
             },
             "windowStartOffset": {
-              "type": "integer",
-              "description": "Start of the measurement window, in milliseconds after the unit's first exposure."
+              "description": "Start of the measurement window, in milliseconds after the unit's first exposure.",
+              "type": "integer"
             },
             "winsorIncludeImputed": {
-              "type": "boolean",
-              "description": "Count the 0 imputed for units without events when computing the winsorization bounds."
+              "description": "Count the 0 imputed for units without events when computing the winsorization bounds.",
+              "type": "boolean"
             },
             "winsorLowerPercentile": {
-              "type": "number",
-              "description": "Clamp unit values below this percentile, in the open interval (0, 100)."
+              "description": "Clamp unit values below this percentile, in the open interval (0, 100).",
+              "type": "number"
             },
             "winsorUpperPercentile": {
-              "type": "number",
-              "description": "Clamp unit values above this percentile, in the open interval (0, 100)."
+              "description": "Clamp unit values above this percentile, in the open interval (0, 100).",
+              "type": "number"
             }
           },
-          "description": "Denominator term of a ratio metric; the metric's own event is the numerator term. Custom metrics on a warehouse data source only: requires dataSourceKey.",
           "required": [
             "eventName",
             "measureType"
           ],
-          "additionalProperties": false
+          "type": "object"
         },
         "description": {
           "type": "string"
+        },
+        "eventDefault": {
+          "additionalProperties": false,
+          "description": "Default for units that sent no event. value is only sent when disabled is false, because Gonfalon omits value when defaulting is disabled. The only supported value is 0; ratio metrics reject any other value.",
+          "properties": {
+            "disabled": {
+              "description": "true leaves units that sent no event out of the analysis.",
+              "type": "boolean"
+            },
+            "value": {
+              "const": 0,
+              "description": "Imputed value when disabled is false. Only 0 is supported.",
+              "type": "number"
+            }
+          },
+          "type": "object"
         },
         "eventKey": {
           "type": "string"
         },
         "excludeUnitsWithoutEvents": {
-          "type": "boolean",
-          "description": "Leave units that sent no event out of the analysis instead of counting them as 0."
+          "description": "Leave units that sent no event out of the analysis instead of counting them as 0.",
+          "type": "boolean"
         },
         "filters": {
-          "type": "object",
           "description": "Count only events matching context attribute or event property clauses. Custom metrics only. A group joins clauses or further groups with and/or.",
           "oneOf": [
             {
-              "type": "object",
+              "additionalProperties": false,
               "properties": {
                 "negate": {
                   "type": "boolean"
                 },
                 "op": {
-                  "type": "string",
                   "enum": [
                     "and",
                     "or"
-                  ]
+                  ],
+                  "type": "string"
                 },
                 "type": {
-                  "type": "string",
                   "enum": [
                     "group"
-                  ]
+                  ],
+                  "type": "string"
                 },
                 "values": {
-                  "type": "array",
                   "items": {
                     "oneOf": [
                       {
-                        "type": "object",
+                        "additionalProperties": false,
                         "properties": {
                           "attribute": {
                             "type": "string"
@@ -1818,24 +2146,24 @@
                             "type": "boolean"
                           },
                           "op": {
-                            "type": "string",
-                            "description": "Clause operator, for example in."
+                            "description": "Clause operator, for example in.",
+                            "type": "string"
                           },
                           "type": {
-                            "type": "string",
                             "enum": [
                               "contextAttribute"
-                            ]
+                            ],
+                            "type": "string"
                           },
                           "values": {
-                            "type": "array",
                             "items": {
                               "type": [
                                 "string",
                                 "number",
                                 "boolean"
                               ]
-                            }
+                            },
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -1846,10 +2174,10 @@
                           "values",
                           "negate"
                         ],
-                        "additionalProperties": false
+                        "type": "object"
                       },
                       {
-                        "type": "object",
+                        "additionalProperties": false,
                         "properties": {
                           "attribute": {
                             "type": "string"
@@ -1858,24 +2186,24 @@
                             "type": "boolean"
                           },
                           "op": {
-                            "type": "string",
-                            "description": "Clause operator, for example in."
+                            "description": "Clause operator, for example in.",
+                            "type": "string"
                           },
                           "type": {
-                            "type": "string",
                             "enum": [
                               "eventProperty"
-                            ]
+                            ],
+                            "type": "string"
                           },
                           "values": {
-                            "type": "array",
                             "items": {
                               "type": [
                                 "string",
                                 "number",
                                 "boolean"
                               ]
-                            }
+                            },
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -1885,33 +2213,32 @@
                           "values",
                           "negate"
                         ],
-                        "additionalProperties": false
+                        "type": "object"
                       },
                       {
-                        "type": "object",
+                        "additionalProperties": false,
                         "properties": {
                           "negate": {
                             "type": "boolean"
                           },
                           "op": {
-                            "type": "string",
                             "enum": [
                               "and",
                               "or"
-                            ]
+                            ],
+                            "type": "string"
                           },
                           "type": {
-                            "type": "string",
                             "enum": [
                               "group"
-                            ]
+                            ],
+                            "type": "string"
                           },
                           "values": {
-                            "type": "array",
                             "items": {
                               "oneOf": [
                                 {
-                                  "type": "object",
+                                  "additionalProperties": false,
                                   "properties": {
                                     "attribute": {
                                       "type": "string"
@@ -1923,24 +2250,24 @@
                                       "type": "boolean"
                                     },
                                     "op": {
-                                      "type": "string",
-                                      "description": "Clause operator, for example in."
+                                      "description": "Clause operator, for example in.",
+                                      "type": "string"
                                     },
                                     "type": {
-                                      "type": "string",
                                       "enum": [
                                         "contextAttribute"
-                                      ]
+                                      ],
+                                      "type": "string"
                                     },
                                     "values": {
-                                      "type": "array",
                                       "items": {
                                         "type": [
                                           "string",
                                           "number",
                                           "boolean"
                                         ]
-                                      }
+                                      },
+                                      "type": "array"
                                     }
                                   },
                                   "required": [
@@ -1951,10 +2278,10 @@
                                     "values",
                                     "negate"
                                   ],
-                                  "additionalProperties": false
+                                  "type": "object"
                                 },
                                 {
-                                  "type": "object",
+                                  "additionalProperties": false,
                                   "properties": {
                                     "attribute": {
                                       "type": "string"
@@ -1963,24 +2290,24 @@
                                       "type": "boolean"
                                     },
                                     "op": {
-                                      "type": "string",
-                                      "description": "Clause operator, for example in."
+                                      "description": "Clause operator, for example in.",
+                                      "type": "string"
                                     },
                                     "type": {
-                                      "type": "string",
                                       "enum": [
                                         "eventProperty"
-                                      ]
+                                      ],
+                                      "type": "string"
                                     },
                                     "values": {
-                                      "type": "array",
                                       "items": {
                                         "type": [
                                           "string",
                                           "number",
                                           "boolean"
                                         ]
-                                      }
+                                      },
+                                      "type": "array"
                                     }
                                   },
                                   "required": [
@@ -1990,24 +2317,25 @@
                                     "values",
                                     "negate"
                                   ],
-                                  "additionalProperties": false
+                                  "type": "object"
                                 },
                                 {
-                                  "type": "object",
                                   "properties": {
                                     "type": {
-                                      "type": "string",
                                       "enum": [
                                         "group"
-                                      ]
+                                      ],
+                                      "type": "string"
                                     }
                                   },
                                   "required": [
                                     "type"
-                                  ]
+                                  ],
+                                  "type": "object"
                                 }
                               ]
-                            }
+                            },
+                            "type": "array"
                           }
                         },
                         "required": [
@@ -2016,10 +2344,11 @@
                           "values",
                           "negate"
                         ],
-                        "additionalProperties": false
+                        "type": "object"
                       }
                     ]
-                  }
+                  },
+                  "type": "array"
                 }
               },
               "required": [
@@ -2028,10 +2357,10 @@
                 "values",
                 "negate"
               ],
-              "additionalProperties": false
+              "type": "object"
             },
             {
-              "type": "object",
+              "additionalProperties": false,
               "properties": {
                 "attribute": {
                   "type": "string"
@@ -2043,24 +2372,24 @@
                   "type": "boolean"
                 },
                 "op": {
-                  "type": "string",
-                  "description": "Clause operator, for example in."
+                  "description": "Clause operator, for example in.",
+                  "type": "string"
                 },
                 "type": {
-                  "type": "string",
                   "enum": [
                     "contextAttribute"
-                  ]
+                  ],
+                  "type": "string"
                 },
                 "values": {
-                  "type": "array",
                   "items": {
                     "type": [
                       "string",
                       "number",
                       "boolean"
                     ]
-                  }
+                  },
+                  "type": "array"
                 }
               },
               "required": [
@@ -2071,10 +2400,10 @@
                 "values",
                 "negate"
               ],
-              "additionalProperties": false
+              "type": "object"
             },
             {
-              "type": "object",
+              "additionalProperties": false,
               "properties": {
                 "attribute": {
                   "type": "string"
@@ -2083,24 +2412,24 @@
                   "type": "boolean"
                 },
                 "op": {
-                  "type": "string",
-                  "description": "Clause operator, for example in."
+                  "description": "Clause operator, for example in.",
+                  "type": "string"
                 },
                 "type": {
-                  "type": "string",
                   "enum": [
                     "eventProperty"
-                  ]
+                  ],
+                  "type": "string"
                 },
                 "values": {
-                  "type": "array",
                   "items": {
                     "type": [
                       "string",
                       "number",
                       "boolean"
                     ]
-                  }
+                  },
+                  "type": "array"
                 }
               },
               "required": [
@@ -2110,110 +2439,115 @@
                 "values",
                 "negate"
               ],
-              "additionalProperties": false
+              "type": "object"
             }
-          ]
+          ],
+          "type": "object"
         },
         "key": {
           "type": "string"
         },
         "kind": {
-          "type": "string",
           "enum": [
             "custom",
             "pageview",
             "click",
             "trace"
-          ]
+          ],
+          "type": "string"
+        },
+        "maintainerId": {
+          "description": "The ID of the member who maintains this metric.",
+          "type": "string"
         },
         "measureType": {
-          "type": "string",
           "description": "distinct counts each unit's unique values of the unitAggregationField column; it does not use valueColumn.",
           "enum": [
             "count",
             "occurrence",
             "value",
             "distinct"
-          ]
+          ],
+          "type": "string"
         },
         "name": {
           "type": "string"
         },
         "percentile": {
-          "type": "integer",
-          "description": "Analyze this percentile of unit values instead of the mean. Requires excludeUnitsWithoutEvents: true."
+          "description": "Analyze this percentile of unit values instead of the mean. Requires excludeUnitsWithoutEvents: true.",
+          "type": "integer"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "selector": {
           "type": "string"
         },
         "successCriteria": {
-          "type": "string",
           "enum": [
             "HigherThanBaseline",
             "LowerThanBaseline"
-          ]
+          ],
+          "type": "string"
         },
         "tags": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "traceQuery": {
-          "type": "string",
-          "description": "Trace query of a trace metric, for example service.name = \"checkout\"."
+          "description": "Trace query of a trace metric, for example service.name = \"checkout\".",
+          "type": "string"
         },
         "traceValueLocation": {
-          "type": "string",
-          "description": "Where a trace metric with measureType value reads its number, for example duration."
+          "description": "Where a trace metric with measureType value reads its number, for example duration.",
+          "type": "string"
         },
         "unit": {
           "type": "string"
         },
         "unitAggregationField": {
-          "type": "string",
-          "description": "Required with measureType distinct: the warehouse column whose unique values are counted per unit, for example ORDER_ID."
+          "description": "Required with measureType distinct: the warehouse column whose unique values are counted per unit, for example ORDER_ID.",
+          "type": "string"
         },
         "urls": {
-          "type": "array",
           "items": {
             "type": "object"
-          }
+          },
+          "type": "array"
         },
         "valueAggregation": {
-          "type": "string",
           "enum": [
             "sum",
             "average"
-          ]
+          ],
+          "type": "string"
         },
         "valueColumn": {
-          "type": "string",
-          "description": "Warehouse column holding the numeric value for measureType value."
+          "description": "Warehouse column holding the numeric value for measureType value.",
+          "type": "string"
         },
         "windowEndOffset": {
-          "type": "integer",
-          "description": "End of the measurement window, in milliseconds after the unit's first exposure."
+          "description": "End of the measurement window, in milliseconds after the unit's first exposure.",
+          "type": "integer"
         },
         "windowStartOffset": {
-          "type": "integer",
-          "description": "Start of the measurement window, in milliseconds after the unit's first exposure."
+          "description": "Start of the measurement window, in milliseconds after the unit's first exposure.",
+          "type": "integer"
         },
         "winsorIncludeImputed": {
-          "type": "boolean",
-          "description": "Count the 0 imputed for units without events when computing the winsorization bounds."
+          "description": "Count the 0 imputed for units without events when computing the winsorization bounds.",
+          "type": "boolean"
         },
         "winsorLowerPercentile": {
-          "type": "number",
-          "description": "Clamp unit values below this percentile, in the open interval (0, 100)."
+          "description": "Clamp unit values below this percentile, in the open interval (0, 100).",
+          "type": "number"
         },
         "winsorUpperPercentile": {
-          "type": "number",
-          "description": "Clamp unit values above this percentile, in the open interval (0, 100)."
+          "description": "Clamp unit values above this percentile, in the open interval (0, 100).",
+          "type": "number"
         }
       },
       "required": [
@@ -2223,44 +2557,43 @@
         "measureType",
         "successCriteria"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "create-experiment",
-    "description": "Create a draft experiment on a flag or AgentControl Config. It collects no data until an iteration is explicitly started; return the design for user review before starting. To keep it unstarted, simply do not call a start tool; send only schema properties, with no note or message field. The design (hypothesis, randomizationUnit, metrics, primarySingleMetricKey or primaryFunnelKey, treatments, and flags) goes only inside iteration, never at the top level.",
+    "description": "Create a draft experiment on a flag or AgentControl Config. It collects no data until an iteration is explicitly started; return the design for user review before starting. To keep it unstarted, simply do not call a start tool; send only schema properties, with no note or message field. The design (hypothesis, randomizationUnit, metrics, primarySingleMetricKey or primaryFunnelKey, treatments, and flags) goes only inside iteration, never at the top level. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "analysisConfig": {
           "type": "object"
         },
         "dataSource": {
-          "type": "string",
           "enum": [
             "launchdarkly",
             "snowflake",
             "databricks"
-          ]
+          ],
+          "type": "string"
         },
         "description": {
           "type": "string"
         },
         "environmentKey": {
-          "type": "string",
-          "description": "Environment key. If the user hasn't named one, ask; don't guess."
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "holdoutId": {
           "type": "string"
         },
         "iteration": {
-          "type": "object",
           "properties": {
             "attributes": {
-              "type": "array",
               "items": {
                 "type": "string"
-              }
+              },
+              "type": "array"
             },
             "canReshuffleTraffic": {
               "type": "boolean"
@@ -2275,10 +2608,10 @@
               "type": "string"
             },
             "metrics": {
-              "type": "array",
               "items": {
                 "type": "object"
-              }
+              },
+              "type": "array"
             },
             "primaryFunnelKey": {
               "type": "string"
@@ -2290,10 +2623,10 @@
               "type": "string"
             },
             "treatments": {
-              "type": "array",
               "items": {
                 "type": "object"
-              }
+              },
+              "type": "array"
             }
           },
           "required": [
@@ -2301,7 +2634,8 @@
             "metrics",
             "treatments",
             "flags"
-          ]
+          ],
+          "type": "object"
         },
         "key": {
           "type": "string"
@@ -2310,25 +2644,25 @@
           "type": "string"
         },
         "methodology": {
-          "type": "string",
           "enum": [
             "bayesian",
             "frequentist",
             "export_only"
-          ]
+          ],
+          "type": "string"
         },
         "name": {
           "type": "string"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "tags": {
-          "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -2338,32 +2672,32 @@
         "name",
         "iteration"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "start-experiment-iteration",
-    "description": "Start an experiment iteration and allocate live end-user traffic. Requires explicit user confirmation and must not automatically follow creation or update.",
+    "description": "Start an experiment iteration and allocate live end-user traffic. Requires explicit user confirmation and must not automatically follow creation or update. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "changeJustification": {
           "type": "string"
         },
         "confirm": {
-          "type": "boolean",
-          "description": "Confirm this destructive operation."
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
         },
         "environmentKey": {
-          "type": "string",
-          "description": "Environment key. If the user hasn't named one, ask; don't guess."
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "experimentKey": {
           "type": "string"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         }
       },
       "required": [
@@ -2372,18 +2706,18 @@
         "experimentKey",
         "confirm"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   },
   {
     "name": "get-experiments",
-    "description": "Without experimentKey: list experiments in a project, optionally filtered by environmentKey, flagKey, or status; each entry has key, name, description, and current iteration status. With experimentKey (environmentKey also required): get one experiment including its treatments, metrics, and current iteration status.",
+    "description": "Without experimentKey: list experiments in a project, optionally filtered by environmentKey, flagKey, or status; each entry has key, name, description, and current iteration status. With experimentKey (environmentKey also required): get one experiment including its treatments, metrics, and current iteration status. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
         "environmentKey": {
-          "type": "string",
-          "description": "Environment key. If the user hasn't named one, ask; don't guess."
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "experimentKey": {
           "type": "string"
@@ -2398,8 +2732,8 @@
           "type": "number"
         },
         "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "status": {
           "type": "string"
@@ -2408,7 +2742,7 @@
       "required": [
         "projectKey"
       ],
-      "additionalProperties": false
+      "type": "object"
     }
   }
 ]

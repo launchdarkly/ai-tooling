@@ -305,7 +305,7 @@
     "deleted": true,
     "key": "{{configKey}}"
   },
-  "setup-agent-config": {
+  "create-agent-config#with-variation": {
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "mode": "{{mode}}",
@@ -343,7 +343,7 @@
       }
     ]
   },
-  "create-agent-config-variation": {
+  "create-agent-config#variation": {
     "configKey": "{{configKey}}",
     "variation": {
       "key": "{{variationKey}}",
@@ -357,7 +357,7 @@
       }
     }
   },
-  "update-agent-config-variation": {
+  "update-agent-config#variation": {
     "configKey": "{{configKey}}",
     "variation": {
       "key": "{{variationKey}}",
@@ -371,12 +371,12 @@
       }
     }
   },
-  "delete-agent-config-variation": {
+  "delete-agent-config#variation": {
     "deleted": true,
     "configKey": "{{configKey}}",
     "variationKey": "{{variationKey}}"
   },
-  "update-agent-config-rollout": {
+  "update-agent-config#targeting": {
     "configKey": "{{configKey}}",
     "env": "{{environmentKey}}",
     "fallthrough": {
@@ -386,7 +386,7 @@
       "variationKey": "disabled"
     }
   },
-  "create-agent-config-variation#clone": {
+  "create-agent-config#variation-clone": {
     "configKey": "{{configKey}}",
     "source": {
       "key": "default",
@@ -646,7 +646,7 @@
       "metrics": []
     },
     "createdAt": "2026-10-01T00:00:00Z",
-    "dataCollection": "not started \u2014 this experiment is a draft. It is not collecting data and is not affecting any end users yet.",
+    "dataCollection": "not started — this experiment is a draft. It is not collecting data and is not affecting any end users yet.",
     "designUrl": "https://app.launchdarkly.com/projects/{{projectKey}}/experiments/{{experimentKey}}/design?selected-env={{environmentKey}}",
     "nextSteps": "Summarize the experiment design for the user. Starting the experiment requires their explicit confirmation; do not call start-experiment-iteration until they ask for it."
   },
@@ -677,7 +677,7 @@
       "startDate": "2026-10-28T00:00:00Z"
     },
     "createdAt": "2026-10-01T00:00:00Z",
-    "dataCollection": "running \u2014 the experiment is collecting data and allocating live end-user traffic across its treatments.",
+    "dataCollection": "running — the experiment is collecting data and allocating live end-user traffic across its treatments.",
     "designUrl": "https://app.launchdarkly.com/projects/{{projectKey}}/experiments/{{experimentKey}}/design?selected-env={{environmentKey}}",
     "resultsUrl": "https://app.launchdarkly.com/projects/{{projectKey}}/experiments/{{experimentKey}}/results?selected-env={{environmentKey}}"
   },
@@ -707,7 +707,7 @@
       "metrics": []
     },
     "createdAt": "2026-10-01T00:00:00Z",
-    "dataCollection": "not started \u2014 this experiment is a draft. It is not collecting data and is not affecting any end users yet.",
+    "dataCollection": "not started — this experiment is a draft. It is not collecting data and is not affecting any end users yet.",
     "designUrl": "https://app.launchdarkly.com/projects/{{projectKey}}/experiments/{{experimentKey}}/design?selected-env={{environmentKey}}"
   },
   "get-environment": {

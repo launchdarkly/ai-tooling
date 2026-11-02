@@ -5,8 +5,9 @@
 #
 # The configs-create skill guides the agent through choosing agent vs
 # completion mode, creating a config + variation, and verifying the setup.
-# The recommended path is setup-agent-config (one-step); the agent may also
-# use create-agent-config + create-agent-config-variation for more control.
+# The recommended path is create-agent-config resource=config with a first
+# variation (one step); the agent may also create the config alone and then
+# add variations with create-agent-config resource=variation.
 description: "End-to-end evaluation of the configs-create skill"
 
 prompts:
@@ -22,10 +23,10 @@ tests:
   # ------------------------------------------------------------------
   # Test 1: Happy path — LangGraph agent bot
   # The most common use case: a user building a LangGraph agent wants
-  # to create a config in agent mode. The skill should call setup-agent-config
+  # to create a config in agent mode. The skill should call create-agent-config
   # with agent mode and reasonable defaults.
   # ------------------------------------------------------------------
-  - description: "Happy path: creates agent-mode config for a LangGraph chatbot using setup-agent-config"
+  - description: "Happy path: creates agent-mode config for a LangGraph chatbot using create-agent-config"
     vars:
       user_request: >
         Create a config for my customer support bot. It uses LangGraph and
@@ -36,7 +37,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('setup-agent-config') || tools.includes('create-agent-config');
+          const pass = tools.includes('create-agent-config');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_create_tool
         weight: 3
@@ -44,36 +45,32 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const setup = traj.find(t => t.tool === 'setup-agent-config');
-          const create = traj.find(t => t.tool === 'create-agent-config');
-          const call = setup || create;
+          const call = traj.find(t => t.tool === 'create-agent-config' && (t.arguments || {}).resource === 'config');
           if (!call) return { pass: false, score: 0, reason: 'No create tool called' };
           const a = call.arguments || {};
           const isAgentMode = a.mode === 'agent';
-          const hasKey = typeof a.key === 'string' && a.key.length > 0;
+          const hasKey = typeof a.configKey === 'string' && a.configKey.length > 0;
           const hasProject = a.projectKey === 'acme-app';
           const score = (isAgentMode ? 0.5 : 0) + (hasKey ? 0.3 : 0) + (hasProject ? 0.2 : 0);
-          return { pass: score >= 0.5, score, reason: `mode=${a.mode} key=${a.key} project=${a.projectKey}` };
+          return { pass: score >= 0.5, score, reason: `mode=${a.mode} configKey=${a.configKey} project=${a.projectKey}` };
         metric: create_args_correct
         weight: 3
 
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const setup = traj.find(t => t.tool === 'setup-agent-config');
-          const create = traj.find(t => t.tool === 'create-agent-config');
-          const call = setup || create;
+          const call = traj.find(t => t.tool === 'create-agent-config' && (t.arguments || {}).resource === 'config');
           if (!call) return { pass: false, score: 0, reason: 'No create tool called' };
           const a = call.arguments || {};
-          const keyIsKebab = typeof a.key === 'string' && /^[a-z][a-z0-9-]*$/.test(a.key);
-          return { pass: keyIsKebab, score: keyIsKebab ? 1 : 0, reason: `key=${a.key}` };
+          const keyIsKebab = typeof a.configKey === 'string' && /^[a-z][a-z0-9-]*$/.test(a.configKey);
+          return { pass: keyIsKebab, score: keyIsKebab ? 1 : 0, reason: `configKey=${a.configKey}` };
         metric: key_is_kebab_case
         weight: 2
 
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['delete-agent-config', 'delete-agent-config-variation'];
+          const forbidden = ['delete-agent-config'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'No destructive tools' : 'Called: ' + called.join(', ') };
@@ -111,9 +108,7 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const setup = traj.find(t => t.tool === 'setup-agent-config');
-          const create = traj.find(t => t.tool === 'create-agent-config');
-          const call = setup || create;
+          const call = traj.find(t => t.tool === 'create-agent-config' && (t.arguments || {}).resource === 'config');
           if (!call) return { pass: false, score: 0, reason: 'No create tool called' };
           const a = call.arguments || {};
           const isCompletion = a.mode === 'completion';
@@ -124,9 +119,7 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const setup = traj.find(t => t.tool === 'setup-agent-config');
-          const create = traj.find(t => t.tool === 'create-agent-config');
-          const call = setup || create;
+          const call = traj.find(t => t.tool === 'create-agent-config' && (t.arguments || {}).resource === 'config');
           if (!call) return { pass: false, score: 0, reason: 'No create tool called' };
           const a = call.arguments || {};
           const hasGpt = typeof a.modelName === 'string' && a.modelName.includes('gpt') ||
@@ -138,7 +131,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('setup-agent-config') || tools.includes('create-agent-config');
+          const pass = tools.includes('create-agent-config');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_create_tool
         weight: 3
@@ -158,9 +151,7 @@ tests:
         value: |
           const tools = output.tools_called || [];
           const aIdx = tools.indexOf('get-agent-configs');
-          const bIdx = tools.lastIndexOf('setup-agent-config') === -1
-            ? tools.lastIndexOf('create-agent-config')
-            : tools.lastIndexOf('setup-agent-config');
+          const bIdx = tools.lastIndexOf('create-agent-config');
           const created = bIdx >= 0;
           // Either explored first OR went straight to creation (both are valid)
           const pass = created;
@@ -171,7 +162,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('setup-agent-config') || tools.includes('create-agent-config');
+          const pass = tools.includes('create-agent-config');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_create_tool
         weight: 3
@@ -191,7 +182,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('setup-agent-config') || tools.includes('create-agent-config');
+          const pass = tools.includes('create-agent-config');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: calls_create_tool
         weight: 3

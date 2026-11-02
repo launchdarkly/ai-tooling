@@ -23,7 +23,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 **Optional MCP tools:**
 - `update-prompt-snippet` -- edit a snippet's text, name, or tags
 - `delete-prompt-snippet` -- permanently remove a snippet
-- `update-agent-config-variation` -- update variation prompts to reference snippets
+- `update-agent-config` with `resource: "variation"` -- update variation prompts to reference snippets
 
 ## Core Concepts
 

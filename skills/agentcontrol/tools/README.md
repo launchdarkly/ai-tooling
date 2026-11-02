@@ -7,7 +7,7 @@ An Agent Skill for creating tools (function calling) and attaching them to confi
 This skill teaches agents how to:
 - Identify what capabilities the agent needs
 - Create tool definitions using the `create-ai-tool` MCP tool
-- Attach tools to config variations via `update-agent-config-variation`
+- Attach tools to config variations via `update-agent-config` (`resource: "variation"`)
 - Verify tools are properly connected via `get-agent-configs`
 
 ## Installation (Local)

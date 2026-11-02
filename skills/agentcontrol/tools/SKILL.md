@@ -18,7 +18,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Required MCP tools:**
 - `create-ai-tool` -- create a new tool definition with a schema
-- `update-agent-config-variation` -- attach tools to a config variation
+- `update-agent-config` with `resource: "variation"` -- attach tools to a config variation
 - `get-agent-configs` -- verify tools are attached to the variation
 
 **Optional MCP tools:**
@@ -44,7 +44,7 @@ What should the agent be able to do?
 If the user asks to check existing tools first, or you have no codebase context about what tools exist, follow this exact order:
 1. `get-ai-tools` -- explore what exists
 2. `create-ai-tool` -- create the new tool (with a key different from existing ones)
-3. `update-agent-config-variation` -- attach it
+3. `update-agent-config` with `resource: "variation"` -- attach it
 4. `get-agent-configs` -- verify
 
 Call `get-ai-tools` as your **first** tool call before any creation. Never stop after listing alone -- always proceed through all four steps.
@@ -69,12 +69,13 @@ Use `create-ai-tool` with:
 
 ### Step 3: Attach to Variation
 
-Use `update-agent-config-variation` to attach tools. **Pass only the `tools` field.** Do not bundle `instructions`, `messages`, `model`, or `parameters` into this PATCH unless the user has explicitly asked you to also update those fields. Those fields may have been edited in the LaunchDarkly UI since the variation was created, and including them in a tool-attachment PATCH will silently clobber the UI edits.
+Use `update-agent-config` with `resource: "variation"` to attach tools. **Pass only the `tools` field** (plus `projectKey`, `configKey`, `variationKey`, and `confirm`). Do not bundle `instructions`, `messages`, `model`, or `parameters` into this PATCH unless the user has explicitly asked you to also update those fields. Those fields may have been edited in the LaunchDarkly UI since the variation was created, and including them in a tool-attachment PATCH will silently clobber the UI edits.
 
 ```json
 {
   "projectKey": "my-project",
   "configKey": "support-chatbot",
+  "resource": "variation",
   "variationKey": "default",
   "tools": [
     {"key": "search-knowledge-base", "version": 1}

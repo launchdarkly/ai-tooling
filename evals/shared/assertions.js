@@ -6,10 +6,10 @@
  *     response: "<final agent text>",
  *     trajectory: [
  *       { tool: "get-agent-configs", arguments: {...}, turn: 1 },
- *       { tool: "setup-agent-config", arguments: {...}, turn: 2 },
+ *       { tool: "create-agent-config", arguments: {...}, turn: 2 },
  *       ...
  *     ],
- *     tools_called: ["get-agent-configs", "setup-agent-config"],
+ *     tools_called: ["get-agent-configs", "create-agent-config"],
  *     turn_count: 3
  *   }
  *

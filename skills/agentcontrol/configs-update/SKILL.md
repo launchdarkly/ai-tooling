@@ -18,12 +18,12 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Required MCP tools:**
 - `get-agent-configs` with `configKey` -- understand current state before making changes; add `section: "health"` to assess config health (detects missing models, orphaned tools, empty configs)
-- `update-agent-config` -- update config metadata (name, description, tags, archive)
-- `update-agent-config-variation` -- update variation model, prompts, or parameters
+- `update-agent-config` with `resource: "config"` -- update config metadata (name, description, tags, archive)
+- `update-agent-config` with `resource: "variation"` -- update variation model, prompts, or parameters
 
 **Optional MCP tools:**
-- `delete-agent-config` -- permanently delete a config (irreversible)
-- `delete-agent-config-variation` -- permanently delete a variation (irreversible)
+- `delete-agent-config` with `resource: "config"` -- permanently delete a config (irreversible)
+- `delete-agent-config` with `resource: "variation"` -- permanently delete a variation (irreversible)
 
 ## Core Principles
 
@@ -51,24 +51,25 @@ Then use `get-agent-configs` to review the full detail:
 
 ### Step 2: Make the Update
 
-**Update config metadata** -- Use `update-agent-config`:
+**Update config metadata** -- Use `update-agent-config` with `resource: "config"`:
 - Change name or description
 - Add or replace tags
 - Archive with `archived: true` (reversible)
 
-**Update a variation** -- Use `update-agent-config-variation` (requires `confirm: true`; pass it after the user agrees):
+**Update a variation** -- Use `update-agent-config` with `resource: "variation"` and the `variationKey` (requires `confirm: true`; pass it after the user agrees):
 - Switch model (provide new `modelConfigKey` and `modelName`)
+- Rename it with `variationName`
 - Change instructions or messages
 - Tune parameters (temperature, max_tokens, etc.)
 - Attach or detach tools with the top-level `tools` array
 
-**Archive a config** -- Use `update-agent-config` with `archived: true`. Archiving is the **preferred** way to retire a config:
+**Archive a config** -- Use `update-agent-config` with `resource: "config"` and `archived: true`. Archiving is the **preferred** way to retire a config:
 - It is reversible (unarchive with `archived: false`)
 - The config is hidden from active lists but preserved
 - After calling the archive, treat a successful response as confirmation and proceed to verification
 - When a user says "remove", "retire", "decommission", or "no longer need", default to archiving unless they explicitly say "delete permanently"
 
-**Delete** -- Use `delete-agent-config` or `delete-agent-config-variation` (irreversible, requires `confirm: true`). **Always suggest archiving first.** Only proceed with deletion if the user explicitly confirms they want permanent, irreversible removal.
+**Delete** -- Use `delete-agent-config` with `resource: "config"` or `resource: "variation"` (irreversible, requires `confirm: true`). **Always suggest archiving first.** Only proceed with deletion if the user explicitly confirms they want permanent, irreversible removal.
 
 ### Step 3: Verify
 

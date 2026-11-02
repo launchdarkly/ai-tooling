@@ -6,7 +6,7 @@ An Agent Skill for creating configs in LaunchDarkly. Guides choosing agent vs co
 
 This skill teaches agents how to:
 - Understand the use case and choose agent vs completion mode
-- Create configs using MCP tools (`setup-agent-config` for one-step, or `create-agent-config` + `create-agent-config-variation` for more control)
+- Create configs using MCP tools (`create-agent-config` with `resource: "config"` and a first variation for one-step, or a config alone followed by `resource: "variation"` for more control)
 - Set up model configuration with the correct `modelConfigKey` format
 - Verify creation via the tool response or `get-agent-configs`
 

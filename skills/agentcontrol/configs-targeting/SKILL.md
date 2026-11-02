@@ -35,14 +35,14 @@ Targeting rules evaluate in this order (same as feature flags):
 
 ### Key Concepts
 
-- **Variations**: MCP instructions take `variationKey` (a variation key or name) or `variationId` (a UUID from the targeting read). Raw REST needs the UUID.
+- **Variations**: MCP `targetingInstructions` and `fallthrough` take `variationKey` (a variation key or name) or `variationId` (a UUID from the targeting read). Raw REST needs the UUID.
 - **Weights**: Thousandths (50000 = 50%, 100000 = 100%)
 - **Clause logic**: Multiple clauses = AND, multiple values = OR
 - **Null attributes**: Rules with null/missing attributes are skipped
 
 ## Workflow
 
-Every write below requires `confirm: true`. Show the user the change and pass it only after they agree.
+Every write below is one `update-agent-config` call with `resource: "targeting"` and requires `confirm: true`. Show the user the change and pass it only after they agree. A single call may combine `on`, `fallthrough`, and `targetingInstructions`.
 
 ### Step 1: Get Targeting
 
@@ -50,26 +50,26 @@ Call `get-agent-configs` with `projectKey`, `configKey`, `section: "targeting"`,
 
 ### Step 2: Edit the Default Rule
 
-Set the default rule to the variation you created with `update-agent-config-rollout`:
+Set the default rule to the variation you created with `fallthrough`:
 
 ```json
 {
   "projectKey": "my-project",
   "configKey": "chat-assistant",
+  "resource": "targeting",
   "env": "production",
-  "rolloutType": "variation",
-  "variationKey": "default",
+  "fallthrough": {"variationKey": "default"},
   "confirm": true
 }
 ```
 
-For a percentage split, pass `rolloutType: "percentage"` and `weights`, for example `[{"variationKey": "default", "percent": 80}, {"variationKey": "experimental", "percent": 20}]`.
+For a percentage split, pass `fallthrough` as `{"weights": [{"variationKey": "default", "percent": 80}, {"variationKey": "experimental", "percent": 20}]}`; the percents sum to 100. Add `contextKind` or `bucketBy` beside `weights` to change what is bucketed.
 
 > **Important:** The `turnTargetingOn` instruction does not work for configs. A new config serves its disabled variation until you set the default rule.
 
 ### Step 3: Add Targeting Rules
 
-Use `update-agent-config-targeting`. It accepts `addRule`, `removeRule`, `replaceRules`, `reorderRules`, `updateRuleDescription`, `addClauses`, `removeClauses`, `addValuesToClause`, `removeValuesFromClause`, and `updateClause`.
+Use `targetingInstructions`. It accepts `addRule`, `removeRule`, `replaceRules`, `reorderRules`, `updateRuleDescription`, `addClauses`, `removeClauses`, `addValuesToClause`, `removeValuesFromClause`, and `updateClause`.
 
 **Attribute-based rule:**
 
@@ -77,8 +77,9 @@ Use `update-agent-config-targeting`. It accepts `addRule`, `removeRule`, `replac
 {
   "projectKey": "my-project",
   "configKey": "model-selector",
+  "resource": "targeting",
   "env": "production",
-  "instructions": [{
+  "targetingInstructions": [{
     "kind": "addRule",
     "clauses": [{
       "contextKind": "user",
@@ -100,14 +101,15 @@ Use `update-agent-config-targeting`. It accepts `addRule`, `removeRule`, `replac
 
 ### Step 4: Target Individuals
 
-Use `update-agent-config-targets` with `addTargets`, `removeTargets`, `replaceTargets`, or `clearTargets`:
+Use `targetingInstructions` with `addTargets`, `removeTargets`, `replaceTargets`, or `clearTargets`. `addTargets` and `removeTargets` require `contextKind` and `values`:
 
 ```json
 {
   "projectKey": "my-project",
   "configKey": "chat-assistant",
+  "resource": "targeting",
   "env": "production",
-  "instructions": [{"kind": "addTargets", "contextKind": "user", "variationKey": "experimental", "values": ["user-123"]}],
+  "targetingInstructions": [{"kind": "addTargets", "contextKind": "user", "variationKey": "experimental", "values": ["user-123"]}],
   "confirm": true
 }
 ```
