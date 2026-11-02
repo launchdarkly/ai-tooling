@@ -21,8 +21,10 @@ function isConfirmQuestion(step) {
   return labels.some((l) => l.includes("looks good"));
 }
 
-// Index of the last confirm question before `limit` whose answer was "Looks good",
-// or -1. Showing the confirm question is not approval; only that answer is.
+// Index of the latest confirm question before `limit` if its answer was
+// "Looks good", else -1. Only the latest confirmation counts: a later
+// "Change something" withdraws an earlier approval, and showing the question
+// is not approval.
 function approvedConfirmBefore(steps, limit) {
   for (let i = limit - 1; i >= 0; i--) {
     const step = steps[i];
@@ -30,7 +32,7 @@ function approvedConfirmBefore(steps, limit) {
     const ok = ((step.arguments && step.arguments.options) || [])
       .filter((o) => String(o.label || "").toLowerCase().includes("looks good"))
       .map((o) => o.id);
-    if ((step.selected || []).some((id) => ok.includes(id))) return i;
+    return (step.selected || []).some((id) => ok.includes(id)) ? i : -1;
   }
   return -1;
 }
@@ -44,15 +46,8 @@ module.exports.confirmsBeforeWriting = (output) => {
   const steps = traj(output);
   const firstWrite = steps.findIndex((t) => WRITE_TOOLS.has(t.tool));
   if (firstWrite === -1) return result(false, "never wrote, so the confirmed plan was not applied");
-  let confirm = -1;
-  for (let i = 0; i < firstWrite; i++) if (isConfirmQuestion(steps[i])) confirm = i;
-  if (confirm === -1) return result(false, "wrote without a confirm question");
-  const step = steps[confirm];
-  const ok = ((step.arguments && step.arguments.options) || [])
-    .filter((o) => String(o.label || "").toLowerCase().includes("looks good"))
-    .map((o) => o.id);
-  const approved = (step.selected || []).some((id) => ok.includes(id));
-  return result(approved, approved ? `approved at ${confirm}, first write at ${firstWrite}` : `wrote after confirm answer ${JSON.stringify(step.selected)}`);
+  const approved = approvedConfirmBefore(steps, firstWrite);
+  return result(approved !== -1, approved !== -1 ? `approved at ${approved}, first write at ${firstWrite}` : `first write at ${firstWrite} without "Looks good" as the latest confirmation answer`);
 };
 
 // Every repo write targets `repo` in `project` and sends enabled:false for each cap.
