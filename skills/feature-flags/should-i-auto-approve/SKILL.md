@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-i-auto-approve` JSON block."
 metadata:
   author: launchdarkly
-  version: "0.3.0"
+  version: "0.4.0"
   graph: "13d6fde05e16"
 ---
 
@@ -59,14 +59,14 @@ instead.
 
 ```bash
 python3 SKILL_DIR/should-i-auto-approve.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
-    [--pr-title "<title>"] [--pr-body-file <file>]
+    [--pr-title "<title>"] [--pr-body-file <file>] [--pr-author <login>]
 ```
 
 - `REPO_PATH` defaults to the current directory, `--head` to `HEAD`, `--base`
   to the remote's default branch (`origin/HEAD`, else `origin/main`).
 - **On a pull request**, pass its base and head (`--base origin/<base_ref>
-  --head <head_sha>`) and its title and description (write the description to
-  a file first).
+  --head <head_sha>`), its title and description (write the description to
+  a file first), and its author's login (`--pr-author`).
 - A shallow clone works when it still has the merge base. If `start` says
   there's no merge base, fetch more history (`git fetch --deepen` or
   `--unshallow`) and run it again.
@@ -83,8 +83,11 @@ It prints `RUN: <folder>` and status lines (`CHANGE`, `PR TEXT`,
 ### 2. Answer every question
 
 `RUN/questions.md` holds the questions left after the path answers, each with
-its procedure and when it may be left unresolved. Read the change and the
-code around it:
+its procedure and when it may be left unresolved, then the **approval gates**
+(`G1`, `G3`): whether the repository's approval policy files let a low change
+merge on an automated approval alone. The gates never change the rating.
+Answer them in the same object, the same way. Read the change and the code
+around it:
 
 ```bash
 git -C <REPO_PATH> diff <merge_base>...<head>
@@ -143,11 +146,13 @@ python3 SKILL_DIR/should-i-auto-approve.pyz decide RUN
 Run it as is, with its whole output: don't pipe it through `grep`, `sed`,
 `head` or `tail`. It prints `RESULT` (low, medium, high, or "a person needs to
 decide"), `WHY`, the `DECIDING QUESTION` with the evidence that settled it,
-`UNCLEAR, BUT IT DIDN'T MATTER` when present, and a fenced block:
+`UNCLEAR, BUT IT DIDN'T MATTER` when present, `APPROVAL` (whether the change
+can merge on an automated approval, and any approval gate not met or unclear),
+and a fenced block:
 
 ````
 ```json should-i-auto-approve
-{"rating": "low", "escalated": false, "terminal": "...", "graph": "...", ...}
+{"rating": "low", "escalated": false, "terminal": "...", "graph": "...", ..., "gates": {...}, "auto_approve": true}
 ```
 ````
 
@@ -163,8 +168,10 @@ Print, in a few short lines, using only what `decide` printed:
 1. The rating and `WHY`, close to verbatim, and a sentence on what in the
    change led there, in terms of its code.
 2. `UNCLEAR, BUT IT DIDN'T MATTER`, if present.
-3. Anything from step 1 to act on: LaunchDarkly state that couldn't be read.
-4. A defect you found while answering (a bug, a missing test for changed
+3. `APPROVAL`, and any gate it lists, in one line: a low change that still
+   needs a person is "low risk, but needs a person because ...".
+4. Anything from step 1 to act on: LaunchDarkly state that couldn't be read.
+5. A defect you found while answering (a bug, a missing test for changed
    behavior), in one line, if any. It doesn't change the rating.
 
 Then copy the `should-i-auto-approve` block **verbatim** as the last thing in

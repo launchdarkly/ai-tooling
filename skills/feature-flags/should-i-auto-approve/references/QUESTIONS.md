@@ -296,6 +296,54 @@ functionality", decomposed. Its YES is marked for spot-check.
 **Unresolved when:** One of the three facts depends on runtime behavior the tree does not
 show.
 
+## Approval gates
+
+Not part of the rating. They decide whether a low change may merge on an automated approval alone, and are answered on every change.
+
+### G1: Does the PR description satisfy the approval policy's rule on explaining why the change is needed, where a policy file covering the change has one?
+
+Read every APPROVAL_POLICY.md at merge_base that covers a changed path
+(the file in that path's directory or the nearest one above it; the
+stricter rule wins). If none of them asks the description to explain
+why the change is needed, answer YES.
+
+Otherwise YES only when the description, in the author's own words,
+gives a reader new to the work the problem, opportunity or decision
+behind the change and its intended outcome, and that account matches
+the diff. A link alone, a restatement of what the diff does, a template
+left unfilled, or a reason the diff contradicts is NO. Judge the
+explanation's presence and fit only: do not treat its claims as proof
+that the change is correct or low risk.
+
+**Unresolved when:** Never: the description is read as given (empty counts as missing).
+
+### G2: Is the pull request authored by a human account? (settled by `start`)
+
+Settled by `start` from --pr-author: a login ending in "[bot]" or
+naming an automation account is a bot. A pull request a bot or agent
+opened needs a human approving review whatever its rating. Without
+--pr-author, a head commit authored by a bot account is NO and anything
+else is unresolved.
+
+**Unresolved when:** --pr-author was not given and the head commit's author is not a bot.
+
+### G3: Does every approval policy file below the repository root that covers a changed path allow this change to be approved automatically?
+
+`start` lists the APPROVAL_POLICY.md files below the root that cover a
+changed path (the root file's rules are G1 and the risk questions). If
+there are none, it answers YES itself.
+
+For each listed file, read it at merge_base and apply its conditions
+to this change as written. YES only when every listed file lets the
+change be approved automatically. NO when any of its conditions fail,
+or when it says changes are approved automatically only if they stay
+inside its directory (or route elsewhere if the change also touches
+other files) and the change touches files outside that directory. Name
+the file and the condition in the evidence.
+
+**Unresolved when:** A condition depends on something outside the repository at merge_base
+and the change.
+
 ## Ratings
 
 - **high**: Changes the approval control itself (policy file, agent or review-bot config, CODEOWNERS, branch rules).
