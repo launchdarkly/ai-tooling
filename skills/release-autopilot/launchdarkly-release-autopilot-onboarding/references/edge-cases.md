@@ -17,7 +17,7 @@
 | Incomplete migrated plan | Cannot start a release. Create a complete plan in that environment |
 | Generative AI or Vega eligibility error | Release Autopilot's agents need generative AI turned on, and no MCP tool reads that setting. An Admin or Owner selects **Enable generative AI use cases** in Organization settings > Security. Stop |
 | Bring your own key chosen | Browser step only. Record it as reported, never as verified |
-| No writes needed | Say so, list follow-ups, and stop |
+| No writes and no browser steps needed | Say so, list follow-ups, and stop. A plan with only browser steps (bring your own key, auto-cleanup, auto-archival) still goes through the Step 7 confirmation and the Step 8 browser steps |
 
 ## Existing mappings
 
@@ -25,4 +25,5 @@
 |-----------------|--------|
 | Mapped to the chosen project, effective capabilities match the user's picks | Tell the user it is already set up. Write nothing |
 | Mapped to the chosen project, a capability the user did not pick is effectively on | Record a repo override that turns it off, as its own line in Step 7 |
+| Mapped to the chosen project, a picked capability is effectively off because of a repo override | Record a repo write that turns it on, plus the account write if the account has it off. Verify the effective value in Step 9 |
 | Mapped to a different project | Do not remap. Remapping changes where its flags are created. The user unmaps it with [`launchdarkly-release-autopilot-settings`](../../launchdarkly-release-autopilot-settings/SKILL.md), then maps it in this flow |
