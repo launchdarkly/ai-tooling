@@ -1,69 +1,51 @@
-# Should Flag Change Skill
+# should-flag-change
 
-An advisory, read-only Agent Skill that decides whether a given code change should be released behind a LaunchDarkly feature flag.
+Decides whether a committed code change should ship behind a LaunchDarkly
+feature flag. A fixed decision tree asks narrow questions about the change;
+the skill answers what it can from git and LaunchDarkly, the agent answers the
+rest by written procedures from evidence the skill gathers, and every answer's
+citations are checked against the code. The same answers always give the same
+result.
 
-## Overview
+- **Advisory and read-only.** It never creates or changes flags or edits the
+  repository it checks.
+- **Needs** a git checkout with the change committed, `python3` (3.10+,
+  standard library only) and `git`. LaunchDarkly flag state is read with
+  `LAUNCHDARKLY_API_KEY` or the agent's LaunchDarkly tools, and the skill works
+  without either.
+- **Falls back** to a judgment procedure,
+  [references/NO_CHECKOUT.md](references/NO_CHECKOUT.md), when it can't run (no
+  shell, no checkout, only a pasted diff).
+- **Output:** a plain-English report ending in a `recommend-flag` JSON block,
+  the same shape on both paths.
 
-This skill teaches agents how to:
-- Read a git diff (or in-progress change) and understand what it actually does
-- Explore the surrounding code to judge blast radius and behavior impact
-- Weigh the change against a decision framework (favoring flags for user-facing and risky changes)
-- Emit a single structured verdict via the `recommend-flag` tool
+## Command line
 
-It is **advisory and read-only**: it never creates, toggles, or modifies flags.
+`ld-factory.pyz` is the whole program in one file (a Python zip application: the
+engine, the decision tree and its data). It runs every step (`start`, `gates`,
+`risks`, `readers`, `features`, `facts`, `next`, `answer`, `decide`, `check-profile`);
+`ld-factory.pyz --help` lists them. In the Factory runtime it's already on `PATH` (baked
+into the image), so an agent never installs it. Locally, call it by path, or link
+it yourself (for example `ln -s "$PWD/ld-factory.pyz" ~/bin/ld-factory.pyz`). SKILL.md describes the
+order.
 
-## Installation (Local)
+## Settings
 
-For now, install by placing this skill directory where your agent client loads skills.
+| Variable | Default | What it sets |
+|---|---|---|
+| `LAUNCHDARKLY_API_KEY` | unset | Read flag state directly; without it the agent fetches flags with its own tools. |
+| `SHOULD_I_FLAG_PROFILES` | unset | Folders (separated like `PATH`) of repo profiles, `<name>.json`, each naming its `repo` and optionally a `launchdarkly` section (instance, project, environments). |
+| `SHOULD_I_FLAG_RUNS` | `~/.cache/should-i-flag/` | Where run folders go. |
 
-- **Generic**: copy `skills/feature-flags/should-flag-change/` into your client's skills path
+A repo without a profile gets one derived from its code on each run and
+checked against the change. Lines the check can't account for never stop the
+run: they become leads for the gate search, and the agent may repair the
+profile ([references/PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)), never
+must. A repair's additions are saved under `~/.cache/should-i-flag/profiles/` and applied on
+top of the derived profile on later runs; any that no longer match the code
+are left out.
 
-## Prerequisites
-
-None. This skill does not require the LaunchDarkly MCP server. It reads code with standard file tools and returns a structured recommendation via the `recommend-flag` tool.
-
-## Usage
-
-Ad hoc, while working on a change:
-
-```
-Should this change be behind a feature flag?
-```
-
-In CI on a pull request, the skill is fed the PR's git diff and reads the repository to assess it, then emits a `recommend-flag` verdict (`{ recommend, verdict, confidence, reasons }`) that a check can parse.
-
-## Output
-
-The skill ends by calling the `recommend-flag` tool:
-
-```json
-{
-  "recommend": true,
-  "verdict": "suggested",
-  "confidence": "medium",
-  "reasons": [
-    "New public endpoint added in src/routes/export.ts — user-facing path with no existing gate"
-  ]
-}
-```
-
-`recommend` is the boolean a CI check keys on. `verdict` is the finer signal: `suggested` (a new flag is warranted), `reuse-existing` (gate the change behind an existing flag that already covers this feature — set `reuse_flag_key`, don't create a new one), `already-flagged` (protected by an existing / ancestor flag — covered, no action), or `not-suited` (genuinely nothing to flag). Keeping these outcomes distinct is what lets a dashboard track real flag coverage.
-
-## Structure
-
-```
-should-flag-change/
-├── SKILL.md
-├── marketplace.json
-└── README.md
-```
-
-## Related
-
-- [LaunchDarkly Flag Create](../launchdarkly-flag-create/): Create the flag once you've decided to
-- [LaunchDarkly Flag Cleanup](../launchdarkly-flag-cleanup/): Remove flags when they're no longer needed
-- [LaunchDarkly Docs](https://docs.launchdarkly.com)
-
-## License
-
-Apache-2.0
+The settings, the run and profile folders, the in-repo profile
+(`.launchdarkly/should-i-flag.json`) and the `should-i-flag-record` block keep
+the name this skill had before it replaced the earlier `should-flag-change`,
+so existing profiles and decision records still work.
