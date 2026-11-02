@@ -15,7 +15,7 @@ const SUITE_TEMPLATES = require("../experiment-setup/mocks.json");
 test("createMockState returns fresh empty state each call", () => {
   const a = createMockState();
   const b = createMockState();
-  assert.deepEqual(a, { configs: {}, flags: {} });
+  assert.deepEqual(a, { configs: {}, flags: {}, raSettings: null, raRepos: {}, raPlans: {} });
   a.configs["x"] = {};
   assert.deepEqual(b.configs, {}); // independent
 });
@@ -645,4 +645,43 @@ test("get-experiment returns a running iteration for checkout-running", () => {
   }, "get-experiment", state);
   assert.equal(running.currentIteration.status, "running");
   assert.equal(draft.currentIteration.status, "not_started");
+});
+
+// ---------------------------------------------------------------------------
+// Release Autopilot stateful reads (templates from the suite's own mocks)
+
+const RA_TEMPLATES = require("../release-autopilot-onboarding/tool-mocks.json");
+// ---------------------------------------------------------------------------
+
+test("repo settings read reflects an earlier repo write", () => {
+  const state = createMockState();
+  const tpl = RA_TEMPLATES["get-release-autopilot-repo-settings"];
+  assert.ok(renderMockResponse(tpl, { repo: "acme/demo" }, "get-release-autopilot-repo-settings", state).error);
+  renderMockResponse(RA_TEMPLATES["update-release-autopilot-repo-settings"], { repo: "acme/demo", projectKey: "default", autoReleasing: { enabled: false } }, "update-release-autopilot-repo-settings", state);
+  const got = renderMockResponse(tpl, { repo: "acme/demo" }, "get-release-autopilot-repo-settings", state);
+  assert.equal(got.projectKey, "default");
+  assert.equal(got.autoReleasing.enabled, false);
+});
+
+test("account settings read merges an earlier account write", () => {
+  const state = createMockState();
+  renderMockResponse(RA_TEMPLATES["update-release-autopilot-settings"], { autoFlagging: { enabled: false } }, "update-release-autopilot-settings", state);
+  const got = renderMockResponse(RA_TEMPLATES["get-release-autopilot-settings"], {}, "get-release-autopilot-settings", state);
+  assert.equal(got.autoFlagging.enabled, false);
+  assert.equal(got.autoFlagging.approvalRequired, true);
+});
+
+test("release plans list reflects a created plan", () => {
+  const state = createMockState();
+  renderMockResponse(RA_TEMPLATES["create-release-plan"], { projectKey: "default", environmentKey: "production", key: "p", name: "P", progressiveRelease: { phases: [] } }, "create-release-plan", state);
+  const got = renderMockResponse(RA_TEMPLATES["list-release-plans"], { projectKey: "default", environmentKey: "production" }, "list-release-plans", state);
+  assert.equal(got.totalCount, 1);
+  assert.equal(got.items[0].key, "p");
+});
+
+test("an error template wins over the stateful write and is not recorded", () => {
+  const state = createMockState();
+  const err = { error: "403: denied" };
+  assert.equal(renderMockResponse(err, { autoFlagging: { enabled: true } }, "update-release-autopilot-settings", state).error, "403: denied");
+  assert.equal(state.raSettings, null);
 });
