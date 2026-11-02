@@ -89,6 +89,22 @@ environments, editor settings) is NO.
 
 **Unresolved when:** Never: decided from paths alone.
 
+## B5: Does the diff change the shared analytics event catalog: its event definitions or the code generated from them? (from the changed paths)
+
+YES if any changed shipping path is in the shared analytics event
+catalog: the event definitions under internal/analytics/events/ or the
+code generated from them under packages/analytics-events/. The
+repository's approval policy names that catalog a shared analytics
+contract: metrics, dashboards and experiments consume its event names,
+properties and allowed values, and a wrong value can be accepted and
+still be wrong. The policy says an unchanged customer-facing flow does
+not make such a change low risk, so it is medium, flag or not.
+
+The catalog's generator and docs in those directories are NO here; a
+generator change is read like any other code.
+
+**Unresolved when:** Never: decided from paths alone.
+
 ## A2: Does a behavior-carrying hunk change who is authenticated, what an identity is authorized to do, how a session or token is issued, validated, or expired, or how data is encrypted, signed, or hashed?
 
 YES if, for some request, the set of identities allowed to perform an
@@ -117,6 +133,39 @@ paths.py flags candidate paths by name (middleware, auth, session,
 rbac, permission, crypto, token); the reader confirms the code's role.
 
 **Unresolved when:** The changed code's role cannot be determined from the tree.
+
+## B6: Where the repository's approval policy forbids auto-approving shared analytics contract changes, does a shipping hunk change what a product analytics event sends: which events are emitted, their names, their properties, or the values written into those properties?
+
+First read the closest APPROVAL_POLICY.md to the changed paths at
+merge_base. If no policy file in force there has a rule against
+auto-approving shared analytics contract changes, answer NO.
+
+YES if a shipping hunk does any of these to a product analytics event
+(an event sent through the product's analytics emitters -- track(),
+trackEvent(), a track<Area>Event() or track<Thing>() helper, a tracker
+from createTrackerForCategory() -- that metrics, dashboards or
+experiments are built from):
+  - adds an emitter call for an event, or removes or renames one;
+  - adds, removes or renames a property, or changes an allowed value;
+  - changes the value written into a property, including choosing it
+    by a heuristic (user agent, auth kind, token type), adding an
+    always-present fallback, or reordering a classification;
+  - changes when an existing event fires (a new condition, a moved
+    trigger that now fires on a different action).
+
+NO when every emitter hunk only moves or reformats a call that sends
+the same event, with the same properties and values, on the same
+action (a component split, a hook extracted, a React Compiler
+rewrite); when it deletes an emitter in code that never ran at
+merge_base (verify it is unreachable, not just unused in the diff);
+and for our own monitoring -- error tracking (trackError, Sentry, RUM),
+log lines, metrics and spans (that is C5).
+
+Name the event and the hunk in the evidence. A catalog change is B5;
+this question is about the code that sends events.
+
+**Unresolved when:** Whether the changed call reaches a product analytics emitter depends on
+a wrapper the tree does not show.
 
 ## C1: Does at least one changed file end up inside a deployed runtime artifact? (from the changed paths)
 
@@ -166,8 +215,9 @@ computed at runtime.
 YES if each behavior-carrying hunk does one of these, and every other
 output (what the code returns, raises, renders, sends to callers or
 users, or writes) stays identical:
-  - adds a log line, a metric, a span or span attribute, or an
-    analytics event emission;
+  - adds a log line, a metric, a span or span attribute, or (in a
+    repository whose approval policy does not forbid auto-approving
+    shared analytics contract changes, B6) an analytics event emission;
   - changes how our own monitoring sees something that already
     happens: whether an error is sent to error tracking (trackError,
     Sentry, RUM), its severity or log level, a log message's text or
@@ -256,6 +306,8 @@ show.
 - **medium**: Adds or changes a database schema or migration, additively.
 - **medium**: Changes non-production infrastructure or deployment configuration.
 - **medium**: Touches middleware, authentication, authorization, session or crypto code without changing access.
+- **medium**: Changes the shared analytics event catalog, which the repository's approval policy never auto-approves.
+- **medium**: Changes what a product analytics event sends (its emission, properties or values), which the repository's approval policy never auto-approves.
 - **medium**: Changes how existing logic that more than one feature relies on behaves (a validation, a query parser or builder, a request helper, a database write), with no flag.
 - **medium**: Behavior change whose failure would be silent, spread beyond its surface, or not undone by a revert.
 - **low**: Nothing ships: tests, docs, comments, stories, or other files outside the runtime.
