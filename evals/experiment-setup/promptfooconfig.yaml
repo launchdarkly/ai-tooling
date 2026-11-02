@@ -273,12 +273,13 @@ tests:
 
   # ------------------------------------------------------------------
   # 7. The named flag does not exist. Look up the key and similar flags.
-  # Offer three choices. Do not create the flag.
+  # Offer three choices. Do not create the flag. The project key is unique
+  # so only this case's list-flags calls return the similar checkout flags.
   # ------------------------------------------------------------------
   - description: "Missing flag: three choices, and the flag is not created"
     vars:
       user_request: >
-        Set up an experiment in project "my-project", environment "production".
+        Set up an experiment in project "exp-setup-missing-flag", environment "production".
         Flag: missing-checkout. Variations: true and false. Control: false.
         Hypothesis: the new checkout will lift completion rate by 3%. Primary
         metric: the existing checkout-completed metric. Randomization unit: user.

@@ -24,23 +24,28 @@
   "list-metric-events": {
     "events": [
       {
-        "key": "checkout-completed",
-        "lastSeen": "2026-10-20T00:00:00.000Z"
+        "eventKey": "checkout-completed",
+        "eventKind": "custom",
+        "lastSeen": "1792454400000"
       },
       {
-        "key": "page-load-ms",
-        "lastSeen": "2026-10-20T00:00:00.000Z"
+        "eventKey": "page-load-ms",
+        "eventKind": "custom",
+        "lastSeen": "1792454400000"
       },
       {
-        "key": "cta-click",
-        "lastSeen": "2026-10-18T00:00:00.000Z"
+        "eventKey": "cta-click",
+        "eventKind": "custom",
+        "lastSeen": "1792281600000"
       },
       {
-        "key": "cta-clicked-v2",
-        "lastSeen": "2026-10-18T00:00:00.000Z"
+        "eventKey": "cta-clicked-v2",
+        "eventKind": "custom",
+        "lastSeen": "1792281600000"
       }
     ],
-    "totalCount": 4
+    "count": 4,
+    "_note": "4 event key(s) found with recent activity."
   },
   "search-contexts": {
     "items": [

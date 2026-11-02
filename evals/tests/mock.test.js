@@ -7,6 +7,7 @@ const TEMPLATES = require("../mocks/tool-responses.json");
 // These four tools' default templates live with the experiment-setup suite.
 // The sentinel branches in _mock.js still override them.
 const SUITE_TEMPLATES = require("../experiment-setup/mocks.json");
+const ORCH_TEMPLATES = require("../experiment-orchestration/mocks.json");
 
 // ---------------------------------------------------------------------------
 // createMockState
@@ -523,25 +524,43 @@ test("get-flag returns a stored flag before the missing-checkout not-found branc
   assert.equal(result.error, undefined);
 });
 
-test("list-flags query missing-checkout returns similar keys only", () => {
+test("list-flags in exp-setup-missing-flag returns similar keys for any query", () => {
   const state = createMockState();
-  const result = renderMockResponse(TEMPLATES["list-flags"], {
-    projectKey: "my-project",
-    query: "missing-checkout",
-  }, "list-flags", state);
-  const keys = result.flags.map((flag) => flag.key);
-  assert.deepEqual(keys, ["checkout-flow", "new-checkout"]);
+  for (const query of ["flags", "Checkout", "missing-checkout"]) {
+    const result = renderMockResponse(TEMPLATES["list-flags"], {
+      projectKey: "exp-setup-missing-flag",
+      query,
+    }, "list-flags", state);
+    assert.deepEqual(
+      result.flags.map((flag) => flag.key),
+      ["checkout-flow", "new-checkout"],
+    );
+  }
 });
 
-test("list-flags query containing checkout returns similar keys and omits missing-checkout", () => {
+test("list-flags checkout query in any other project returns the shared template", () => {
   const state = createMockState();
   const result = renderMockResponse(TEMPLATES["list-flags"], {
     projectKey: "my-project",
     query: "Checkout",
   }, "list-flags", state);
-  const keys = result.flags.map((flag) => flag.key);
-  assert.deepEqual(keys, ["checkout-flow", "new-checkout"]);
-  assert.equal(keys.includes("missing-checkout"), false);
+  assert.deepEqual(result, TEMPLATES["list-flags"]);
+});
+
+test("list-feature-flags is unchanged for a checkout query and the sentinel project", () => {
+  const state = createMockState();
+  const checkout = renderMockResponse(TEMPLATES["list-feature-flags"], {
+    projectKey: "my-project",
+    query: "checkout",
+  }, "list-feature-flags", state);
+  const sentinel = renderMockResponse(TEMPLATES["list-feature-flags"], {
+    projectKey: "exp-setup-missing-flag",
+    query: "missing-checkout",
+  }, "list-feature-flags", state);
+  assert.deepEqual(checkout, TEMPLATES["list-feature-flags"]);
+  assert.deepEqual(sentinel, TEMPLATES["list-feature-flags"]);
+  assert.equal(checkout.flags, undefined);
+  assert.ok(Array.isArray(checkout.items));
 });
 
 test("list-flags without that query keeps the shared flag list", () => {
@@ -604,18 +623,32 @@ test("search-contexts on mixed-contexts returns another kind", () => {
   assert.equal(others.items[0].kind, "organization");
 });
 
-test("list-metric-events default includes similar keys and omits cta-clicked", () => {
+test("list-metric-events default returns the experiment-setup template unchanged", () => {
   const state = createMockState();
-  const result = renderMockResponse(SUITE_TEMPLATES["list-metric-events"], {
+  const template = SUITE_TEMPLATES["list-metric-events"];
+  const result = renderMockResponse(template, {
     projectKey: "my-project",
   }, "list-metric-events", state);
-  const keys = result.events.map((event) => event.key);
-  assert.deepEqual(keys, [
-    "checkout-completed",
-    "page-load-ms",
-    "cta-click",
-    "cta-clicked-v2",
-  ]);
+  assert.deepEqual(result, template);
+  assert.deepEqual(
+    result.events.map((event) => event.eventKey),
+    ["checkout-completed", "page-load-ms", "cta-click", "cta-clicked-v2"],
+  );
+});
+
+test("list-metric-events returns the experiment-orchestration template unchanged", () => {
+  const state = createMockState();
+  const template = ORCH_TEMPLATES["list-metric-events"];
+  const result = renderMockResponse(template, {
+    projectKey: "my-project",
+    environmentKey: "production",
+    query: "checkout-completed",
+  }, "list-metric-events", state);
+  assert.deepEqual(result, template);
+  assert.equal(result.events[0].eventKey, "checkout-completed");
+  assert.equal(result.events[0].lastSeen, "2026-10-28T12:00:00Z");
+  assert.equal(result.totalCount, 1);
+  assert.equal(result.count, undefined);
 });
 
 test("list-metric-events query cta-clicked returns similar keys only", () => {
@@ -625,10 +658,14 @@ test("list-metric-events query cta-clicked returns similar keys only", () => {
     environmentKey: "production",
     query: "cta-clicked",
   }, "list-metric-events", state);
-  assert.deepEqual(
-    result.events.map((event) => event.key),
-    ["cta-click", "cta-clicked-v2"],
-  );
+  assert.deepEqual(result, {
+    events: [
+      { eventKey: "cta-click", eventKind: "custom", lastSeen: "1792281600000" },
+      { eventKey: "cta-clicked-v2", eventKind: "custom", lastSeen: "1792281600000" },
+    ],
+    count: 2,
+    _note: "2 event key(s) found with recent activity.",
+  });
 });
 
 test("get-experiment returns a running iteration for checkout-running", () => {

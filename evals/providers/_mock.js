@@ -150,25 +150,22 @@ function flagStatusResponse(flagKey, productionStatus) {
   return { flagKey, environments, summary };
 }
 
-const DEFAULT_METRIC_EVENTS = [
-  { key: "checkout-completed", lastSeen: "2026-10-20T00:00:00.000Z" },
-  { key: "page-load-ms", lastSeen: "2026-10-20T00:00:00.000Z" },
-  { key: "cta-click", lastSeen: "2026-10-18T00:00:00.000Z" },
-  { key: "cta-clicked-v2", lastSeen: "2026-10-18T00:00:00.000Z" },
-];
-
-// list-metric-events has no eventKey. A query of cta-clicked returns the
-// similar keys only; every other call, including no query, returns the
-// default list (which also contains those similar keys).
-function metricEventsResponse(input) {
-  const query = typeof input.query === "string" ? input.query.trim() : "";
-  const events =
-    query.toLowerCase() === "cta-clicked"
-      ? DEFAULT_METRIC_EVENTS.filter(
-          (event) => event.key === "cta-click" || event.key === "cta-clicked-v2",
-        )
-      : DEFAULT_METRIC_EVENTS;
-  return { events, totalCount: events.length };
+// experiment-setup sentinel. The exact key cta-clicked is not in that suite's
+// list-metric-events template; a query for it returns the similar keys from
+// the template that was passed in. Every other call falls through and returns
+// that template unchanged, so another suite keeps its own event list.
+function similarCtaMetricEvents(template, replacements) {
+  const rendered = walk(template, replacements);
+  const events = Array.isArray(rendered.events)
+    ? rendered.events.filter(
+        (event) => event.eventKey === "cta-click" || event.eventKey === "cta-clicked-v2",
+      )
+    : [];
+  return {
+    events,
+    count: events.length,
+    _note: `${events.length} event key(s) found with recent activity.`,
+  };
 }
 
 function isUserKindQuery(input) {
@@ -590,13 +587,18 @@ function renderMockResponse(template, input, toolName, state) {
 
   if (toolName === "search-contexts") return searchContextsResponse(input || {});
 
-  if (toolName === "list-metric-events") return metricEventsResponse(input || {});
+  if (toolName === "list-metric-events") {
+    const query = typeof (input || {}).query === "string" ? input.query.trim().toLowerCase() : "";
+    if (query === "cta-clicked") return similarCtaMetricEvents(template, replacements);
+  }
 
-  if (toolName === "list-flags" || toolName === "list-feature-flags") {
-    const query = typeof input.query === "string" ? input.query.trim().toLowerCase() : "";
-    // A search for a checkout flag returns the similar keys and omits the
-    // missing one, whatever the exact query string is.
-    if (query.includes("checkout")) return similarCheckoutFlags();
+  if (toolName === "list-flags") {
+    // experiment-setup's missing-flag case uses this project. Any search there
+    // returns the similar keys and omits the missing one. Other projects, and
+    // list-feature-flags, keep the template they were given.
+    const projectKey =
+      typeof (input || {}).projectKey === "string" ? input.projectKey.trim() : "";
+    if (projectKey === "exp-setup-missing-flag") return similarCheckoutFlags();
   }
 
   if (toolName === "get-experiment") {
