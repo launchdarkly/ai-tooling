@@ -99,7 +99,7 @@ tests:
         Primary metric: checkout-conversion (occurrence, HigherThanBaseline)
           → Directly measures whether users complete checkout
 
-        Guardrail: api-error-rate (count, LowerThanBaseline)
+        Guardrail: api-error-rate (occurrence, LowerThanBaseline)
           → Guards against regressions that could impact all users
 
         Supporting signal: time-on-checkout-page (value, LowerThanBaseline)
@@ -125,7 +125,7 @@ tests:
         ```
 
         Recommended rollout metrics:
-        1. auth-error-rate (count, LowerThanBaseline) — detects auth failures in the new service
+        1. auth-error-rate (occurrence, LowerThanBaseline) — detects auth failures in the new service
         2. p95-latency (value, LowerThanBaseline) — guards against slowdowns
         3. auth-success-rate (occurrence, HigherThanBaseline) — confirms login flow health
 
@@ -155,7 +155,7 @@ tests:
         Primary metric: page-load-time (value, LowerThanBaseline)
           → Directly measures the performance impact of your change
 
-        Guardrail: error-rate (count, LowerThanBaseline)
+        Guardrail: error-rate (occurrence, LowerThanBaseline)
           → Ensures no regressions
 
         The page-load-time metric is a great fit for a performance experiment — it has a clear
@@ -199,7 +199,7 @@ tests:
         Done! The metric has been created. Here is your experiment setup:
 
         Primary: recommendation-clicks (count, HigherThanBaseline)
-        Guardrail: error-rate (count, LowerThanBaseline)
+        Guardrail: error-rate (occurrence, LowerThanBaseline)
 
         Your experiment is ready to configure in the LaunchDarkly UI.
     assert:
@@ -217,7 +217,7 @@ tests:
         Primary metric: checkout-conversion (occurrence, HigherThanBaseline)
           → Directly measures the core business outcome
 
-        Guardrail: api-error-rate (count, LowerThanBaseline)
+        Guardrail: api-error-rate (occurrence, LowerThanBaseline)
           → Protects against regressions that affect all users
 
         Supporting signal: session-duration (value, HigherThanBaseline)
@@ -253,7 +253,7 @@ tests:
         ```
 
         Recommended rollout metrics:
-        1. error-rate (count, LowerThanBaseline)
+        1. error-rate (occurrence, LowerThanBaseline)
         2. p95-latency (value, LowerThanBaseline)
 
         These will guard against regressions during the launch.
