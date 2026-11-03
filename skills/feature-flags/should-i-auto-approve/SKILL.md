@@ -5,8 +5,8 @@ license: Apache-2.0
 compatibility: "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-i-auto-approve` JSON block."
 metadata:
   author: launchdarkly
-  version: "0.5.1"
-  graph: "c4cb10a3d0a4"
+  version: "0.5.2"
+  graph: "3c3e5ba94a0d"
 ---
 
 # Can This Change Be Approved Without a Human?
