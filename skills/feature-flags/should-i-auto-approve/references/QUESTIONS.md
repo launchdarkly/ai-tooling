@@ -195,6 +195,18 @@ NO for rename, move, extract, inline,
 reformat, comment, type-only annotation, and deterministically generated
 output whose inputs did not change. A dependency bump is YES (a new
 version is new runtime code) unless the bumped package is dev-only.
+
+A change to how shipped code is compiled, transpiled, linked or bundled
+(compiler, transpiler or bundler settings, the options of a build rule
+or macro that produces a shipped artifact, a compiler version) is YES
+when it can change the code the artifact executes, even though no
+source file changed: a compiler pass that rewrites or optimizes code,
+a changed compile target, define, polyfill set or module resolution.
+It is NO when it changes only what the artifact keeps for debugging
+(symbol tables, debug info, source maps), which builds are allowed to
+fail, or settings used only by a dev server, tests or an editor. A
+YES records the build setting as the behavior-carrying hunk.
+
 Record the set of behavior-carrying hunks; C3-C7 read only that set.
 
 **Unresolved when:** A hunk's runtime effect depends on code not present in the tree.
