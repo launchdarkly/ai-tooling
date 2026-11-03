@@ -33,4 +33,4 @@ the graph and its questions). `start`, `flag`, `answer`, `decide`;
 | `LAUNCHDARKLY_PROJECT` | `default` | The project whose flags the change may name. |
 | `SHOULD_I_AUTO_APPROVE_RUNS` | `~/.cache/should-i-auto-approve/` | Where run folders go. |
 
-Built from the risk graph at version 0.9 (graph `3c3e5ba94a0d`).
+Built from the risk graph at version 0.10 (graph `6017a2b4857a`).

@@ -5,8 +5,8 @@ license: Apache-2.0
 compatibility: "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-i-auto-approve` JSON block."
 metadata:
   author: launchdarkly
-  version: "0.5.2"
-  graph: "3c3e5ba94a0d"
+  version: "0.6.0"
+  graph: "6017a2b4857a"
 ---
 
 # Can This Change Be Approved Without a Human?
@@ -90,6 +90,8 @@ It prints `RUN: <folder>` and status lines (`CHANGE`, `PR TEXT`,
 its procedure and when it may be left unresolved, then the **approval gates**
 (`G1`, `G3`): whether the repository's approval policy files let a low change
 merge on an automated approval alone. The gates never change the rating.
+`questions.md` lists every `APPROVAL_POLICY.md` covering the change; read each
+in full at the merge base. B6 and the gates apply every rule in them, as written.
 Answer them in the same object, the same way. Read the change and the code
 around it:
 

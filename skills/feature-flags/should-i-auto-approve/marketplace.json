@@ -1,7 +1,7 @@
 {
   "name": "should-i-auto-approve",
   "description": "Rate a committed change's review risk (low, medium, high) by a fixed decision graph with checked answers. Advisory and read-only.",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "author": "LaunchDarkly",
   "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": [
