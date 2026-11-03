@@ -180,6 +180,14 @@
       "compatibility": "Requires access to the project repository"
     },
     {
+      "name": "experiment-orchestration",
+      "description": "Takes a product goal through a LaunchDarkly experiment and, if it wins, a guarded rollout (or a regular rollout on plans without guarded rollouts). Uses GitHub for the code change and deployment when it is connected to the agent space; otherwise hands those steps to a person.",
+      "path": "skills/aws-devops-agent/experiment-orchestration",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server in an AWS DevOps Agent space. GitHub is optional."
+    },
+    {
       "name": "flag-and-release-change",
       "description": "Drive a pull request's change end to end: decide it's flag-worthy, create the guarding flag, wire the new code path behind it on the PR branch, and record an automated release so the change ships safely when the PR merges. A portable orchestrator that composes should-flag-change, launchdarkly-flag-create, and flag-release. Keywords: flag a PR, wrap change in a flag, dark launch, kill switch, auto-release, automated rollout, end-to-end flag workflow.",
       "path": "skills/feature-flags/flag-and-release-change",
@@ -420,10 +428,30 @@
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
+      "name": "launchdarkly-release-autopilot-onboarding",
+      "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), review release policies (release plans by GA), and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
+      "path": "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
+      "version": "0.3.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "release-autopilot",
+        "onboarding",
+        "github",
+        "auto-flagging",
+        "auto-releasing",
+        "auto-cleanup",
+        "auto-archival",
+        "release-plans",
+        "mcp"
+      ]
+    },
+    {
       "name": "launchdarkly-release-autopilot-settings",
-      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR.",
+      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, review release policies), use launchdarkly-release-autopilot-onboarding instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-settings",
-      "version": "1.3.0-experimental",
+      "version": "1.4.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -439,7 +467,7 @@
       "name": "mcp-configure",
       "description": "Configure the LaunchDarkly hosted MCP server during onboarding. Use when the parent LaunchDarkly onboarding skill reaches the MCP offer, after the first flag works. Supports Cursor, Claude Code, Windsurf, GitHub Copilot, and other MCP-compatible agents. OAuth authentication; no API keys for the hosted server.",
       "path": "skills/onboarding/mcp-configure",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "Apache-2.0",
       "compatibility": "Requires an MCP-compatible coding agent and a LaunchDarkly account"
     },

@@ -80,10 +80,22 @@ const SUITES = [
     readme: "skills/onboarding/README.md",
   },
   {
+    suite: "release-autopilot-onboarding",
+    skillKey: "release-autopilot/launchdarkly-release-autopilot-onboarding",
+    skillDir: "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
+    readme: "skills/release-autopilot/launchdarkly-release-autopilot-onboarding/README.md",
+  },
+  {
     suite: "experiment-guide",
     skillKey: "experiments/launchdarkly-experiment-guide",
     skillDir: "skills/experiments/launchdarkly-experiment-guide",
     readme: "skills/experiments/launchdarkly-experiment-guide/README.md",
+  },
+  {
+    // No readme: the skill folder holds only the SKILL.md that ldcli embeds.
+    suite: "experiment-orchestration",
+    skillKey: "aws-devops-agent/experiment-orchestration",
+    skillDir: "skills/aws-devops-agent/experiment-orchestration",
   },
 ];
 
