@@ -200,10 +200,10 @@ tree does not show.
 
 ## C1: Does at least one changed file end up inside a deployed runtime artifact? (from the changed paths)
 
-Tests, fixtures, stories, docs, lockfiles,
-editor config do not ship. Prose the running system reads (agent
-prompts, skill bodies, templated content) ships. CI workflows were
-already taken by B1.
+Tests, fixtures, stories, docs and editor
+config do not ship. Lockfiles ship: they pin what the build installs.
+Prose the running system reads (agent prompts, skill bodies, templated
+content) ships. CI workflows were already taken by B1.
 
 **Unresolved when:** A changed path's role cannot be determined from the tree.
 
@@ -276,7 +276,7 @@ minor, and the diff changes no call site, configuration or option of
 that dependency. NO for a minor or major bump, a new dependency, or a
 bump that ships with code or config changes (an option newly enabled).
 paths.py's deps_only hint marks diffs whose shipping files are all
-manifests.
+manifests or lockfiles.
 
 **Unresolved when:** The version is not semver, or the old version cannot be read from the
 tree.
