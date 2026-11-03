@@ -79,21 +79,21 @@
     ]
   },
   "create-approval-request": {
-    "_id": "apr-0001",
+    "id": "apr-0001",
     "flagKey": "{{flagKey}}",
     "environmentKey": "{{environmentKey}}",
     "status": "pending",
     "reviewStatus": "pending"
   },
   "apply-approval-request": {
-    "_id": "apr-0001",
+    "id": "apr-0001",
     "status": "completed",
     "reviewStatus": "approved"
   },
-  "list-approval-requests": {
+  "get-approval-requests": {
     "items": [
       {
-        "_id": "apr-0001",
+        "id": "apr-0001",
         "flagKey": "{{flagKey}}",
         "status": "pending",
         "reviewStatus": "pending"
@@ -101,7 +101,7 @@
     ],
     "totalCount": 1
   },
-  "list-metric-events": {
+  "get-metric-events": {
     "events": [
       {
         "eventKey": "checkout-completed",

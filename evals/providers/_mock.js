@@ -190,27 +190,40 @@ function mergeDeep(base, patch) {
 // later reads (the skill's verify step) reflect them instead of the template.
 function renderReleaseAutopilot(template, input, toolName, state, replacements) {
   const args = input || {};
-  if (toolName === "update-release-autopilot-settings") {
-    state.raSettings = mergeDeep(state.raSettings, args);
-    return { ...state.raSettings };
+  if (toolName === "update-release-autopilot") {
+    const { accountWide, repo, githubRepoId, ...rest } = args;
+    if (accountWide === true) {
+      state.raSettings = mergeDeep(state.raSettings, rest);
+      return { ...state.raSettings };
+    }
+    if (repo) {
+      state.raRepos[repo] = mergeDeep(state.raRepos[repo] || { repo }, rest);
+      return { ...state.raRepos[repo] };
+    }
+    return undefined;
   }
-  if (toolName === "get-release-autopilot-settings" && state.raSettings) {
-    return mergeDeep(walk(template, replacements), state.raSettings);
-  }
-  if (toolName === "update-release-autopilot-repo-settings" && args.repo) {
-    const { repo, githubRepoId, ...rest } = args;
-    state.raRepos[repo] = mergeDeep(state.raRepos[repo] || { repo }, rest);
-    return { ...state.raRepos[repo] };
-  }
-  if (toolName === "get-release-autopilot-repo-settings" && args.repo && state.raRepos[args.repo]) {
-    return { ...state.raRepos[args.repo] };
+  if (toolName === "get-release-autopilot") {
+    const base = walk(template, replacements);
+    if (!base || base.error) return base;
+    const account = mergeDeep(base.account, state.raSettings);
+    const known = new Set((base.repos || []).map((r) => r.repo));
+    let repos = (base.repos || []).map((r) =>
+      state.raRepos[r.repo] ? mergeDeep(r, { ...state.raRepos[r.repo], mapped: true }) : r,
+    );
+    for (const [name, written] of Object.entries(state.raRepos)) {
+      if (!known.has(name)) repos.push({ ...written, repo: name, mapped: true, visibleOnInstall: true });
+    }
+    if (args.githubRepoId !== undefined) repos = repos.filter((r) => r.githubRepoId === args.githubRepoId);
+    else if (args.repo) repos = repos.filter((r) => r.repo === args.repo);
+    if (typeof args.mapped === "boolean") repos = repos.filter((r) => r.mapped === args.mapped);
+    return { ...base, account, repos, totalCount: repos.length, hasMore: false };
   }
   if (toolName === "create-release-plan" && args.environmentKey) {
     const plan = { key: args.key, name: args.name, environmentKey: args.environmentKey, progressiveRelease: args.progressiveRelease };
     (state.raPlans[args.environmentKey] = state.raPlans[args.environmentKey] || []).push(plan);
     return plan;
   }
-  if (toolName === "list-release-plans" && state.raPlans[args.environmentKey]) {
+  if (toolName === "get-release-plans" && state.raPlans[args.environmentKey]) {
     const items = state.raPlans[args.environmentKey];
     return { items, totalCount: items.length };
   }

@@ -244,9 +244,9 @@ function resolveExposeMcpTools(configValue, varValue) {
 }
 
 // A test's override for this call, except that an override never hides a flag
-// the agent created or changed in this run: get-flag then reads the stored flag.
+// the agent created or changed in this run: get-flags then reads the stored flag.
 function overrideFor(overrides, toolName, callIndex, args, state) {
-  if (toolName === "get-flag" || toolName === "get-feature-flag") {
+  if (toolName === "get-flags" || toolName === "get-feature-flag") {
     const key = args && (args.flagKey || args.key);
     if (key && state && state.flags && state.flags[key]) return undefined;
   }

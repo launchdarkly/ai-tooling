@@ -57,11 +57,17 @@ tests:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 25
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -113,7 +119,7 @@ tests:
 
   # ------------------------------------------------------------------
   # Account already on, both capabilities picked, policy mode with no
-  # release policy. list-release-plans is called once (the 403 is
+  # release policy. get-release-plans is called once (the 403 is
   # account-wide), no plans are created, the repo keeps auto-releasing
   # off, and the account settings are not rewritten.
   # ------------------------------------------------------------------
@@ -123,9 +129,9 @@ tests:
       user_request: "Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        list-release-plans:
+        get-release-plans:
           error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Plan does not allow this operation\"}"
-        list-release-policies:
+        get-release-policies:
           policies: []
           count: 0
           warnings:
@@ -255,17 +261,16 @@ tests:
       user_request: "Set up Release Autopilot for my repos."
       max_turns: 15
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
-        list-release-autopilot-github-repos:
-          installed: false
-          userAuthorized: false
-          repositories: []
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos: []
           totalCount: 0
+          hasMore: false
           githubConnectUrl: "https://app.launchdarkly.com/integrations/github/connect?flow=install"
+          flow: install
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -295,11 +300,17 @@ tests:
       max_turns: 25
       mock_overrides:
         get-member-self: { id: "member-3", email: "writer@acme.example", role: "writer", teams: [] }
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -342,11 +353,17 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -534,11 +551,17 @@ tests:
         our GitHub org owner installed the App, and that is done now.
       max_turns: 20
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Looks good"]
@@ -575,13 +598,23 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
-        update-release-autopilot-settings:
-          error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Access to the requested resource was denied\"}"
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
+        update-release-autopilot:
+          by_arg: accountWide
+          cases:
+            \"true\":
+              error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Access to the requested resource was denied\"}"
+          default: {}
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -612,11 +645,17 @@ tests:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging", "Auto-cleanup"]
@@ -673,17 +712,16 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for my repos."
       max_turns: 18
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
-        list-release-autopilot-github-repos:
-          installed: false
-          userAuthorized: false
-          repositories: []
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos: []
           totalCount: 0
+          hasMore: false
           githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=install"
+          flow: install
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -713,10 +751,7 @@ tests:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 10
       mock_overrides:
-        get-release-autopilot-settings: { error: "LaunchDarkly API error: 404 Not Found" }
-        list-release-autopilot-repo-settings: { error: "LaunchDarkly API error: 404 Not Found" }
-        list-release-autopilot-github-repos: { error: "LaunchDarkly API error: 404 Not Found" }
-        get-release-autopilot-repo-settings: { error: "LaunchDarkly API error: 404 Not Found" }
+        get-release-autopilot: { error: "LaunchDarkly API error: 404 Not Found" }
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noWrites
@@ -739,11 +774,17 @@ tests:
       user_request: "Why didn't Release Autopilot classify my pull request acme/demo#42?"
       max_turns: 12
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:diagnosesBeforeOffering
@@ -765,11 +806,17 @@ tests:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging", "Auto-archival"]
@@ -821,17 +868,16 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for my repos."
       max_turns: 12
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: true }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
-        list-release-autopilot-github-repos:
-          installed: true
-          userAuthorized: false
-          repositories: []
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: true }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos: []
           totalCount: 0
+          hasMore: false
           githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=authorize"
+          flow: authorize
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -860,17 +906,16 @@ tests:
       user_request: "Set up Release Autopilot auto-archival for project default."
       max_turns: 16
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: true }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
-        list-release-autopilot-github-repos:
-          installed: false
-          userAuthorized: false
-          repositories: []
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: true }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos: []
           totalCount: 0
+          hasMore: false
           githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=install"
+          flow: install
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-archival"]
@@ -926,9 +971,12 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for acme/storefront in project default. I don't want auto-releasing."
       max_turns: 22
       mock_overrides:
-        list-release-autopilot-repo-settings:
+        get-release-autopilot:
           repos:
-            - githubRepoId: 101
+            - repo: acme/storefront
+              githubRepoId: 101
+              mapped: true
+              visibleOnInstall: true
               projectKey: default
               autoFlagging: { enabled: false, approvalRequired: true, enabledOverride: true }
               autoReleasing: { enabled: false, enabledOverride: true }
@@ -959,11 +1007,17 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default, using our own Anthropic key."
       max_turns: 22
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: true }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: true }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -995,17 +1049,16 @@ tests:
       user_request: "Do a dry run: preview what you'd change to set up Release Autopilot auto-flagging and auto-releasing for project default. Don't change anything."
       max_turns: 18
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: true }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
-        list-release-autopilot-github-repos:
-          installed: false
-          userAuthorized: false
-          repositories: []
+        get-release-autopilot:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: true }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos: []
           totalCount: 0
+          hasMore: false
           githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=install"
+          flow: install
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging", "Auto-releasing"]

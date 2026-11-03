@@ -97,12 +97,12 @@ tests:
         `exp-checkout-conversion-button-copy`. Continue from Step 3.
       max_turns: 10
       mock_overrides:
-        list-metrics: &metrics_with_error
+        get-metrics: &metrics_with_error
           metrics:
-            - { key: "checkout-completed", name: "Checkout completed", measureType: "occurrence", successCriteria: "HigherThanBaseline", eventKey: "checkout-completed", randomizationUnits: ["user"] }
-            - { key: "storefront-telemetry-default-error-rate", name: "Error rate", measureType: "occurrence", successCriteria: "LowerThanBaseline", eventKey: "$ld:telemetry:error", randomizationUnits: ["user"] }
+            - { key: "checkout-completed", name: "Checkout completed", measureType: "occurrence", successCriteria: "HigherThanBaseline", eventKey: "checkout-completed", analysisUnits: ["user"] }
+            - { key: "storefront-telemetry-default-error-rate", name: "Error rate", measureType: "occurrence", successCriteria: "LowerThanBaseline", eventKey: "$ld:telemetry:error", analysisUnits: ["user"] }
           totalCount: 2
-        get-flag:
+        get-flags:
           error: "flag not found"
     assert:
       - type: javascript
@@ -155,8 +155,8 @@ tests:
         the key `exp-checkout-conversion-button-label`. Continue from Step 3.
       max_turns: 10
       mock_overrides:
-        list-metrics: *metrics_with_error
-        get-flag:
+        get-metrics: *metrics_with_error
+        get-flags:
           error: "flag not found"
     assert:
       - type: javascript
@@ -207,7 +207,7 @@ tests:
         set up and start the experiment.
       max_turns: 12
       mock_overrides:
-        list-metrics: *metrics_with_error
+        get-metrics: *metrics_with_error
     assert:
       - type: javascript
         value: |
@@ -237,7 +237,7 @@ tests:
           const c = traj.find(t => t.tool === 'create-experiment');
           if (!c) return { pass: false, score: 0, reason: 'never created the experiment' };
           const it = (c.arguments || {}).iteration || {};
-          // var-false is the false variation's _id in the shared get-flag mock.
+          // var-false is the false variation's _id in the shared get-flags mock.
           const flag = (it.flags || {})['exp-checkout-conversion-button-copy'] || {};
           const control = (it.treatments || []).find(t => t.baseline) || {};
           const controlVar = ((control.parameters || [])[0] || {}).variationId;
@@ -291,8 +291,8 @@ tests:
         the experiment.
       max_turns: 12
       mock_overrides:
-        list-metrics: *metrics_with_error
-        get-flag:
+        get-metrics: *metrics_with_error
+        get-flags:
           key: "exp-checkout-conversion-button-label"
           kind: "multivariate"
           variations:
@@ -357,13 +357,13 @@ tests:
         an approval, the reviewer is member `m-4821`. Continue from Step 6.
       max_turns: 10
       mock_overrides:
-        list-metrics: *metrics_with_error
+        get-metrics: *metrics_with_error
         toggle-flag:
           requiresApproval: true
           message: "This environment requires approval for flag changes."
           instructions: [{ kind: "turnFlagOn" }]
-        list-approval-requests:
-          items: [{ _id: "apr-0001", flagKey: "exp-checkout-conversion-button-copy", status: "pending", reviewStatus: "pending" }]
+        get-approval-requests:
+          items: [{ id: "apr-0001", flagKey: "exp-checkout-conversion-button-copy", status: "pending", reviewStatus: "pending" }]
           totalCount: 1
     assert:
       - type: javascript
@@ -413,16 +413,16 @@ tests:
         check the results and act on them.
       max_turns: 14
       mock_overrides:
-        get-experiment:
+        get-experiments:
           key: "exp-checkout-button-copy"
           environmentKey: "production"
           currentIteration:
             status: "running"
             startedAt: "2026-10-14T00:00:00Z"
             treatments:
-              - { _id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
-              - { _id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
-        get-flag:
+              - { id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
+              - { id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
+        get-flags:
           key: "exp-checkout-conversion-button-copy"
           kind: "boolean"
           variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
@@ -470,7 +470,6 @@ tests:
             belowHalf: w.every(x => x > 0 && x < 50000),
             thousandths: w.every(x => x >= 1000),
             variations: a.testVariationId === 'var-true' && a.controlVariationId === 'var-false',
-            completes: a.updateDefaultRuleOnCompletion === true,
           };
           const failed = Object.keys(checks).filter(k => !checks[k]);
           const score = 1 - failed.length / Object.keys(checks).length;
@@ -483,8 +482,8 @@ tests:
           const g = traj.find(t => t.tool === 'start-guarded-rollout');
           if (!g) return { pass: false, score: 0, reason: 'no guarded rollout' };
           const ms = (g.arguments || {}).metrics || [];
-          const keys = ms.map(m => m.metricKey);
-          const allRollback = ms.length > 0 && ms.every(m => m.onRegression && m.onRegression.rollback === true && typeof m.regressionThreshold === 'number');
+          const keys = ms.map(m => m.key);
+          const allRollback = ms.length > 0 && ms.every(m => m.autoRollback === true);
           const pass = keys.includes('storefront-telemetry-default-error-rate') && allRollback;
           return { pass, score: pass ? 1 : 0, reason: `metrics=${JSON.stringify(ms)}` };
         metric: rollout_guardrails
@@ -500,16 +499,16 @@ tests:
       user_request: *winner_ready
       max_turns: 14
       mock_overrides:
-        get-experiment:
+        get-experiments:
           key: "exp-checkout-button-copy"
           environmentKey: "production"
           currentIteration:
             status: "running"
             startedAt: "2026-10-14T00:00:00Z"
             treatments:
-              - { _id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
-              - { _id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
-        get-flag:
+              - { id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
+              - { id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
+        get-flags:
           key: "exp-checkout-conversion-button-copy"
           kind: "boolean"
           variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
@@ -570,16 +569,16 @@ tests:
       user_request: *winner_ready
       max_turns: 12
       mock_overrides:
-        get-experiment:
+        get-experiments:
           key: "exp-checkout-button-copy"
           environmentKey: "production"
           currentIteration:
             status: "running"
             startedAt: "2026-10-14T00:00:00Z"
             treatments:
-              - { _id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
-              - { _id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
-        get-flag:
+              - { id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
+              - { id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
+        get-flags:
           key: "exp-checkout-conversion-button-copy"
           kind: "boolean"
           variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]

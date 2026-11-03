@@ -1,269 +1,1088 @@
 [
   {
     "name": "create-flag",
-    "description": "Create a new feature flag in a project. Defaults to a boolean temporary flag. After creation the flag is OFF in all environments: use toggle-flag to enable it. An OFF flag serves `defaults.offVariation` and an ON flag that matches no rule serves `defaults.onVariation`; boolean flags default to OFF serving false.",
+    "description": "Create a new feature flag in a project. Defaults to a boolean temporary flag. After creation the flag is off in all environments. Multivariate flags require defaults. If the response has needsTeamMaintainer, the flag was not created: ask the user which of the returned teams should own it, then retry with maintainerTeamKey. Set defaults.offVariation to the index of the value your code falls back to, so the new flag behaves like the code while off and needs no approval to stay that way. defaults.onVariation is the index served when targeting is on. To change them later, call update-off-variation (envs [\"*\"], fallthroughVariationIndex) and update-flag with updateDefaultVariation for new environments.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
-          "type": "string",
-          "description": "The project key"
-        },
-        "name": {
-          "type": "string",
-          "description": "Human-readable flag name"
-        },
-        "key": {
-          "type": "string",
-          "description": "Unique flag key (immutable)"
-        },
-        "kind": {
-          "type": "string",
-          "enum": [
-            "boolean",
-            "multivariate"
-          ],
-          "description": "Flag kind (default: boolean)"
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the flag's purpose"
-        },
-        "temporary": {
-          "type": "boolean",
-          "description": "Whether the flag is temporary (default: true)"
-        },
-        "tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Tags for organization"
-        },
-        "variations": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "The variation value"
-              },
-              "name": {
-                "type": "string",
-                "description": "Variation name"
-              }
-            }
-          },
-          "description": "Custom variations (for multivariate flags)"
-        },
         "clientSideAvailability": {
-          "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "usingMobileKey": {
-              "type": "boolean"
-            },
             "usingEnvironmentId": {
               "type": "boolean"
+            },
+            "usingMobileKey": {
+              "type": "boolean"
             }
           },
-          "description": "Client-side SDK availability"
+          "type": "object"
+        },
+        "customProperties": {
+          "type": "object"
         },
         "defaults": {
-          "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "onVariation": {
-              "type": "number"
-            },
             "offVariation": {
-              "type": "number"
+              "minimum": 0,
+              "type": "integer"
+            },
+            "onVariation": {
+              "minimum": 0,
+              "type": "integer"
             }
           },
           "required": [
             "onVariation",
             "offVariation"
-          ]
+          ],
+          "type": "object"
+        },
+        "description": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "boolean",
+            "multivariate"
+          ],
+          "type": "string"
+        },
+        "maintainerId": {
+          "type": "string"
+        },
+        "maintainerTeamKey": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "temporary": {
+          "type": "boolean"
+        },
+        "variations": {
+          "items": true,
+          "type": "array"
+        },
+        "viewKeys": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
         "projectKey",
-        "name",
-        "key"
-      ]
+        "key",
+        "name"
+      ],
+      "type": "object"
     }
   },
   {
     "name": "toggle-flag",
-    "description": "Turn a feature flag's targeting on or off in a specific environment. Returns the previous and new state. If the environment requires approval, the response includes requiresApproval: true and the attempted instructions; call `create-approval-request` with the returned instructions to submit it for review.",
+    "description": "Turn a feature flag's targeting on or off in a specific environment.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
-          "type": "string",
-          "description": "The project key"
+        "comment": {
+          "type": "string"
         },
-        "flagKey": {
-          "type": "string",
-          "description": "The flag key"
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
         },
         "env": {
-          "type": "string",
-          "description": "Environment key"
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
         },
         "on": {
-          "type": "boolean",
-          "description": "Whether to turn targeting on or off"
+          "type": "boolean"
         },
-        "comment": {
-          "type": "string",
-          "description": "Optional comment"
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         }
       },
       "required": [
         "projectKey",
         "flagKey",
         "env",
-        "on"
-      ]
+        "on",
+        "confirm"
+      ],
+      "type": "object"
     }
   },
   {
-    "name": "list-metrics",
-    "description": "List metrics in a project. Use to find existing metrics to reuse as an experiment's primary or guardrail metric before creating a new one.",
+    "name": "get-metrics",
+    "description": "LaunchDarkly metrics used by experiments and guarded rollouts; for observability metric names in a time window, use get-keys with productType metrics. Without metricKey: list metrics in a project (query, tags, eventKind, isNumeric, hasConnections, maintainerIds, maintainerTeamKey, metricUsedIn, dataSourceKeys, versionIds, sort, limit, offset). With metricKey: get full details for one metric. To find which metric a metric version ID belongs to (experiments reference metrics by version), list with versionIds. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
-          "type": "string",
-          "description": "The project key"
-        },
-        "query": {
-          "type": "string",
-          "description": "Search by metric name or key"
-        },
-        "limit": {
-          "type": "number",
-          "description": "Max number of results (default 20)"
-        },
-        "metricUsedIn": {
-          "type": "string"
+        "dataSourceKeys": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "eventKind": {
           "type": "string"
         },
-        "tags": {
-          "type": "array",
+        "hasConnections": {
+          "type": "boolean"
+        },
+        "isNumeric": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "maintainerIds": {
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
+        },
+        "maintainerTeamKey": {
+          "type": "string"
+        },
+        "metricKey": {
+          "type": "string"
+        },
+        "metricUsedIn": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "sort": {
+          "description": "createdAt, name, connectionCount, or activeConnectionCount. Prefix with - for descending order.",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "versionIds": {
+          "description": "Metric version IDs. Returns the metrics these versions belong to; each result carries its versionId.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
         "projectKey"
-      ]
+      ],
+      "type": "object"
     }
   },
   {
     "name": "create-metric",
-    "description": "Create a metric that measures an experiment outcome. measureType 'occurrence' is a conversion (did each user do it at least once), 'count' totals events, and 'value' averages or sums the number sent with track(). eventKey is the tracked event the metric counts.",
+    "description": "Create a custom, pageview, click, or trace metric. To count each unit's distinct values of a warehouse column, set measureType distinct and name the column in unitAggregationField; valueColumn is only for measureType value. maintainerId sets the maintaining member. eventDefault.value is the number imputed for units that sent no event. This must be 0, and it applies only when disabled=false. When disabled=true, value is not sent. excludeUnitsWithoutEvents still sends eventDefault disabled true with no value. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
-          "type": "string",
-          "description": "The project key"
+        "analysisUnits": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dataSourceKey": {
+          "type": "string"
+        },
+        "denominator": {
+          "additionalProperties": false,
+          "description": "Denominator term of a ratio metric; the metric's own event is the numerator term. Custom metrics on a warehouse data source only: requires dataSourceKey.",
+          "properties": {
+            "dataSourceKey": {
+              "description": "Warehouse data source of the denominator term. Omit to use the metric's dataSourceKey.",
+              "type": "string"
+            },
+            "eventName": {
+              "description": "Event key of the denominator term.",
+              "type": "string"
+            },
+            "filters": {
+              "description": "Count only events matching context attribute or event property clauses. Custom metrics only. A group joins clauses or further groups with and/or.",
+              "oneOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "negate": {
+                      "type": "boolean"
+                    },
+                    "op": {
+                      "enum": [
+                        "and",
+                        "or"
+                      ],
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "group"
+                      ],
+                      "type": "string"
+                    },
+                    "values": {
+                      "items": {
+                        "oneOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "attribute": {
+                                "type": "string"
+                              },
+                              "contextKind": {
+                                "type": "string"
+                              },
+                              "negate": {
+                                "type": "boolean"
+                              },
+                              "op": {
+                                "description": "Clause operator, for example in.",
+                                "type": "string"
+                              },
+                              "type": {
+                                "enum": [
+                                  "contextAttribute"
+                                ],
+                                "type": "string"
+                              },
+                              "values": {
+                                "items": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean"
+                                  ]
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "contextKind",
+                              "attribute",
+                              "op",
+                              "values",
+                              "negate"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "attribute": {
+                                "type": "string"
+                              },
+                              "negate": {
+                                "type": "boolean"
+                              },
+                              "op": {
+                                "description": "Clause operator, for example in.",
+                                "type": "string"
+                              },
+                              "type": {
+                                "enum": [
+                                  "eventProperty"
+                                ],
+                                "type": "string"
+                              },
+                              "values": {
+                                "items": {
+                                  "type": [
+                                    "string",
+                                    "number",
+                                    "boolean"
+                                  ]
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "attribute",
+                              "op",
+                              "values",
+                              "negate"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "negate": {
+                                "type": "boolean"
+                              },
+                              "op": {
+                                "enum": [
+                                  "and",
+                                  "or"
+                                ],
+                                "type": "string"
+                              },
+                              "type": {
+                                "enum": [
+                                  "group"
+                                ],
+                                "type": "string"
+                              },
+                              "values": {
+                                "items": {
+                                  "oneOf": [
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "attribute": {
+                                          "type": "string"
+                                        },
+                                        "contextKind": {
+                                          "type": "string"
+                                        },
+                                        "negate": {
+                                          "type": "boolean"
+                                        },
+                                        "op": {
+                                          "description": "Clause operator, for example in.",
+                                          "type": "string"
+                                        },
+                                        "type": {
+                                          "enum": [
+                                            "contextAttribute"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "values": {
+                                          "items": {
+                                            "type": [
+                                              "string",
+                                              "number",
+                                              "boolean"
+                                            ]
+                                          },
+                                          "type": "array"
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "contextKind",
+                                        "attribute",
+                                        "op",
+                                        "values",
+                                        "negate"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "attribute": {
+                                          "type": "string"
+                                        },
+                                        "negate": {
+                                          "type": "boolean"
+                                        },
+                                        "op": {
+                                          "description": "Clause operator, for example in.",
+                                          "type": "string"
+                                        },
+                                        "type": {
+                                          "enum": [
+                                            "eventProperty"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "values": {
+                                          "items": {
+                                            "type": [
+                                              "string",
+                                              "number",
+                                              "boolean"
+                                            ]
+                                          },
+                                          "type": "array"
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "attribute",
+                                        "op",
+                                        "values",
+                                        "negate"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    {
+                                      "properties": {
+                                        "type": {
+                                          "enum": [
+                                            "group"
+                                          ],
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "type"
+                                      ],
+                                      "type": "object"
+                                    }
+                                  ]
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "op",
+                              "values",
+                              "negate"
+                            ],
+                            "type": "object"
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "op",
+                    "values",
+                    "negate"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attribute": {
+                      "type": "string"
+                    },
+                    "contextKind": {
+                      "type": "string"
+                    },
+                    "negate": {
+                      "type": "boolean"
+                    },
+                    "op": {
+                      "description": "Clause operator, for example in.",
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "contextAttribute"
+                      ],
+                      "type": "string"
+                    },
+                    "values": {
+                      "items": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean"
+                        ]
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "contextKind",
+                    "attribute",
+                    "op",
+                    "values",
+                    "negate"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "attribute": {
+                      "type": "string"
+                    },
+                    "negate": {
+                      "type": "boolean"
+                    },
+                    "op": {
+                      "description": "Clause operator, for example in.",
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "eventProperty"
+                      ],
+                      "type": "string"
+                    },
+                    "values": {
+                      "items": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean"
+                        ]
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "attribute",
+                    "op",
+                    "values",
+                    "negate"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "type": "object"
+            },
+            "measureType": {
+              "description": "distinct counts each unit's unique values of the unitAggregationField column; it does not use valueColumn.",
+              "enum": [
+                "count",
+                "occurrence",
+                "value",
+                "distinct"
+              ],
+              "type": "string"
+            },
+            "unitAggregationField": {
+              "description": "Required with measureType distinct: the warehouse column whose unique values are counted per unit, for example ORDER_ID.",
+              "type": "string"
+            },
+            "valueAggregation": {
+              "enum": [
+                "sum",
+                "average"
+              ],
+              "type": "string"
+            },
+            "valueColumn": {
+              "type": "string"
+            },
+            "windowEndOffset": {
+              "description": "End of the measurement window, in milliseconds after the unit's first exposure.",
+              "type": "integer"
+            },
+            "windowStartOffset": {
+              "description": "Start of the measurement window, in milliseconds after the unit's first exposure.",
+              "type": "integer"
+            },
+            "winsorIncludeImputed": {
+              "description": "Count the 0 imputed for units without events when computing the winsorization bounds.",
+              "type": "boolean"
+            },
+            "winsorLowerPercentile": {
+              "description": "Clamp unit values below this percentile, in the open interval (0, 100).",
+              "type": "number"
+            },
+            "winsorUpperPercentile": {
+              "description": "Clamp unit values above this percentile, in the open interval (0, 100).",
+              "type": "number"
+            }
+          },
+          "required": [
+            "eventName",
+            "measureType"
+          ],
+          "type": "object"
+        },
+        "description": {
+          "type": "string"
+        },
+        "eventDefault": {
+          "additionalProperties": false,
+          "description": "Default for units that sent no event. value is only sent when disabled is false, because Gonfalon omits value when defaulting is disabled. The only supported value is 0; ratio metrics reject any other value.",
+          "properties": {
+            "disabled": {
+              "description": "true leaves units that sent no event out of the analysis.",
+              "type": "boolean"
+            },
+            "value": {
+              "const": 0,
+              "description": "Imputed value when disabled is false. Only 0 is supported.",
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "eventKey": {
+          "type": "string"
+        },
+        "excludeUnitsWithoutEvents": {
+          "description": "Leave units that sent no event out of the analysis instead of counting them as 0.",
+          "type": "boolean"
+        },
+        "filters": {
+          "description": "Count only events matching context attribute or event property clauses. Custom metrics only. A group joins clauses or further groups with and/or.",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "negate": {
+                  "type": "boolean"
+                },
+                "op": {
+                  "enum": [
+                    "and",
+                    "or"
+                  ],
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "group"
+                  ],
+                  "type": "string"
+                },
+                "values": {
+                  "items": {
+                    "oneOf": [
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "attribute": {
+                            "type": "string"
+                          },
+                          "contextKind": {
+                            "type": "string"
+                          },
+                          "negate": {
+                            "type": "boolean"
+                          },
+                          "op": {
+                            "description": "Clause operator, for example in.",
+                            "type": "string"
+                          },
+                          "type": {
+                            "enum": [
+                              "contextAttribute"
+                            ],
+                            "type": "string"
+                          },
+                          "values": {
+                            "items": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                              ]
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "contextKind",
+                          "attribute",
+                          "op",
+                          "values",
+                          "negate"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "attribute": {
+                            "type": "string"
+                          },
+                          "negate": {
+                            "type": "boolean"
+                          },
+                          "op": {
+                            "description": "Clause operator, for example in.",
+                            "type": "string"
+                          },
+                          "type": {
+                            "enum": [
+                              "eventProperty"
+                            ],
+                            "type": "string"
+                          },
+                          "values": {
+                            "items": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean"
+                              ]
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "attribute",
+                          "op",
+                          "values",
+                          "negate"
+                        ],
+                        "type": "object"
+                      },
+                      {
+                        "additionalProperties": false,
+                        "properties": {
+                          "negate": {
+                            "type": "boolean"
+                          },
+                          "op": {
+                            "enum": [
+                              "and",
+                              "or"
+                            ],
+                            "type": "string"
+                          },
+                          "type": {
+                            "enum": [
+                              "group"
+                            ],
+                            "type": "string"
+                          },
+                          "values": {
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "attribute": {
+                                      "type": "string"
+                                    },
+                                    "contextKind": {
+                                      "type": "string"
+                                    },
+                                    "negate": {
+                                      "type": "boolean"
+                                    },
+                                    "op": {
+                                      "description": "Clause operator, for example in.",
+                                      "type": "string"
+                                    },
+                                    "type": {
+                                      "enum": [
+                                        "contextAttribute"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "values": {
+                                      "items": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      },
+                                      "type": "array"
+                                    }
+                                  },
+                                  "required": [
+                                    "type",
+                                    "contextKind",
+                                    "attribute",
+                                    "op",
+                                    "values",
+                                    "negate"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "attribute": {
+                                      "type": "string"
+                                    },
+                                    "negate": {
+                                      "type": "boolean"
+                                    },
+                                    "op": {
+                                      "description": "Clause operator, for example in.",
+                                      "type": "string"
+                                    },
+                                    "type": {
+                                      "enum": [
+                                        "eventProperty"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "values": {
+                                      "items": {
+                                        "type": [
+                                          "string",
+                                          "number",
+                                          "boolean"
+                                        ]
+                                      },
+                                      "type": "array"
+                                    }
+                                  },
+                                  "required": [
+                                    "type",
+                                    "attribute",
+                                    "op",
+                                    "values",
+                                    "negate"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "group"
+                                      ],
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "type"
+                                  ],
+                                  "type": "object"
+                                }
+                              ]
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "required": [
+                          "type",
+                          "op",
+                          "values",
+                          "negate"
+                        ],
+                        "type": "object"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "type",
+                "op",
+                "values",
+                "negate"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "attribute": {
+                  "type": "string"
+                },
+                "contextKind": {
+                  "type": "string"
+                },
+                "negate": {
+                  "type": "boolean"
+                },
+                "op": {
+                  "description": "Clause operator, for example in.",
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "contextAttribute"
+                  ],
+                  "type": "string"
+                },
+                "values": {
+                  "items": {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean"
+                    ]
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "type",
+                "contextKind",
+                "attribute",
+                "op",
+                "values",
+                "negate"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "attribute": {
+                  "type": "string"
+                },
+                "negate": {
+                  "type": "boolean"
+                },
+                "op": {
+                  "description": "Clause operator, for example in.",
+                  "type": "string"
+                },
+                "type": {
+                  "enum": [
+                    "eventProperty"
+                  ],
+                  "type": "string"
+                },
+                "values": {
+                  "items": {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean"
+                    ]
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "type",
+                "attribute",
+                "op",
+                "values",
+                "negate"
+              ],
+              "type": "object"
+            }
+          ],
+          "type": "object"
         },
         "key": {
-          "type": "string",
-          "description": "Unique metric key (immutable)"
-        },
-        "name": {
-          "type": "string",
-          "description": "Human-readable metric name"
+          "type": "string"
         },
         "kind": {
-          "type": "string",
           "enum": [
             "custom",
             "pageview",
-            "click"
-          ]
+            "click",
+            "trace"
+          ],
+          "type": "string"
+        },
+        "maintainerId": {
+          "description": "The ID of the member who maintains this metric.",
+          "type": "string"
         },
         "measureType": {
-          "type": "string",
+          "description": "distinct counts each unit's unique values of the unitAggregationField column; it does not use valueColumn.",
           "enum": [
             "count",
             "occurrence",
-            "value"
+            "value",
+            "distinct"
           ],
-          "description": "occurrence = conversion, count = event total, value = numeric value"
+          "type": "string"
         },
-        "valueAggregation": {
-          "type": "string",
-          "enum": [
-            "sum",
-            "average"
-          ],
-          "description": "Only for measureType 'value': average (default) or sum"
+        "name": {
+          "type": "string"
         },
-        "unit": {
-          "type": "string",
-          "description": "Unit for value metrics, e.g. USD or ms"
+        "percentile": {
+          "description": "Analyze this percentile of unit values instead of the mean. Requires excludeUnitsWithoutEvents: true.",
+          "type": "integer"
         },
-        "eventKey": {
-          "type": "string",
-          "description": "The event key the metric counts (matches the track() call)"
-        },
-        "urls": {
-          "type": "array",
-          "description": "Required for pageview and click metrics: pages to match",
-          "items": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "substring",
-                  "exact",
-                  "canonical",
-                  "regex"
-                ]
-              },
-              "substring": {
-                "type": "string"
-              },
-              "url": {
-                "type": "string"
-              },
-              "pattern": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "kind"
-            ]
-          }
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
         "selector": {
-          "type": "string",
-          "description": "Required for click metrics: CSS selector that triggers the event"
+          "type": "string"
         },
         "successCriteria": {
-          "type": "string",
           "enum": [
             "HigherThanBaseline",
             "LowerThanBaseline"
           ],
-          "description": "Which direction is success"
+          "type": "string"
         },
-        "description": {
-          "type": "string",
-          "description": "What the metric measures"
-        },
-        "randomizationUnits": {
-          "type": "array",
+        "tags": {
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
+        },
+        "traceQuery": {
+          "description": "Trace query of a trace metric, for example service.name = \"checkout\".",
+          "type": "string"
+        },
+        "traceValueLocation": {
+          "description": "Where a trace metric with measureType value reads its number, for example duration.",
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "unitAggregationField": {
+          "description": "Required with measureType distinct: the warehouse column whose unique values are counted per unit, for example ORDER_ID.",
+          "type": "string"
+        },
+        "urls": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "valueAggregation": {
+          "enum": [
+            "sum",
+            "average"
+          ],
+          "type": "string"
+        },
+        "valueColumn": {
+          "description": "Warehouse column holding the numeric value for measureType value.",
+          "type": "string"
+        },
+        "windowEndOffset": {
+          "description": "End of the measurement window, in milliseconds after the unit's first exposure.",
+          "type": "integer"
+        },
+        "windowStartOffset": {
+          "description": "Start of the measurement window, in milliseconds after the unit's first exposure.",
+          "type": "integer"
+        },
+        "winsorIncludeImputed": {
+          "description": "Count the 0 imputed for units without events when computing the winsorization bounds.",
+          "type": "boolean"
+        },
+        "winsorLowerPercentile": {
+          "description": "Clamp unit values below this percentile, in the open interval (0, 100).",
+          "type": "number"
+        },
+        "winsorUpperPercentile": {
+          "description": "Clamp unit values above this percentile, in the open interval (0, 100).",
+          "type": "number"
         }
       },
       "required": [
@@ -272,145 +1091,113 @@
         "name",
         "measureType",
         "successCriteria"
-      ]
+      ],
+      "type": "object"
     }
   },
   {
     "name": "create-experiment",
-    "description": "Create a new experiment on a flag. The iteration takes a hypothesis, metrics ({key}), primarySingleMetricKey, randomizationUnit, canReshuffleTraffic, treatments ({name, baseline, allocationPercent, parameters: [{flagKey, variationId}]}), and flags keyed by flag key ({ruleId, flagConfigVersion, notInExperimentVariationId}). allocationPercent is each treatment's share of all traffic on the rule; the rest is served notInExperimentVariationId. The experiment is created as a draft and collects no data until an iteration is started.",
+    "description": "Create a draft experiment on a flag or AgentControl Config. It collects no data until an iteration is explicitly started; return the design for user review before starting. To keep it unstarted, simply do not call a start tool; send only schema properties, with no note or message field. The design (hypothesis, randomizationUnit, metrics, primarySingleMetricKey or primaryFunnelKey, treatments, and flags) goes only inside iteration, never at the top level. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
-          "type": "string"
+        "analysisConfig": {
+          "type": "object"
         },
-        "environmentKey": {
-          "type": "string"
-        },
-        "key": {
-          "type": "string"
-        },
-        "name": {
+        "dataSource": {
+          "enum": [
+            "launchdarkly",
+            "snowflake",
+            "databricks"
+          ],
           "type": "string"
         },
         "description": {
           "type": "string"
         },
-        "methodology": {
-          "type": "string",
-          "enum": [
-            "bayesian",
-            "frequentist",
-            "export_only"
-          ]
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         },
-        "analysisConfig": {
-          "type": "object",
-          "properties": {
-            "sequentialTestingEnabled": {
-              "type": "boolean"
-            },
-            "significanceThreshold": {
-              "type": "string"
-            },
-            "testDirection": {
-              "type": "string"
-            },
-            "multipleComparisonCorrectionMethod": {
-              "type": "string",
-              "enum": [
-                "bonferroni",
-                "benjamini-hochberg"
-              ]
-            },
-            "multipleComparisonCorrectionScope": {
-              "type": "string",
-              "enum": [
-                "variations",
-                "variations-and-metrics",
-                "metrics"
-              ]
-            }
-          }
+        "holdoutId": {
+          "type": "string"
         },
         "iteration": {
-          "type": "object",
           "properties": {
-            "hypothesis": {
-              "type": "string"
+            "attributes": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
             },
             "canReshuffleTraffic": {
               "type": "boolean"
             },
-            "randomizationUnit": {
+            "covariateId": {
+              "type": "string"
+            },
+            "flags": {
+              "type": "object"
+            },
+            "hypothesis": {
+              "type": "string"
+            },
+            "metrics": {
+              "items": {
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "primaryFunnelKey": {
               "type": "string"
             },
             "primarySingleMetricKey": {
               "type": "string"
             },
-            "metrics": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "key": {
-                    "type": "string"
-                  },
-                  "isGroup": {
-                    "type": "boolean"
-                  }
-                }
-              }
+            "randomizationUnit": {
+              "type": "string"
             },
             "treatments": {
-              "type": "array",
               "items": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "baseline": {
-                    "type": "boolean"
-                  },
-                  "allocationPercent": {
-                    "type": "number"
-                  },
-                  "parameters": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "flagKey": {
-                          "type": "string"
-                        },
-                        "variationId": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            "flags": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "object",
-                "properties": {
-                  "ruleId": {
-                    "type": "string"
-                  },
-                  "flagConfigVersion": {
-                    "type": "number"
-                  },
-                  "notInExperimentVariationId": {
-                    "type": "string"
-                  }
-                }
-              }
+                "type": "object"
+              },
+              "type": "array"
             }
-          }
+          },
+          "required": [
+            "hypothesis",
+            "metrics",
+            "treatments",
+            "flags"
+          ],
+          "type": "object"
+        },
+        "key": {
+          "type": "string"
+        },
+        "maintainerId": {
+          "type": "string"
+        },
+        "methodology": {
+          "enum": [
+            "bayesian",
+            "frequentist",
+            "export_only"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -419,107 +1206,84 @@
         "key",
         "name",
         "iteration"
-      ]
+      ],
+      "type": "object"
     }
   },
   {
     "name": "start-guarded-rollout",
-    "description": "Start a guarded rollout on a flag's default rule (fallthrough). A guarded rollout progressively increases traffic to the test variation through a series of stages while monitoring metrics for regressions. Each stage specifies a rolloutWeight (percentage in thousandths, e.g. 10000 = 10%) and a monitoring window in milliseconds. Metrics define what to monitor and whether to notify or rollback on regression. Requires the flag to be on and not already have an active guarded rollout. If the environment requires approval, the response includes requiresApproval: true and the attempted instructions; call `create-approval-request` with the returned instructions to submit it for review.",
+    "description": "Before calling this tool, call load-skill for the `feature-flags/launchdarkly-guarded-rollout` guide without asking the user, since loading is read-only; it covers stage design, metric choice, and regression thresholds, which this tool does not validate. Start a guarded rollout on an enabled flag's default rule. Stage weights use basis points and cannot exceed 50000 (50%); each metric identifies a metric or group and whether regression automatically rolls back. Success is returned only when LaunchDarkly's response contains the same flag identity and an active measured rollout. Approval-required environments return instructions for create-approval-request.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
+        "comment": {
+          "type": "string"
+        },
+        "controlVariationId": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "flagKey": {
           "type": "string"
         },
-        "environmentKey": {
-          "type": "string"
+        "metrics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "autoRollback": {
+                "type": "boolean"
+              },
+              "isGroup": {
+                "type": "boolean"
+              },
+              "key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "isGroup",
+              "autoRollback"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
         },
-        "testVariationId": {
-          "type": "string"
-        },
-        "controlVariationId": {
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "randomizationUnit": {
           "type": "string"
         },
         "stages": {
-          "type": "array",
           "items": {
-            "type": "object",
+            "additionalProperties": false,
             "properties": {
-              "rolloutWeight": {
+              "monitoringWindowMilliseconds": {
+                "exclusiveMinimum": 0,
                 "type": "number"
               },
-              "monitoringWindowMilliseconds": {
+              "rolloutWeight": {
+                "exclusiveMinimum": 0,
+                "maximum": 50000,
                 "type": "number"
               }
             },
             "required": [
               "rolloutWeight",
               "monitoringWindowMilliseconds"
-            ]
-          }
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
         },
-        "metrics": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "metricKey": {
-                "type": "string"
-              },
-              "onRegression": {
-                "type": "object",
-                "properties": {
-                  "notify": {
-                    "type": "boolean"
-                  },
-                  "rollback": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "notify",
-                  "rollback"
-                ]
-              },
-              "regressionThreshold": {
-                "type": "number"
-              }
-            },
-            "required": [
-              "metricKey",
-              "onRegression",
-              "regressionThreshold"
-            ]
-          }
-        },
-        "metricSources": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "key": {
-                "type": "string"
-              },
-              "isGroup": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "key",
-              "isGroup"
-            ]
-          }
-        },
-        "updateDefaultRuleOnCompletion": {
-          "type": "boolean"
-        },
-        "comment": {
+        "testVariationId": {
           "type": "string"
         }
       },
@@ -532,86 +1296,102 @@
         "randomizationUnit",
         "stages",
         "metrics"
-      ]
+      ],
+      "type": "object"
     }
   },
   {
     "name": "update-rollout",
-    "description": "Change the default rule (fallthrough) for a flag. Set a percentage rollout across variations or serve a single variation to all unmatched users. Weights must sum to 100. Use human-friendly percentages (e.g., 80 for 80%). If the environment requires approval, the response includes requiresApproval: true and the attempted instructions; call `create-approval-request` with the returned instructions to submit it for review.",
+    "description": "Change a flag's default rule to a percentage rollout or a single variation in one environment.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
+        "comment": {
+          "type": "string"
+        },
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "contextKind": {
+          "type": "string"
+        },
+        "env": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "flagKey": {
           "type": "string"
         },
-        "env": {
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "rolloutType": {
-          "type": "string",
           "enum": [
             "percentage",
             "variation"
-          ]
+          ],
+          "type": "string"
         },
         "variationIndex": {
-          "type": "number"
+          "type": "integer"
         },
         "weights": {
-          "type": "array",
           "items": {
-            "type": "object",
+            "additionalProperties": false,
             "properties": {
-              "variationIndex": {
-                "type": "number"
-              },
               "percent": {
                 "type": "number"
+              },
+              "variationIndex": {
+                "type": "integer"
               }
             },
             "required": [
               "variationIndex",
               "percent"
-            ]
-          }
-        },
-        "contextKind": {
-          "type": "string"
-        },
-        "comment": {
-          "type": "string"
+            ],
+            "type": "object"
+          },
+          "type": "array"
         }
       },
       "required": [
         "projectKey",
         "flagKey",
         "env",
-        "rolloutType"
-      ]
+        "rolloutType",
+        "confirm"
+      ],
+      "type": "object"
     }
   },
   {
     "name": "stop-experiment-iteration",
-    "description": "Stop the currently running iteration of an experiment. Data collection ends and the iteration moves to the `stopped` status. A winning treatment is required to stop: pass `winningTreatmentId` (the `_id` of one of the iteration's treatments, available from get-experiment) and an optional `winningReason` explaining the call. If the experiment was inconclusive, declare the baseline/control treatment as the winner.",
+    "description": "Stop the currently running experiment iteration with a required winning treatment. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
-          "type": "string"
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
         },
         "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "experimentKey": {
           "type": "string"
         },
-        "winningTreatmentId": {
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "winningReason": {
+          "type": "string"
+        },
+        "winningTreatmentId": {
           "type": "string"
         }
       },
@@ -619,20 +1399,26 @@
         "projectKey",
         "environmentKey",
         "experimentKey",
-        "winningTreatmentId"
-      ]
+        "winningTreatmentId",
+        "confirm"
+      ],
+      "type": "object"
     }
   },
   {
     "name": "get-experiment-results",
-    "description": "Get an overall results summary for an experiment, across every metric on the current iteration. Returns a compact per-metric summary: which treatment is leading (isBest) — for frequentist, the lowest p-value versus control (note: not significance-gated, so a treatment can be flagged leading even when nothing is significant) — each treatment's lift versus control, whether it's statistically significant, and sample sizes. For the full per-treatment statistics on one metric, use get-experiment-metric-results.",
+    "description": "Get an overall results summary across every metric on an experiment iteration. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
-          "type": "string"
+        "disableMultipleComparisonCorrection": {
+          "type": "boolean"
+        },
+        "disableSequentialTesting": {
+          "type": "boolean"
         },
         "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "experimentKey": {
@@ -641,46 +1427,47 @@
         "iterationId": {
           "type": "string"
         },
-        "disableMultipleComparisonCorrection": {
-          "type": "boolean"
-        },
-        "disableSequentialTesting": {
-          "type": "boolean"
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         }
       },
       "required": [
         "projectKey",
         "environmentKey",
         "experimentKey"
-      ]
+      ],
+      "type": "object"
     }
   },
   {
     "name": "get-experiment-metric-results",
-    "description": "Get detailed statistical results for a single metric on an experiment iteration. Returns, per treatment: sample sizes (analyzedUnitCount, trafficCount, conversionCount), the observed mean and standard deviation, and a `statistics` block with the lift versus control (relativeDifferences: estimate plus lower/upper interval bounds and a per-comparison pValue), the overall pValue, and an isSignificant flag.",
+    "description": "Get detailed statistical results for one metric on an experiment iteration. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
-          "type": "string"
-        },
-        "environmentKey": {
-          "type": "string"
-        },
-        "experimentKey": {
-          "type": "string"
-        },
-        "metricKey": {
-          "type": "string"
-        },
-        "iterationId": {
-          "type": "string"
-        },
         "disableMultipleComparisonCorrection": {
           "type": "boolean"
         },
         "disableSequentialTesting": {
           "type": "boolean"
+        },
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "experimentKey": {
+          "type": "string"
+        },
+        "iterationId": {
+          "type": "string"
+        },
+        "metricKey": {
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         }
       },
       "required": [
@@ -688,50 +1475,79 @@
         "environmentKey",
         "experimentKey",
         "metricKey"
-      ]
+      ],
+      "type": "object"
     }
   },
   {
     "name": "create-approval-request",
-    "description": "Create an approval request for a flag or segment change in an environment that requires approvals. Pass flagKey for a flag or segmentKey for a segment, never both. Requires at least one reviewer: notifyMemberIds and/or notifyTeamKeys. If the user named a person, resolve them with find-members and pass the returned id. If they did not name anyone, ask who should review before calling this tool. Provide the same semantic patch instructions you would use for a direct change. The request will be reviewed by approvers before taking effect. Does NOT approve the request: that must be done by a human reviewer.",
+    "description": "Create an approval request for a flag or segment change without approving it. Pass flagKey for a flag or segmentKey for a segment, never both. Each instruction is a semantic patch object with a kind. Flag kinds include turnFlagOn, turnFlagOff, updateOffVariation or updateFallthroughVariationOrRollout with a variationId, addRule, addTargets or addPrerequisite; turning the flag on is [{\"kind\":\"turnFlagOn\"}]. To add or remove values on an existing rule clause, use addValuesToClause or removeValuesFromClause with ruleId, clauseId (the `_id` values from get-flags with flagKey) and values, or updateClause with ruleId, clauseId and clause; never removeClauses and addClauses to change a clause's values. Segment kinds are those of update-segment-rules and update-segment-targets, such as addRule or addIncludedTargets with contextKind and values. Reviewers in notifyMemberIds and notifyTeamKeys are optional for flag approvals; omit them unless the request names reviewers. Segment approvals require at least one reviewer in notifyMemberIds or notifyTeamKeys. A human approves or declines the request in LaunchDarkly; you cannot. Open approvalRequest.url in the user's browser when your client can (for example with open or xdg-open, or a browser tool), and show the link either way. Check the outcome once the user says the request has been reviewed, not in a loop. Check the outcome with get-approval-requests and the request's id. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "flagKey"
+          ]
+        },
+        {
+          "required": [
+            "segmentKey"
+          ]
+        }
+      ],
       "properties": {
-        "projectKey": {
+        "comment": {
           "type": "string"
-        },
-        "env": {
-          "type": "string"
-        },
-        "flagKey": {
-          "type": "string"
-        },
-        "segmentKey": {
-          "type": "string"
-        },
-        "instructions": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
         },
         "description": {
           "type": "string"
         },
-        "comment": {
+        "env": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
+        "flagKey": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "instructions": {
+          "items": {
+            "properties": {
+              "kind": {
+                "description": "Semantic patch instruction kind, such as turnFlagOn or turnFlagOff",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
         "notifyMemberIds": {
-          "type": "array",
+          "description": "Optional reviewer member IDs; omit unless the request names reviewers.",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
         },
         "notifyTeamKeys": {
-          "type": "array",
+          "description": "Optional reviewer team keys; omit unless the request names reviewers.",
           "items": {
             "type": "string"
-          }
+          },
+          "type": "array"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "segmentKey": {
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -739,85 +1555,270 @@
         "env",
         "instructions",
         "description"
-      ]
+      ],
+      "type": "object"
     }
   },
   {
     "name": "apply-approval-request",
-    "description": "Apply an already-approved flag or segment approval request. This executes the changes that were approved by reviewers. Pass flagKey for a flag or segmentKey for a segment, never both. Only works on requests with reviewStatus 'approved'. Does NOT approve requests: that must be done by a human reviewer. Use list-approval-requests to get the request id.",
+    "description": "Apply an already-approved flag or segment approval request without approving it. Call it only after the request's reviewStatus is approved; it never approves. If reviewStatus is declined or pending, do not apply: report it to the user. A result with scheduled: true is not live until executionDate. Arguments: projectKey, id, and confirm: true, plus an optional comment; nothing else. Unlike get-approval-requests, it takes no env, flagKey, or segmentKey.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
+        "comment": {
           "type": "string"
         },
-        "env": {
-          "type": "string"
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
         },
         "id": {
           "type": "string"
         },
-        "flagKey": {
-          "type": "string"
-        },
-        "segmentKey": {
-          "type": "string"
-        },
-        "comment": {
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         }
       },
       "required": [
         "projectKey",
-        "env",
-        "id"
-      ]
+        "id",
+        "confirm"
+      ],
+      "type": "object"
     }
   },
   {
-    "name": "list-approval-requests",
-    "description": "List approval requests for a flag or a segment in an environment. Pass flagKey for a flag or segmentKey for a segment, never both. Shows status, review state, and who requested the change. Use to check on approval progress after creating a request.",
+    "name": "get-approval-requests",
+    "description": "List approval requests for a flag or a segment in one environment, including applied (completed), scheduled, and failed requests. Pass projectKey, env, and flagKey or segmentKey (never both), or only id. Given only an approval request id, call this tool with just id: it returns any approval request, whether for a flag, segment, or AgentControl Config, so never ask which kind it is. Pass status to keep only some statuses, for example [\"pending\"] for requests that are still open. Each request has a url that opens it in LaunchDarkly. reviewStatus is the reviewers' decision: pending, approved, or declined. status is the change itself: pending, scheduled, completed (applied), or failed. Pass id to return only that request, for example to check whether it was approved; the id from create is enough on its own, and any key passed with it must match the request's resource. Each request lists its reviews with kind and comment, so a decline shows its reason. For integration-managed approvals with auto-apply on, reading a request can make LaunchDarkly apply it once approved. Timestamps in the result are UTC.",
     "input_schema": {
-      "type": "object",
-      "properties": {
-        "projectKey": {
-          "type": "string"
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "projectKey",
+            "env",
+            "flagKey"
+          ]
         },
+        {
+          "required": [
+            "projectKey",
+            "env",
+            "segmentKey"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "flagKey"
+                ]
+              },
+              {
+                "required": [
+                  "segmentKey"
+                ]
+              }
+            ]
+          },
+          "required": [
+            "id"
+          ]
+        }
+      ],
+      "properties": {
         "env": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "flagKey": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "description": "Return only this approval request.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "segmentKey": {
+          "minLength": 1,
           "type": "string"
+        },
+        "status": {
+          "description": "Keep only requests in these statuses. Omit to list every status.",
+          "items": {
+            "enum": [
+              "pending",
+              "scheduled",
+              "failed",
+              "completed"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
         }
       },
-      "required": [
-        "projectKey",
-        "env"
-      ]
+      "type": "object"
     }
   },
   {
-    "name": "list-metric-events",
-    "description": "List recent event keys received by a LaunchDarkly project — used to check which events are actively flowing before creating a metric. Returns up to 50 event keys with last-seen timestamps. If the event key you need isn't here, it may not be instrumented yet. Supports fuzzy search via `query` to narrow results. Filter by `environmentKey` to check a specific environment.",
+    "name": "get-metric-events",
+    "description": "List recently observed metric event keys.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
         "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "query": {
-          "type": "string"
-        },
-        "environmentKey": {
           "type": "string"
         }
       },
       "required": [
         "projectKey"
-      ]
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "get-flags",
+    "description": "Without flagKey: search and browse feature flags; returns a paginated summary per flag (key, name, kind, tags, temporary, archived, deprecated, maintainer, and whether targeting is on) in one environment. Set includeDescription to also return each flag's description. Always set env to the environment the user named. With flagKey: get one flag scoped to env, with the full targeting tree (rules, individual targets, fallthrough, prerequisites) and variations. Each rule and each clause carries an `_id`; pass them as ruleId and clauseId to update-targeting-rules (addValuesToClause, removeValuesFromClause, updateClause) or create-approval-request to edit a clause in place.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "env": {
+          "description": "Environment key. Always set to the environment the user named.",
+          "type": "string"
+        },
+        "expand": {
+          "description": "Only with flagKey. A comma-separated list of fields to expand in the response.",
+          "type": "string"
+        },
+        "flagKey": {
+          "description": "The feature flag key. Omit to list flags; pass to get one flag.",
+          "type": "string"
+        },
+        "includeDescription": {
+          "description": "Only without flagKey. Return each flag's description. Off by default.",
+          "type": "boolean"
+        },
+        "limit": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maintainerId": {
+          "type": "string"
+        },
+        "maintainerTeamKey": {
+          "type": "string"
+        },
+        "offset": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "projectKey": {
+          "description": "The project key",
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "sdkAvailability": {
+          "enum": [
+            "client",
+            "mobile",
+            "anyClient",
+            "server"
+          ],
+          "type": "string"
+        },
+        "sort": {
+          "enum": [
+            "creationDate",
+            "-creationDate",
+            "name",
+            "-name"
+          ],
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "live",
+            "deprecated",
+            "archived"
+          ],
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "enum": [
+            "temporary",
+            "permanent"
+          ],
+          "type": "string"
+        },
+        "view": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "get-experiments",
+    "description": "Without experimentKey: list experiments in a project, optionally filtered by environmentKey, flagKey, or status; each entry has key, name, description, and current iteration status. With experimentKey (environmentKey also required): get one experiment including its treatments, metrics, and current iteration status. Timestamps in the result are UTC.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "experimentKey": {
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "number"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey"
+      ],
+      "type": "object"
     }
   }
 ]
