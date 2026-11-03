@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "1.1.0-experimental"
 ---
 
 # Config Tools
@@ -95,129 +95,121 @@ If you observe a UI-clear bug where attaching tools wipes other fields, **do not
 - Tool attached to variation
 - Flag any issues
 
-## Per-provider schema at the call site
+## Implement the tools in your application
 
-LaunchDarkly stores the tool schema once — the flat `{type, name, description, parameters}` shape you passed to `create-ai-tool`. Your application reads it back via `config.model.parameters.tools` (completion mode) or `agent_config.model.parameters.tools` (agent mode), then converts to the shape the provider SDK expects. LaunchDarkly never makes the provider call; your code does. The handlers that implement each tool also stay in application code — LaunchDarkly stores the schema, your application owns the behavior.
+LaunchDarkly stores each tool's schema and attaches it to the variation. Your application supplies the function that runs when the model calls the tool. With the AI SDK (`launchdarkly-ai-server` for Python, `@launchdarkly/ai-node` for Node.js) and a provider handler package, that function is all you write. The handler converts the schemas to the provider's format, runs the tool loop, and records a `$ld:ai:tool_call` event for every call. You don't convert schemas, write a loop, or call a tracker.
 
-| Provider / framework | Target shape | Where it goes on the call |
+Pass the functions as `tool_handlers` (Python) or `toolHandlers` (Node.js), keyed by the tool key you created in Step 2:
+
+```python
+from launchdarkly_ai_server import config
+from launchdarkly_ai_openai_messages import create_openai_messages_handler
+
+def search_knowledge_base(args):
+    # args is one dict of the arguments the model sent, matching the tool's schema
+    return kb.search(args["query"], limit=args.get("limit", 10))
+
+result = await config(
+    key="support-chatbot",
+    handler=[create_openai_messages_handler()],
+    tool_handlers={"search-knowledge-base": search_knowledge_base},
+).invoke(user_input, {"kind": "user", "key": "user-123"})
+```
+
+```typescript
+import { config } from '@launchdarkly/ai-node';
+import { createOpenAIHandler } from '@launchdarkly/ai-openai-messages';
+
+const result = await config({
+  key: 'support-chatbot',
+  handler: [createOpenAIHandler()],
+  toolHandlers: {
+    'search-knowledge-base': async (args) => kb.search(args.query, args.limit ?? 10),
+  },
+}).invoke(userInput, { kind: 'user', key: 'user-123' });
+```
+
+Rules for tool functions:
+
+- **Keys must match exactly.** The key in `tool_handlers` must equal the tool key on the variation, including case. If the model calls a tool with no function, `invoke()` raises `No handler registered for tool "<key>"`.
+- **One argument.** The function receives a single dict (Python) or object (Node.js) of arguments, not keyword arguments. It can be sync or async. The handler sends the return value back to the model as a string.
+- **The loop is bounded.** The handler packages stop after 10 tool steps and raise `Tool loop exceeded the maximum number of steps (10)`. A runaway loop is almost always a prompt or schema bug.
+- **Which tools the model sees.** The Node.js handlers offer the model only the variation's tools that have a function. The Python handlers offer every tool on the variation, so register a function for each one.
+
+To share tools across call sites, put them in a `Registry` (`Registry(handlers=..., tools=...)` in Python, `new Registry({ handlers, tools })` in Node.js) and pass `registry=` instead. A call receives only the tools its variation names. Some providers have built-in tools, such as `ClaudeWebSearch` from `launchdarkly-ai-claude-agents`. Assign one as the value for a tool key instead of a function, and its calls are tracked the same way.
+
+### Custom handlers
+
+Only write provider-specific tool code when no handler package covers your provider. Then build a handler with `create_handler()` / `createHandler()`. The SDK calls your function with five arguments: the resolved config, the user input, the tool functions, the variables, and the conversation history. The config is a plain dict: `config["model"]` holds `name` and `parameters`, and `config["tools"]` maps each tool key to `{type, name, description, parameters}`. Convert those to the provider's shape:
+
+| Provider | Target shape | Where it goes on the call |
 |---|---|---|
-| OpenAI Chat Completions (direct SDK) | `{type: "function", function: {name, description, parameters}}` | top-level `tools=[...]` |
-| Anthropic direct SDK | `{name, description, input_schema}` — rename `parameters` → `input_schema` | top-level `tools=[...]` |
+| OpenAI Chat Completions | `{type: "function", function: {name, description, parameters}}` | top-level `tools=[...]` |
+| OpenAI Responses API | `{type: "function", name, description, parameters}` | top-level `tools=[...]` |
+| Anthropic | `{name, description, input_schema}`, renaming `parameters` to `input_schema` | top-level `tools=[...]` |
 | Bedrock Converse | `{toolSpec: {name, description, inputSchema: {json: parameters}}}` | inside `toolConfig.tools=[...]` |
-| Gemini (`google-genai`) | `{function_declarations: [{name, description, parameters}]}` (Python) / `{functionDeclarations: [...]}` (Node) | `GenerateContentConfig.tools=[...]` |
-| OpenAI Responses API | LaunchDarkly's flat shape passes through unchanged | top-level `tools=[...]` |
-| LangChain / LangGraph | `createLangChainModel(config)` (Node) / `create_langchain_model(config)` (Python) and pass `ai_config.tools` (or your own `StructuredTool` list) into `bind_tools(...)` / `create_react_agent(tools=[...])` | framework-native; no per-call conversion |
-| Strands Agents | LaunchDarkly's flat shape; drop `parameters.tools` before passing params to the Strands model class (`AnthropicModel`, `OpenAIModel`) — Python `@tool`-decorated callables stay in code | `Agent(tools=[...])` constructor; no per-call conversion |
+| Gemini (`google-genai`) | `{function_declarations: [{name, description, parameters}]}` | `GenerateContentConfig.tools=[...]` |
 
-Minimal conversion snippets (Python):
+The tool functions the SDK passes in are already wrapped to record `$ld:ai:tool_call`, so call them directly. Return the final text and the token usage. Here's a bounded loop against Anthropic:
 
 ```python
-ld_tools = (ai_config.model.to_dict().get("parameters") or {}).get("tools", []) or []
+from anthropic import AsyncAnthropic
+# tool_result_string needs launchdarkly-ai-server 0.4.0+
+from launchdarkly_ai_server import compose_history, create_handler, parse_template, tool_result_string
 
-# OpenAI Chat Completions
-openai_tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": t["name"],
-            "description": t.get("description", ""),
-            "parameters": t.get("parameters", {"type": "object", "properties": {}}),
-        },
-    }
-    for t in ld_tools
-]
-
-# Anthropic
-anthropic_tools = [
-    {
-        "name": t["name"],
-        "description": t.get("description", ""),
-        "input_schema": t.get("parameters", {"type": "object", "properties": {}}),
-    }
-    for t in ld_tools
-]
-
-# Bedrock Converse
-bedrock_tool_config = {
-    "tools": [
-        {
-            "toolSpec": {
-                "name": t["name"],
-                "description": t.get("description", ""),
-                "inputSchema": {"json": t.get("parameters", {"type": "object", "properties": {}})},
-            }
-        }
-        for t in ld_tools
-    ]
-}
-
-# Gemini
-gemini_tools = [
-    {
-        "function_declarations": [
-            {
-                "name": t["name"],
-                "description": t.get("description", ""),
-                "parameters": t.get("parameters", {"type": "object", "properties": {}}),
-            }
-            for t in ld_tools
-        ]
-    }
-] if ld_tools else []
-```
-
-## Agent loop with tool calls
-
-An agent that uses tools runs a short loop: call the provider, dispatch any tool calls, loop again, stop when the provider returns a final answer. Three rules apply regardless of provider:
-
-1. **Bound the loop.** `MAX_STEPS = 5` is a safe default. A runaway tool loop is almost always a prompt or schema bug, not a case that needs 50 iterations.
-2. **Track every tool invocation.** Call `tracker.track_tool_call(tool_name)` / `tracker.trackToolCall(toolName)` for each tool the agent actually executes. This is what the Monitoring tab counts as tool usage.
-3. **Break on the provider's "no more tool calls" signal.** The exact signal differs per provider: OpenAI Chat Completions → `choice.finish_reason != "tool_calls"`; Anthropic → `response.stop_reason != "tool_use"`; Bedrock Converse → `response["stopReason"] != "tool_use"`; Gemini → `response.function_calls` empty; OpenAI Responses API → no `function_call` items in `response.output`.
-
-Skeleton (Python, Anthropic — the other providers follow the same shape with their own stop-reason check and tool-result formatting):
-
-```python
-messages = [{"role": "user", "content": initial_input}]
+anthropic_client = AsyncAnthropic()
 MAX_STEPS = 5
-for _ in range(MAX_STEPS):
-    response = tracker.track_metrics_of(
-        anthropic_metrics,
-        lambda: anthropic_client.messages.create(
-            model=agent.model.name,
-            system=agent.instructions,
-            messages=messages,
-            tools=anthropic_tools,
-            **params,
-        ),
+
+class ToolLoopLimitError(Exception):
+    pass
+
+async def call_anthropic(ld_config, user_input, tool_handlers, variables, history):
+    # Name each tool by its config key, which is also its key in tool_handlers
+    tools = [
+        {"name": key, "description": t.get("description", ""), "input_schema": t["parameters"]}
+        for key, t in (ld_config.get("tools") or {}).items()
+    ]
+    # Handler packages fill {{name}} placeholders; custom handlers must do it themselves
+    rendered = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages") or []]
+    system = "\n".join(m["content"] for m in rendered if m["role"] == "system")
+    # anthropic 2.x no longer accepts temperature, top_p, or top_k; tools come from ld_config["tools"]
+    params = {
+        k: v for k, v in (ld_config["model"].get("parameters") or {}).items()
+        if k not in ("tools", "temperature", "top_p", "top_k")
+    }
+    max_tokens = params.pop("max_tokens", 1024)
+    # Config turns (few-shot examples), then history, then the new input
+    messages = compose_history(
+        history=history or [],
+        user_input=user_input,
+        config_messages=[m for m in rendered if m["role"] != "system"],
     )
-    if response.stop_reason != "tool_use":
-        break
+    usage = {"input": 0, "output": 0}
+    for _ in range(MAX_STEPS):
+        response = await anthropic_client.messages.create(
+            model=ld_config["model"]["name"], max_tokens=max_tokens,
+            system=system, messages=messages, tools=tools, **params,
+        )
+        usage["input"] += response.usage.input_tokens
+        usage["output"] += response.usage.output_tokens
+        if response.stop_reason != "tool_use":
+            break
+        messages.append({"role": "assistant", "content": response.content})
+        results = []
+        for block in response.content:
+            if block.type == "tool_use":
+                output = await tool_handlers[block.name](block.input)
+                results.append({"type": "tool_result", "tool_use_id": block.id, "content": tool_result_string(output)})
+        messages.append({"role": "user", "content": results})
+    else:
+        # Not RuntimeError: the app's fallback treats that as LaunchDarkly being unavailable
+        raise ToolLoopLimitError(f"model still requesting tools after {MAX_STEPS} steps")
+    text = "".join(b.text for b in response.content if b.type == "text")
+    return {"output": text, "usage": usage}
 
-    messages.append({"role": "assistant", "content": response.content})
-
-    tool_results = []
-    for block in response.content:
-        if block.type != "tool_use":
-            continue
-        if block.name not in tool_handlers:
-            raise ValueError(f"Unknown tool: {block.name}")
-        result = tool_handlers[block.name](**block.input)
-        tracker.track_tool_call(block.name)
-        tool_results.append({
-            "type": "tool_result",
-            "tool_use_id": block.id,
-            "content": result,
-        })
-    messages.append({"role": "user", "content": tool_results})
+# provides_for must be a tuple in Python. A list never matches the router.
+anthropic_handler = create_handler(("Anthropic", "messages"), call_anthropic)
 ```
-
-Per-provider tool-call payload shapes live in the `built-in-metrics` references:
-
-- [openai-tracking.md](../built-in-metrics/references/openai-tracking.md) — Chat Completions + Responses API
-- [anthropic-tracking.md](../built-in-metrics/references/anthropic-tracking.md) — `tool_use` blocks and `tool_result` payloads
-- [bedrock-tracking.md](../built-in-metrics/references/bedrock-tracking.md) — `toolUse` / `toolResult` Converse format
-- [gemini-tracking.md](../built-in-metrics/references/gemini-tracking.md) — `functionCalls` / `functionResponse` parts
-- [langchain-tracking.md](../built-in-metrics/references/langchain-tracking.md) — LangGraph tool loop inherits from `create_react_agent`
 
 ## Orchestrator Note
 
