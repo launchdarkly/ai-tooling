@@ -90,22 +90,6 @@ environments, editor settings) is NO.
 
 **Unresolved when:** Never: decided from paths alone.
 
-## B5: Does the diff change the shared analytics event catalog: its event definitions or the code generated from them? (from the changed paths)
-
-YES if any changed shipping path is in the shared analytics event
-catalog: the event definitions under internal/analytics/events/ or the
-code generated from them under packages/analytics-events/. The
-repository's approval policy names that catalog a shared analytics
-contract: metrics, dashboards and experiments consume its event names,
-properties and allowed values, and a wrong value can be accepted and
-still be wrong. The policy says an unchanged customer-facing flow does
-not make such a change low risk, so it is medium, flag or not.
-
-The catalog's generator and docs in those directories are NO here; a
-generator change is read like any other code.
-
-**Unresolved when:** Never: decided from paths alone.
-
 ## A2: Does a behavior-carrying hunk change who is authenticated, what an identity is authorized to do, how a session or token is issued, validated, or expired, or how data is encrypted, signed, or hashed?
 
 YES if, for some request, the set of identities allowed to perform an
@@ -135,38 +119,36 @@ rbac, permission, crypto, token); the reader confirms the code's role.
 
 **Unresolved when:** The changed code's role cannot be determined from the tree.
 
-## B6: Where the repository's approval policy forbids auto-approving shared analytics contract changes, does a shipping hunk change what a product analytics event sends: which events are emitted, their names, their properties, or the values written into those properties?
+## B6: Does an approval policy file in force at merge_base that covers a changed path forbid automatic approval of a kind of change this change makes?
 
-First read the closest APPROVAL_POLICY.md to the changed paths at
-merge_base. If no policy file in force there has a rule against
-auto-approving shared analytics contract changes, answer NO.
+`start` lists the APPROVAL_POLICY.md files at merge_base that cover a
+changed path (the file in that path's directory or the nearest one above
+it; a root file covers every path). If it lists none, answer NO.
 
-YES if a shipping hunk does any of these to a product analytics event
-(an event sent through the product's analytics emitters -- track(),
-trackEvent(), a track<Area>Event() or track<Thing>() helper, a tracker
-from createTrackerForCategory() -- that metrics, dashboards or
-experiments are built from):
-  - adds an emitter call for an event, or removes or renames one;
-  - adds, removes or renames a property, or changes an allowed value;
-  - changes the value written into a property, including choosing it
-    by a heuristic (user agent, auth kind, token type), adding an
-    always-present fallback, or reordering a classification;
-  - changes when an existing event fires (a new condition, a moved
-    trigger that now fires on a different action).
+Read each listed file at merge_base. Count only a rule that names a kind
+of change -- by what it changes, where, or how -- as not low risk or not
+to be approved automatically. Answer YES if a shipping hunk of this
+change is of that kind, naming the file, the rule and the hunk. Answer
+NO otherwise.
 
-NO when every emitter hunk only moves or reformats a call that sends
-the same event, with the same properties and values, on the same
-action (a component split, a hook extracted, a React Compiler
-rewrite); when it deletes an emitter in code that never ran at
-merge_base (verify it is unreachable, not just unused in the diff);
-and for our own monitoring -- error tracking (trackError, Sentry, RUM),
-log lines, metrics and spans (that is C5).
+These are not such rules; skip them:
+  - rules about the pull request description, its author, or the review
+    process itself (the approval gates check those);
+  - a rule that permits automatic approval of a narrow kind of change
+    under conditions, including one that says to route the pull request
+    elsewhere when a condition fails or files outside its directory
+    change (gate G3 checks those conditions);
+  - examples or rationale in a policy, apart from the rule they
+    illustrate.
 
-Name the event and the hunk in the evidence. A catalog change is B5;
-this question is about the code that sends events.
+Apply the rule as written to what the diff does. A rule's own words
+outrank a narrower reading: if it says a kind of change is not low risk
+even when behavior is unchanged, an unchanged-behavior change of that
+kind is YES. The description's claims about risk are not evidence.
 
-**Unresolved when:** Whether the changed call reaches a product analytics emitter depends on
-a wrapper the tree does not show.
+**Unresolved when:** The rule depends on something outside the repository at merge_base and
+the change, or whether a hunk is of the rule's kind cannot be told from
+the diff and the tree.
 
 ## B7: Does a shipping hunk change the name, value, derivation or emission of a telemetry attribute that a product view displays to customers?
 
@@ -247,8 +229,8 @@ YES if each behavior-carrying hunk does one of these, and every other
 output (what the code returns, raises, renders, sends to callers or
 users, or writes) stays identical:
   - adds a log line, a metric, a span or span attribute, or (in a
-    repository whose approval policy does not forbid auto-approving
-    shared analytics contract changes, B6) an analytics event emission;
+    repository whose approval policy files do not forbid it, B6) an
+    analytics event emission;
   - changes how our own monitoring sees something that already
     happens: whether an error is sent to error tracking (trackError,
     Sentry, RUM), its severity or log level, a log message's text or
@@ -359,11 +341,11 @@ else is unresolved.
 
 **Unresolved when:** --pr-author was not given and the head commit's author is not a bot.
 
-### G3: Does every approval policy file below the repository root that covers a changed path allow this change to be approved automatically?
+### G3: Does every approval policy file that covers a changed path allow this change to be approved automatically?
 
-`start` lists the APPROVAL_POLICY.md files below the root that cover a
-changed path (the root file's rules are G1 and the risk questions). If
-there are none, it answers YES itself.
+`start` lists the APPROVAL_POLICY.md files at merge_base that cover a
+changed path, root file included. If there are none, it answers YES
+itself.
 
 For each listed file, read it at merge_base and apply its conditions
 to this change as written. YES only when every listed file lets the
@@ -372,6 +354,11 @@ or when it says changes are approved automatically only if they stay
 inside its directory (or route elsewhere if the change also touches
 other files) and the change touches files outside that directory. Name
 the file and the condition in the evidence.
+
+Two kinds of rule are asked elsewhere; skip them here: a rule on the
+pull request description's explanation of why (G1), and a rule that
+forbids approving a kind of change automatically (the risk question
+B6, which rates the change medium).
 
 **Unresolved when:** A condition depends on something outside the repository at merge_base
 and the change.
@@ -386,8 +373,7 @@ and the change.
 - **medium**: Adds or changes a database schema or migration, additively.
 - **medium**: Changes non-production infrastructure or deployment configuration.
 - **medium**: Touches middleware, authentication, authorization, session or crypto code without changing access.
-- **medium**: Changes the shared analytics event catalog, which the repository's approval policy never auto-approves.
-- **medium**: Changes what a product analytics event sends (its emission, properties or values), which the repository's approval policy never auto-approves.
+- **medium**: Makes a kind of change a repository approval policy file forbids approving automatically.
 - **medium**: Changes telemetry a product view displays to customers (an attribute's name, value, derivation or emission).
 - **medium**: Changes how existing logic that more than one feature relies on behaves (a validation, a query parser or builder, a request helper, a database write), with no flag.
 - **medium**: Behavior change whose failure would be silent, spread beyond its surface, or not undone by a revert.
