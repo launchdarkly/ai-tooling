@@ -1,134 +1,113 @@
 # Anthropic Metrics Tracking
 
-**There is no LaunchDarkly provider package for Anthropic direct API today.** The canonical path is the generic `trackMetricsOf` wrapper (Tier 3) with a small custom extractor that reads `response.usage.input_tokens` and `response.usage.output_tokens`. The instinct to "default to generic" is correct here — there is no Tier-2 shortcut to take.
+Anthropic has handler packages in both Python and Node.js: `-claude-messages` for completion mode (Messages API) and `-claude-agents` for agent mode (Claude Agent SDK). Walk the tiers from top to bottom and stop at the first one that fits.
 
-Three viable paths, in order of preference:
+## Tier 1 — Convenience function
 
-1. **Route Anthropic through LangChain.** If the app already uses LangChain (or can adopt it cheaply), install the LangChain provider package and use it as Tier 2. LangChain's `ChatAnthropic` wrapper exposes the standardized `usage_metadata` that `getAIMetricsFromResponse` reads.
-2. **Route Anthropic through Bedrock Converse.** If the app can switch to Bedrock Converse (Claude is available on Bedrock), you inherit Bedrock's Converse response shape and a custom-extractor pattern that's slightly cleaner. See [bedrock-tracking.md](bedrock-tracking.md).
-3. **Custom extractor on the direct SDK** (this file's primary pattern).
-
-## Tier 1 is not available
-
-`ManagedModel` does not currently ship an Anthropic provider. If you need Tier 1 for a chat app, use option 1 or 2 above — the LangChain provider package lets `ManagedModel` wrap a `ChatAnthropic` under the hood, which restores the zero-tracker-call experience.
-
-## Tier 3 — Custom extractor + `trackMetricsOf` (primary)
-
-**Python** — direct Anthropic SDK:
+**Python** (`pip install launchdarkly-ai-server launchdarkly-ai-claude-messages`):
 
 ```python
-import anthropic
-from ldai.providers.types import LDAIMetrics, TokenUsage
+from launchdarkly_ai_claude_messages import claude_messages
 
-client = anthropic.Anthropic()
-
-def anthropic_extractor(response) -> LDAIMetrics:
-    return LDAIMetrics(
-        success=True,
-        tokens=TokenUsage(
-            total=response.usage.input_tokens + response.usage.output_tokens,
-            input=response.usage.input_tokens,
-            output=response.usage.output_tokens,
-        ),
-    )
-
-def call_with_tracking(ai_config, user_prompt: str) -> str | None:
-    if not ai_config.enabled:
-        return None
-
-    system_content = ai_config.messages[0].content if ai_config.messages else ""
-
-    def call_anthropic():
-        return client.messages.create(
-            model=ai_config.model.name,
-            max_tokens=1024,
-            system=system_content,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-
-    tracker = ai_config.create_tracker()
-    # Exceptions are tracked automatically here: track_metrics_of catches
-    # exceptions, records tracker.track_error(), and re-raises. Do NOT add
-    # except: tracker.track_error() on top — it's a noop that trips the
-    # at-most-once guard. Wrap in your own try/except only if you need
-    # local handling (logging, fallback, alert); the error is already tracked.
-    response = tracker.track_metrics_of(anthropic_extractor, call_anthropic)
-    return response.content[0].text
+# Reads LD_SDK_KEY and ANTHROPIC_API_KEY from the environment
+result = await claude_messages("customer-support-chat", user_input, {"kind": "user", "key": "user-123"})
+print(result.response)
 ```
 
-**Node** — direct Anthropic SDK:
+**Node.js** (`npm install @launchdarkly/ai-node @launchdarkly/ai-claude-messages`):
+
+```typescript
+import { claudeMessages } from '@launchdarkly/ai-claude-messages';
+
+const result = await claudeMessages('customer-support-chat', userInput, { kind: 'user', key: 'user-123' });
+console.log(result.response);
+```
+
+## Tier 2 — `config()` with handler packages
+
+```python
+from launchdarkly_ai_server import config
+from launchdarkly_ai_claude_messages import create_claude_messages_handler
+from launchdarkly_ai_claude_agents import create_claude_agents_handler
+
+result = await config(
+    key="customer-support-chat",
+    handler=[create_claude_messages_handler(), create_claude_agents_handler()],
+).invoke(user_input, context)
+```
+
+```typescript
+import { config } from '@launchdarkly/ai-node';
+import { createClaudeMessagesHandler } from '@launchdarkly/ai-claude-messages';
+import { createClaudeAgentsHandler } from '@launchdarkly/ai-claude-agents';
+
+const result = await config({
+  key: 'customer-support-chat',
+  handler: [createClaudeMessagesHandler(), createClaudeAgentsHandler()],
+}).invoke(userInput, context);
+```
+
+## Tier 3 — Custom handler
+
+Use a custom handler to keep an existing Anthropic call, for example one with custom retries, prompt caching, or a proxy. The same shape works for any provider without a handler package (Cohere, Mistral, custom HTTP): call the model, then return the text and the token counts.
+
+```python
+from anthropic import AsyncAnthropic
+from launchdarkly_ai_server import config, create_handler, parse_template
+
+client = AsyncAnthropic()
+
+async def call_anthropic(ld_config, user_input, tool_handlers, variables, history):
+    messages = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])]
+    system = "\n".join(m["content"] for m in messages if m["role"] == "system")
+    response = await client.messages.create(
+        model=ld_config["model"]["name"],
+        max_tokens=ld_config["model"].get("parameters", {}).get("max_tokens", 1024),
+        system=system,
+        messages=[
+            *[m for m in messages if m["role"] != "system"],
+            {"role": "user", "content": user_input},
+        ],
+    )
+    return {
+        "output": "".join(b.text for b in response.content if b.type == "text"),
+        "usage": {"input": response.usage.input_tokens, "output": response.usage.output_tokens},
+    }
+
+result = await config(
+    key="customer-support-chat",
+    handler=create_handler(("Anthropic", "messages"), call_anthropic),
+).invoke(user_input, context)
+```
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import type { LDAIMetrics } from '@launchdarkly/server-sdk-ai';
+import { config, createHandler, parseTemplate } from '@launchdarkly/ai-node';
 
 const client = new Anthropic();
 
-const anthropicExtractor = (response: Anthropic.Message): LDAIMetrics => ({
-  success: true,
-  tokens: {
-    total: response.usage.input_tokens + response.usage.output_tokens,
-    input: response.usage.input_tokens,
-    output: response.usage.output_tokens,
-  },
+const callAnthropic = createHandler(['Anthropic', 'messages'], async (ldConfig, userInput, toolHandlers, variables) => {
+  const messages = (ldConfig.messages ?? []).map((m) => ({ ...m, content: parseTemplate(m.content, variables ?? {}) }));
+  const response = await client.messages.create({
+    model: ldConfig.model.name,
+    max_tokens: Number(ldConfig.model.parameters?.max_tokens ?? 1024),
+    system: messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n'),
+    messages: [
+      ...messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      { role: 'user', content: userInput ?? '' },
+    ],
+  });
+  return {
+    output: response.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join(''),
+    usage: { input: response.usage.input_tokens, output: response.usage.output_tokens },
+  };
 });
 
-async function callWithTracking(
-  aiConfig: LDAICompletionConfig,
-  userPrompt: string,
-): Promise<string | null> {
-  if (!aiConfig.enabled) return null;
-
-  const systemContent = aiConfig.messages?.[0]?.content ?? '';
-
-  const tracker = aiConfig.createTracker();
-  // Exceptions are tracked automatically: trackMetricsOf catches exceptions,
-  // records tracker.trackError(), and re-throws. Do NOT add
-  // catch (err) { tracker.trackError(); throw err } on top — it's a noop
-  // that trips the at-most-once guard. Wrap in your own try/catch only if
-  // you need local handling (logging, fallback); the error is already tracked.
-  const response = await tracker.trackMetricsOf(
-    anthropicExtractor,
-    () => client.messages.create({
-      model: aiConfig.model!.name,
-      max_tokens: 1024,
-      system: systemContent,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
-  );
-  return response.content[0].type === 'text' ? response.content[0].text : null;
-}
+const result = await config({ key: 'customer-support-chat', handler: callAnthropic }).invoke(userInput, context);
 ```
 
-Notes on the extractor shape:
+Anthropic's API takes the system prompt as a separate `system` parameter, so split it out of the config's messages. If the handler raises, the SDK records a generation error and re-raises.
 
-- Anthropic returns `input_tokens` / `output_tokens` on `response.usage`. Compute `total` yourself; Anthropic does not provide it.
-- `LDAIMetrics` is a typed surface — Python has it at `ldai.providers.types`, Node exports it from `@launchdarkly/server-sdk-ai`. Keep the extractor pure: no side effects, no network calls.
-- `success: true` in the extractor is not a lie — `trackMetricsOf` only calls the extractor on the success path. On the error path, `trackMetricsOf` records `trackError()` internally and re-throws; no caller-side catch block is required.
+## Streaming
 
-## Tier 2 option — route via LangChain
-
-If the app can adopt LangChain, the LangChain provider package handles Anthropic (via `@langchain/anthropic`) through the same `trackMetricsOf(getAIMetricsFromResponse, ...)` pattern used for any other LangChain model. This is often the cleanest answer if the app already uses or is open to LangChain, because the extractor is built in and shared with every other LangChain-wrapped model.
-
-```python
-from ldai_langchain import create_langchain_model, get_ai_metrics_from_response
-
-ai_config = ai_client.completion_config("my-config-key", context, default_config)
-llm = create_langchain_model(ai_config)  # ChatAnthropic under the hood
-
-tracker = ai_config.create_tracker()
-response = tracker.track_metrics_of(
-    get_ai_metrics_from_response,
-    lambda: llm.invoke(messages),
-)
-```
-
-## Tier 4 — Manual (streaming only)
-
-Streaming Anthropic needs manual TTFT tracking; the pattern is identical to OpenAI streaming. See [streaming-tracking.md](streaming-tracking.md).
-
-## What NOT to do
-
-- **Do not hand-wire `track_duration_of` + `track_tokens` + `track_success` as three separate calls** unless you're on the streaming path. That's Tier 4, and `trackMetricsOf` gives you the same three metrics in one call with half the drift surface.
-- **Do not look for a `track_anthropic_metrics` helper** — it doesn't exist, never has, and won't be added. Anthropic direct support lives in the extractor you write above.
-- **Do not invent a provider package** like `@launchdarkly/server-sdk-ai-anthropic`. It doesn't exist as of this writing. Check [js-core ai-providers](https://github.com/launchdarkly/js-core/tree/main/packages/ai-providers) before recommending one.
+Use `stream()` instead of `invoke()`. See [streaming-tracking.md](streaming-tracking.md).

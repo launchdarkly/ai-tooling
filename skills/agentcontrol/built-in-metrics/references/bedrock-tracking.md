@@ -1,142 +1,100 @@
 # AWS Bedrock Metrics Tracking
 
-**There is no LaunchDarkly provider package for Bedrock today** (neither Python nor Node). Two practical paths:
+There's no Bedrock-specific handler package. Configs served from Bedrock have the provider name `Bedrock`. Use the LangChain handler, which recognizes Bedrock, or wrap your existing boto3 call in a custom handler.
 
-1. **Route Bedrock through LangChain** (`ChatBedrockConverse` / `langchain-aws`). If you're open to LangChain, this is the closest thing to Tier 2 — you use the LangChain provider package's `getAIMetricsFromResponse` and inherit the whole `trackMetricsOf` pattern for free.
-2. **Custom extractor on `boto3`** (this file's primary pattern). Bedrock Converse returns a stable response shape with `usage.inputTokens` / `usage.outputTokens` / `usage.totalTokens`, so the extractor is three lines.
+## Tier 2 — LangChain handler
 
-## Tier 1 is not available
+The LangChain handler builds a `ChatBedrockConverse` model for any config whose provider is `Bedrock`. If the variation sets a model region, it's prepended to the model ID as the inference-profile prefix.
 
-`ManagedModel` does not ship a Bedrock provider today (Python or Node). If you want Tier 1 for a Bedrock chat app, route via LangChain — `ManagedModel` can wrap a `ChatBedrockConverse` through the LangChain provider package.
-
-## Tier 3 — Custom extractor + `trackMetricsOf` (primary)
-
-### Converse API (recommended)
-
-**Python:**
+```bash
+pip install launchdarkly-ai-server launchdarkly-ai-langchain-messages langchain-aws
+```
 
 ```python
+from launchdarkly_ai_server import config
+from launchdarkly_ai_langchain_messages import create_langchain_messages_handler
+
+# AWS credentials come from the standard boto3 chain
+result = await config(
+    key="customer-support-chat",
+    handler=create_langchain_messages_handler(),
+).invoke(user_input, context)
+```
+
+See [langchain-tracking.md](langchain-tracking.md) for agent mode and Node.js.
+
+## Tier 3 — Custom handler around boto3 Converse
+
+Use this to keep an existing boto3 client, with its credentials, retries, or guardrail settings, and add no new dependencies:
+
+```python
+import asyncio
 import boto3
-from ldai.providers.types import LDAIMetrics, TokenUsage
+from launchdarkly_ai_server import config, create_handler, parse_template
 
 bedrock = boto3.client("bedrock-runtime")
 
-def bedrock_converse_extractor(response) -> LDAIMetrics:
-    usage = response.get("usage", {})
-    return LDAIMetrics(
-        success=True,
-        tokens=TokenUsage(
-            total=usage.get("totalTokens", 0),
-            input=usage.get("inputTokens", 0),
-            output=usage.get("outputTokens", 0),
-        ),
+async def call_bedrock(ld_config, user_input, tool_handlers, variables, history):
+    messages = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages", [])]
+    params = ld_config["model"].get("parameters", {})
+    response = await asyncio.to_thread(
+        bedrock.converse,
+        modelId=ld_config["model"]["name"],
+        system=[{"text": m["content"]} for m in messages if m["role"] == "system"],
+        messages=[
+            *[{"role": m["role"], "content": [{"text": m["content"]}]} for m in messages if m["role"] != "system"],
+            {"role": "user", "content": [{"text": user_input}]},
+        ],
+        inferenceConfig={k: v for k, v in {
+            "maxTokens": params.get("max_tokens"),
+            "temperature": params.get("temperature"),
+        }.items() if v is not None},
     )
+    return {
+        "output": "".join(b.get("text", "") for b in response["output"]["message"]["content"]),
+        "usage": {
+            "input": response["usage"]["inputTokens"],
+            "output": response["usage"]["outputTokens"],
+        },
+    }
 
-def call_with_tracking(ai_config, user_prompt: str) -> str | None:
-    if not ai_config.enabled:
-        return None
-
-    system_content = ai_config.messages[0].content if ai_config.messages else ""
-
-    def call_bedrock():
-        kwargs = {
-            "modelId": ai_config.model.name,
-            "messages": [{"role": "user", "content": [{"text": user_prompt}]}],
-        }
-        if system_content:
-            kwargs["system"] = [{"text": system_content}]
-        return bedrock.converse(**kwargs)
-
-    tracker = ai_config.create_tracker()
-    # Exceptions are tracked automatically — track_metrics_of catches
-    # exceptions, records tracker.track_error(), and re-raises.
-    response = tracker.track_metrics_of(bedrock_converse_extractor, call_bedrock)
-    return response["output"]["message"]["content"][0]["text"]
+result = await config(
+    key="customer-support-chat",
+    handler=create_handler(("Bedrock", "messages"), call_bedrock),
+).invoke(user_input, context)
 ```
 
-**Node:**
+**Node.js** with `@aws-sdk/client-bedrock-runtime`:
 
 ```typescript
-import { BedrockRuntimeClient, ConverseCommand, type ConverseCommandOutput } from '@aws-sdk/client-bedrock-runtime';
-import type { LDAIMetrics } from '@launchdarkly/server-sdk-ai';
+import { BedrockRuntimeClient, ConverseCommand } from '@aws-sdk/client-bedrock-runtime';
+import { config, createHandler, parseTemplate } from '@launchdarkly/ai-node';
 
 const bedrock = new BedrockRuntimeClient({});
 
-const bedrockConverseExtractor = (response: ConverseCommandOutput): LDAIMetrics => ({
-  success: true,
-  tokens: {
-    total: response.usage?.totalTokens ?? 0,
-    input: response.usage?.inputTokens ?? 0,
-    output: response.usage?.outputTokens ?? 0,
-  },
+const callBedrock = createHandler(['Bedrock', 'messages'], async (ldConfig, userInput, toolHandlers, variables) => {
+  const messages = (ldConfig.messages ?? []).map((m) => ({ ...m, content: parseTemplate(m.content, variables ?? {}) }));
+  const response = await bedrock.send(
+    new ConverseCommand({
+      modelId: ldConfig.model.name,
+      system: messages.filter((m) => m.role === 'system').map((m) => ({ text: m.content })),
+      messages: [
+        ...messages
+          .filter((m) => m.role !== 'system')
+          .map((m) => ({ role: m.role as 'user' | 'assistant', content: [{ text: m.content }] })),
+        { role: 'user', content: [{ text: userInput ?? '' }] },
+      ],
+    }),
+  );
+  return {
+    output: (response.output?.message?.content ?? []).map((b) => b.text ?? '').join(''),
+    usage: { input: response.usage?.inputTokens, output: response.usage?.outputTokens },
+  };
 });
 
-async function callWithTracking(
-  aiConfig: LDAICompletionConfig,
-  userPrompt: string,
-): Promise<string | null> {
-  if (!aiConfig.enabled) return null;
-
-  const systemContent = aiConfig.messages?.[0]?.content;
-
-  const tracker = aiConfig.createTracker();
-  // Exceptions are tracked automatically — trackMetricsOf catches
-  // exceptions, records tracker.trackError(), and re-throws.
-  const response = await tracker.trackMetricsOf(
-    bedrockConverseExtractor,
-    () => bedrock.send(new ConverseCommand({
-      modelId: aiConfig.model!.name,
-      messages: [{ role: 'user', content: [{ text: userPrompt }] }],
-      ...(systemContent ? { system: [{ text: systemContent }] } : {}),
-    })),
-  );
-  return response.output?.message?.content?.[0]?.text ?? null;
-}
+const result = await config({ key: 'customer-support-chat', handler: callBedrock }).invoke(userInput, context);
 ```
 
-### Legacy InvokeModel API
+The handler forwards `temperature` only when the variation sets it. Some newer models, such as Claude Haiku 5.5, reject `temperature`, so leave it out of variations that serve them.
 
-`InvokeModel` returns per-model shapes (Anthropic on Bedrock returns Anthropic's shape, Llama on Bedrock returns Meta's shape, etc.), so the extractor has to branch. **Prefer Converse** unless you're locked into InvokeModel by an older model that Converse doesn't support. If you must use InvokeModel, switch the extractor based on the model family:
-
-```python
-def invoke_model_extractor(response) -> LDAIMetrics:
-    body = json.loads(response["body"].read())
-    # Claude on InvokeModel
-    if "usage" in body:
-        return LDAIMetrics(
-            success=True,
-            tokens=TokenUsage(
-                total=body["usage"]["input_tokens"] + body["usage"]["output_tokens"],
-                input=body["usage"]["input_tokens"],
-                output=body["usage"]["output_tokens"],
-            ),
-        )
-    # Llama / Titan — use the fields on the specific body shape
-    # ...
-    return LDAIMetrics(success=True, tokens=TokenUsage(total=0, input=0, output=0))
-```
-
-This is a good reason to migrate to Converse if you can.
-
-## Tier 2 option — route via LangChain
-
-If the app uses LangChain, the LangChain provider package's `ChatBedrockConverse` support gives you the Tier-2 experience:
-
-```python
-from ldai_langchain import create_langchain_model, get_ai_metrics_from_response
-
-ai_config = ai_client.completion_config("my-config-key", context, default_config)
-llm = create_langchain_model(ai_config)  # ChatBedrockConverse when provider=bedrock
-
-tracker = ai_config.create_tracker()
-response = tracker.track_metrics_of(
-    get_ai_metrics_from_response,
-    lambda: llm.invoke(messages),
-)
-```
-
-LangChain normalizes the Converse response shape into `AIMessage.usage_metadata`, which `get_ai_metrics_from_response` reads — so you don't need a Bedrock-specific extractor.
-
-## Tier 4 — Manual (streaming only)
-
-Bedrock Converse streaming (`ConverseStream`) needs manual TTFT tracking. The pattern is identical to OpenAI streaming. See [streaming-tracking.md](streaming-tracking.md).
+The Converse API returns the same `usage` shape for every Bedrock model family, so one handler covers Claude, Llama, Nova, and the rest. For the older `InvokeModel` API, token counts are in model-specific response fields; return them in the same `usage` dict.

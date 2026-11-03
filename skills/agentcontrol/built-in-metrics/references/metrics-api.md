@@ -1,6 +1,6 @@
 # Metrics API
 
-Retrieve config metrics via the LaunchDarkly REST API.
+Retrieve config metrics via the LaunchDarkly REST API. The MCP server has no tool for these totals; `get-agentcontrol-config-health` covers only recent success and error counts.
 
 ## Endpoint
 
@@ -10,7 +10,7 @@ GET /api/v2/projects/{projectKey}/ai-configs/{configKey}/metrics
 
 ## Authentication
 
-Requires an API token with `ai-configs:read` permission.
+Requires an API token with `ai-configs:read` permission. Ask the user to paste one for the session; don't search environment variables or config files for it.
 
 ```python
 headers = {
@@ -29,8 +29,9 @@ def get_ai_config_metrics(project_key: str, config_key: str, env: str = "product
     """Get config metrics for the last N hours."""
     API_TOKEN = "{api_token}"  # token the user provided for this session
 
-    now = int(time.time())
-    start = now - (hours * 3600)
+    # The endpoint takes Unix timestamps in milliseconds
+    now = int(time.time() * 1000)
+    start = now - (hours * 3600 * 1000)
 
     url = f"https://app.launchdarkly.com/api/v2/projects/{project_key}/ai-configs/{config_key}/metrics"
 
@@ -89,13 +90,14 @@ def get_ai_config_metrics(project_key: str, config_key: str, env: str = "product
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `from` | int | Unix timestamp for start of range |
-| `to` | int | Unix timestamp for end of range |
+| `from` | int | Unix timestamp in milliseconds for start of range |
+| `to` | int | Unix timestamp in milliseconds for end of range |
 | `env` | string | Environment key (default: "production") |
 
 ## Notes
 
-- Time range is specified in Unix timestamps (seconds)
+- Time range is specified in Unix timestamps in milliseconds. Passing seconds returns all-zero counts rather than an error.
+- `timeToFirstTokenMs` stays at 0 for apps on the current AI SDKs, which don't record time to first token
 - Costs are calculated based on model pricing and token usage
 - Feedback counts require user feedback tracking implementation
 - Rate limits apply; see API documentation for details
