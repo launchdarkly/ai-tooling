@@ -191,7 +191,7 @@ function mergeDeep(base, patch) {
 function renderReleaseAutopilot(template, input, toolName, state, replacements) {
   const args = input || {};
   if (toolName === "update-release-autopilot") {
-    const { accountWide, repo, githubRepoId, ...rest } = args;
+    const { accountWide, repo, githubRepoId, confirm, ...rest } = args;
     if (accountWide === true) {
       state.raSettings = mergeDeep(state.raSettings, rest);
       return { ...state.raSettings };

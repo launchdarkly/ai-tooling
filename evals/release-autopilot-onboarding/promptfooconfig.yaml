@@ -612,7 +612,7 @@ tests:
         update-release-autopilot:
           by_arg: accountWide
           cases:
-            \"true\":
+            "true":
               error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Access to the requested resource was denied\"}"
           default: {}
       mock_ask_question_match: true
