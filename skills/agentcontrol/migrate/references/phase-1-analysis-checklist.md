@@ -139,7 +139,7 @@ Feeds into Stage 2 (install + wrap). Quoted from the `ai-configs-relaunch-guides
 |----------|----------|--------|------|
 | Node.js / TypeScript | `@launchdarkly/node-server-sdk` | `@launchdarkly/server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/node-js |
 | Python | `launchdarkly-server-sdk` | `launchdarkly-server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/python |
-| Go | `github.com/launchdarkly/go-server-sdk/v7` | `github.com/launchdarkly/go-server-sdk/ldai` | https://docs.launchdarkly.com/sdk/ai/go |
+| Go | `github.com/launchdarkly/go-server-sdk/v7` | `github.com/launchdarkly/go-server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/go |
 | Ruby | `launchdarkly-server-sdk` | `launchdarkly-server-sdk-ai` | https://docs.launchdarkly.com/sdk/ai/ruby |
 | .NET | `LaunchDarkly.ServerSdk` | `LaunchDarkly.ServerSdk.Ai` | https://docs.launchdarkly.com/sdk/ai/dotnet |
 

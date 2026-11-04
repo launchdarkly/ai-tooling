@@ -154,7 +154,7 @@ This is the first stage that writes code. It has nine sub-steps.
 2. **Install the AI SDK.** Detect the package manager from Step 1, then install:
    - Python: `launchdarkly-server-sdk` + `launchdarkly-server-sdk-ai>=0.20.0`
    - Node.js/TypeScript: `@launchdarkly/node-server-sdk` + `@launchdarkly/server-sdk-ai@^0.20.0`
-   - Go: `github.com/launchdarkly/go-server-sdk/v7` + `github.com/launchdarkly/go-server-sdk/ldai`
+   - Go: `github.com/launchdarkly/go-server-sdk/v7` + `github.com/launchdarkly/go-server-sdk-ai`
 
    Tier-2 provider packages (install in Stage 4, only if you're using the matching provider):
    - OpenAI: `launchdarkly-server-sdk-ai-openai>=0.4.0` (Python) / `@launchdarkly/server-sdk-ai-openai@^0.5.5` (Node)

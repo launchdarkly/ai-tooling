@@ -500,6 +500,21 @@
     }
   },
   {
+    "name": "list-projects",
+    "description": "List LaunchDarkly projects in the account. Use to discover project keys before calling project-scoped tools.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "description": "Search by project name or key (case-insensitive)" },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Filter by tag (all must match)" },
+        "sort": { "type": "string", "enum": ["name", "-name"], "description": "Sort order" },
+        "limit": { "type": "number", "description": "Page size" },
+        "offset": { "type": "number", "description": "Page offset" }
+      },
+      "required": []
+    }
+  },
+  {
     "name": "get-project",
     "description": "Get a project by key. Returns the project's key, name, and environments.",
     "input_schema": {
@@ -511,29 +526,164 @@
     }
   },
   {
-    "name": "list-metrics",
-    "description": "Search and browse metrics in a project. Use query to search by metric name or key. Matching is LITERAL case-insensitive substring, not semantic. Returns a paginated list.",
+    "name": "recommend-flag",
+    "description": "Record an ADVISORY recommendation on whether a code change should be placed behind a LaunchDarkly feature flag. This tool is READ-ONLY: it does not create, modify, toggle, or delete any flag. Call it exactly once, as the final step, after you have understood the change and explored the surrounding code. The recommendation is what CI parses to post a pull-request check.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "recommend": { "type": "boolean", "description": "true if the change should be released behind a feature flag, false if it should not" },
+        "verdict": { "type": "string", "enum": ["suggested", "reuse-existing", "already-flagged", "not-suited"], "description": "The finer-grained outcome. suggested = a new flag is warranted (pairs with recommend: true). reuse-existing = the change should be gated behind an EXISTING flag that already covers this same unreleased feature rather than a new one — set reuse_flag_key (pairs with recommend: true). already-flagged = the change is already protected by a flag in the diff or an off/mid-rollout ancestor gate (recommend: false). not-suited = there is genuinely nothing to flag: pure refactor, docs, tests, dependency bump, or build/CI/tooling change (recommend: false)." },
+        "reuse_flag_key": { "type": "string", "description": "Set ONLY when verdict is reuse-existing: the key of the existing flag to gate this change behind (the flag that already covers this feature). Omit for every other verdict." },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"], "description": "Confidence in the recommendation, calibrated to how clear the signal is and how much surrounding code you verified" },
+        "risk": { "type": "string", "enum": ["low", "medium", "high"], "description": "Optional. Blast radius / severity of the change itself, independent of confidence. low = small additive isolated change; medium = modified business logic / moderate blast radius; high = cross-cutting, API-contract, data-migration, or auth/payments/data-integrity change." },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Concise, evidence-based justifications. Each should cite the specific file, symbol, or behavior that drove the verdict."
+        }
+      },
+      "required": ["recommend", "confidence", "reasons"]
+    }
+  },
+  {
+    "name": "match-release-policies",
+    "description": "Preview which release policy governs a flag in an environment and what a policy-based release would do. Before the flag exists pass flagTags for client-side matching; after it exists pass flagKey for the authoritative server-resolved policy. Returns winningPolicy, winningReleaseMethod (immediate|progressive|guarded|null), and any auto-attached metric/metric-group keys.",
     "input_schema": {
       "type": "object",
       "properties": {
         "projectKey": { "type": "string", "description": "The project key" },
-        "query": { "type": "string", "description": "Search by metric name or key (literal case-insensitive substring)" },
+        "environmentKey": { "type": "string", "description": "Environment to resolve the policy for" },
+        "flagKey": { "type": "string", "description": "The flag key (after the flag exists)" },
+        "flagTags": { "type": "array", "items": { "type": "string" }, "description": "Proposed flag tags (before the flag exists)" }
+      },
+      "required": ["projectKey", "environmentKey"]
+    }
+  },
+  {
+    "name": "list-release-policies",
+    "description": "List every release policy in a project: scope (environments, flag tags), rank, release method, and the guardrail metrics it auto-attaches. Use match-release-policies to resolve which one wins for a given flag + environment; use this only for a full inventory.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" }
+      },
+      "required": ["projectKey"]
+    }
+  },
+  {
+    "name": "create-automated-rollout-config",
+    "description": "Record an automated rollout config that ties a flag to a PR's merge and releases it per environment. Each environments entry is { environmentKey, releaseType }: 'simple' serves true on merge; 'policy' waits until merge and then performs the environment's release policy (immediate/progressive/guarded). Both release that environment on merge. This tool has NO field for holding, scheduling, or a future/notBefore date — to hold an environment, omit it from the environments array entirely (do not add a holdUntil/notBefore/hold field; unknown fields are rejected). Provide the PR reference (repoFullName + prNumber, or prUrl). The guarding flag must already exist.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" },
+        "flagKey": { "type": "string", "description": "The guarding flag key (must already exist)" },
+        "environments": {
+          "type": "array",
+          "description": "Per-environment release plan",
+          "items": {
+            "type": "object",
+            "properties": {
+              "environmentKey": { "type": "string", "description": "Environment key" },
+              "releaseType": { "type": "string", "enum": ["simple", "policy"], "description": "simple = serve true on merge; policy = on merge, run the env's release policy (immediate/progressive/guarded). Both release the env on merge; neither holds it. To hold an env, omit it from this array." }
+            },
+            "required": ["environmentKey"]
+          }
+        },
+        "repoFullName": { "type": "string", "description": "owner/repo" },
+        "prNumber": { "type": "number", "description": "PR number" },
+        "prUrl": { "type": "string", "description": "PR URL" }
+      },
+      "required": ["projectKey", "flagKey", "environments"]
+    }
+  },
+  {
+    "name": "list-metrics",
+    "description": "List metrics in a project. Use to find existing metrics to reuse as an experiment's primary or guardrail metric before creating a new one.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" },
+        "query": { "type": "string", "description": "Search by metric name or key" },
         "limit": { "type": "number", "description": "Max number of results (default 20)" }
       },
       "required": ["projectKey"]
     }
   },
   {
-    "name": "list-metric-events",
-    "description": "List recent events for a metric event key to check whether the metric is receiving data (event health).",
+    "name": "create-metric",
+    "description": "Create a metric that measures an experiment outcome. measureType 'occurrence' is a conversion (did each user do it at least once), 'count' totals events, and 'value' averages or sums the number sent with track(). eventKey is the tracked event the metric counts.",
     "input_schema": {
       "type": "object",
       "properties": {
         "projectKey": { "type": "string", "description": "The project key" },
-        "environmentKey": { "type": "string", "description": "Environment key (defaults to production)" },
-        "eventKey": { "type": "string", "description": "The event key to inspect" }
+        "key": { "type": "string", "description": "Unique metric key (immutable)" },
+        "name": { "type": "string", "description": "Human-readable metric name" },
+        "kind": { "type": "string", "enum": ["custom", "pageview", "click"], "description": "Metric kind (default custom)" },
+        "measureType": { "type": "string", "enum": ["count", "occurrence", "value"], "description": "occurrence = conversion, count = event total, value = numeric value" },
+        "valueAggregation": { "type": "string", "enum": ["sum", "average"], "description": "Only for measureType 'value': average (default) or sum" },
+        "unit": { "type": "string", "description": "Unit for value metrics, e.g. USD or ms" },
+        "eventKey": { "type": "string", "description": "The event key the metric counts (matches the track() call)" },
+        "urls": { "type": "array", "description": "Required for pageview and click metrics: pages to match", "items": { "type": "object", "properties": { "kind": { "type": "string", "enum": ["substring", "exact", "canonical", "regex"] }, "substring": { "type": "string" }, "url": { "type": "string" }, "pattern": { "type": "string" } }, "required": ["kind"] } },
+        "selector": { "type": "string", "description": "Required for click metrics: CSS selector that triggers the event" },
+        "successCriteria": { "type": "string", "enum": ["HigherThanBaseline", "LowerThanBaseline"], "description": "Which direction is success" },
+        "description": { "type": "string", "description": "What the metric measures" }
       },
-      "required": ["projectKey", "eventKey"]
+      "required": ["projectKey", "key", "name", "measureType", "successCriteria"]
+    }
+  },
+  {
+    "name": "create-experiment",
+    "description": "Create an experiment with its first iteration. The nested iteration object carries the hypothesis, metrics, treatments, and flag config. Exactly one treatment must have baseline true and allocationPercent values must sum to 100.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" },
+        "environmentKey": { "type": "string", "description": "The environment key" },
+        "key": { "type": "string", "description": "Unique experiment key" },
+        "name": { "type": "string", "description": "Human-readable experiment name" },
+        "description": { "type": "string", "description": "What the experiment tests" },
+        "methodology": { "type": "string", "enum": ["bayesian", "frequentist"], "description": "Stats methodology (default bayesian)" },
+        "iteration": {
+          "type": "object",
+          "description": "The first data-collection window",
+          "properties": {
+            "hypothesis": { "type": "string" },
+            "primarySingleMetricKey": { "type": "string" },
+            "metrics": { "type": "array", "items": { "type": "object", "properties": { "key": { "type": "string" } } } },
+            "treatments": { "type": "array", "items": { "type": "object" } },
+            "flags": { "type": "object" },
+            "randomizationUnit": { "type": "string" }
+          }
+        }
+      },
+      "required": ["projectKey", "environmentKey", "key", "name", "iteration"]
+    }
+  },
+  {
+    "name": "start-experiment-iteration",
+    "description": "Begin collecting data for an experiment's current draft iteration. Requires the flag to be on, a randomizationUnit set, and at least one non-zero treatment allocation.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" },
+        "environmentKey": { "type": "string", "description": "The environment key" },
+        "experimentKey": { "type": "string", "description": "The experiment key" }
+      },
+      "required": ["projectKey", "environmentKey", "experimentKey"]
+    }
+  },
+  {
+    "name": "get-experiment",
+    "description": "Get an experiment's status, treatments, metrics, and current iteration. Use to verify an experiment after creating or starting it.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": { "type": "string", "description": "The project key" },
+        "environmentKey": { "type": "string", "description": "The environment key" },
+        "experimentKey": { "type": "string", "description": "The experiment key" }
+      },
+      "required": ["projectKey", "environmentKey", "experimentKey"]
     }
   }
 ]

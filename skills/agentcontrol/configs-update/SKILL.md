@@ -88,6 +88,10 @@ Use `get-ai-config` to confirm the response shows your updated values.
 - Don't delete without explicit user confirmation -- always suggest archiving first
 - Don't retry an update because the API response doesn't echo back the exact values you sent -- verify with `get-ai-config` instead
 
+## More resources
+
+To learn more about creating and managing variations, read [Create and manage config variations](https://launchdarkly.com/docs/home/agentcontrol/create-variation.md).
+
 ## Related Skills
 
 - `configs-variations` -- Create variations to test changes side-by-side

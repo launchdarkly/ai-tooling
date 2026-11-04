@@ -50,6 +50,54 @@ const SUITES = [
     readme: "skills/feature-flags/launchdarkly-flag-command/README.md",
   },
   {
+    suite: "launchdarkly-flag-drift",
+    skillKey: "feature-flags/launchdarkly-flag-drift",
+    skillDir: "skills/feature-flags/launchdarkly-flag-drift",
+    readme: "skills/feature-flags/launchdarkly-flag-drift/README.md",
+  },
+  {
+    suite: "should-flag-change",
+    skillKey: "feature-flags/should-flag-change",
+    skillDir: "skills/feature-flags/should-flag-change",
+    readme: "skills/feature-flags/should-flag-change/README.md",
+  },
+  {
+    suite: "flag-release",
+    skillKey: "feature-flags/flag-release",
+    skillDir: "skills/feature-flags/flag-release",
+    readme: "skills/feature-flags/flag-release/README.md",
+  },
+  {
+    suite: "flag-and-release-change",
+    skillKey: "feature-flags/flag-and-release-change",
+    skillDir: "skills/feature-flags/flag-and-release-change",
+    readme: "skills/feature-flags/flag-and-release-change/README.md",
+  },
+  {
+    suite: "onboarding",
+    skillKey: "onboarding",
+    skillDir: "skills/onboarding",
+    readme: "skills/onboarding/README.md",
+  },
+  {
+    suite: "release-autopilot-onboarding",
+    skillKey: "release-autopilot/launchdarkly-release-autopilot-onboarding",
+    skillDir: "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
+    readme: "skills/release-autopilot/launchdarkly-release-autopilot-onboarding/README.md",
+  },
+  {
+    suite: "experiment-guide",
+    skillKey: "experiments/launchdarkly-experiment-guide",
+    skillDir: "skills/experiments/launchdarkly-experiment-guide",
+    readme: "skills/experiments/launchdarkly-experiment-guide/README.md",
+  },
+  {
+    // No readme: the skill folder holds only the SKILL.md that ldcli embeds.
+    suite: "experiment-orchestration",
+    skillKey: "aws-devops-agent/experiment-orchestration",
+    skillDir: "skills/aws-devops-agent/experiment-orchestration",
+  },
+  {
     suite: "launchdarkly-experiment-hypothesis-builder",
     skillKey: "experiments/launchdarkly-experiment-hypothesis-builder",
     skillDir: "skills/experiments/launchdarkly-experiment-hypothesis-builder",

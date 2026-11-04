@@ -103,6 +103,10 @@ When the user wants to try a different model, prompt, or parameters, **always cr
 - Don't make decisions on small sample sizes
 - Don't modify or remove the baseline variation -- create new variations alongside it
 - Don't use `update-ai-config-variation` to "replace" a baseline -- create a new variation instead
+   
+## More resources
+
+To learn more about creating and managing variations, read [Create and manage config variations](https://launchdarkly.com/docs/home/agentcontrol/create-variation.md).
 
 ## Related Skills
 

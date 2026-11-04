@@ -129,3 +129,7 @@ Each update creates a new version. Existing config variations referencing the sn
 - Don't put an entire prompt in a single snippet — break it into focused pieces
 - Don't delete snippets without checking which configs reference them
 - Don't duplicate existing snippets — check `list-prompt-snippets` first
+
+## More resources
+
+To learn more about setting up prompt snippets in the LaunchDarkly UI, read [Prompt snippets](https://launchdarkly.com/docs/home/agentcontrol/snippets.md).

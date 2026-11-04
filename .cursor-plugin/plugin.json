@@ -1,6 +1,6 @@
 {
   "name": "launchdarkly",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "LaunchDarkly agent skills and mcp server for feature flag management, AgentControl, and skill authoring",
   "author": {
     "name": "LaunchDarkly",
@@ -24,7 +24,8 @@
     "skills/agentcontrol",
     "skills/feature-flags",
     "skills/metrics",
-    "skills/onboarding"
+    "skills/onboarding",
+    "skills/release-autopilot"
   ],
   "mcpServers": ".mcp.json"
 }

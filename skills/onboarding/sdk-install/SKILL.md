@@ -1,21 +1,21 @@
 ---
 name: sdk-install
-description: "Install and initialize the correct LaunchDarkly SDK during onboarding by running nested skills in order: detect, plan, apply. Parent onboarding Step 6 is first flag."
+description: "Install and initialize the correct LaunchDarkly SDK during onboarding by running nested skills in order: detect, plan, apply. Parent onboarding Step 4 is first flag."
 license: Apache-2.0
 compatibility: Requires a supported language/framework in the project. SDK credentials are required by [Apply](apply/SKILL.md), not for [Detect](detect/SKILL.md) / [Plan](plan/SKILL.md) alone (see parent onboarding **Prerequisites**).
 metadata:
   author: launchdarkly
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # LaunchDarkly SDK Install (onboarding)
 
-Installs and initializes the right LaunchDarkly SDK for the user’s project by following **three nested skills in order**. **Do not** skip ahead to feature flags here—the parent [LaunchDarkly onboarding](../SKILL.md) continues with **Step 6: First feature flag** using [Create first feature flag](../first-flag/SKILL.md).
+Installs and initializes the right LaunchDarkly SDK for the user’s project by following **three nested skills in order**. **Do not** skip ahead to feature flags here—the parent [LaunchDarkly onboarding](../SKILL.md) continues with **Step 4: First flag**.
 
 ## Prerequisites
 
 - Project context from parent **Step 1: Explore the Project** (reuse it; only re-run deep detection if something is unclear)
-- **SDK key / client-side ID / mobile key:** Needed when you reach [Apply code changes](apply/SKILL.md) (env wiring). **Do not** ask the user for these during detect or plan solely because you opened this skill—follow parent onboarding: account status is inferred via MCP OAuth (Step 4) or surfaced at D7 in apply; key material is collected at apply (see parent [Prerequisites](../SKILL.md#prerequisites)).
+- **SDK key / client-side ID / mobile key:** Needed when you reach [Apply code changes](apply/SKILL.md) (env wiring). **Do not** ask the user for these during detect or plan solely because you opened this skill—follow parent onboarding: account status is inferred via MCP OAuth when MCP is already configured, or surfaced at D7 in apply; key material is collected at apply (see parent [Prerequisites](../SKILL.md#prerequisites)).
 
 ## Key types (summary)
 
@@ -39,11 +39,13 @@ Execute **all three** unless the [detect decision tree](detect/SKILL.md#decision
 
 Shared references for all steps: [SDK recipes](../references/sdk/recipes.md), [SDK snippets](../references/sdk/snippets/).
 
+**Observability plugin:** When the user mentions observability, session replay, error monitoring, logs, or tracing (in the first message or later), carry that into plan and apply: the plugin package(s) and the `plugins` entry on the client from [Observability plugin](../references/sdk/observability-plugin.md). Same client, same key. If the client is already initialized, skip detect and plan and add the plugin to the existing init, then return to the parent flow (first flag during onboarding; nothing further for a follow-up after onboarding finished).
+
 ### After Step 3 completes
 
 Continue with the parent skill:
 
-- **Step 6:** [Create first feature flag](../first-flag/SKILL.md)
+- **Step 4:** [First flag](../SKILL.md#step-4-first-flag)
 
 Do not add standalone “sample flag” evaluation in this skill unless the user explicitly needs a throwaway check; the parent flow creates the first flag in order.
 
@@ -53,7 +55,7 @@ Do not add standalone “sample flag” evaluation in this skill unless the user
 - Prefer TypeScript in TypeScript projects.
 - If the project uses a shared config layer, initialize LaunchDarkly there.
 - Add `.env.example` entries when the project uses dotenv.
-- **Dependency scope:** Add only LaunchDarkly SDK package(s) from the recipe unless the user **explicitly approves** upgrading or adding other packages ([Apply — Permission before changing other dependencies](apply/SKILL.md#permission-before-changing-other-dependencies)).
+- **Dependency scope:** Add only LaunchDarkly SDK package(s) from the recipe (plus the observability plugin package(s) when the user asked for them) unless the user **explicitly approves** upgrading or adding other packages ([Apply — Permission before changing other dependencies](apply/SKILL.md#permission-before-changing-other-dependencies)).
 
 ## Edge cases
 
@@ -69,4 +71,5 @@ Do not add standalone “sample flag” evaluation in this skill unless the user
 - [Apply code changes](apply/SKILL.md)
 - [SDK recipes](../references/sdk/recipes.md)
 - [SDK snippets](../references/sdk/snippets/)
+- [Observability plugin](../references/sdk/observability-plugin.md)
 - [LaunchDarkly onboarding (parent)](../SKILL.md)

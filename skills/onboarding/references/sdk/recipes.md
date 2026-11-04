@@ -13,6 +13,8 @@ Each recipe links to an **SDK detail** file under [`snippets/`](snippets/). Open
 
 > **Source of truth**: Official LaunchDarkly SDK documentation is authoritative. Prefer each recipe's **Docs** link over summaries here.
 
+**Observability and session replay:** This file covers the feature-management SDKs only. When the user asks for observability, session replay, error monitoring, logs, or tracing, use [Observability plugin](observability-plugin.md) for the plugin package and `plugins` wiring per stack.
+
 ## Top 10 SDKs (start here)
 
 These are the most common stacks—check here first before scanning less common SDKs below.
@@ -69,12 +71,12 @@ These are the most common stacks—check here first before scanning less common 
 | Package | `launchdarkly-server-sdk` ([PyPI](https://pypi.org/project/launchdarkly-server-sdk/)) |
 | Detect files | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` |
 | Detect patterns | `flask`, `django`, `fastapi`, `starlette` |
-| Install | `pip install launchdarkly-server-sdk` — optional: `pip install launchdarkly-observability` (requires SDK **9.12+**; see [Install the SDK](https://launchdarkly.com/docs/sdk/server-side/python#install-the-sdk)) |
+| Install | `pip install launchdarkly-server-sdk` (observability: see [Observability plugin](observability-plugin.md)) |
 | Docs | [Python SDK reference](https://launchdarkly.com/docs/sdk/server-side/python) |
 
 **SDK detail:** [`snippets/python-server-sdk.md`](snippets/python-server-sdk.md) (includes onboarding sample)
 
-**API:** **`ldclient.set_config(Config(sdk_key))`** then **`client = ldclient.get()`** (singleton). Optional **`plugins=[ObservabilityPlugin()]`** on **`Config`** with **`launchdarkly-observability`**. Forked workers: **`postfork()`**. See [Initialize the client](https://launchdarkly.com/docs/sdk/server-side/python#initialize-the-client).
+**API:** **`ldclient.set_config(Config(sdk_key))`** then **`client = ldclient.get()`** (singleton). Forked workers: **`postfork()`**. See [Initialize the client](https://launchdarkly.com/docs/sdk/server-side/python#initialize-the-client).
 
 ### React Native
 
@@ -98,7 +100,7 @@ These are the most common stacks—check here first before scanning less common 
 | Package | `LaunchDarkly.ServerSdk` ([NuGet](https://www.nuget.org/packages/LaunchDarkly.ServerSdk/)) |
 | Detect files | `*.csproj`, `*.sln`, `*.fsproj` (look for `BlazorWebAssembly`, `blazorwasm`, `UseBlazorWebAssembly`, `blazorserver`, or `Microsoft.AspNetCore.Components` / `Blazor` in the project) |
 | Detect patterns | `Microsoft.AspNetCore`, `Microsoft.NET`, `Blazor`, `blazor`, `blazorserver` (host/server UI—**not** WASM-only client projects) |
-| Install | `dotnet add package LaunchDarkly.ServerSdk` — optional: `dotnet add package LaunchDarkly.Observability` (requires server SDK **8.10+**; see [Install the SDK](https://launchdarkly.com/docs/sdk/server-side/dotnet#install-the-sdk)) |
+| Install | `dotnet add package LaunchDarkly.ServerSdk` (observability: see [Observability plugin](observability-plugin.md)) |
 | Docs | [.NET SDK reference (server-side)](https://launchdarkly.com/docs/sdk/server-side/dotnet) |
 
 **SDK detail:** [`snippets/dotnet-server-sdk.md`](snippets/dotnet-server-sdk.md) (includes onboarding sample)
@@ -149,7 +151,7 @@ These are the most common stacks—check here first before scanning less common 
 
 **SDK detail:** [`snippets/ios-client-sdk.md`](snippets/ios-client-sdk.md) (includes onboarding sample)
 
-**API:** **`LDConfig(mobileKey:autoEnvAttributes:)`**, **`LDContextBuilder`**, **`LDClient.start(…, startWaitSeconds:completion:)`** — see [Initialize the client](https://launchdarkly.com/docs/sdk/client-side/ios#initialize-the-client). Optional **`LaunchDarklyObservability`** (v9.14+).
+**API:** **`LDConfig(mobileKey:autoEnvAttributes:)`**, **`LDContextBuilder`**, **`LDClient.start(…, startWaitSeconds:completion:)`** — see [Initialize the client](https://launchdarkly.com/docs/sdk/client-side/ios#initialize-the-client). Observability: see [Observability plugin](observability-plugin.md).
 
 ### Android
 

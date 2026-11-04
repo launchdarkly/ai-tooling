@@ -6,7 +6,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 SKILL_GLOB = "**/SKILL.md"
-EXCLUDED_DIRS = {"template"}
+EXCLUDED_DIRS = {"template", "node_modules"}
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MAX_NAME_LENGTH = 64
 MAX_DESC_LENGTH = 1024

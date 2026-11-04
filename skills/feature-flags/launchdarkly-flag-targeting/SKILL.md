@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "1.1.0-experimental"
 ---
 
 # LaunchDarkly Flag Targeting & Rollout
@@ -69,6 +69,8 @@ Based on what the user wants and what you found, choose the right tool and strat
 | "Roll out to X%" | `update-rollout` with `rolloutType: "percentage"` | Weights must sum to 100 |
 | "Enable for beta users" | `update-targeting-rules`: add a rule with clause | Rules are ANDed within, ORed between |
 | "Add specific users" | `update-individual-targets` | Highest priority, overrides all rules |
+
+**Before writing a rule, individual target, or percentage rollout, confirm the context supports it.** A rule that names a context kind or attribute the flag's evaluation doesn't carry silently never matches; individual targets match the context **key**, not an attribute like email; and a rollout can only bucket by a kind present where the flag is read. See [Context Availability](references/context-availability.md) to pick a context that will actually fire.
 | "Full rollout" | `update-rollout` with `rolloutType: "variation"` | Serve one variation to everyone |
 | "Copy from staging" | `copy-flag-config` | Promote tested config to production |
 
@@ -129,5 +131,6 @@ When any mutation tool returns `requiresApproval: true`, the direct change was b
 ## References
 
 - [Targeting Patterns](references/targeting-patterns.md): Rollout strategies, rule construction, individual targeting, and cross-environment copying
+- [Context Availability](references/context-availability.md): Which context kinds/attributes a rule, target, or rollout can use — matching the kind to the surface where the flag is read, key vs attribute, and rollout bucketing
 - [Safety Checklist](references/safety-checklist.md): Pre-change verification, approval workflows, environment awareness
 - [Approval Workflows](references/approval-workflows.md): Creating, checking, and applying approval requests

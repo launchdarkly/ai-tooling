@@ -166,3 +166,70 @@ tests:
           return { pass: isTemp, score: isTemp ? 1 : 0.5, reason: `temporary=${a.temporary}` };
         metric: temporary_flag_set
         weight: 1
+
+  # ------------------------------------------------------------------
+  # Test 4: Targeting-context availability — client-side flag, server-only signal
+  # A React (client-side) app where the user wants to target by a
+  # server/request-scoped signal (region derived from the request IP) that the
+  # browser context never carries. The Context Availability reference says a
+  # client-side flag can only target kinds/attributes shipped to the browser, so
+  # the agent should create the flag with client-side availability AND flag that
+  # the requested targeting won't fire in the browser as-is, suggesting an
+  # available approach (ship the attribute to the client, or evaluate server-side).
+  # ------------------------------------------------------------------
+  - description: "Targeting context: warns a client-side flag can't target a server-only signal"
+    vars:
+      user_request: >
+        Create a feature flag for our new promo banner and target it to users in
+        the EU. We detect region on the server from the request IP. Project key is
+        "web-app".
+      codebase_context: >
+        React single-page app using launchdarkly-react-client-sdk (client-side).
+        The LDContext shipped to the browser is built at login with { kind: 'user',
+        key: user.id, email: user.email, plan: user.plan } — it does NOT include
+        the request IP or a server-derived region. Region is only known on the
+        server request handler, not in the browser.
+      mock_files:
+        "package.json": '{"dependencies":{"launchdarkly-react-client-sdk":"^3.1.0","react":"^18.2.0"}}'
+        "src/ld.js": "import { withLDProvider } from 'launchdarkly-react-client-sdk';\n// context built at login: { kind: 'user', key: user.id, email: user.email, plan: user.plan }\n"
+        "src/App.jsx": "import { useFlags } from 'launchdarkly-react-client-sdk';\nconst { promoBanner } = useFlags();\n"
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = tools.includes('create-flag');
+          return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
+        metric: calls_create_flag
+        weight: 2
+
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const call = traj.find(t => t.tool === 'create-flag');
+          if (!call) return { pass: false, score: 0, reason: 'No create-flag call' };
+          const a = call.arguments || {};
+          // React app -> the flag must be client-side available to be read in the browser.
+          const csa = a.clientSideAvailability || {};
+          const clientSide = csa.usingEnvironmentId === true || a.clientSide === true;
+          return { pass: clientSide, score: clientSide ? 1 : 0.5, reason: `clientSideAvailability=${JSON.stringify(a.clientSideAvailability)}` };
+        metric: client_side_available
+        weight: 2
+
+      - type: llm-rubric
+        value: |
+          The user asked to create a client-side (React) flag and target EU users by a
+          region the app derives ON THE SERVER from the request IP — a signal the
+          browser LDContext never carries (it ships only user id/email/plan).
+          Score 1.0 if ALL of the following hold:
+          1. The agent created the flag (with client-side availability, since it's read
+             in the browser via useFlags()).
+          2. The agent recognized that the requested targeting will NOT fire in the
+             browser as-is, because a client-side flag can only target context
+             kinds/attributes shipped to the browser — the server-derived region is
+             not one of them.
+          3. The agent suggested a workable alternative: ship a region attribute onto
+             the client context (e.g. via identify), or evaluate the flag server-side
+             where the region is known.
+          Deduct 0.34 for each criterion missed.
+        metric: context_availability_reasoning
+        weight: 3

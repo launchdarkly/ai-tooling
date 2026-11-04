@@ -164,14 +164,14 @@ Print this checklist verbatim to the user after Step 4, then wait for confirmati
 Get the variation ID (use `get-ai-config` MCP, or):
 ```bash
 curl -s "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
-  -H "Authorization: $LD_API_KEY" -H "LD-API-Version: beta" \
+  -H "Authorization: {api_token}" -H "LD-API-Version: beta" \
   | jq '.variations[] | {key, _id}'
 ```
 
 Flip the fallthrough to point at it:
 ```bash
 curl -X PATCH "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/targeting?env=$ENV" \
-  -H "Authorization: $LD_API_KEY" \
+  -H "Authorization: {api_token}" \
   -H "Content-Type: application/json; domain-model=launchdarkly.semanticpatch" \
   -H "LD-API-Version: beta" \
   -d '{"instructions":[{"kind":"updateFallthroughVariationOrRollout","variationId":"<id-from-step-above>"}]}'
@@ -214,6 +214,18 @@ The `create-ai-config-variation` tool validates this format and rejects invalid 
 - Don't omit `modelName` from the initial variation call. It is required at create time; setting it via a follow-up PATCH is a workaround for a bug, not the intended flow. The PATCH field is also `modelName`, not `name`.
 - Don't drop to raw `curl` + `jq` for verification. Use `get-ai-config` (MCP) — it returns a typed object and avoids brittle `jq` filters that break on response-shape variation.
 - Don't consider the workflow complete until the user has been told to run `configs-targeting`. A created variation that isn't promoted to fallthrough returns `enabled=False` to every consumer.
+
+## More resources
+
+To learn more about creating a config in the LaunchDarkly UI, read [Create configs](https://launchdarkly.com/docs/home/agentcontrol/create.md)
+
+To learn more about configuring the SDK, read:
+
+* [.NET AI SDK reference](https://launchdarkly.com/docs/sdk/ai/dotnet.md)
+* [Go AI SDK reference](https://launchdarkly.com/docs/sdk/ai/go.md)
+* [Node.js (server-side) SDK AI reference](https://launchdarkly.com/docs/sdk/ai/node-js.md)
+* [Python AI SDK reference](https://launchdarkly.com/docs/sdk/ai/python.md)
+* [Ruby AI SDK reference](https://launchdarkly.com/docs/sdk/ai/ruby.md)
 
 ## Related Skills
 

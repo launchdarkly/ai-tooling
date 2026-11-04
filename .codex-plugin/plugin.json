@@ -1,5 +1,5 @@
 {
-  "name": "launchdarkly-mcp",
+  "name": "launchdarkly",
   "version": "0.6.1",
   "description": "Connect Codex to LaunchDarkly over MCP: configs and feature management (FM) hosted endpoints, plus bundled guidance for using the tools.",
   "author": {

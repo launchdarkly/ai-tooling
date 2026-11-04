@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "1.1.0-experimental"
 ---
 
 # LaunchDarkly Flag Create & Configure
@@ -45,7 +45,7 @@ Before creating anything, understand how this codebase uses feature flags.
    - **Naming convention**: Are keys `kebab-case`, `snake_case`, `camelCase`?
    - **Organization**: Are flag keys co-located with features, or centralized in a constants file?
    - **Default values**: What defaults do existing evaluations use?
-   - **Context/user construction**: How does this codebase build the user/context object passed to the SDK?
+   - **Context/user construction**: How does this codebase build the user/context object passed to the SDK? This determines which context kinds and attributes any future targeting can use — and it differs by surface (server vs client vs anonymous). See [Context Availability](../launchdarkly-flag-targeting/references/context-availability.md) before planning a rule, individual target, or rollout.
 
 4. **Check LaunchDarkly project conventions.** Optionally use `list-flags` to see existing flags:
    - What tags are commonly used?
@@ -128,3 +128,4 @@ Multiple instructions can be batched in a single call. These changes are project
 
 - [Flag Types and Patterns](references/flag-types.md): Boolean vs multivariate, naming conventions, configuration best practices
 - [SDK Evaluation Patterns](references/sdk-evaluation-patterns.md): How to evaluate flags in each SDK, including common wrapper patterns
+- [Context Availability](../launchdarkly-flag-targeting/references/context-availability.md): Which context kinds/attributes targeting can use, matched to the surface where the flag is read (relevant once the flag will target rather than being a plain on/off switch)

@@ -33,6 +33,9 @@ npm run eval:configs-update           # agentcontrol/configs-update
 npm run eval:agentcontrol-tools       # agentcontrol/tools
 npm run eval:configs-variations       # agentcontrol/configs-variations
 npm run eval:flag-create             # feature-flags/launchdarkly-flag-create
+npm run eval:onboarding              # onboarding
+npm run eval:experiment-orchestration # aws-devops-agent/experiment-orchestration
+npm run eval:release-autopilot-onboarding  # release-autopilot/launchdarkly-release-autopilot-onboarding
 
 # Quick smoke check — first test case only (~15-20s, ~$0.05)
 npm run eval:configs-create:single
@@ -40,6 +43,9 @@ npm run eval:configs-update:single
 npm run eval:agentcontrol-tools:single
 npm run eval:configs-variations:single
 npm run eval:flag-create:single
+npm run eval:onboarding:single
+npm run eval:experiment-orchestration:single
+npm run eval:release-autopilot-onboarding:single
 
 # Aggregate and CI operations
 npm run eval:all                     # Run every suite and rebuild ../eval-scores.json
@@ -350,7 +356,7 @@ Every `type: javascript` assertion must return `{ pass: boolean, score: number, 
 |--------|---------|--------|
 | `skill_slug` | (required) | Folder name of the skill under `skills/` |
 | `allow_builtins` | `false` | When `true`, expose Claude Code's built-in tools (Read/Grep/Glob/Bash/Edit/Write). Use for skills that scan the codebase. |
-| `expose_mcp_tools` | `true` | When `false`, do not expose LaunchDarkly mock MCP tools. Use for routing/advisory skills. |
+| `expose_mcp_tools` | `true` | When `false`, do not expose LaunchDarkly mock MCP tools. Use for routing/advisory skills. A test can also set `expose_mcp_tools` as a var to override this for itself, e.g. one "no LaunchDarkly access" case in a suite that otherwise has the mocks. |
 | `force_skill_invocation` | `false` | When `true`, set `initialPrompt` to `/<skill_slug>` so the skill is invoked via slash command. Use for skills whose description-based activation is unreliable. |
 | `expose_ask_question` | `false` | When `true`, expose an `ask-question` MCP tool for testing blocking decision points. |
 

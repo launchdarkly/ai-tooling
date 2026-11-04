@@ -1,0 +1,297 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# Run with shared defaults:
+#   promptfoo eval -c shared/defaults.yaml -c launchdarkly-flag-drift/promptfooconfig.yaml
+#
+# The launchdarkly-flag-drift skill checks whether a flag's in-code SDK fallback
+# default has drifted from its LaunchDarkly default rule (fallthrough), and, only
+# when it has, reconciles the in-code default — without removing the flag or
+# changing its evaluation logic.
+#
+# Mock note: the shared get-flag mock returns an environment whose
+# fallthrough.variation is 1, and variations[1].value is `false`. So the
+# "expected default" the agent should resolve for every flag here is `false`.
+# Drift cases seed an in-code default of `true`; the no-drift case seeds `false`.
+#
+# Cross-environment note: the mock returns the OPPOSITE default
+# (fallthrough.variation 0 -> `true`) for any environment whose key matches
+# /federal/i. So a build serving both `production` (-> `false`) and `federal`
+# (-> `true`) sees divergent fallthroughs, and no single in-code default can
+# match both. Test 4 exercises this: the skill must check every critical
+# environment and surface the divergence instead of blindly reconciling.
+description: "End-to-end evaluation of the launchdarkly-flag-drift skill"
+
+prompts:
+  - file://../../skills/feature-flags/launchdarkly-flag-drift/SKILL.md
+
+providers:
+  - id: file://../providers/claude-skill-agent-sdk.js
+    label: claude-skill-agent-sdk
+    config:
+      skill_slug: launchdarkly-flag-drift
+      allow_builtins: true
+
+tests:
+  # ------------------------------------------------------------------
+  # Test 1: Drift detected — direct SDK call, reconcile the default only
+  # In-code default is `true`; the fallthrough resolves to `false`.
+  # ------------------------------------------------------------------
+  - description: "Drift: reconciles in-code default to match the fallthrough"
+    vars:
+      max_turns: 20
+      user_request: >
+        We changed the default rule for the `billing-v2` flag in production.
+        Check whether the hardcoded SDK fallback default in our code has drifted
+        from LaunchDarkly, and fix it if it has. Project key is "payments".
+      codebase_context: >
+        Node.js service using the LaunchDarkly server-side Node SDK.
+        The flag is evaluated once in src/billing.js:
+          const useV2 = await client.boolVariation('billing-v2', context, true);
+          if (useV2) { return chargeV2(order); } else { return chargeV1(order); }
+      mock_files:
+        "package.json": '{"dependencies":{"@launchdarkly/node-server-sdk":"^9.0.0"}}'
+        "src/billing.js": "const useV2 = await client.boolVariation('billing-v2', context, true);\nif (useV2) {\n  return chargeV2(order);\n} else {\n  return chargeV1(order);\n}\n"
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = tools.includes('get-flag');
+          return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
+        metric: resolves_fallthrough_via_get_flag
+        weight: 3
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','update-individual-targets','update-flag-settings','update-prerequisites','copy-flag-config','create-flag','create-feature-flag'];
+          const called = forbidden.filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'No LD mutations' : 'Called: ' + called.join(', ') };
+        metric: no_ld_mutations
+        weight: 3
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const edited = tools.some(t => ['Edit','Write','MultiEdit'].includes(t));
+          return { pass: edited, score: edited ? 1 : 0.4, reason: edited ? 'Edited code' : 'No code edit recorded' };
+        metric: reconciles_in_code_default
+        weight: 2
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const explored = tools.some(t => ['Read','Grep','Glob'].includes(t));
+          return { pass: true, score: explored ? 1 : 0.5, reason: 'Explored: ' + explored };
+        metric: explores_code
+        weight: 1
+
+      - type: llm-rubric
+        value: |
+          The user asked to reconcile drift for the `billing-v2` flag. The LaunchDarkly
+          default rule (fallthrough) resolves to `false`, but the in-code fallback default
+          was `true`.
+          Score 1.0 if ALL of the following hold:
+          1. The agent resolved the flag's fallthrough value from LaunchDarkly (get-flag)
+             rather than guessing.
+          2. The agent identified drift: in-code default `true` vs fallthrough `false`.
+          3. The agent changed ONLY the fallback default argument to `false`
+             (e.g. boolVariation('billing-v2', context, false)).
+          4. The agent left the evaluation/branching logic intact and did NOT remove the
+             flag or archive/delete/toggle it.
+          Deduct 0.25 for each criterion missed.
+        metric: workflow_quality
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Test 2: No drift — in-code default already matches; no edit, no PR
+  # In-code default is `false`, matching the fallthrough.
+  # ------------------------------------------------------------------
+  - description: "No drift: reports no change and makes no code edits"
+    vars:
+      max_turns: 15
+      user_request: >
+        Does the hardcoded SDK default for the `billing-v2` flag still match its
+        default rule in production? Project key is "payments".
+      codebase_context: >
+        Node.js service using the LaunchDarkly server-side Node SDK.
+        Evaluated in src/billing.js:
+          const useV2 = await client.boolVariation('billing-v2', context, false);
+      mock_files:
+        "package.json": '{"dependencies":{"@launchdarkly/node-server-sdk":"^9.0.0"}}'
+        "src/billing.js": "const useV2 = await client.boolVariation('billing-v2', context, false);\nif (useV2) {\n  return chargeV2(order);\n} else {\n  return chargeV1(order);\n}\n"
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = tools.includes('get-flag');
+          return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
+        metric: resolves_fallthrough_via_get_flag
+        weight: 3
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const edits = tools.filter(t => ['Edit','Write','MultiEdit'].includes(t));
+          const pass = edits.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'No code edits' : 'Edited: ' + edits.join(', ') };
+        metric: no_code_edits_when_no_drift
+        weight: 3
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','create-flag'];
+          const called = forbidden.filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'No LD mutations' : 'Called: ' + called.join(', ') };
+        metric: no_ld_mutations
+        weight: 2
+
+      - type: llm-rubric
+        value: |
+          The in-code fallback default (`false`) already matches the flag's fallthrough
+          value (`false`).
+          Score 1.0 if ALL of the following hold:
+          1. The agent resolved the fallthrough value from LaunchDarkly (get-flag).
+          2. The agent concluded there is NO drift (drift_detected: false).
+          3. The agent made no code changes and did NOT open a pull request.
+          Deduct 0.34 for each criterion missed.
+        metric: workflow_quality
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Test 3: Drift in a wrapper/registry declaration (exploration)
+  # The default is declared once in a defaults registry, not at the call site.
+  # ------------------------------------------------------------------
+  - description: "Wrapper default: finds and reconciles a registry-declared default"
+    vars:
+      max_turns: 20
+      user_request: >
+        The default rule for `checkout-redirect` changed in production. Make sure
+        our in-code default matches. Project key is "web".
+      codebase_context: >
+        TypeScript app. Flag defaults are declared once in a registry, not at the
+        call site. src/flags/defaults.ts holds a map of flag key to fallback value,
+        and components read the flag by key through a wrapper.
+      mock_files:
+        "package.json": '{"dependencies":{"@launchdarkly/js-client-sdk":"^1.0.0"}}'
+        "src/flags/defaults.ts": "export const FLAG_DEFAULTS = {\n  'checkout-redirect': true,\n  'promo-banner': false,\n};\n"
+        "src/checkout.ts": "import { FLAG_DEFAULTS } from './flags/defaults';\nconst redirect = ff.getBool('checkout-redirect', FLAG_DEFAULTS['checkout-redirect']);\n"
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = tools.includes('get-flag');
+          return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
+        metric: resolves_fallthrough_via_get_flag
+        weight: 3
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const explored = tools.some(t => ['Read','Grep','Glob'].includes(t));
+          return { pass: explored, score: explored ? 1 : 0.5, reason: 'Explored: ' + explored };
+        metric: explores_code
+        weight: 2
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','create-flag'];
+          const called = forbidden.filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'No LD mutations' : 'Called: ' + called.join(', ') };
+        metric: no_ld_mutations
+        weight: 2
+
+      - type: llm-rubric
+        value: |
+          The in-code default for `checkout-redirect` is declared in the registry
+          src/flags/defaults.ts as `true`, but the flag's fallthrough resolves to `false`.
+          Score 1.0 if ALL of the following hold:
+          1. The agent resolved the fallthrough value from LaunchDarkly (get-flag).
+          2. The agent located the default in the registry declaration (src/flags/defaults.ts)
+             rather than only inspecting the call site.
+          3. The agent reconciled the registry default from `true` to `false`, and did not
+             remove the flag or change unrelated code.
+          Deduct 0.34 for each criterion missed.
+        metric: workflow_quality
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Test 4: Cross-environment divergence — one build, two critical
+  # environments that disagree on the fallthrough.
+  # The build serves both `production` (fallthrough -> false) and `federal`
+  # (fallthrough -> true, via the mock's /federal/i hook). A single in-code
+  # default cannot match both, so the skill must check each critical
+  # environment and surface the divergence rather than silently editing.
+  # ------------------------------------------------------------------
+  - description: "Divergence: checks each critical env and surfaces cross-env disagreement"
+    vars:
+      max_turns: 20
+      user_request: >
+        Check whether the hardcoded SDK fallback default for the `billing-v2` flag has
+        drifted from LaunchDarkly, and fix it if it has. Project key is "payments".
+        Heads up: this same service is deployed to BOTH our `production` and `federal`
+        LaunchDarkly environments, so the fallback has to be right for both.
+      codebase_context: >
+        Node.js service using the LaunchDarkly server-side Node SDK. The same build is
+        released to both the `production` and `federal` environments. The flag is
+        evaluated once in src/billing.js:
+          const useV2 = await client.boolVariation('billing-v2', context, false);
+          if (useV2) { return chargeV2(order); } else { return chargeV1(order); }
+      mock_files:
+        "package.json": '{"dependencies":{"@launchdarkly/node-server-sdk":"^9.0.0"}}'
+        "src/billing.js": "const useV2 = await client.boolVariation('billing-v2', context, false);\nif (useV2) {\n  return chargeV2(order);\n} else {\n  return chargeV1(order);\n}\n"
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const envs = new Set(
+            traj
+              .filter((t) => t.tool === 'get-flag')
+              .map((t) => (t.arguments || {}).environmentKey || (t.arguments || {}).env)
+              .filter(Boolean)
+          );
+          const pass = envs.size >= 2;
+          return { pass, score: pass ? 1 : 0, reason: 'get-flag environments: ' + [...envs].join(', ') };
+        metric: checks_each_critical_environment
+        weight: 3
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const forbidden = ['delete-flag','archive-flag','toggle-flag','update-rollout','update-targeting-rules','update-individual-targets','update-flag-settings','update-prerequisites','copy-flag-config','create-flag','create-feature-flag'];
+          const called = forbidden.filter((f) => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'No LD mutations' : 'Called: ' + called.join(', ') };
+        metric: no_ld_mutations
+        weight: 2
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const explored = tools.some((t) => ['Read','Grep','Glob'].includes(t));
+          return { pass: true, score: explored ? 1 : 0.5, reason: 'Explored: ' + explored };
+        metric: explores_code
+        weight: 1
+
+      - type: llm-rubric
+        value: |
+          The same build serves two critical LaunchDarkly environments that DISAGREE on the
+          default rule: `production` resolves the fallthrough to `false`, while `federal`
+          resolves it to `true`. The in-code fallback default is `false`.
+          Score 1.0 if ALL of the following hold:
+          1. The agent resolved the fallthrough from LaunchDarkly (get-flag) in BOTH the
+             `production` and `federal` environments, rather than checking only one.
+          2. The agent identified the cross-environment divergence (production `false` vs
+             federal `true`) and recognized that a single in-code default cannot satisfy both.
+          3. The agent did NOT silently reconcile the code to one environment's value; instead
+             it surfaced the divergence and asked which environment is authoritative (or
+             recommended resolving the divergence in LaunchDarkly first).
+          4. The agent did NOT remove, archive, toggle, or otherwise mutate the flag in
+             LaunchDarkly.
+          Deduct 0.25 for each criterion missed.
+        metric: workflow_quality
+        weight: 3

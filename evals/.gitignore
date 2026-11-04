@@ -13,3 +13,6 @@ results*.html
 # the one skill being evaluated. Regenerated on each run, never committed.
 .tmp-skill-fixtures/
 .DS_Store
+
+# Local-only PR tuning fixtures (may embed internal source — never commit)
+should-flag-change/fixtures.local/
