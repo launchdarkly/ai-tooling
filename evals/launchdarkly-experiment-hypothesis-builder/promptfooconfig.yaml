@@ -1,11 +1,13 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 #
-# Evaluates launchdarkly-experiment-hypothesis-builder — an advisory skill that
-# coaches a hypothesis and hands off, never writing. The skill
-# returns one JSON object (SKILL.md "Structured output mode (headless)").
+# Evaluates launchdarkly-experiment-hypothesis-builder, an advisory skill that
+# grades a hypothesis and hands off, never writing. Most cases use structured
+# mode (SKILL.md "Structured mode": one JSON object). Cases with
+# `mode: conversation` check the conversational mode instead and skip the
+# JSON contract check.
 #
 # Run: promptfoo eval -c shared/defaults.yaml -c launchdarkly-experiment-hypothesis-builder/promptfooconfig.yaml
-description: "Headless contract evaluation of the launchdarkly-experiment-hypothesis-builder skill"
+description: "Structured-mode contract and conversational checks for the launchdarkly-experiment-hypothesis-builder skill"
 
 prompts:
   # A function prompt, not the raw SKILL.md — see prompt.js for why.
@@ -17,7 +19,9 @@ providers:
     label: claude-skill-agent-sdk
     config:
       skill_slug: launchdarkly-experiment-hypothesis-builder
-      expose_mcp_tools: false
+      # The skill may look up flags and metrics, never write. Expose only the
+      # read-only tools so a write is impossible, and assert none are attempted.
+      mcp_tool_allowlist: [get-flag, list-flags, get-metric, list-metrics, get-project, get-environment]
       expose_ask_question: false
       force_skill_invocation: true    # force-load the skill so the eval tests it, not base Claude
 
@@ -32,6 +36,9 @@ defaultTest:
     - type: javascript
       value: |
         const ROUTES = ['scaffold','rewrite','junk','aa'];
+        if (context.vars && context.vars.mode === 'conversation') {
+          return { pass: true, score: 1, reason: 'conversational case: JSON contract n/a' };
+        }
         const want = (context.vars && context.vars.expect) || {};
         const text = String((output && (output.response || output.first_assistant_text)) || '');
 
@@ -89,6 +96,17 @@ defaultTest:
         if (want.hypothesisEquals !== undefined) {
           add('hypothesis_exact', String(payload.hypothesis || '').trim() === want.hypothesisEquals.trim(), `got ${JSON.stringify(String(payload.hypothesis || '').slice(0,120))}`);
         }
+        // `matches` is optional, but any metric key in it must come from a lookup.
+        const MOCK_METRIC_KEYS = ['checkout-completed', 'page-load-ms'];
+        if (payload.matches && payload.matches.metricKey !== undefined) {
+          add('matches.metricKey_real', MOCK_METRIC_KEYS.includes(payload.matches.metricKey), `invented key ${JSON.stringify(payload.matches.metricKey)}`);
+        }
+        if (['junk', 'aa'].includes(payload.route)) {
+          add('no_matches_on_junk_or_aa', payload.matches === undefined, 'matches present on junk/aa route');
+        }
+        if (want.matchesMetricKey !== undefined) {
+          add('matches.metricKey', Boolean(payload.matches) && payload.matches.metricKey === want.matchesMetricKey, `expected ${want.matchesMetricKey}, got ${JSON.stringify(payload.matches)}`);
+        }
         for (const needle of (want.mustNotContain || [])) {
           add(`no_echo(${needle})`, !text.includes(needle), 'raw input echoed back');
         }
@@ -109,7 +127,7 @@ tests:
   # The one case with a fixed output string (SKILL.md "A/A tests").
   - description: "A/A: routes to the A/A path with the fixed hypothesis, not a built experiment"
     vars:
-      max_turns: 3
+      max_turns: 6
       user_request: |
         Reply with one JSON object and nothing else — no prose, no markdown fences.
 
@@ -117,14 +135,14 @@ tests:
         A/A test to validate bucketing.
       expect:
         route: aa
-        components: { change: true, measurement: true, rationale: true }
+        components: { change: false, measurement: false, rationale: false }
         holes: []
         hypothesisEquals: "If we split traffic evenly between two identical variants, then key metrics show no meaningful difference, because the only thing that differs is random assignment."
 
   # ---- Gate 2: junk — reserved for non-attempts ------------------------------
   - description: "Junk: gibberish routes to junk with all three components absent"
     vars:
-      max_turns: 3
+      max_turns: 6
       user_request: |
         Reply with one JSON object and nothing else — no prose, no markdown fences.
 
@@ -138,7 +156,7 @@ tests:
 
   - description: "Junk: a bare link routes to junk"
     vars:
-      max_turns: 3
+      max_turns: 6
       user_request: |
         Reply with one JSON object and nothing else — no prose, no markdown fences.
 
@@ -151,7 +169,7 @@ tests:
   # Security rule: same generic scaffold, but never render the raw input back.
   - description: "Security: injection routes to junk and is never echoed back"
     vars:
-      max_turns: 3
+      max_turns: 6
       user_request: |
         Reply with one JSON object and nothing else — no prose, no markdown fences.
 
@@ -165,7 +183,7 @@ tests:
   # Coherent intent is never junk 
   - description: "Bare goal: a specific outcome is a measurement with holes, not junk"
     vars:
-      max_turns: 3
+      max_turns: 6
       user_request: |
         Reply with one JSON object and nothing else — no prose, no markdown fences.
 
@@ -179,7 +197,7 @@ tests:
 
   - description: "Lone rationale: a standalone mechanism scaffolds, not junk"
     vars:
-      max_turns: 3
+      max_turns: 6
       user_request: |
         Reply with one JSON object and nothing else — no prose, no markdown fences.
 
@@ -193,7 +211,7 @@ tests:
 
   - description: "Vague direction: not a measurement, but still a scaffold not junk"
     vars:
-      max_turns: 3
+      max_turns: 6
       user_request: |
         Reply with one JSON object and nothing else — no prose, no markdown fences.
 
@@ -211,7 +229,7 @@ tests:
   # "Not a restatement" rule), so the case isolates the unfalsifiable rule.
   - description: "Unfalsifiable outcome: measurement is treated as missing"
     vars:
-      max_turns: 3
+      max_turns: 6
       user_request: |
         Reply with one JSON object and nothing else — no prose, no markdown fences.
 
@@ -224,17 +242,11 @@ tests:
         measurements: { count: 0 }
 
   # ---- Rule 4: exactly one primary measurement ------------------------------
-  # `holes` is deliberately NOT asserted here — SKILL.md is self-contradictory on
-  # what the sentence should look like for this state, and pinning either reading
-  # in a test would freeze an undecided design question:
-  #   - rule 4 (line 25):  "keep one primary in the sentence" (i.e. slot filled)
-  #   - line 233:          "surface them in the hole with 'or'" (i.e. slot is a hole)
-  #   - line 197:          holes are for "missing" slots, yet measurement is present
-  # Also open: when the predicted outcome and the named metric differ, which one
-  # becomes primary? Resolve both in SKILL.md, then assert.
+  # SKILL.md 0.4.0: the primary (the first stated) goes in the sentence, so the
+  # measurement slot is filled and only the rationale is a hole.
   - description: "Multiple measurements: two distinct outcomes, exactly one primary"
     vars:
-      max_turns: 3
+      max_turns: 6
       user_request: |
         Reply with one JSON object and nothing else — no prose, no markdown fences.
 
@@ -243,12 +255,13 @@ tests:
       expect:
         route: scaffold
         components: { change: true, measurement: true, rationale: false }
+        holes: [rationale]
         measurements: { min: 2 }
 
   # ---- The strong state: 3/3 in canonical order, no holes -------------------
   - description: "Complete hypothesis: all three components, no holes"
     vars:
-      max_turns: 3
+      max_turns: 6
       user_request: |
         Reply with one JSON object and nothing else — no prose, no markdown fences.
 
@@ -259,3 +272,76 @@ tests:
         components: { change: true, measurement: true, rationale: true }
         holes: []
         measurements: { count: 1 }
+
+  # ---- Lookups: read-only, and they only populate `matches` -----------------
+  - description: "Lookup: an existing metric the user names is reported in matches, scoring unchanged"
+    vars:
+      max_turns: 8
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+        Project key is "default".
+
+        Hypothesis field text:
+        If we cut the checkout form from three steps to one, then more people complete checkout (we track this as checkout-completed), because fewer steps means fewer chances to drop off.
+      expect:
+        route: scaffold
+        components: { change: true, measurement: true, rationale: true }
+        holes: []
+        matchesMetricKey: checkout-completed
+
+  # ---- Conversational mode ---------------------------------------------------
+  - description: "Conversation: partial idea gets a rubric, question holes, and no invented measurement"
+    vars:
+      mode: conversation
+      max_turns: 6
+      user_request: |
+        I want to make the signup button on our homepage bigger. Can you help me write the hypothesis?
+    assert:
+      - type: javascript
+        value: |
+          const text = String(output.response || '');
+          let isJson = false; try { JSON.parse(text.trim()); isJson = true; } catch (e) {}
+          const hasHole = /\[[^\]]*\?\s*\]/.test(text);
+          const pass = !isJson && hasHole;
+          return { pass, score: pass ? 1 : 0, reason: `json_only=${isJson} bracketed_question_hole=${hasHole}` };
+        metric: conversational_shape
+        weight: 2
+      - type: llm-rubric
+        value: |
+          The user only described a change (a bigger homepage signup button). Score 1.0 if all hold:
+          1. The reply shows which of Change / Measurement / Rationale are present (change present, the other two missing).
+          2. It gives an If/then/because sentence where the missing parts are written as questions, not answers.
+          3. It does NOT invent the outcome (for example it must not assume "more signups" or "more clicks" in the sentence) and does NOT invent a reason.
+          4. It asks the user to fill in what's missing rather than filling it in for them.
+          Deduct 0.25 for each criterion missed.
+        metric: coaching_quality
+        weight: 2
+
+  - description: "Conversation: a strong hypothesis is confirmed and handed off, with no writes"
+    vars:
+      mode: conversation
+      max_turns: 8
+      user_request: |
+        Here's my hypothesis: If we move the signup form above the fold on the landing page, then more visitors will complete signup, because they won't have to scroll to find it. That's final, please hand it off so we can set up the experiment.
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const READ = ['get-flag', 'list-flags', 'get-metric', 'list-metrics', 'get-project', 'get-environment'];
+          const writes = tools.filter(t => !READ.includes(t) && /^(create|update|toggle|start|stop|archive|delete)-/.test(t));
+          const text = String(output.response || '');
+          const handoff = text.includes('handoffFrom') || text.includes('launchdarkly-experiment-setup');
+          const pass = writes.length === 0 && handoff;
+          return { pass, score: pass ? 1 : 0, reason: `writes=[${writes.join(',')}] handoff=${handoff}` };
+        metric: handoff_no_writes
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The user gave a complete hypothesis in If/then/because order and asked for a handoff. Score 1.0 if all hold:
+          1. The reply treats it as strong (all three components present) and does not ask for more.
+          2. It produces a handoff for launchdarkly-experiment-setup whose primary measurement is "complete signup" in the user's words, not a renamed metric.
+          3. It does not claim that any flag, metric, or experiment was created or saved.
+          Deduct 0.34 for each criterion missed.
+        metric: handoff_quality
+        weight: 2
+
