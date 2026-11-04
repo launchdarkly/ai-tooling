@@ -1,12 +1,4 @@
 {
-  "get-metric": {
-    "key": "{{metricKey}}",
-    "name": "{{metricKey}}",
-    "kind": "custom",
-    "measureType": "occurrence",
-    "eventKey": "{{metricKey}}",
-    "successCriteria": "HigherThanBaseline"
-  },
   "get-environment": {
     "key": "{{environmentKey}}",
     "name": "{{environmentKey}}",

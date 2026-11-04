@@ -156,7 +156,7 @@ function flagStatusResponse(flagKey, productionStatus) {
 }
 
 // experiment-setup sentinel. The exact key cta-clicked is not in that suite's
-// list-metric-events template; a query for it returns the similar keys from
+// get-metric-events template; a query for it returns the similar keys from
 // the template that was passed in. Every other call falls through and returns
 // that template unchanged, so another suite keeps its own event list.
 function similarCtaMetricEvents(template, replacements) {
@@ -658,21 +658,21 @@ function renderMockResponse(template, input, toolName, state) {
 
   if (toolName === "search-contexts") return searchContextsResponse(input || {});
 
-  if (toolName === "list-metric-events") {
+  if (toolName === "get-metric-events") {
     const query = typeof (input || {}).query === "string" ? input.query.trim().toLowerCase() : "";
     if (query === "cta-clicked") return similarCtaMetricEvents(template, replacements);
   }
 
-  if (toolName === "list-flags") {
-    // experiment-setup's missing-flag case uses this project. Any search there
-    // returns the similar keys and omits the missing one. Other projects, and
-    // list-feature-flags, keep the template they were given.
+  if (mode === "get-flags") {
+    // experiment-setup's missing-flag case uses this project. Any list call there
+    // returns the similar keys and omits the missing one. Other projects keep
+    // the template they were given.
     const projectKey =
       typeof (input || {}).projectKey === "string" ? input.projectKey.trim() : "";
     if (projectKey === "exp-setup-missing-flag") return similarCheckoutFlags();
   }
 
-  if (toolName === "get-experiment") {
+  if (toolName === "get-experiments") {
     const experimentKey = input.experimentKey || input.key;
     if (experimentKey === "checkout-running") return runningExperiment(input);
   }
