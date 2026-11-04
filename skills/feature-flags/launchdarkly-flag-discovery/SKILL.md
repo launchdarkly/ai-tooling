@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.2.0-experimental"
+  version: "1.1.0-experimental"
 ---
 
 # LaunchDarkly Flag Discovery
@@ -91,7 +91,7 @@ Group flags into actionable categories:
 
 If the user wants to know whether a specific flag can be removed, use `check-removal-readiness`. This tool orchestrates multiple API calls in parallel and returns a structured verdict:
 
-- **`safe`**: No blockers or warnings, and LaunchDarkly marks the flag ready for code removal (`details.lifecycle.readyForCodeRemoval` is `true`). Recommend the cleanup workflow.
+- **`safe`**: No blockers or warnings, and LaunchDarkly marks the flag ready for code removal (`details.lifecycle.readyForCodeRemoval` is `true`). Recommend the cleanup workflow. If instead `details.lifecycle.codeAlreadyRemoved` is `true`, the flag is launched everywhere and has no code references left: recommend archiving it.
 - **`caution`**: Warnings exist (code references, expiring targets, permanent flag type, or `code_removal_readiness_unavailable`). `caution` is not permission to remove code. Present each warning and ask the user to confirm before you recommend removal. For `code_removal_readiness_unavailable`, ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment.
 - **`blocked`**: Hard blockers (dependent flags, active requests, targeting rules, or `not_ready_for_code_removal`). Must resolve first. Do not recommend code removal. For `not_ready_for_code_removal`, name the critical environments where the flag is not `launched` (from the blocker detail or `details.lifecycle.environments`).
 - **`blocked` with `details.lifecycle.readyToArchive: true`**: the flag is inactive everywhere and has no code references. Recommend archiving the flag in LaunchDarkly, not code removal.

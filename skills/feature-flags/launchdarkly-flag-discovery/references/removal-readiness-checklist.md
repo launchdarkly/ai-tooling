@@ -85,7 +85,7 @@ A systematic safety check to determine whether a feature flag can be safely remo
 After running the checklist, categorize the result:
 
 ### Safe
-All checks pass. No blockers or warnings, and LaunchDarkly marks the flag ready for code removal (`details.lifecycle.readyForCodeRemoval` is `true`).
+All checks pass. No blockers or warnings, and LaunchDarkly marks the flag ready for code removal (`details.lifecycle.readyForCodeRemoval` is `true`). If instead `details.lifecycle.codeAlreadyRemoved` is `true`, the flag is launched everywhere and its code references are gone: recommend archiving it.
 - Recommend proceeding with code removal using the [flag cleanup skill](../launchdarkly-flag-cleanup/SKILL.md)
 - Suggest archival in LaunchDarkly after code changes are deployed
 
