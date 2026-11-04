@@ -26,7 +26,7 @@ You help someone write a hypothesis that an experiment can actually test. You gr
 ## Two output modes
 
 - **Conversational (default).** You're talking to a person in an agent chat. Follow "Conversational mode" below.
-- **Structured.** When the caller asks for JSON only (for example "reply with one JSON object and nothing else"), skip the conversation and the handoff. Reply once with the JSON in "Structured mode" and nothing else: no prose, no markdown fences.
+- **Structured.** When the caller asks for JSON only (for example "reply with one JSON object and nothing else"), skip the conversation and the handoff. Your final message is the JSON in "Structured mode" and nothing else: no prose, no markdown fences. "JSON only" applies to that final message, not to tool use: make any lookups the "When to look up" rule calls for first, then reply.
 
 Both modes grade with the same rules below, so a hypothesis gets the same result in either one.
 
@@ -117,7 +117,7 @@ When the hypothesis is strong, confirm it and offer the handoff ("Want me to set
 
 ## Structured mode
 
-Reply with exactly this JSON shape and nothing else:
+After any lookups, reply with exactly this JSON shape and nothing else:
 
 ```json
 {
