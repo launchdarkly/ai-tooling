@@ -445,6 +445,39 @@ test("update-agent-config uses template substitution", () => {
   assert.equal(result.name, "Bot");
 });
 
+test("update-agent-config rejects archived like the server and leaves state alone", () => {
+  const state = createMockState();
+  state.configs["bot"] = { key: "bot", name: "Bot", tags: [] };
+  const result = renderMockResponse(TEMPLATES["update-agent-config"], {
+    resource: "config",
+    configKey: "bot",
+    archived: true,
+  }, "update-agent-config", state);
+  assert.equal(result.status, 400);
+  assert.match(result.message, /cannot be archived/);
+  assert.equal(state.configs["bot"].archived, undefined);
+});
+
+test("update-agent-config resource=config stores maintainer and default variation", () => {
+  const state = createMockState();
+  state.configs["bot"] = { key: "bot", name: "Bot", tags: [] };
+  const result = renderMockResponse(TEMPLATES["update-agent-config"], {
+    resource: "config",
+    configKey: "bot",
+    maintainerTeamKey: "ai-team",
+    defaultVariationKey: "candidate",
+  }, "update-agent-config", state);
+  assert.equal(result.maintainerTeamKey, "ai-team");
+  assert.equal(result.defaultVariationKey, "candidate");
+});
+
+test("get-agent-configs section=status has a template with per-environment state", () => {
+  assert.equal(templateKey("get-agent-configs", { configKey: "c", section: "status" }), "get-agent-configs#status");
+  const result = renderMockResponse(TEMPLATES["get-agent-configs#status"], { configKey: "bot" }, "get-agent-configs", createMockState());
+  assert.equal(result.configKey, "bot");
+  assert.deepEqual(Object.keys(result.environments).sort(), ["production", "staging"]);
+});
+
 // ---------------------------------------------------------------------------
 // templateKey
 // ---------------------------------------------------------------------------

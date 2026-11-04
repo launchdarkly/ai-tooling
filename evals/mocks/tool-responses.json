@@ -298,8 +298,7 @@
     "key": "{{configKey}}",
     "name": "{{configName}}",
     "description": "",
-    "tags": [],
-    "archived": false
+    "tags": []
   },
   "delete-agent-config": {
     "deleted": true,
@@ -342,6 +341,29 @@
         "toolsAttached": 0
       }
     ]
+  },
+  "get-agent-configs#status": {
+    "configKey": "{{configKey}}",
+    "environments": {
+      "production": {
+        "state": "inactive",
+        "lastRequested": "2026-09-01T12:00:00Z",
+        "on": true
+      },
+      "staging": {
+        "state": "inactive",
+        "lastRequested": "2026-08-28T09:30:00Z",
+        "on": true
+      }
+    },
+    "summary": {
+      "activeIn": [],
+      "inactiveIn": [
+        "production",
+        "staging"
+      ],
+      "launchedIn": []
+    }
   },
   "create-agent-config#variation": {
     "configKey": "{{configKey}}",

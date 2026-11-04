@@ -148,7 +148,9 @@ function templateKey(toolName, input) {
       return safe.flagKey ? "get-flags#flagKey" : toolName;
     case "get-agent-configs":
       if (!safe.configKey) return toolName;
-      return safe.section === "health" ? "get-agent-configs#health" : "get-agent-configs#configKey";
+      if (safe.section === "health") return "get-agent-configs#health";
+      if (safe.section === "status") return "get-agent-configs#status";
+      return "get-agent-configs#configKey";
     case "get-ai-tools":
       return safe.toolKey ? "get-ai-tools#toolKey" : toolName;
     case "get-projects":
@@ -403,9 +405,22 @@ function renderMockResponse(template, input, toolName, state) {
   }
 
   if (mode === "update-agent-config") {
+    // The server rejects archived: an AgentControl Config cannot be archived.
+    if (input.archived !== undefined) {
+      return {
+        error: "invalid_input",
+        status: 400,
+        message:
+          "archived is not supported: an AgentControl Config cannot be archived. " +
+          "Delete it with delete-agent-config resource=config and confirm=true",
+      };
+    }
     const cfg = state.configs[input.configKey];
     if (cfg) {
-      const CONFIG_FIELDS = ["name", "description", "tags", "archived"];
+      const CONFIG_FIELDS = [
+        "name", "description", "tags", "defaultVariationKey",
+        "evaluationMetricKey", "isInverted", "maintainerId", "maintainerTeamKey",
+      ];
       for (const k of CONFIG_FIELDS) {
         if (input[k] !== undefined) cfg[k] = input[k];
       }
