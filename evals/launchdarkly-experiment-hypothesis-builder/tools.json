@@ -5,10 +5,19 @@
     "input_schema": {
       "type": "object",
       "properties": {
-        "projectKey": { "type": "string", "description": "The project key" },
-        "metricKey": { "type": "string", "description": "The metric key" }
+        "projectKey": {
+          "type": "string",
+          "description": "The project key"
+        },
+        "metricKey": {
+          "type": "string",
+          "description": "The metric key"
+        }
       },
-      "required": ["projectKey", "metricKey"]
+      "required": [
+        "projectKey",
+        "metricKey"
+      ]
     }
   },
   {
@@ -17,10 +26,89 @@
     "input_schema": {
       "type": "object",
       "properties": {
-        "projectKey": { "type": "string", "description": "The project key" },
-        "environmentKey": { "type": "string", "description": "The environment key" }
+        "projectKey": {
+          "type": "string",
+          "description": "The project key"
+        },
+        "environmentKey": {
+          "type": "string",
+          "description": "The environment key"
+        }
       },
-      "required": ["projectKey", "environmentKey"]
+      "required": [
+        "projectKey",
+        "environmentKey"
+      ]
+    }
+  },
+  {
+    "name": "get-flags",
+    "description": "Without flagKey: list feature flags in a project (query, limit). With flagKey: get full details for one flag.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "The project key"
+        },
+        "flagKey": {
+          "type": "string",
+          "description": "Get one flag by key"
+        },
+        "query": {
+          "type": "string",
+          "description": "Search flags by name or key"
+        },
+        "limit": {
+          "type": "number",
+          "description": "Max results"
+        }
+      },
+      "required": [
+        "projectKey"
+      ]
+    }
+  },
+  {
+    "name": "get-metrics",
+    "description": "LaunchDarkly metrics used by experiments. Without metricKey: list metrics in a project (query, limit). With metricKey: get full details for one metric.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "The project key"
+        },
+        "metricKey": {
+          "type": "string",
+          "description": "Get one metric by key"
+        },
+        "query": {
+          "type": "string",
+          "description": "Search metrics by name or key"
+        },
+        "limit": {
+          "type": "number",
+          "description": "Max results"
+        }
+      },
+      "required": [
+        "projectKey"
+      ]
+    }
+  },
+  {
+    "name": "get-projects",
+    "description": "Without projectKey: list projects. With projectKey: get one project.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "Get one project by key"
+        }
+      },
+      "required": []
     }
   }
 ]
