@@ -256,10 +256,18 @@
       ]
     },
     {
+      "name": "launchdarkly-experiment-hypothesis-builder",
+      "description": "Help a user turn a rough idea into a strong, testable experiment hypothesis, or grade one they already wrote. Scores the draft against the Change / Measurement / Rationale rubric, scaffolds an If/then/because sentence with fill-in questions for what is missing, and detects junk input, A/A tests, and multiple measurements. Coaches in conversation, or returns the experiment builder's JSON contract when the caller asks for JSON only. Can check existing flags and metrics with read-only lookups, then hands off to launchdarkly-experiment-setup. Never writes to LaunchDarkly.",
+      "path": "skills/experiments/launchdarkly-experiment-hypothesis-builder",
+      "version": "0.4.0",
+      "license": "Apache-2.0",
+      "compatibility": "Works without tools. When the LaunchDarkly MCP server is connected, uses read-only lookups only. Hands off to launchdarkly-experiment-setup for anything that creates or changes a resource."
+    },
+    {
       "name": "launchdarkly-experiment-setup",
       "description": "Set up and run experiments in LaunchDarkly. Create experiments with metrics, treatments, and flag config, start iterations to collect data, swap design between iterations, and stop with a winner.",
       "path": "skills/experiments/launchdarkly-experiment-setup",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },

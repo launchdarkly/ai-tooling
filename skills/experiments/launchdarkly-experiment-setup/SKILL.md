@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # LaunchDarkly Experiment Setup
@@ -56,7 +56,7 @@ Experiments in LaunchDarkly measure the impact of feature flag variations on key
 ## Core Principles
 
 1. **Metrics first**: ensure the metrics you'll reference exist before creating the experiment.
-2. **Clear hypothesis**: every iteration requires a `hypothesis` string from the user. See Before you create anything.
+2. **Clear hypothesis**: every iteration requires a `hypothesis` string from the user. See Before you create anything. If the hypothesis is missing or weak (no measurable outcome, no reason the change would work, or not testable) and `launchdarkly-experiment-hypothesis-builder` is installed, follow it first to get a strong hypothesis and its handoff payload.
 3. **Proper controls**: exactly one treatment must have `baseline: true`.
 4. **Sufficient sample size**: let iterations run long enough to support a decision. See Step 7.
 5. **One change at a time**: test one variable per experiment for clear attribution.
@@ -69,7 +69,7 @@ These three must come from the user. Never fill them in:
 - **Hypothesis**: what they expect to improve, and by how much if they know.
 - **Primary metric**: the single metric or funnel that decides the result.
 
-If any of these three are missing, leave them blank until the user supplies them. They go in the gather message. See the workflow. Once the user names the flag, see Step 2.
+If you received a handoff payload from `launchdarkly-experiment-hypothesis-builder`, use its `hypothesis` as the hypothesis, and treat `primaryMeasurement` as the user's description of the primary metric: confirm the metric with them, using `matches.metricKey` as the first candidate when it is present. If any of these three are missing, leave them blank until the user supplies them. They go in the gather message. See the workflow. Once the user names the flag, see Step 2.
 
 **Control variation**: which of those variations is the baseline (`baseline: true`). If the user named it, use that. If they did not:
 

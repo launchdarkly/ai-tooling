@@ -1,0 +1,301 @@
+[
+  {
+    "name": "get-flag-status-across-envs",
+    "description": "Check a flag's lifecycle status across all environments. Returns per-environment state (active, inactive, new, launched) and a summary of which environments the flag is active, inactive, or launched in. Use before cleanup to verify the flag is inactive everywhere.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "flagKey": {
+          "type": "string"
+        },
+        "projectKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagKey"
+      ]
+    }
+  },
+  {
+    "name": "list-metric-events",
+    "description": "List recent event keys received by a LaunchDarkly project \u2014 used to check which events are actively flowing before creating a metric. Returns up to 50 event keys with last-seen timestamps. If the event key you need isn't here, it may not be instrumented yet. Use this BEFORE create-metric to: 1. Confirm the event key exists and is receiving data 2. Discover event keys when the user isn't sure what to use 3. Check the correct spelling of an event key Supports fuzzy search via `query` to narrow results. Filter by `environmentKey` to check a specific environment. If the desired event key is absent, surface a warning and ask whether the user wants to instrument the event first or proceed and wire it up later.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "projectKey": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey"
+      ]
+    }
+  },
+  {
+    "name": "search-contexts",
+    "description": "Search for stored LaunchDarkly contexts in an environment by kind, key, or attribute value. Returns context records including their stored attributes (e.g., merchantCountryCode, disbursementRail) and when the context was last seen. Convenience param: - `kind`: filter to a specific context kind (e.g. `Merchant`, `user`, `organization`). Emitted as the filter clause `kind equals \"<kind>\"`. Raw filter syntax (passed in `filter`) uses `field operator value` clauses. Operators: `equals`, `notEquals`, `anyOf`, `startsWith`, `exists`, `before`, `after`; `contains` and `notContains` are not supported. Combine clauses with `,` (AND) or `|` (OR); group with `()`. Supported fields: `kind`, `key`, `kindKey`, `name`, `applicationId`, `q` (fuzzy), and `<kind>.<attribute>` for context attributes. Examples: - `kind equals \"Merchant\"` \u2014 contexts of a specific kind - `Merchant.merchantCountryCode equals \"US\"` \u2014 Merchant contexts whose attribute matches - `key startsWith \"merchant-\"` \u2014 contexts whose key has a prefix - `applicationId equals \"GoSDK/1.2\"` \u2014 contexts reported by a specific SDK/application Example combining both params: set `kind=Merchant` and `filter=Merchant.disbursementRail equals \"PIX\"` to find Merchant contexts on the PIX rail. Note: the contexts API cannot filter by which flag a context evaluated; there is no `flagEvaluated` field. Filter by kind, key, applicationId, or attribute values instead. Ordering is fixed by the API; there is no sort parameter. Pagination: responses include `totalCount` and `continuationToken`. Pass `continuationToken` from the previous response to get the next page.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "filter": {
+          "type": "string"
+        },
+        "projectKey": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "type": "string"
+        },
+        "continuationToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey"
+      ]
+    }
+  },
+  {
+    "name": "save-and-start-experiment-iteration",
+    "description": "Stop the current running iteration, create a new draft iteration with the provided field updates applied, and start it \u2014 the API-recommended way to mutate treatments, metrics, methodology, or other fields that are locked while an iteration is running. Provide `changeJustification` to record why a new iteration is needed. Field inputs are the same as `update-experiment`; updates are checked against the new iteration's not_started mutability rules. Fields not allowed in not_started are returned under `skipped` rather than being sent.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "flags": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "ruleId",
+              "flagConfigVersion"
+            ],
+            "properties": {
+              "ruleId": {
+                "type": "string"
+              },
+              "flagConfigVersion": {
+                "type": "number"
+              },
+              "notInExperimentVariationId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "key"
+            ],
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "isGroup": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "holdoutId": {
+          "type": "string"
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dataSource": {
+          "type": "string",
+          "enum": [
+            "launchdarkly",
+            "snowflake",
+            "databricks"
+          ]
+        },
+        "hypothesis": {
+          "type": "string"
+        },
+        "projectKey": {
+          "type": "string"
+        },
+        "treatments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "baseline",
+              "allocationPercent",
+              "parameters"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "baseline": {
+                "type": "boolean"
+              },
+              "parameters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "flagKey",
+                    "variationId"
+                  ],
+                  "properties": {
+                    "flagKey": {
+                      "type": "string"
+                    },
+                    "variationId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "allocationPercent": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "covariateId": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "methodology": {
+          "type": "string",
+          "enum": [
+            "bayesian",
+            "frequentist",
+            "export_only"
+          ]
+        },
+        "flagSettings": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "ruleId",
+              "flagConfigVersion"
+            ],
+            "properties": {
+              "ruleId": {
+                "type": "string"
+              },
+              "flagConfigVersion": {
+                "type": "number"
+              },
+              "notInExperimentVariationId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "maintainerId": {
+          "type": "string"
+        },
+        "experimentKey": {
+          "type": "string"
+        },
+        "analysisConfig": {
+          "type": "object",
+          "properties": {
+            "testDirection": {
+              "type": "string"
+            },
+            "bayesianThreshold": {
+              "type": "string"
+            },
+            "significanceThreshold": {
+              "type": "string"
+            },
+            "sequentialTestingEnabled": {
+              "type": "boolean"
+            },
+            "multipleComparisonCorrectionScope": {
+              "type": "string",
+              "enum": [
+                "variations",
+                "variations-and-metrics",
+                "metrics"
+              ]
+            },
+            "multipleComparisonCorrectionMethod": {
+              "type": "string",
+              "enum": [
+                "bonferroni",
+                "benjamini-hochberg"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "environmentKey": {
+          "type": "string"
+        },
+        "primaryFunnelKey": {
+          "type": "string"
+        },
+        "randomizationUnit": {
+          "type": "string"
+        },
+        "canReshuffleTraffic": {
+          "type": "boolean"
+        },
+        "changeJustification": {
+          "type": "string"
+        },
+        "primarySingleMetricKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "experimentKey"
+      ]
+    }
+  }
+]
