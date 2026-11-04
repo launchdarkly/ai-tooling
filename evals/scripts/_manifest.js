@@ -97,6 +97,12 @@ const SUITES = [
     skillKey: "aws-devops-agent/experiment-orchestration",
     skillDir: "skills/aws-devops-agent/experiment-orchestration",
   },
+  {
+    suite: "launchdarkly-experiment-hypothesis-builder",
+    skillKey: "experiments/launchdarkly-experiment-hypothesis-builder",
+    skillDir: "skills/experiments/launchdarkly-experiment-hypothesis-builder",
+    readme: "skills/experiments/launchdarkly-experiment-hypothesis-builder/README.md",
+  },
 ];
 
 /**

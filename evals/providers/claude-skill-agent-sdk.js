@@ -43,6 +43,9 @@
  *   tool_mocks             - Optional path, relative to evals/, of a JSON
  *                            object of mock templates for this suite only,
  *                            merged over mocks/tool-responses.json.
+ *   mcp_tool_allowlist     - Optional array of tool names. When set, expose ONLY
+ *                            these tools, e.g. read-only lookups for an advisory
+ *                            skill that must never write.
  *   exclude_mcp_tools      - Optional list of mock tool names to hide, e.g.
  *                            older duplicates the skill's real MCP server
  *                            doesn't have.
@@ -319,6 +322,12 @@ class ClaudeSkillAgentSdk {
       mergeToolDefs(toolDefs, readSuiteJson(config.tool_definitions, [])),
       config.exclude_mcp_tools,
     );
+    // When set, expose ONLY these LaunchDarkly tools (by name), e.g. read-only
+    // tools for an advisory/handoff skill that must never write.
+    if (Array.isArray(config.mcp_tool_allowlist)) {
+      const allowed = new Set(config.mcp_tool_allowlist);
+      this.toolDefs = this.toolDefs.filter((def) => allowed.has(def.name));
+    }
     this.mockTemplates = { ...mockTemplates, ...readSuiteJson(config.tool_mocks, {}) };
     this.inlineSkill = Boolean(config.inline_skill);
 
