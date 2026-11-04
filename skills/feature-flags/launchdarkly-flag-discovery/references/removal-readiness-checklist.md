@@ -6,7 +6,7 @@ A systematic safety check to determine whether a feature flag can be safely remo
 
 ### 1. Cross-Environment Status
 
-**Check:** Use `get-flag-status-across-envs` to verify the flag's state in all environments.
+**Check:** Use `get-flag-status-across-envs` to verify the flag's state in all environments. If you ran `check-removal-readiness`, `details.lifecycle` holds LaunchDarkly's own result: `readyForCodeRemoval`, `readyToArchive`, and the lifecycle status in each critical environment.
 
 **Pass criteria (code removal):**
 - Flag is `launched` in ALL critical environments (production, staging, etc.): targeting ON, one variation served to every context, evaluated in the last 7 days, and targeting not changed in the last 7 days. This is the rule the LaunchDarkly **Ready for cleanup** view uses.
@@ -85,19 +85,22 @@ A systematic safety check to determine whether a feature flag can be safely remo
 After running the checklist, categorize the result:
 
 ### Safe
-All checks pass. No blockers or warnings.
+All checks pass. No blockers or warnings, and LaunchDarkly marks the flag ready for code removal (`details.lifecycle.readyForCodeRemoval` is `true`).
 - Recommend proceeding with code removal using the [flag cleanup skill](../launchdarkly-flag-cleanup/SKILL.md)
 - Suggest archival in LaunchDarkly after code changes are deployed
 
 ### Caution
-No hard blockers, but warnings exist.
-- Present each warning with context
+No hard blockers, but warnings exist. `caution` is not permission to remove code.
+- Present each warning with context, and ask the user to confirm before you recommend code removal
+- For `code_removal_readiness_unavailable`: the tool could not get LaunchDarkly's code removal verdict. Ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment
 - Recommend **archive** (reversible) over **delete** (permanent)
 - Suggest addressing warnings first (e.g., remove code references, then re-check)
 
 ### Blocked
-Hard blockers prevent safe removal.
+Hard blockers prevent safe removal. Do not recommend code removal.
 - Present each blocker with specifics
+- For `not_ready_for_code_removal`: LaunchDarkly does not consider the flag ready for code removal. Name the critical environments where the flag is not `launched` (from the blocker detail or `details.lifecycle.environments`)
+- If `details.lifecycle.readyToArchive` is `true`: the flag is inactive everywhere and has no code references. Recommend archiving the flag in LaunchDarkly, not code removal
 - For prerequisite dependencies: user must update dependent flags first
 - For active targeting: the user should finish the rollout (targeting ON, one variation served to everyone) and wait 7 days without changes. Do not tell the user to turn the flag off: a flag that is off everywhere is not ready for code removal
 - For active status: flag is still being used: don't remove
@@ -109,5 +112,5 @@ Structure the assessment as:
 1. **Verdict**: Lead with safe / caution / blocked
 2. **Blockers** (if any): Each with type and actionable detail
 3. **Warnings** (if any): Each with type and context
-4. **Forward value**: What variation should replace the flag in code (only if safe or caution)
+4. **Forward value**: What variation should replace the flag in code (only if safe, or caution after the user confirms)
 5. **Next steps**: What to do now (proceed with cleanup, address warnings, resolve blockers)

@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.1.0-experimental"
+  version: "1.2.0-experimental"
 ---
 
 # LaunchDarkly Flag Cleanup
@@ -19,7 +19,7 @@ If you haven't already identified which flag to clean up, use the [flag discover
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `check-removal-readiness`: detailed safety check (orchestrates flag config, cross-env status, dependencies, code references, and expiring targets in parallel)
+- `check-removal-readiness`: detailed safety check (orchestrates flag config, cross-env status, dependencies, code references, expiring targets, and LaunchDarkly's own code removal verdict in parallel)
 - `get-flag`: fetch flag configuration for a specific environment
 
 **Optional MCP tools:**
@@ -61,14 +61,19 @@ Use `check-removal-readiness` to get a detailed safety assessment. This single t
 - Dependent flags (prerequisites)
 - Expiring targets
 - Code reference statistics
+- LaunchDarkly's code removal verdict from the project's flag lifecycle settings (`details.lifecycle`)
 
 The tool returns a readiness verdict:
 
-**`safe`**: No blockers or warnings. Proceed with removal.
+**`safe`**: No blockers or warnings, and LaunchDarkly marks the flag ready for code removal (`details.lifecycle.readyForCodeRemoval` is `true`). Continue to the "Ready for cleanup" check below.
 
-**`caution`**: No hard blockers but warnings exist (e.g., code references in other repos, expiring targets scheduled, flag marked as permanent). Present warnings and let the user decide.
+**`caution`**: No hard blockers, but warnings exist (e.g., code references in other repos, expiring targets scheduled, flag marked as permanent, or `code_removal_readiness_unavailable`). `caution` is not permission to remove code. Present each warning and ask the user to confirm before you continue. For `code_removal_readiness_unavailable`, the tool could not get LaunchDarkly's code removal verdict: ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment.
 
-**`blocked`**: Hard blockers prevent safe removal (e.g., dependent flags, actively receiving requests, targeting is on with active rules). Present blockers: the user must resolve them first.
+**`blocked`**: Hard blockers prevent removal (e.g., dependent flags, actively receiving requests, targeting is on with active rules, or `not_ready_for_code_removal`). Present blockers: the user must resolve them first. Do not remove code.
+
+For a `not_ready_for_code_removal` blocker, tell the user why LaunchDarkly does not consider the flag ready for code removal. The blocker detail and `details.lifecycle.environments` name the critical environments where the flag is not `launched`.
+
+**If `details.lifecycle.readyToArchive` is `true`, suggest archiving the flag instead.** LaunchDarkly considers the flag inactive in every critical environment and without code references. Offer to archive it with `archive-flag`. Do not remove code and do not hardcode a variation. If you found references in Step 1, tell the user that LaunchDarkly reports no code references for this flag, so code references may not be set up for this repository.
 
 #### Also apply LaunchDarkly's "Ready for cleanup" rule
 
@@ -86,7 +91,7 @@ The verdict alone is not enough. Use the same rule as the **Ready for cleanup** 
 
 The day counts are the defaults. A project can change them, and it can turn off the temporary, prerequisite, and single-variation checks, in its flag lifecycle settings.
 
-Use `get-flag` in each critical environment and the lifecycle status from `check-removal-readiness` to check items 1 to 4.
+`details.lifecycle.readyForCodeRemoval` from `check-removal-readiness` is LaunchDarkly's result for this rule, with the project's own lifecycle settings and critical environments. Use `get-flag` in each critical environment to confirm items 1 to 4.
 
 **A flag that is OFF in a critical environment is not `launched`, so it is not ready for code removal.** This is true even when every critical environment is OFF and serves the same `offVariation`. A flag that is off everywhere often guards a feature that was never released. If you hardcode the `offVariation`, you delete the code for that feature. LaunchDarkly lists a flag that is off everywhere, has had no evaluations recently, and has no code references as **ready to archive**, not as ready for code removal.
 
@@ -175,6 +180,8 @@ Before considering the job done:
 | Flag not found in LaunchDarkly | Inform user, check for typos in the key |
 | Flag already archived | Ask if code cleanup is still needed (flag is gone from LD but code may still reference it) |
 | Flag is OFF in every critical environment | Not ready for code removal (not `launched`). Stop and tell the user. Continue with `offVariation` only if the user explicitly confirms that the code behind the other variations is abandoned |
+| `blocked` with `details.lifecycle.readyToArchive: true` | Suggest archiving the flag with `archive-flag`. Do not remove code |
+| `caution` with `code_removal_readiness_unavailable` | Do not remove code until the user confirms in LaunchDarkly that the flag is launched in every critical environment |
 | Multiple SDK patterns in codebase | Search all patterns: `variation()`, `boolVariation()`, `variationDetail()`, `allFlags()`, `useFlags()`, plus any wrappers |
 | Dynamic flag keys (`flag-${id}`) | Warn that automated removal may be incomplete: manual review required |
 | Different default values in code vs LD | Flag as inconsistency in the PR description |
