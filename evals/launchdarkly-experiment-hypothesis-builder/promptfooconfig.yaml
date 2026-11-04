@@ -22,6 +22,10 @@ providers:
       # The skill may look up flags and metrics, never write. Expose only the
       # read-only tools so a write is impossible, and assert none are attempted.
       mcp_tool_allowlist: [get-flag, list-flags, get-metric, list-metrics, get-project, get-environment]
+      # The shared tool set has no get-metric or get-environment; add them so every
+      # read tool the skill lists exists here.
+      tool_definitions: launchdarkly-experiment-hypothesis-builder/tools.json
+      tool_mocks: launchdarkly-experiment-hypothesis-builder/mocks.json
       expose_ask_question: false
       force_skill_invocation: true    # force-load the skill so the eval tests it, not base Claude
 
