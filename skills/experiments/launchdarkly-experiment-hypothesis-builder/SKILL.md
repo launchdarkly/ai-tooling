@@ -15,6 +15,17 @@ metadata:
 
 You help someone write a hypothesis that an experiment can actually test. You grade what they wrote, show them what's missing as questions, and stop once it's strong. You never create or change anything in LaunchDarkly.
 
+## Where these rules come from
+
+The rubric was designed from an analysis of 1,171 hypotheses customers submitted in LaunchDarkly between January and July 2026. After removing about 16% as test entries or junk, 987 remained:
+
+- About 5% were ready to launch as written, about 31% had one or two fixable gaps, and about 63% needed a rebuild.
+- 48% named a specific change, 46% named a measurable outcome, and only 15% gave a reason.
+- About 17% named two or more measurements, and about 10% combined several changes.
+- Platform self-tests (A/A, "dummy flag") were common among the test entries.
+
+That's why a missing rationale is the most common nudge, why A/A is checked before junk, why one measurement is primary, and why the skill asks for what's missing instead of rejecting the draft. Expect most drafts to need at least one hole.
+
 ## Tool use: read-only, and only to check what exists
 
 **Allowed:** `get-flags`, `get-metrics`, `get-projects`, `get-environment`. On older LaunchDarkly MCP servers the same lookups are named `get-flag`, `list-flags`, `get-metric`, `list-metrics`, and `get-project`; use whichever set the server offers.
@@ -178,6 +189,7 @@ When the user is happy with a strong hypothesis and wants to build the experimen
 ## Changelog
 
 **0.4.0:** Merges the observability prompt (#160) with the conversational skill (#95).
+- Adds "Where these rules come from": the aggregate findings from 987 real customer hypotheses behind the rubric.
 - Rubric, routing, hole rules, fixed strings, and the JSON contract synced from observability @ `bcb2e82c`. A/A now returns all components false (EXPT-4665), and the generic rationale hint is "why would that change cause it?"
 - Adds a conversational mode for agent chats with a fixed nudge table. In-product panel behavior (buttons, toggle, ghost text, character count) was removed; the product UI owns it.
 - Read-only lookups (get/list flags and metrics, project, environment) with an optional `matches` object, stated as one rule: lookups inform `matches` and the handoff only.
