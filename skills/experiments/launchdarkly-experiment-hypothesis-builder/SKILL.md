@@ -117,7 +117,7 @@ When the hypothesis is strong, confirm it and offer the handoff ("Want me to set
 
 ## Structured mode
 
-After any lookups, reply with exactly this JSON shape and nothing else:
+After any lookups, reply with exactly this JSON shape and nothing else. The reply must parse as JSON: start at the opening `{`, end at the matching closing `}`, and add nothing after it (no extra brace, quote, or text).
 
 ```json
 {
