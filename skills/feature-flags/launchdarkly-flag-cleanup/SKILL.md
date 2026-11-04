@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "1.1.0-experimental"
 ---
 
 # LaunchDarkly Flag Cleanup
@@ -70,6 +70,28 @@ The tool returns a readiness verdict:
 
 **`blocked`**: Hard blockers prevent safe removal (e.g., dependent flags, actively receiving requests, targeting is on with active rules). Present blockers: the user must resolve them first.
 
+#### Also apply LaunchDarkly's "Ready for cleanup" rule
+
+The verdict alone is not enough. Use the same rule as the **Ready for cleanup** view in the LaunchDarkly flag list. A flag is ready for code removal only when all of these are true:
+
+1. The flag is **temporary**.
+2. The flag was **created at least 30 days ago**.
+3. **No other flag uses it as a prerequisite.**
+4. The flag is **`launched` in every critical environment**. `launched` means:
+   - targeting is **ON**,
+   - every context gets the **same single variation** (no percentage rollout, and no rules or individual targets that serve a different variation),
+   - an SDK **evaluated the flag in the last 7 days**, and
+   - the flag's targeting was **not changed in the last 7 days**.
+5. The flag has **code references**. This is true here, because you found them in Step 1.
+
+The day counts are the defaults. A project can change them, and it can turn off the temporary, prerequisite, and single-variation checks, in its flag lifecycle settings.
+
+Use `get-flag` in each critical environment and the lifecycle status from `check-removal-readiness` to check items 1 to 4.
+
+**A flag that is OFF in a critical environment is not `launched`, so it is not ready for code removal.** This is true even when every critical environment is OFF and serves the same `offVariation`. A flag that is off everywhere often guards a feature that was never released. If you hardcode the `offVariation`, you delete the code for that feature. LaunchDarkly lists a flag that is off everywhere, has had no evaluations recently, and has no code references as **ready to archive**, not as ready for code removal.
+
+If any item is false, stop and tell the user which items fail, even when the verdict is `safe`. Do not offer to continue unless the user explicitly asks to remove the flag anyway. For a flag that is off everywhere, continue only if the user explicitly confirms that the code behind the other variations is abandoned and must be deleted. Record that confirmation in the PR description.
+
 ### Step 3: Determine the Forward Value
 
 Use `get-flag` to fetch the flag configuration in each critical environment. The **forward value** is the variation that replaces the flag in code.
@@ -77,7 +99,7 @@ Use `get-flag` to fetch the flag configuration in each critical environment. The
 | Scenario | Forward Value |
 |----------|---------------|
 | All critical envs ON, same fallthrough, no rules/targets | Use `fallthrough.variation` |
-| All critical envs OFF, same offVariation | Use `offVariation` |
+| All critical envs OFF, same offVariation | **NOT READY**: the flag is not `launched` (see Step 2). Stop and inform the user. Use `offVariation` only after the user explicitly confirms that the code behind the other variations is abandoned. |
 | Critical envs differ in ON/OFF state | **NOT SAFE**: stop and inform the user |
 | Critical envs serve different variations | **NOT SAFE**: stop and inform the user |
 
@@ -88,7 +110,7 @@ Before modifying any code, present a summary to the user and wait for confirmati
 1. **The forward value** — which variation will be hardcoded and why (based on the flag's current state).
 2. **All code references found** — file paths and line numbers from Step 1.
 3. **Planned changes** — for each reference, describe what will be removed and what will be kept.
-4. **Readiness verdict** — the result from `check-removal-readiness` (safe, caution, or blocked) and any warnings.
+4. **Readiness verdict** — the result from `check-removal-readiness` (safe, caution, or blocked), any warnings, and whether the flag meets the "Ready for cleanup" rule in Step 2. If the flag is off in every critical environment, say so and say that the user confirmed the code behind the other variations is abandoned.
 5. **LaunchDarkly action** — confirm the flag will be archived after code changes are complete.
 
 **Do not proceed with code changes until the user explicitly confirms.**
@@ -152,6 +174,7 @@ Before considering the job done:
 |-----------|--------|
 | Flag not found in LaunchDarkly | Inform user, check for typos in the key |
 | Flag already archived | Ask if code cleanup is still needed (flag is gone from LD but code may still reference it) |
+| Flag is OFF in every critical environment | Not ready for code removal (not `launched`). Stop and tell the user. Continue with `offVariation` only if the user explicitly confirms that the code behind the other variations is abandoned |
 | Multiple SDK patterns in codebase | Search all patterns: `variation()`, `boolVariation()`, `variationDetail()`, `allFlags()`, `useFlags()`, plus any wrappers |
 | Dynamic flag keys (`flag-${id}`) | Warn that automated removal may be incomplete: manual review required |
 | Different default values in code vs LD | Flag as inconsistency in the PR description |
@@ -162,6 +185,7 @@ Before considering the job done:
 - Don't change code unrelated to flag cleanup.
 - Don't refactor or optimize beyond flag removal.
 - Don't remove flags still being actively rolled out.
+- Don't treat a flag that is OFF everywhere as ready for removal. It is not `launched`, and it may guard a feature that was never released.
 - Don't guess the forward value: always query LaunchDarkly.
 
 ## After Cleanup

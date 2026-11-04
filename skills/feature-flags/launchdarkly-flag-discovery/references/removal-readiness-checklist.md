@@ -8,21 +8,24 @@ A systematic safety check to determine whether a feature flag can be safely remo
 
 **Check:** Use `get-flag-status-across-envs` to verify the flag's state in all environments.
 
-**Pass criteria:**
-- Flag is `inactive` or `launched` in ALL critical environments (production, staging, etc.)
-- No environment shows `new` or `active` state
+**Pass criteria (code removal):**
+- Flag is `launched` in ALL critical environments (production, staging, etc.): targeting ON, one variation served to every context, evaluated in the last 7 days, and targeting not changed in the last 7 days. This is the rule the LaunchDarkly **Ready for cleanup** view uses.
+
+**Pass criteria (archive only):**
+- Flag is `inactive` in ALL critical environments and has no code references. There is no code to remove.
 
 **Fail criteria:**
 - Flag is `active` in any critical environment
 - Flag is `new` anywhere (still being rolled out)
 - Critical environments show different states (e.g., production ON, staging OFF)
+- Flag is OFF in every critical environment. It is not `launched`, and it may guard a feature that was never released. Do not recommend code removal unless the user explicitly confirms that the code behind the other variations is abandoned.
 
 ### 2. Configuration Consistency
 
 **Check:** Use `get-flag` for each critical environment and compare configurations.
 
 **Pass criteria:**
-- All critical environments serve the same variation (same `fallthrough.variation` or same `offVariation`)
+- All critical environments are ON and serve the same `fallthrough.variation` (the same `offVariation` is not enough: see check 1)
 - No targeting rules or individual targets exist in critical environments
 
 **Caution criteria:**
@@ -96,7 +99,7 @@ No hard blockers, but warnings exist.
 Hard blockers prevent safe removal.
 - Present each blocker with specifics
 - For prerequisite dependencies: user must update dependent flags first
-- For active targeting: user should toggle off and wait for a cool-down period
+- For active targeting: the user should finish the rollout (targeting ON, one variation served to everyone) and wait 7 days without changes. Do not tell the user to turn the flag off: a flag that is off everywhere is not ready for code removal
 - For active status: flag is still being used: don't remove
 
 ## Presenting Results

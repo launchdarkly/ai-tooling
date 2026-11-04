@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "1.1.0-experimental"
 ---
 
 # LaunchDarkly Flag Discovery
@@ -80,10 +80,12 @@ Use `get-flag-status-across-envs` to check if a flag is consistent across enviro
 
 Group flags into actionable categories:
 
-1. **Ready to remove**: Inactive everywhere, temporary, no dependencies. Direct the user to the [flag cleanup skill](../launchdarkly-flag-cleanup/SKILL.md) for code removal.
-2. **Likely safe, needs verification**: Launched (fully rolled out), no rule changes recently. The user should confirm the rollout is intentionally complete.
-3. **Needs investigation**: Active in some environments but not others, or has complex targeting. Don't recommend action without more context.
+1. **Ready for code removal**: Use the same rule as the **Ready for cleanup** view in the LaunchDarkly flag list. The flag is temporary, at least 30 days old, not a prerequisite of another flag, has code references, and is `launched` in every critical environment (targeting ON, one variation served to every context, evaluated in the last 7 days, targeting not changed in the last 7 days). The day counts are defaults that the project's flag lifecycle settings can change. Direct the user to the [flag cleanup skill](../launchdarkly-flag-cleanup/SKILL.md) for code removal.
+2. **Ready to archive**: Temporary, at least 30 days old, not a prerequisite, `inactive` in every critical environment, and no code references. There is no code to remove. The user can archive the flag in LaunchDarkly.
+3. **Needs investigation**: Active in some environments but not others, has complex targeting, or is `inactive` everywhere but still has code references. Don't recommend action without more context.
 4. **Leave alone**: Active flags doing their job, or permanent flags that are intentionally long-lived.
+
+**A flag that is OFF in every critical environment is never ready for code removal.** It is not `launched`, because `launched` requires targeting to be ON. A flag that is off everywhere often guards a feature that was never released, and hardcoding its `offVariation` deletes that feature's code. Put it in "Needs investigation" (or "Ready to archive" if it has no code references and is `inactive` everywhere). Recommend code removal only if the user explicitly confirms that the code behind the other variations is abandoned.
 
 ### Step 5: Assess Removal Readiness (When Applicable)
 
@@ -108,6 +110,7 @@ Structure your response based on what the user asked for:
 ## Important Context
 
 - **"Launched" means fully rolled out**: targeting is on, a single variation is served to everyone, and no changes have been made recently. It doesn't mean "recently deployed."
+- **"Off everywhere" is not "launched."** A flag that is OFF in every critical environment serves its `offVariation`, but LaunchDarkly does not count it as ready for code removal.
 - **"Inactive" doesn't always mean safe to remove.** The flag might be used in code that hasn't shipped yet, or referenced as a prerequisite by another flag.
 - **Permanent flags can be inactive on purpose.** Some flags are designed to be dormant until needed (kill switches, emergency toggles). Don't automatically flag these for cleanup.
 - **Weights are scaled by 1000 in the API.** A weight of `60000` means 60%. Always convert to human-readable percentages.
