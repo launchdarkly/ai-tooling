@@ -1670,19 +1670,58 @@
   },
   {
     "name": "get-metric-events",
-    "description": "List recently observed metric event keys.",
+    "description": "Metric event keys LaunchDarkly has observed. Without eventKey: list recently observed event keys (query, environmentKey, dataSourceKey, limit up to 50). With dataSourceKey and eventKey: check whether that warehouse data source has produced the event. ready false means it has not been seen yet; contextKinds are the analysis units a metric on the event can use.",
     "input_schema": {
       "additionalProperties": false,
+      "oneOf": [
+        {
+          "not": {
+            "required": [
+              "eventKey"
+            ]
+          }
+        },
+        {
+          "propertyNames": {
+            "enum": [
+              "projectKey",
+              "dataSourceKey",
+              "eventKey"
+            ]
+          },
+          "required": [
+            "dataSourceKey",
+            "eventKey"
+          ]
+        }
+      ],
       "properties": {
-        "environmentKey": {
-          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+        "dataSourceKey": {
+          "description": "Warehouse metric data source key. Required with eventKey.",
+          "minLength": 1,
           "type": "string"
+        },
+        "environmentKey": {
+          "description": "Listing only: keep events seen in this environment. Not with eventKey; a data source already belongs to one environment.",
+          "type": "string"
+        },
+        "eventKey": {
+          "description": "Check this event key on dataSourceKey. Takes only projectKey and dataSourceKey alongside it.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "description": "Listing only. Defaults to 50. Not with eventKey.",
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
         },
         "projectKey": {
           "description": "Project key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "query": {
+          "description": "Listing only: fuzzy match on event key. Not with eventKey.",
           "type": "string"
         }
       },

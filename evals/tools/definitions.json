@@ -318,7 +318,7 @@
   },
   {
     "name": "get-flag-status-across-envs",
-    "description": "Check a flag's lifecycle status (new, active, inactive or launched) and when it was last evaluated. Without env, it covers the project's critical environments when the project has any (the result then has criticalEnvironmentsOnly=true), otherwise every environment. Set allEnvs=true for every environment, for example before cleanup to verify the flag is inactive everywhere. Each environment's `default` is the fallback value the SDK passed when it evaluated the flag, not the value the flag serves; use get-flags with flagKey and env to see what an environment serves.",
+    "description": "Check whether a flag is still evaluated, and where: its lifecycle status (new, active, inactive or launched) and when it was last evaluated. Without env, it covers the project's critical environments when the project has any (the result then has criticalEnvironmentsOnly=true), otherwise every environment. Set allEnvs=true for every environment, for example before cleanup to verify the flag is inactive everywhere. Each environment's `default` is the fallback value the SDK passed when it evaluated the flag, not the value the flag serves; use get-flags with flagKey and env to see what an environment serves.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -351,7 +351,7 @@
   },
   {
     "name": "get-agent-configs",
-    "description": "Without configKey: search and browse AgentControl Configs (query, tags, view, sort, limit, offset). With configKey: get one config; section is config (default, with variations), health (missing variations, models, prompts, tool references), status (lifecycle across every environment; no env needed), or targeting (one environment; requires env).",
+    "description": "Without configKey: search and browse AgentControl Configs (query, tags, view, modes, maintainerId, maintainerTeamKey, sort, limit, offset; filters combine with AND). With configKey: get one config; section is config (default, with variations), health (missing variations, models, prompts, tool references), status (lifecycle across every environment; no env needed), targeting (one environment; requires env), or versions (every saved version of one variation, newest first; requires variationKey). To restore an earlier prompt or model, pass that version's model and messages to update-agent-config resource=variation.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -364,6 +364,24 @@
         },
         "limit": {
           "type": "integer"
+        },
+        "maintainerId": {
+          "description": "A member ID.",
+          "type": "string"
+        },
+        "maintainerTeamKey": {
+          "type": "string"
+        },
+        "modes": {
+          "items": {
+            "enum": [
+              "agent",
+              "completion",
+              "judge"
+            ],
+            "type": "string"
+          },
+          "type": "array"
         },
         "offset": {
           "type": "integer"
@@ -381,7 +399,8 @@
             "config",
             "health",
             "status",
-            "targeting"
+            "targeting",
+            "versions"
           ],
           "type": "string"
         },
@@ -389,6 +408,8 @@
           "enum": [
             "creationDate",
             "-creationDate",
+            "lastModified",
+            "-lastModified",
             "name",
             "-name"
           ],
@@ -399,6 +420,10 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "variationKey": {
+          "description": "Required for section=versions; not used by the other sections.",
+          "type": "string"
         },
         "view": {
           "type": "string"
@@ -412,7 +437,7 @@
   },
   {
     "name": "create-agent-config",
-    "description": "Create an AgentControl Config or one of its variations. resource is required. configKey always names the config and variationKey and variationName always name a variation. resource=config creates the config (configKey, name, mode); pass variationKey, variationName, modelConfigKey, modelName, and instructions or messages to also create its first variation. For mode judge, evaluationMetricKey and isInverted are required (isInverted: true if a lower metric value is better). resource=variation adds variationKey and variationName to configKey, with model and prompts, or clones sourceVariationKey (omitted model, prompts, tools, and skills are copied from it).",
+    "description": "Create an AgentControl Config or one of its variations. resource is required. configKey always names the config and variationKey and variationName always name a variation. resource=config creates the config (configKey, name, mode); pass variationKey, variationName, modelConfigKey, modelName, and instructions or messages to also create its first variation, optionally with tools and skills, in the same write. For mode judge, evaluationMetricKey and isInverted are required (isInverted: true if a lower metric value is better). maintainerId (member ID) or maintainerTeamKey (team key) sets the maintainer, not both. resource=variation adds variationKey and variationName to configKey, with model and prompts, or clones sourceVariationKey (omitted model, prompts, tools, skills, and judgeConfiguration are copied from it).",
     "input_schema": {
       "additionalProperties": false,
       "oneOf": [
@@ -431,6 +456,9 @@
               "variationKey"
             ],
             "parameters": [
+              "variationKey"
+            ],
+            "skills": [
               "variationKey"
             ],
             "tools": [
@@ -488,6 +516,8 @@
               "evaluationMetricKey",
               "isInverted",
               "viewKeys",
+              "maintainerId",
+              "maintainerTeamKey",
               "variationKey",
               "variationName",
               "modelConfigKey",
@@ -495,7 +525,8 @@
               "instructions",
               "messages",
               "parameters",
-              "tools"
+              "tools",
+              "skills"
             ]
           },
           "required": [
@@ -511,28 +542,12 @@
           }
         },
         {
-          "else": {
-            "anyOf": [
-              {
-                "required": [
-                  "instructions"
-                ]
-              },
-              {
-                "required": [
-                  "messages"
-                ]
-              }
-            ],
-            "required": [
-              "modelConfigKey",
-              "modelName"
-            ]
-          },
           "if": {
-            "required": [
-              "sourceVariationKey"
-            ]
+            "not": {
+              "required": [
+                "sourceVariationKey"
+              ]
+            }
           },
           "properties": {
             "resource": {
@@ -563,11 +578,22 @@
             "variationName"
           ],
           "then": {
-            "not": {
-              "required": [
-                "judgeConfiguration"
-              ]
-            }
+            "anyOf": [
+              {
+                "required": [
+                  "instructions"
+                ]
+              },
+              {
+                "required": [
+                  "messages"
+                ]
+              }
+            ],
+            "required": [
+              "modelConfigKey",
+              "modelName"
+            ]
           }
         }
       ],
@@ -592,6 +618,14 @@
         },
         "judgeConfiguration": {
           "type": "object"
+        },
+        "maintainerId": {
+          "description": "resource=config: a member ID.",
+          "type": "string"
+        },
+        "maintainerTeamKey": {
+          "description": "resource=config: a team key.",
+          "type": "string"
         },
         "messages": {
           "items": {
@@ -620,8 +654,8 @@
           "type": "string"
         },
         "modelConfigKey": {
-          "description": "Provider.model-id, e.g. OpenAI.gpt-4o.",
-          "pattern": "^[^.]+\\..+",
+          "description": "A model config key from get-ai-model-configs: a global Provider.model-id key such as OpenAI.gpt-4o, or a custom model config's own key.",
+          "minLength": 1,
           "type": "string"
         },
         "modelName": {
@@ -719,7 +753,7 @@
   },
   {
     "name": "update-agent-config",
-    "description": "Update an AgentControl Config. resource is required and picks what changes. resource=config: metadata or archive status. resource=variation: one variation's name (variationName), model, prompts, tools, or skills, by variationKey. resource=targeting: one environment's targeting, in a single write: on turns targeting on or off; fallthrough sets the default for contexts no rule matches ({\"variationKey\":\"candidate\"} serves one variation, {\"weights\":[{\"variationKey\":\"a\",\"percent\":50},{\"variationKey\":\"b\",\"percent\":50}]} splits traffic); targetingInstructions changes rules and individual targets with kinds addRule, removeRule, reorderRules, replaceRules, updateRuleDescription, addClauses, removeClauses, addValuesToClause, removeValuesFromClause, updateClause, addTargets, removeTargets, clearTargets, and replaceTargets; rule kinds take ruleId, each kind takes variationKey where it serves a variation, and addTargets and removeTargets also require contextKind (for example user) and values. variation and targeting require confirm=true.",
+    "description": "Update an AgentControl Config. resource is required and picks what changes. resource=config: name, description, tags, defaultVariationKey (the variation new environments serve by default; existing environments keep their fallthrough, so change those with resource=targeting), evaluationMetricKey, isInverted, or maintainer (maintainerId or maintainerTeamKey, not both; an empty string removes it). Configs cannot be archived. resource=variation: one variation's name (variationName), model, prompts, tools, or skills, by variationKey. resource=targeting: one environment's targeting, in a single write: on turns targeting on or off; fallthrough sets the default for contexts no rule matches ({\"variationKey\":\"candidate\"} serves one variation, {\"weights\":[{\"variationKey\":\"a\",\"percent\":50},{\"variationKey\":\"b\",\"percent\":50}]} splits traffic); targetingInstructions changes rules and individual targets with kinds addRule, removeRule, reorderRules, replaceRules, updateRuleDescription, addClauses, removeClauses, addValuesToClause, removeValuesFromClause, updateClause, addTargets, removeTargets, clearTargets, and replaceTargets; rule kinds take ruleId, each kind takes variationKey where it serves a variation, and addTargets and removeTargets also require contextKind (for example user) and values. variation and targeting require confirm=true.",
     "input_schema": {
       "additionalProperties": false,
       "oneOf": [
@@ -739,7 +773,11 @@
               "description",
               "tags",
               "archived",
-              "isInverted"
+              "isInverted",
+              "defaultVariationKey",
+              "evaluationMetricKey",
+              "maintainerId",
+              "maintainerTeamKey"
             ]
           }
         },
@@ -824,6 +862,7 @@
       ],
       "properties": {
         "archived": {
+          "description": "Not supported: a config cannot be archived; the tool rejects this field.",
           "type": "boolean"
         },
         "comment": {
@@ -836,11 +875,17 @@
           "description": "Required true for resource=variation and resource=targeting.",
           "type": "boolean"
         },
+        "defaultVariationKey": {
+          "type": "string"
+        },
         "description": {
           "type": "string"
         },
         "env": {
           "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "evaluationMetricKey": {
           "type": "string"
         },
         "fallthrough": {
@@ -909,6 +954,13 @@
         "judgeConfiguration": {
           "type": "object"
         },
+        "maintainerId": {
+          "description": "A member ID.",
+          "type": "string"
+        },
+        "maintainerTeamKey": {
+          "type": "string"
+        },
         "messages": {
           "items": {
             "properties": {
@@ -928,8 +980,8 @@
           "type": "array"
         },
         "modelConfigKey": {
-          "description": "Provider.model-id, e.g. OpenAI.gpt-4o.",
-          "pattern": "^[^.]+\\..+",
+          "description": "A model config key from get-ai-model-configs: a global Provider.model-id key such as OpenAI.gpt-4o, or a custom model config's own key.",
+          "minLength": 1,
           "type": "string"
         },
         "modelName": {
@@ -1264,10 +1316,13 @@
   },
   {
     "name": "get-projects",
-    "description": "Without projectKey: list LaunchDarkly projects in the account; use to discover project keys before calling project-scoped tools. query searches name or key (case-insensitive), tags filters (all must match), sort is name or -name. If the user named no project, search once with query and ask the user when no single project clearly matches; do not page. Next page: offset + limit. With projectKey: get one project with its environments; use to retrieve environments or verify a project exists. Neither mode returns server-side SDK keys; use get-sdk-key.",
+    "description": "Without projectKey: list LaunchDarkly projects in the account; use to discover project keys before calling project-scoped toolruntime. To find the project that holds a service's logs, traces or errors, use find-o11y-project instead of matching project names. query searches name or key (case-insensitive), tags filters (all must match), sort is name or -name. If the user named no project, search once with query and ask the user when no single project clearly matches; do not page. Next page: offset + limit. With projectKey: get one project with its environments; use to retrieve environments or verify a project exists. Set fullSettings to true (projectKey only) to also return every project-level setting under a settings object, such as defaultClientSideAvailability, snippet and view-association requirements, the full naming convention, and lifecycle settings (settings.lifecycle: requireReadyToArchive and the checks and day thresholds that decide whether archive-flag is allowed). Neither mode returns server-side SDK keys; use get-sdk-key.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
+        "fullSettings": {
+          "type": "boolean"
+        },
         "limit": {
           "type": "number"
         },
@@ -1432,7 +1487,7 @@
   },
   {
     "name": "create-automated-rollout-config",
-    "description": "Record an automated rollout config for a feature-flagged change. Use it only for AutomatedRollout requests. The guarding flag must already exist. Pass repoFullName, prNumber, and prUrl for the PR the user names or you just filed; omit them when there is none. Each listed environment releases after the merge, pinned in override or by its release policy; to hold one, leave it out (no hold or date field exists). releaseType is only override or policy; immediate, progressive, and guarded are override.releaseMethod values. An immediate release passes only environmentKey, with no releaseType or override. triggerType flag_eval (default) starts on the flag's first evaluation; webhook waits for a CI/CD deploy signal. Stages have exactly allocation and durationMillis; allocation is thousandths of a percent, so 10% over one hour is {\"allocation\":10000,\"durationMillis\":3600000}. The context kind field is override.rolloutContextKindKey. Policy environments can return missing or incomplete policy warnings: surface them in generated comments, do not call the release a clean policy rollout, and do not add tags to make a policy match. Returns created, config_id, the config as stored, and warnings.",
+    "description": "Record an automated rollout config for a feature-flagged change. Use it only for AutomatedRollout requests. The guarding flag must already exist. Pass repoFullName, prNumber, and prUrl for the PR the user names or you just filed; omit them when there is none. Each listed environment releases after the merge, pinned in override or by its release policy; to hold one, leave it out (no hold or date field exists). releaseType is only override or policy; immediate, progressive, and guarded are override.releaseMethod values. An immediate release passes only environmentKey, with no releaseType or override. triggerType: flag_eval (default) or webhook, to wait for a CI/CD deploy. Stages have exactly allocation and durationMillis; allocation is thousandths of a percent, so 10% over one hour is {\"allocation\":10000,\"durationMillis\":3600000}. override keys are camelCase: releaseMethod, rolloutContextKindKey, stages, metricKeys, rollbackOnRegression. Policy environments can return missing or incomplete policy warnings: surface them in generated comments, do not call the release a clean policy rollout, and do not add tags to make a policy match. Returns config_id, the stored config, and warnings.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -1454,7 +1509,7 @@
               },
               "override": {
                 "additionalProperties": false,
-                "description": "Inline rollout for releaseType override. For an immediate release, omit override and releaseType and pass only environmentKey.",
+                "description": "Inline rollout for releaseType override. Keys are camelCase exactly as named here (releaseMethod, rolloutContextKindKey, stages, metricKeys, metricGroupKeys, rollbackOnRegression), not the snake_case names get-automated-rollout-config returns. For an immediate release, omit override and releaseType and pass only environmentKey.",
                 "properties": {
                   "metricGroupKeys": {
                     "description": "Metric groups that gate a guarded rollout.",
