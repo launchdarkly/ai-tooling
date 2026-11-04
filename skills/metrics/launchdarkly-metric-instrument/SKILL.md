@@ -113,7 +113,7 @@ See [SDK Track Patterns](references/sdk-track-patterns.md) for full per-language
 **Guide the user to trigger the action** in their local or staging environment. Then use `get-metric-events` to confirm the event key appears:
 
 ```
-get-metric-events(projectKey, environmentKey)
+get-metric-events(projectKey, environmentKey, query: "<event-key>")
 ```
 
 **If the event key appears:** confirm success and show a summary.

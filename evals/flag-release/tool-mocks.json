@@ -1,31 +1,26 @@
 {
-  "get-environments": {
-    "items": [
+  "get-projects#projectKey": {
+    "key": "{{projectKey}}",
+    "name": "{{projectKey}}",
+    "environments": [
       {
         "key": "dev",
         "name": "Development",
-        "color": "7B42BC",
-        "apiKey": "sdk-dev-abcdef12-3456-7890-abcd-ef1234567890",
-        "mobileKey": "mob-dev-abcdef12-3456-7890-abcd-ef1234567890",
-        "_id": "clientside-dev-abcdef12"
+        "clientSideId": "clientside-dev-abcdef12",
+        "mobileKey": "mob-dev-abcdef12-3456-7890-abcd-ef1234567890"
       },
       {
         "key": "staging",
         "name": "Staging",
-        "color": "F5A623",
-        "apiKey": "sdk-staging-abcdef12-3456-7890-abcd-ef1234567890",
-        "mobileKey": "mob-staging-abcdef12-3456-7890-abcd-ef1234567890",
-        "_id": "clientside-staging-abcdef12"
+        "clientSideId": "clientside-staging-abcdef12",
+        "mobileKey": "mob-staging-abcdef12-3456-7890-abcd-ef1234567890"
       },
       {
         "key": "production",
         "name": "Production",
-        "color": "D43F3A",
-        "apiKey": "sdk-prod-abcdef12-3456-7890-abcd-ef1234567890",
-        "mobileKey": "mob-prod-abcdef12-3456-7890-abcd-ef1234567890",
-        "_id": "clientside-prod-abcdef12"
+        "clientSideId": "clientside-prod-abcdef12",
+        "mobileKey": "mob-prod-abcdef12-3456-7890-abcd-ef1234567890"
       }
-    ],
-    "totalCount": 3
+    ]
   }
 }

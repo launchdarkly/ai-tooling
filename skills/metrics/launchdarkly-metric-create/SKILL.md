@@ -80,7 +80,7 @@ When `pageview` or `click` would work, suggest it over `custom` — it requires 
 Call `get-metric-events` immediately to see which event keys are already flowing:
 
 ```
-get-metric-events(projectKey, environmentKey?)
+get-metric-events(projectKey, environmentKey?, query?)
 ```
 
 **Case A — the event key is already in the list:** Confirm the key with the user and proceed to Step 3. No instrumentation needed.

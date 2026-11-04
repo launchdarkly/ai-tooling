@@ -72,7 +72,7 @@ Use `create-agent-config` with `resource: "config"` and the first variation's fi
 
 **Variation fields:**
 - `variationKey`, `variationName` -- identifiers for the first variation
-- `modelConfigKey` -- must be `Provider.model-id` format (e.g., `OpenAI.gpt-4o`, `Anthropic.claude-sonnet-4-5`)
+- `modelConfigKey` -- a key from `get-ai-model-configs`: a global `Provider.model-id` key (e.g., `OpenAI.gpt-4o`, `Anthropic.claude-sonnet-4-5`) or a custom model config's own key
 - `modelName` -- the model identifier (e.g., `gpt-4o`). **Always pass this in the initial call** — leaving it off produces a variation that displays "NO MODEL" and forces a second PATCH to set it. The field is `modelName`; it is **not** `name` or `model.name` on this endpoint, and `name` is only ever the config's name.
 
 **For agent mode**, provide:

@@ -83,9 +83,11 @@ If you cloned with `sourceVariationKey`, the response includes both source and c
 
 ## modelConfigKey Format
 
-Required for models to display in the UI. Format: `{Provider}.{model-id}`:
+Required for models to display in the UI. Use a key from `get-ai-model-configs`. Global model configs use `{Provider}.{model-id}`:
 - `OpenAI.gpt-4o`, `OpenAI.gpt-4o-mini`
 - `Anthropic.claude-sonnet-4-5`, `Anthropic.claude-3-5-sonnet`
+
+A custom model config uses its own key, which need not contain a dot.
 
 ## Safety: Protect the Baseline
 

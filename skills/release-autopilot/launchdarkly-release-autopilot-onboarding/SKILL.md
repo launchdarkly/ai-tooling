@@ -157,7 +157,7 @@ Never go on to Step 4 while `get-release-autopilot` still returns `githubConnect
 
 Only if the user picked auto-flagging or auto-releasing. If they picked only auto-cleanup or auto-archival, do not map repos: ask which projects to set up (header "Projects", `multiSelect: true`, from `get-projects`, or ask for the keys) and go to Step 5.
 
-1. **Choose repos.** If the current workspace has a `git remote` on the install list, offer it first. Use `AskUserQuestion` with header "Repos", `multiSelect: true`, and up to four repos from the install list, as `owner/name`. If the install has more than four repos, say the user can type any other `owner/name` from the list in Other. Use only repos that came back from `list-release-autopilot-github-repos`.
+1. **Choose repos.** If the current workspace has a `git remote` on the install list, offer it first. Use `AskUserQuestion` with header "Repos", `multiSelect: true`, and up to four repos from the install list, as `owner/name`. If the install has more than four repos, say the user can type any other `owner/name` from the list in Other. Use only repos that came back from `get-release-autopilot`.
 
    If a repo the user wants is not on the list, its owner decides the fix: a listed owner means the App needs access to that repo, and a new owner means an org owner must install the App there (no `githubConnectUrl` appears for this case). See [references/edge-cases.md](references/edge-cases.md). Wait for "Done" and list again.
 2. **Choose a project for each repo.** Each repo maps to one LaunchDarkly project, which is where auto-flagging creates flags and metrics for that repo. If `get-projects` is available, offer the projects as options. Otherwise ask for the project key.
