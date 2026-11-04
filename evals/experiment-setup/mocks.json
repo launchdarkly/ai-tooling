@@ -1,0 +1,67 @@
+{
+  "get-flag-status-across-envs": {
+    "flagKey": "{{flagKey}}",
+    "environments": [
+      {
+        "key": "test",
+        "status": "active"
+      },
+      {
+        "key": "production",
+        "status": "active"
+      }
+    ],
+    "summary": {
+      "active": [
+        "test",
+        "production"
+      ],
+      "inactive": [],
+      "new": [],
+      "launched": []
+    }
+  },
+  "list-metric-events": {
+    "events": [
+      {
+        "eventKey": "checkout-completed",
+        "eventKind": "custom",
+        "lastSeen": "1792454400000"
+      },
+      {
+        "eventKey": "page-load-ms",
+        "eventKind": "custom",
+        "lastSeen": "1792454400000"
+      },
+      {
+        "eventKey": "cta-click",
+        "eventKind": "custom",
+        "lastSeen": "1792281600000"
+      },
+      {
+        "eventKey": "cta-clicked-v2",
+        "eventKind": "custom",
+        "lastSeen": "1792281600000"
+      }
+    ],
+    "count": 4,
+    "_note": "4 event key(s) found with recent activity."
+  },
+  "search-contexts": {
+    "items": [
+      {
+        "kind": "user",
+        "key": "user-1",
+        "lastSeen": "2026-10-20T00:00:00.000Z"
+      }
+    ],
+    "totalCount": 1
+  },
+  "save-and-start-experiment-iteration": {
+    "key": "{{experimentKey}}",
+    "environmentKey": "{{environmentKey}}",
+    "currentIteration": {
+      "status": "running"
+    }
+  }
+}

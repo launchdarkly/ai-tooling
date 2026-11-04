@@ -132,6 +132,149 @@ function createMockState() {
   };
 }
 
+// Lifecycle status for get-flag-status-across-envs. The default matches the
+// environments in the get-environments mock and reports both as active, so
+// flag-drift sees no cross-environment difference and flag-command gets no
+// cleanup signal. `federal` is intentionally absent: the flag-drift mock
+// flips that environment's fallthrough, and listing it here would make
+// single-environment drift cases look divergent.
+function flagStatusResponse(flagKey, productionStatus) {
+  const environments = [
+    { key: "test", status: "active" },
+    { key: "production", status: productionStatus },
+  ];
+  const summary = { active: [], inactive: [], new: [], launched: [] };
+  for (const env of environments) {
+    if (summary[env.status]) summary[env.status].push(env.key);
+  }
+  return { flagKey, environments, summary };
+}
+
+// experiment-setup sentinel. The exact key cta-clicked is not in that suite's
+// list-metric-events template; a query for it returns the similar keys from
+// the template that was passed in. Every other call falls through and returns
+// that template unchanged, so another suite keeps its own event list.
+function similarCtaMetricEvents(template, replacements) {
+  const rendered = walk(template, replacements);
+  const events = Array.isArray(rendered.events)
+    ? rendered.events.filter(
+        (event) => event.eventKey === "cta-click" || event.eventKey === "cta-clicked-v2",
+      )
+    : [];
+  return {
+    events,
+    count: events.length,
+    _note: `${events.length} event key(s) found with recent activity.`,
+  };
+}
+
+function isUserKindQuery(input) {
+  if (input.kind === "user") return true;
+  return typeof input.filter === "string" && /kind\s+equals\s+"?user"?/i.test(input.filter);
+}
+
+function isNotEqualsUser(input) {
+  return (
+    typeof input.filter === "string" &&
+    /kind\s+notEquals\s+"?user"?/i.test(input.filter)
+  );
+}
+
+function contextItem(kind, key) {
+  return { kind, key, lastSeen: "2026-10-20T00:00:00.000Z" };
+}
+
+function isUnfilteredContextSearch(input) {
+  const kindBlank = input.kind == null || String(input.kind).trim() === "";
+  const filterBlank = input.filter == null || String(input.filter).trim() === "";
+  return kindBlank && filterBlank;
+}
+
+function searchContextsResponse(input) {
+  const mixed = input.projectKey === "mixed-contexts";
+  if (isNotEqualsUser(input)) {
+    if (mixed) {
+      return { items: [contextItem("organization", "org-1")], totalCount: 1 };
+    }
+    return { items: [], totalCount: 0 };
+  }
+  if (isUserKindQuery(input)) {
+    return { items: [contextItem("user", "user-1")], totalCount: 1 };
+  }
+  // No kind and no filter lists every stored kind: user in both projects,
+  // and organization as well when other kinds are stored.
+  if (isUnfilteredContextSearch(input)) {
+    const items = [contextItem("user", "user-1")];
+    if (mixed) items.push(contextItem("organization", "org-1"));
+    return { items, totalCount: items.length };
+  }
+  return { items: [], totalCount: 0 };
+}
+
+function checkoutActiveFlag() {
+  return {
+    key: "checkout-active",
+    name: "Checkout active",
+    kind: "multivariate",
+    description: "Checkout experiment flag",
+    temporary: true,
+    tags: [],
+    variations: [
+      { _id: "var-current", value: "current", name: "Current checkout" },
+      { _id: "var-new", value: "new", name: "New checkout" },
+    ],
+    defaults: { onVariation: 0, offVariation: 1 },
+    environment: {
+      on: true,
+      version: 7,
+      rules: [],
+      targets: [],
+      fallthrough: { variation: 0 },
+      offVariation: 1,
+    },
+  };
+}
+
+function similarCheckoutFlags() {
+  const flag = (key, name, on) => ({
+    key,
+    name,
+    kind: "boolean",
+    description: name,
+    temporary: true,
+    tags: ["checkout"],
+    on,
+    variations: [
+      { value: true, name: "Enabled" },
+      { value: false, name: "Disabled" },
+    ],
+  });
+  return {
+    flags: [
+      flag("checkout-flow", "Checkout flow", true),
+      flag("new-checkout", "New checkout", false),
+    ],
+    totalCount: 2,
+    pageInfo: { limit: 20, offset: 0 },
+  };
+}
+
+function runningExperiment(input) {
+  return {
+    key: "checkout-running",
+    name: "Checkout running",
+    environmentKey: input.environmentKey || input.env || "production",
+    currentIteration: {
+      status: "running",
+      hypothesis: "The new checkout will lift completion.",
+      treatments: [
+        { _id: "treat-control", name: "Control", baseline: true, allocationPercent: 50 },
+        { _id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 50 },
+      ],
+    },
+  };
+}
+
 /**
  * Render a mock response for `toolName` given `input` (raw tool arguments).
  * `state` is the per-invocation map from `createMockState()`.
@@ -251,6 +394,17 @@ function renderMockResponse(template, input, toolName, state) {
   if (toolName === "get-flag" || toolName === "get-feature-flag") {
     const key = input.flagKey || input.key;
     if (key && state.flags[key]) return state.flags[key];
+
+    // Sentinel keys for the experiment-setup suite. Checked before the
+    // federal fallthrough hook so they do not inherit that override.
+    if (key === "missing-checkout") {
+      return {
+        error: "not_found",
+        status: 404,
+        message: "Flag 'missing-checkout' was not found in this project.",
+      };
+    }
+    if (key === "checkout-active") return checkoutActiveFlag();
 
     // Cross-environment divergence hook: a `federal`-style environment serves
     // the opposite default (variation 0 / `true`) from every other environment
@@ -423,6 +577,33 @@ function renderMockResponse(template, input, toolName, state) {
     const flag = walk(template, replacements);
     state.flags[input.key || input.flagKey] = flag;
     return flag;
+  }
+
+  if (toolName === "get-flag-status-across-envs") {
+    const flagKey = input.flagKey || "unknown-flag";
+    const productionStatus = flagKey === "checkout-inactive" ? "inactive" : "active";
+    return flagStatusResponse(flagKey, productionStatus);
+  }
+
+  if (toolName === "search-contexts") return searchContextsResponse(input || {});
+
+  if (toolName === "list-metric-events") {
+    const query = typeof (input || {}).query === "string" ? input.query.trim().toLowerCase() : "";
+    if (query === "cta-clicked") return similarCtaMetricEvents(template, replacements);
+  }
+
+  if (toolName === "list-flags") {
+    // experiment-setup's missing-flag case uses this project. Any search there
+    // returns the similar keys and omits the missing one. Other projects, and
+    // list-feature-flags, keep the template they were given.
+    const projectKey =
+      typeof (input || {}).projectKey === "string" ? input.projectKey.trim() : "";
+    if (projectKey === "exp-setup-missing-flag") return similarCheckoutFlags();
+  }
+
+  if (toolName === "get-experiment") {
+    const experimentKey = input.experimentKey || input.key;
+    if (experimentKey === "checkout-running") return runningExperiment(input);
   }
 
   // Default: stateless template render
