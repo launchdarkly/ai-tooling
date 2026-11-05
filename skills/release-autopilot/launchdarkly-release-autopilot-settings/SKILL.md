@@ -147,7 +147,7 @@ To unmap: [Confirm before write](#confirm-before-write), then `delete-automation
 
 ## Out of scope
 
-- Auto-cleanup
+- Auto-cleanup and auto-archival: use [`launchdarkly-automations-cleanup-settings`](../launchdarkly-automations-cleanup-settings/SKILL.md) and [`launchdarkly-automations-archival-settings`](../launchdarkly-automations-archival-settings/SKILL.md). `autoCleanup` in these settings is a different, unused field.
 - Completing GitHub OAuth inside the tool. Hand the user `githubConnectUrl` instead.
 - Vega inference and bring-your-own-key setup, and environment release plans. The [onboarding skill](../launchdarkly-release-autopilot-onboarding/SKILL.md) guides both.
 - Observability MCP (`github_repositories`) — do not require a second MCP server just to map a repo
