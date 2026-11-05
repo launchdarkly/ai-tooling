@@ -1,0 +1,64 @@
+name: Publish Claude plugin branch
+
+# The Claude plugin directory scans every file in the folder it tracks. At the
+# repository root that includes evals, tests, lockfiles, and scripts, which
+# hold each version for review. This workflow publishes only what the plugin
+# ships (see scripts/build_claude_plugin.py) to the `claude-plugin` branch,
+# and the directory submission tracks that branch.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: claude-plugin-branch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Validate skills
+        run: python3 scripts/validate_skills.py
+
+      - name: Build plugin bundle
+        run: python3 scripts/build_claude_plugin.py "$RUNNER_TEMP/plugin"
+
+      - name: Commit bundle to the claude-plugin branch
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          branch_dir="$RUNNER_TEMP/branch"
+          if git ls-remote --exit-code --heads origin claude-plugin >/dev/null; then
+            git fetch --depth 1 origin claude-plugin
+            git worktree add "$branch_dir" FETCH_HEAD
+            git -C "$branch_dir" checkout -B claude-plugin
+          else
+            git worktree add --detach "$branch_dir"
+            git -C "$branch_dir" checkout --orphan claude-plugin
+          fi
+
+          # Replace the whole tree with the fresh bundle.
+          git -C "$branch_dir" rm -rqf --ignore-unmatch .
+          git -C "$branch_dir" clean -fdxq
+          cp -a "$RUNNER_TEMP/plugin/." "$branch_dir/"
+          git -C "$branch_dir" add -A
+
+          if git -C "$branch_dir" diff --cached --quiet; then
+            echo "Bundle unchanged; nothing to publish."
+            exit 0
+          fi
+          git -C "$branch_dir" commit -q -m "Build Claude plugin from ${SOURCE_SHA}"
+          git -C "$branch_dir" push origin claude-plugin

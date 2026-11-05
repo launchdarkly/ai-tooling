@@ -55,6 +55,10 @@ Keep `SKILL.md` under 500 lines. If you need more space, add reference documents
 Update `metadata.version` in `SKILL.md` when the skill behavior changes.
 See `docs/versioning.md` for details.
 
+## Claude plugin directory listing
+
+The Claude plugin directory listing tracks the generated `claude-plugin` branch, not `main`. On every push to `main`, `.github/workflows/claude-plugin-branch.yml` runs `scripts/build_claude_plugin.py`, which copies only what the plugin ships (the manifests, `.mcp.json`, README, LICENSE, icon, the skills listed in `.claude-plugin/plugin.json`, and any skill they link to), and commits the result to that branch. Evals, tests, lockfiles, and scripts stay out of the directory's scan. Don't commit to `claude-plugin` by hand. To ship a skill in the Claude plugin, add it to `skills` in `.claude-plugin/plugin.json`, and raise `version` there and in `.claude-plugin/marketplace.json` with every release.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the Apache-2.0 License.
