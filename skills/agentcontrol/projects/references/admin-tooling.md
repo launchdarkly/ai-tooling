@@ -2,6 +2,8 @@
 
 Build CLI tools and admin utilities for project management at scale.
 
+> **API token:** these examples take the LaunchDarkly API access token as an explicit `api_token` / `apiToken` argument. In an agent session, ask the user to paste a token and pass it in. Do not read it from environment variables, `.env` files, or config files.
+
 ## Use Cases
 
 - **Bulk operations:** Create/manage many projects at once
@@ -23,10 +25,8 @@ import json
 from tabulate import tabulate
 from launchdarkly.projects import ProjectManager
 
-pm = ProjectManager()
-
 @click.group()
-@click.option('--api-token', envvar='LAUNCHDARKLY_API_TOKEN', help='LaunchDarkly API token')
+@click.option('--api-token', prompt='LaunchDarkly API token', hide_input=True, help='LaunchDarkly API token')
 @click.pass_context
 def cli(ctx, api_token):
     """LaunchDarkly project management CLI."""
@@ -231,7 +231,7 @@ from flask import Flask, render_template, request, redirect, jsonify
 from launchdarkly.projects import ProjectManager
 
 app = Flask(__name__)
-pm = ProjectManager()
+pm = ProjectManager(api_token)
 
 @app.route('/')
 def index():
@@ -342,7 +342,7 @@ class ProjectMonitor:
     """Monitor LaunchDarkly projects for changes."""
     
     def __init__(self):
-        self.pm = ProjectManager()
+        self.pm = ProjectManager(api_token)
         self.known_projects = set()
     
     def check_for_new_projects(self):
@@ -390,7 +390,7 @@ from launchdarkly.projects import ProjectManager
 
 def backup_all_projects(output_file=None):
     """Backup all projects to JSON file."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     projects = pm.list_projects()
     
     if not output_file:
@@ -405,7 +405,7 @@ def backup_all_projects(output_file=None):
 
 def restore_projects(backup_file):
     """Restore projects from backup (creates if missing)."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     
     with open(backup_file, 'r') as f:
         projects = json.load(f)
@@ -434,7 +434,7 @@ Export projects to Terraform format:
 # terraform/export_terraform.py
 def export_to_terraform(project_keys=None):
     """Export projects as Terraform configuration."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     projects = pm.list_projects()
     
     if project_keys:

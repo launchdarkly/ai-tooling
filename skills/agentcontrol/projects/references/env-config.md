@@ -2,6 +2,8 @@
 
 Patterns for saving SDK keys to your codebase's configuration system.
 
+> **API token:** these examples take the LaunchDarkly API access token as an explicit `api_token` / `apiToken` argument. In an agent session, ask the user to paste a token and pass it in. Do not read it from environment variables, `.env` files, or config files.
+
 ## Overview
 
 After creating a project, you need to save the SDK keys so your application can use them. The approach depends on your existing configuration pattern.
@@ -22,7 +24,7 @@ def save_sdk_key_to_env(
 ):
     """Save SDK key to .env file."""
     # Get the SDK key
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     sdk_key = pm.get_sdk_key(project_key, environment)
     
     if not sdk_key:
@@ -60,7 +62,7 @@ async function saveSdkKeyToEnv(
   envFile: string = '.env',
   varName: string = 'LD_SDK_KEY'
 ): Promise<void> {
-  const pm = new ProjectManager();
+  const pm = new ProjectManager(apiToken);
   const sdkKey = await pm.getSdkKey(projectKey, environment);
   
   if (!sdkKey) {
@@ -127,7 +129,7 @@ import json
 
 def save_to_aws_secrets(project_key: str, environment: str, secret_name: str):
     """Save SDK key to AWS Secrets Manager."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     sdk_key = pm.get_sdk_key(project_key, environment)
     
     client = boto3.client('secretsmanager')
@@ -160,7 +162,7 @@ from google.cloud import secretmanager
 
 def save_to_gcp_secrets(project_key: str, environment: str, secret_id: str, gcp_project: str):
     """Save SDK key to GCP Secret Manager."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     sdk_key = pm.get_sdk_key(project_key, environment)
     
     client = secretmanager.SecretManagerServiceClient()
@@ -184,7 +186,7 @@ from azure.identity import DefaultAzureCredential
 
 def save_to_azure_keyvault(project_key: str, environment: str, vault_url: str, secret_name: str):
     """Save SDK key to Azure Key Vault."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     sdk_key = pm.get_sdk_key(project_key, environment)
     
     credential = DefaultAzureCredential()
@@ -205,7 +207,7 @@ import yaml
 
 def create_k8s_secret(project_key: str, environment: str, namespace: str = "default"):
     """Generate Kubernetes secret manifest."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     sdk_key = pm.get_sdk_key(project_key, environment)
     
     # Encode SDK key
@@ -242,7 +244,7 @@ import yaml
 
 def save_to_yaml_config(project_key: str, environment: str, config_file: str = "config.yaml"):
     """Save SDK key to YAML config file."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     sdk_key = pm.get_sdk_key(project_key, environment)
     
     # Read existing config
@@ -275,7 +277,7 @@ async function saveToJsonConfig(
   environment: string,
   configFile: string = 'config.json'
 ): Promise<void> {
-  const pm = new ProjectManager();
+  const pm = new ProjectManager(apiToken);
   const sdkKey = await pm.getSdkKey(projectKey, environment);
   
   // Read existing config

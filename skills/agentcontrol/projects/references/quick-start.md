@@ -2,10 +2,12 @@
 
 Basic project creation patterns for getting started quickly.
 
+> **API token:** these examples take the LaunchDarkly API access token as an explicit `api_token` / `apiToken` argument. In an agent session, ask the user to paste a token and pass it in. Do not read it from environment variables, `.env` files, or config files.
+
 ## Prerequisites
 
 - LaunchDarkly API access token with `projects:write` permission
-- Set `LAUNCHDARKLY_API_TOKEN` environment variable
+- The user pastes the token for this session; don't read it from environment variables or config files
 
 ## Basic Project Creation
 
@@ -155,7 +157,7 @@ Before creating a new project, you may want to check what exists.
 | Uppercase in key | Rejected by API | Use lowercase only |
 | Spaces in key | Invalid format | Use hyphens instead |
 | Key collision | 409 conflict | Choose unique key or use existing |
-| Missing API token | 401 unauthorized | Set LAUNCHDARKLY_API_TOKEN |
+| Missing API token | 401 unauthorized | Ask the user for an API access token |
 | Wrong permission | 403 forbidden | Request `projects:write` permission |
 
 ## Next Steps

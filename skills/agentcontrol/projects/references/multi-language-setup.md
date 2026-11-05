@@ -2,6 +2,8 @@
 
 Guidance for polyglot architectures with multiple languages/frameworks.
 
+> **API token:** these examples take the LaunchDarkly API access token as an explicit `api_token` / `apiToken` argument. In an agent session, ask the user to paste a token and pass it in. Do not read it from environment variables, `.env` files, or config files.
+
 ## Overview
 
 In a microservices or polyglot architecture, you may have services in different languages that need to share LaunchDarkly projects or maintain separate projects per service.
@@ -69,7 +71,7 @@ from flask import Flask, jsonify, request
 from launchdarkly.projects import ProjectManager
 
 app = Flask(__name__)
-pm = ProjectManager()
+pm = ProjectManager(api_token)
 
 @app.route('/projects', methods=['POST'])
 def create_project():
@@ -208,7 +210,7 @@ from launchdarkly.projects import ProjectManager
 
 def setup_project(service_name: str):
     """Setup LaunchDarkly project for Python service."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     
     project = pm.create_project(
         name=f"{service_name} Service",
@@ -232,7 +234,7 @@ import { ProjectManager } from './launchdarkly/projects';
 import * as fs from 'fs';
 
 async function setupProject(serviceName: string): Promise<void> {
-  const pm = new ProjectManager();
+  const pm = new ProjectManager(apiToken);
   
   const project = await pm.createProject({
     name: `${serviceName} Service`,
@@ -261,7 +263,7 @@ import (
 )
 
 func setupProject(serviceName string) error {
-    pm := launchdarkly.NewProjectManager("")
+    pm := launchdarkly.NewProjectManager(apiToken)
     
     project, err := pm.CreateProject(
         fmt.Sprintf("%s Service", serviceName),
