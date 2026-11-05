@@ -21,7 +21,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 - `toggle-flag`: turn targeting on or off for a flag in an environment
 - `update-rollout`: change the default rule (fallthrough) variation or percentage rollout
 - `update-targeting-rules`: add, remove, or modify custom targeting rules
-- `update-individual-targets`: add or remove specific users/contexts from individual targeting
+- `update-flag-targeting`: add or remove specific users/contexts from individual targeting
 
 **Optional MCP tools:**
 - `copy-flag-config`: copy targeting configuration from one environment to another
@@ -68,7 +68,7 @@ Based on what the user wants and what you found, choose the right tool and strat
 | "Turn it off" | `toggle-flag` with `on: false` | Serves offVariation to everyone |
 | "Roll out to X%" | `update-rollout` with `rolloutType: "percentage"` | Weights must sum to 100 |
 | "Enable for beta users" | `update-targeting-rules`: add a rule with clause | Rules are ANDed within, ORed between |
-| "Add specific users" | `update-individual-targets` | Highest priority, overrides all rules |
+| "Add specific users" | `update-flag-targeting` | Highest priority, overrides all rules |
 
 **Before writing a rule, individual target, or percentage rollout, confirm the context supports it.** A rule that names a context kind or attribute the flag's evaluation doesn't carry silently never matches; individual targets match the context **key**, not an attribute like email; and a rollout can only bucket by a kind present where the flag is read. See [Context Availability](references/context-availability.md) to pick a context that will actually fire.
 | "Full rollout" | `update-rollout` with `rolloutType: "variation"` | Serve one variation to everyone |
@@ -96,7 +96,7 @@ Use the appropriate tool for the change. Key notes:
 - **`toggle-flag`**: Specify `on: true` or `on: false`, the `env`, and a `comment`.
 - **`update-rollout`**: Use `rolloutType: "percentage"` with human-friendly weights (e.g., 80 for 80%) that sum to 100, or `rolloutType: "variation"` with a `variationIndex`.
 - **`update-targeting-rules`**: Instructions support `addRule`, `removeRule`, `updateRuleVariationOrRollout`, `addClauses`, `removeClauses`, `reorderRules`.
-- **`update-individual-targets`**: Instructions support `addTargets`, `removeTargets`, `addContextTargets`, `removeContextTargets`, `replaceTargets`.
+- **`update-flag-targeting`**: Instructions support `addTargets`, `removeTargets`, and `replaceTargets`. `addTargets` and `removeTargets` take an optional `contextKind`.
 
 See [Targeting Patterns](references/targeting-patterns.md) for detailed instruction examples.
 
