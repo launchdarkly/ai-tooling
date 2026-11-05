@@ -336,7 +336,7 @@ function mergeDeep(base, patch) {
 // later reads (the skill's verify step) reflect them instead of the template.
 function renderReleaseAutopilot(template, input, toolName, state, replacements) {
   const args = input || {};
-  if (toolName === "update-release-autopilot") {
+  if (toolName === "update-automations") {
     const { accountWide, repo, githubRepoId, confirm, ...rest } = args;
     if (accountWide === true) {
       state.raSettings = mergeDeep(state.raSettings, rest);
@@ -348,7 +348,7 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
     }
     return undefined;
   }
-  if (toolName === "get-release-autopilot") {
+  if (toolName === "get-automations") {
     const base = walk(template, replacements);
     if (!base || base.error) return base;
     const account = mergeDeep(base.account, state.raSettings);
