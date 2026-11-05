@@ -506,7 +506,7 @@ tests:
           latestMcp:
             deprecated: true
             installUrl: "https://mcp.launchdarkly.com/mcp/launchdarkly/install"
-            serverUrl: "https://mcp.launchdarkly.com/mcp/launchdarkly"
+            serverUrl: "https://mcp.launchdarkly.com/mcp"
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noWrites
