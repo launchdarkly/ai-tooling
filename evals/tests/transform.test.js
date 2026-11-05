@@ -4,9 +4,9 @@ const assert = require("node:assert/strict");
 const transform = require("../shared/transform");
 
 test("returns parsed object when given valid JSON string", () => {
-  const input = JSON.stringify({ response: "hello", tools_called: ["setup-ai-config"] });
+  const input = JSON.stringify({ response: "hello", tools_called: ["setup-agentcontrol-config"] });
   const result = transform(input);
-  assert.deepEqual(result, { response: "hello", tools_called: ["setup-ai-config"] });
+  assert.deepEqual(result, { response: "hello", tools_called: ["setup-agentcontrol-config"] });
 });
 
 test("returns object unchanged when already an object", () => {

@@ -99,7 +99,7 @@
     }
   },
   {
-    "name": "list-ai-configs",
+    "name": "list-agentcontrol-configs",
     "description": "Search and browse configs in a project. Returns a paginated list with key, name, mode (agent or completion), tags, and variation count. Use query to search by name or key.",
     "input_schema": {
       "type": "object",
@@ -113,7 +113,7 @@
     }
   },
   {
-    "name": "get-ai-config",
+    "name": "get-agentcontrol-config",
     "description": "Get detailed configuration for a single config including all its variations. Each variation includes its model, instructions or messages, parameters, and attached tools.",
     "input_schema": {
       "type": "object",
@@ -125,8 +125,8 @@
     }
   },
   {
-    "name": "create-ai-config",
-    "description": "Create a new config in a project. This creates the config shell: use create-ai-config-variation next to add a model, prompts, and parameters. Mode determines whether variations use 'instructions' (agent) or 'messages' (completion).",
+    "name": "create-agentcontrol-config",
+    "description": "Create a new config in a project. This creates the config shell: use create-agentcontrol-config-variation next to add a model, prompts, and parameters. Mode determines whether variations use 'instructions' (agent) or 'messages' (completion).",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -141,8 +141,8 @@
     }
   },
   {
-    "name": "update-ai-config",
-    "description": "Update a config's metadata: name, description, tags, or archive status. Does NOT modify variations: use update-ai-config-variation for model, prompt, or parameter changes. Set archived: true to archive (reversible).",
+    "name": "update-agentcontrol-config",
+    "description": "Update a config's metadata: name, description, tags, or archive status. Does NOT modify variations: use update-agentcontrol-config-variation for model, prompt, or parameter changes. Set archived: true to archive (reversible).",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -157,8 +157,8 @@
     }
   },
   {
-    "name": "delete-ai-config",
-    "description": "Permanently delete a config. THIS IS IRREVERSIBLE. Requires confirm=true to execute. Prefer archiving (update-ai-config with archived: true) when possible.",
+    "name": "delete-agentcontrol-config",
+    "description": "Permanently delete a config. THIS IS IRREVERSIBLE. Requires confirm=true to execute. Prefer archiving (update-agentcontrol-config with archived: true) when possible.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -170,8 +170,8 @@
     }
   },
   {
-    "name": "setup-ai-config",
-    "description": "Create a config with its first variation in one step. This is the recommended way to set up a new config: it creates the config, adds a variation with model and prompts, and verifies everything is configured correctly. Returns the full config detail with variation. To attach agent tools, pass the 'tools' array with {key, version} entries. Use create-ai-config + create-ai-config-variation separately only when you need more control.",
+    "name": "setup-agentcontrol-config",
+    "description": "Create a config with its first variation in one step. This is the recommended way to set up a new config: it creates the config, adds a variation with model and prompts, and verifies everything is configured correctly. Returns the full config detail with variation. To attach agent tools, pass the 'tools' array with {key, version} entries. Use create-agentcontrol-config + create-agentcontrol-config-variation separately only when you need more control.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -216,7 +216,7 @@
     }
   },
   {
-    "name": "get-ai-config-health",
+    "name": "get-agentcontrol-config-health",
     "description": "Health check for a config. Detects common issues: missing models (NO MODEL in UI), missing prompts, orphaned tool references, and empty configs with no variations. Returns a health verdict (healthy, warning, unhealthy) with specific issues and per-variation summaries. Run before updating or experimenting with a config.",
     "input_schema": {
       "type": "object",
@@ -228,7 +228,7 @@
     }
   },
   {
-    "name": "create-ai-config-variation",
+    "name": "create-agentcontrol-config-variation",
     "description": "Create a variation for a config. A variation defines the model, prompts, parameters, and tools. modelConfigKey must be in Provider.model-id format (e.g. OpenAI.gpt-4o, Anthropic.claude-sonnet-4-5) for models to display correctly in the UI. Agent-mode configs use 'instructions' (a string); completion-mode configs use 'messages' (an array of {role, content} objects). To attach agent tools, pass the 'tools' array with {key, version} entries (create tools first with create-ai-tool).",
     "input_schema": {
       "type": "object",
@@ -270,7 +270,7 @@
     }
   },
   {
-    "name": "update-ai-config-variation",
+    "name": "update-agentcontrol-config-variation",
     "description": "Update a config variation's model, instructions/messages, parameters, or attached tools. All fields are optional: only provided fields are updated. To attach tools, pass the 'tools' array with {key, version} entries (create tools first with create-ai-tool). Pass an empty tools array to detach all tools.",
     "input_schema": {
       "type": "object",
@@ -311,7 +311,7 @@
     }
   },
   {
-    "name": "delete-ai-config-variation",
+    "name": "delete-agentcontrol-config-variation",
     "description": "Permanently delete a config variation. THIS IS IRREVERSIBLE. Requires confirm=true to execute.",
     "input_schema": {
       "type": "object",
@@ -325,7 +325,7 @@
     }
   },
   {
-    "name": "clone-ai-config-variation",
+    "name": "clone-agentcontrol-config-variation",
     "description": "Clone an existing config variation with selective overrides. Reads the source variation, applies any provided overrides (model, instructions, messages, parameters, tools), and creates a new variation. Returns both the source and created variation so you can compare the diff. Use this for A/B experimentation: change one thing at a time while keeping everything else constant.",
     "input_schema": {
       "type": "object",
@@ -393,7 +393,7 @@
   },
   {
     "name": "create-ai-tool",
-    "description": "Create a new agent tool definition in a project. The schema should be a raw JSON Schema object with type, properties, and required fields (e.g. {\"type\": \"object\", \"properties\": {...}}). Do NOT use the OpenAI function calling wrapper format. After creation, attach the tool to a variation using update-ai-config-variation.",
+    "description": "Create a new agent tool definition in a project. The schema should be a raw JSON Schema object with type, properties, and required fields (e.g. {\"type\": \"object\", \"properties\": {...}}). Do NOT use the OpenAI function calling wrapper format. After creation, attach the tool to a variation using update-agentcontrol-config-variation.",
     "input_schema": {
       "type": "object",
       "properties": {

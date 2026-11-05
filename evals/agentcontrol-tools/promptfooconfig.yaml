@@ -36,9 +36,9 @@ tests:
         value: |
           const tools = output.tools_called || [];
           const createIdx = tools.indexOf('create-ai-tool');
-          const attachIdx = tools.lastIndexOf('update-ai-config-variation');
+          const attachIdx = tools.lastIndexOf('update-agentcontrol-config-variation');
           const pass = createIdx >= 0 && attachIdx > createIdx;
-          return { pass, score: pass ? 1 : 0, reason: 'create-ai-tool@' + createIdx + ' update-ai-config-variation@' + attachIdx };
+          return { pass, score: pass ? 1 : 0, reason: 'create-ai-tool@' + createIdx + ' update-agentcontrol-config-variation@' + attachIdx };
         metric: create_before_attach
         weight: 3
 
@@ -56,8 +56,8 @@ tests:
 
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'update-ai-config-variation');
-          if (!call) return { pass: false, score: 0, reason: 'No update-ai-config-variation call' };
+          const call = (output.trajectory || []).find(t => t.tool === 'update-agentcontrol-config-variation');
+          if (!call) return { pass: false, score: 0, reason: 'No update-agentcontrol-config-variation call' };
           const attachedTools = call.arguments.tools || [];
           const pass = Array.isArray(attachedTools) && attachedTools.length >= 1;
           return { pass, score: pass ? 1 : 0, reason: 'tools=' + JSON.stringify(attachedTools) };
@@ -71,7 +71,7 @@ tests:
           1. Did it create the tool first with create-ai-tool?
           2. Did the tool schema use raw JSON Schema format (type: object, properties)?
           3. Did the schema include both requested parameters (query, limit)?
-          4. Did it attach the tool via update-ai-config-variation?
+          4. Did it attach the tool via update-agentcontrol-config-variation?
           Score 1.0 if all four are met, deduct 0.25 for each miss.
         metric: workflow_quality
         weight: 2
@@ -183,7 +183,7 @@ tests:
         value: |
           const tools = output.tools_called || [];
           const createIdx = tools.indexOf('create-ai-tool');
-          const attachIdx = tools.lastIndexOf('update-ai-config-variation');
+          const attachIdx = tools.lastIndexOf('update-agentcontrol-config-variation');
           const pass = createIdx >= 0 && attachIdx > createIdx;
           return { pass, score: pass ? 1 : 0, reason: 'create-ai-tool@' + createIdx + ' update@' + attachIdx };
         metric: create_before_attach
@@ -205,7 +205,7 @@ tests:
           attachment. Evaluate:
           1. Did the agent create the tool first with create-ai-tool?
           2. Did the tool include a location parameter as requested?
-          3. Did it attach via update-ai-config-variation?
+          3. Did it attach via update-agentcontrol-config-variation?
           4. Did it NOT try to reference a tool that doesn't exist yet?
         metric: workflow_quality
         weight: 2

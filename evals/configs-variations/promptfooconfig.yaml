@@ -34,14 +34,14 @@ tests:
     assert:
       - type: javascript
         value: |
-          const pass = (output.tools_called || []).includes('clone-ai-config-variation');
+          const pass = (output.tools_called || []).includes('clone-agentcontrol-config-variation');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + (output.tools_called || []).join(' -> ') };
         metric: calls_clone
         weight: 3
 
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'clone-ai-config-variation');
+          const call = (output.trajectory || []).find(t => t.tool === 'clone-agentcontrol-config-variation');
           if (!call) return { pass: false, score: 0, reason: 'No clone call' };
           const a = call.arguments;
           const changesModel = !!(a.modelConfigKey || a.modelName);
@@ -54,7 +54,7 @@ tests:
 
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'clone-ai-config-variation');
+          const call = (output.trajectory || []).find(t => t.tool === 'clone-agentcontrol-config-variation');
           if (!call) return { pass: false, score: 0, reason: 'No clone call' };
           const pass = call.arguments.sourceVariationKey === 'default';
           return { pass, score: pass ? 1 : 0, reason: 'sourceVariationKey=' + call.arguments.sourceVariationKey };
@@ -64,7 +64,7 @@ tests:
       - type: llm-rubric
         value: |
           The agent was asked to clone a variation to test a cheaper model. Evaluate:
-          1. Did it use clone-ai-config-variation (the recommended approach)?
+          1. Did it use clone-agentcontrol-config-variation (the recommended approach)?
           2. Did it change only the model, keeping instructions and parameters constant?
           3. Did it use the correct sourceVariationKey ("default")?
           4. Did the new variation key/name indicate it's a cost test?
@@ -87,14 +87,14 @@ tests:
     assert:
       - type: javascript
         value: |
-          const pass = (output.tools_called || []).includes('clone-ai-config-variation');
+          const pass = (output.tools_called || []).includes('clone-agentcontrol-config-variation');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + (output.tools_called || []).join(' -> ') };
         metric: calls_clone
         weight: 3
 
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'clone-ai-config-variation');
+          const call = (output.trajectory || []).find(t => t.tool === 'clone-agentcontrol-config-variation');
           if (!call) return { pass: false, score: 0, reason: 'No clone call' };
           const a = call.arguments;
           const hasInstructions = typeof a.instructions === 'string' && a.instructions.length > 0;
@@ -108,7 +108,7 @@ tests:
         value: |
           The user wants to test shorter instructions while keeping the model constant.
           Evaluate:
-          1. Did the agent use clone-ai-config-variation?
+          1. Did the agent use clone-agentcontrol-config-variation?
           2. Did it provide new instructions (shorter/more direct)?
           3. Did it keep the model unchanged (no modelConfigKey or modelName overrides)?
           4. Did it follow the one-variable-at-a-time principle?
@@ -130,17 +130,17 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const getIdx = tools.indexOf('get-ai-config');
-          const createIdx = tools.lastIndexOf('create-ai-config-variation');
+          const getIdx = tools.indexOf('get-agentcontrol-config');
+          const createIdx = tools.lastIndexOf('create-agentcontrol-config-variation');
           const pass = getIdx >= 0 && createIdx >= 0 && getIdx < createIdx;
-          return { pass, score: pass ? 1 : 0, reason: 'get-ai-config@' + getIdx + ' create-variation@' + createIdx };
+          return { pass, score: pass ? 1 : 0, reason: 'get-agentcontrol-config@' + getIdx + ' create-variation@' + createIdx };
         metric: fetches_before_creating
         weight: 3
 
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'create-ai-config-variation');
-          if (!call) return { pass: false, score: 0, reason: 'No create-ai-config-variation call' };
+          const call = (output.trajectory || []).find(t => t.tool === 'create-agentcontrol-config-variation');
+          if (!call) return { pass: false, score: 0, reason: 'No create-agentcontrol-config-variation call' };
           const key = call.arguments.modelConfigKey || '';
           const pass = /^[A-Za-z]+\..+$/.test(key);
           return { pass, score: pass ? 1 : 0, reason: 'modelConfigKey=' + key };
@@ -150,8 +150,8 @@ tests:
       - type: llm-rubric
         value: |
           The user asked to create a variation from scratch (not clone). Evaluate:
-          1. Did the agent fetch the existing config with get-ai-config first?
-          2. Did it use create-ai-config-variation (not clone)?
+          1. Did the agent fetch the existing config with get-agentcontrol-config first?
+          2. Did it use create-agentcontrol-config-variation (not clone)?
           3. Did it use correct Anthropic modelConfigKey format (e.g. Anthropic.claude-sonnet-4-5)?
           4. Did it include appropriate messages for the completion-mode config?
         metric: workflow_quality
@@ -172,15 +172,15 @@ tests:
     assert:
       - type: javascript
         value: |
-          const pass = !(output.tools_called || []).includes('delete-ai-config-variation');
-          return { pass, score: pass ? 1 : 0, reason: pass ? 'Correctly did not delete baseline' : 'Called delete-ai-config-variation' };
+          const pass = !(output.tools_called || []).includes('delete-agentcontrol-config-variation');
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'Correctly did not delete baseline' : 'Called delete-agentcontrol-config-variation' };
         metric: no_baseline_deletion
         weight: 3
 
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = tools.includes('clone-ai-config-variation') || tools.includes('create-ai-config-variation');
+          const pass = tools.includes('clone-agentcontrol-config-variation') || tools.includes('create-agentcontrol-config-variation');
           return { pass, score: pass ? 1 : 0, reason: 'Tools: ' + tools.join(' -> ') };
         metric: creates_variation
         weight: 2
@@ -210,7 +210,7 @@ tests:
     assert:
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'clone-ai-config-variation' || t.tool === 'create-ai-config-variation');
+          const call = (output.trajectory || []).find(t => t.tool === 'clone-agentcontrol-config-variation' || t.tool === 'create-agentcontrol-config-variation');
           if (!call) return { pass: false, score: 0, reason: 'No variation creation call' };
           const key = call.arguments.modelConfigKey || '';
           const pass = /^[A-Za-z]+\..+$/.test(key);
@@ -220,7 +220,7 @@ tests:
 
       - type: javascript
         value: |
-          const call = (output.trajectory || []).find(t => t.tool === 'clone-ai-config-variation' || t.tool === 'create-ai-config-variation');
+          const call = (output.trajectory || []).find(t => t.tool === 'clone-agentcontrol-config-variation' || t.tool === 'create-agentcontrol-config-variation');
           if (!call) return { pass: false, score: 0, reason: 'No variation creation call' };
           const key = (call.arguments.modelConfigKey || '').toLowerCase();
           const modelName = (call.arguments.modelName || '').toLowerCase();

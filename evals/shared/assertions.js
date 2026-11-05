@@ -5,11 +5,11 @@
  *   {
  *     response: "<final agent text>",
  *     trajectory: [
- *       { tool: "list-ai-configs", arguments: {...}, turn: 1 },
- *       { tool: "setup-ai-config", arguments: {...}, turn: 2 },
+ *       { tool: "list-agentcontrol-configs", arguments: {...}, turn: 1 },
+ *       { tool: "setup-agentcontrol-config", arguments: {...}, turn: 2 },
  *       ...
  *     ],
- *     tools_called: ["list-ai-configs", "setup-ai-config"],
+ *     tools_called: ["list-agentcontrol-configs", "setup-agentcontrol-config"],
  *     turn_count: 3
  *   }
  *
