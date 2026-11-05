@@ -16,7 +16,7 @@ const ORCH_TEMPLATES = require("../experiment-orchestration/mocks.json");
 test("createMockState returns fresh empty state each call", () => {
   const a = createMockState();
   const b = createMockState();
-  assert.deepEqual(a, { configs: {}, flags: {}, raSettings: null, raRepos: {}, raPlans: {} });
+  assert.deepEqual(a, { configs: {}, flags: {}, targeting: {}, raSettings: null, raRepos: {}, raPlans: {} });
   a.configs["x"] = {};
   assert.deepEqual(b.configs, {}); // independent
 });
@@ -830,4 +830,39 @@ test("an error template wins over the stateful write and is not recorded", () =>
   const err = { error: "403: denied" };
   assert.equal(renderMockResponse(err, { accountWide: true, autoFlagging: { enabled: true } }, "update-release-autopilot", state).error, "403: denied");
   assert.equal(state.raSettings, null);
+});
+
+test("get-agent-configs section=status reflects a targeting write for that environment", () => {
+  const state = createMockState();
+  const status = { configKey: "content-writer", section: "status", projectKey: "marketing" };
+  const read = () =>
+    renderMockResponse(TEMPLATES["get-agent-configs#status"], status, "get-agent-configs", state);
+  assert.equal(read().environments.production.on, true);
+
+  renderMockResponse(
+    TEMPLATES["update-agent-config#targeting"],
+    { configKey: "content-writer", resource: "targeting", env: "production", on: false, confirm: true },
+    "update-agent-config",
+    state,
+  );
+  const after = read();
+  assert.equal(after.environments.production.on, false);
+  assert.equal(after.environments.staging.on, true);
+});
+
+test("get-agent-configs section=status is unchanged for a different config", () => {
+  const state = createMockState();
+  renderMockResponse(
+    TEMPLATES["update-agent-config#targeting"],
+    { configKey: "content-writer", resource: "targeting", env: "production", on: false, confirm: true },
+    "update-agent-config",
+    state,
+  );
+  const other = renderMockResponse(
+    TEMPLATES["get-agent-configs#status"],
+    { configKey: "other-config", section: "status" },
+    "get-agent-configs",
+    state,
+  );
+  assert.equal(other.environments.production.on, true);
 });

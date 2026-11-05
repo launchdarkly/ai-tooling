@@ -131,6 +131,7 @@ function createMockState() {
   return {
     configs: {},      // configKey -> config object
     flags: {},        // flagKey -> flag object
+    targeting: {},    // configKey -> { env -> on } for targeting writes this run
     raSettings: null, // Release Autopilot account settings written this run
     raRepos: {},      // owner/name -> Release Autopilot repo settings written this run
     raPlans: {},      // environmentKey -> release plans created this run
@@ -399,6 +400,19 @@ function renderMockResponse(template, input, toolName, state) {
     }
   }
 
+  if (mode === "get-agent-configs#status") {
+    // A targeting write this run overrides the template's `on` for that
+    // environment, so re-reading status after turning targeting off agrees.
+    const written = (state.targeting || {})[input.configKey];
+    const out = walk(template, replacements);
+    if (written && out && out.environments) {
+      for (const [env, on] of Object.entries(written)) {
+        if (out.environments[env]) out.environments[env] = { ...out.environments[env], on };
+      }
+    }
+    return out;
+  }
+
   if (mode === "get-agent-configs#health") {
     const key = input.configKey;
     if (key && state.configs[key]) {
@@ -580,6 +594,12 @@ function renderMockResponse(template, input, toolName, state) {
       }
       return { ...cfg };
     }
+    return walk(template, replacements);
+  }
+
+  if (mode === "update-agent-config#targeting" && !failedWrite && input.env && typeof input.on === "boolean") {
+    state.targeting = state.targeting || {};
+    (state.targeting[input.configKey] = state.targeting[input.configKey] || {})[input.env] = input.on;
     return walk(template, replacements);
   }
 
