@@ -791,11 +791,11 @@ const RA_TEMPLATES = require("../release-autopilot-onboarding/tool-mocks.json");
 
 test("repo read reflects an earlier repo write", () => {
   const state = createMockState();
-  const tpl = RA_TEMPLATES["get-release-autopilot"];
-  const before = renderMockResponse(tpl, { repo: "acme/demo" }, "get-release-autopilot", state);
+  const tpl = RA_TEMPLATES["get-automations"];
+  const before = renderMockResponse(tpl, { repo: "acme/demo" }, "get-automations", state);
   assert.equal(before.repos[0].mapped, false);
-  renderMockResponse(RA_TEMPLATES["update-release-autopilot"], { accountWide: false, repo: "acme/demo", projectKey: "default", autoReleasing: { enabled: false } }, "update-release-autopilot", state);
-  const got = renderMockResponse(tpl, { repo: "acme/demo" }, "get-release-autopilot", state);
+  renderMockResponse(RA_TEMPLATES["update-automations"], { accountWide: false, repo: "acme/demo", projectKey: "default", autoReleasing: { enabled: false } }, "update-automations", state);
+  const got = renderMockResponse(tpl, { repo: "acme/demo" }, "get-automations", state);
   assert.equal(got.repos.length, 1);
   assert.equal(got.repos[0].mapped, true);
   assert.equal(got.repos[0].projectKey, "default");
@@ -804,15 +804,15 @@ test("repo read reflects an earlier repo write", () => {
 
 test("account read merges an earlier account write", () => {
   const state = createMockState();
-  renderMockResponse(RA_TEMPLATES["update-release-autopilot"], { accountWide: true, autoFlagging: { enabled: false } }, "update-release-autopilot", state);
-  const got = renderMockResponse(RA_TEMPLATES["get-release-autopilot"], {}, "get-release-autopilot", state);
+  renderMockResponse(RA_TEMPLATES["update-automations"], { accountWide: true, autoFlagging: { enabled: false } }, "update-automations", state);
+  const got = renderMockResponse(RA_TEMPLATES["get-automations"], {}, "get-automations", state);
   assert.equal(got.account.autoFlagging.enabled, false);
   assert.equal(got.account.autoFlagging.approvalRequired, true);
   assert.equal(got.repos.length, 4);
 });
 
 test("mapped filter narrows the repo list", () => {
-  const got = renderMockResponse(RA_TEMPLATES["get-release-autopilot"], { mapped: false }, "get-release-autopilot", createMockState());
+  const got = renderMockResponse(RA_TEMPLATES["get-automations"], { mapped: false }, "get-automations", createMockState());
   assert.deepEqual(got.repos.map((r) => r.repo), ["acme/api", "acme/demo"]);
   assert.equal(got.totalCount, 2);
 });
@@ -828,7 +828,7 @@ test("release plans list reflects a created plan", () => {
 test("an error template wins over the stateful write and is not recorded", () => {
   const state = createMockState();
   const err = { error: "403: denied" };
-  assert.equal(renderMockResponse(err, { accountWide: true, autoFlagging: { enabled: true } }, "update-release-autopilot", state).error, "403: denied");
+  assert.equal(renderMockResponse(err, { accountWide: true, autoFlagging: { enabled: true } }, "update-automations", state).error, "403: denied");
   assert.equal(state.raSettings, null);
 });
 
