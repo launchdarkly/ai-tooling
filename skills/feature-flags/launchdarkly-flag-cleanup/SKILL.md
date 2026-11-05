@@ -79,7 +79,7 @@ For a `not_ready_for_code_removal` blocker, tell the user why LaunchDarkly does 
 
 **If `details.lifecycle.codeAlreadyRemoved` is `true`,** the flag is launched in every critical environment and LaunchDarkly finds no code references for it. The verdict is `caution` with a `code_already_removed` warning.
 - If you found no references in Step 1, the code removal is done. Offer to archive the flag with `archive-flag` only after the user confirms that the cleanup is deployed everywhere the flag is evaluated. Until then, SDKs that run the old code still evaluate the flag and would get their fallback value.
-- If you found references in Step 1, do not offer to archive it. Code references may not be set up for this repository. The flag is launched, so you can continue with the "Ready for cleanup" check below.
+- If you found references in Step 1, do not offer to archive it. The flag is launched and passes every other lifecycle check, so continue with code removal. Tell the user that code references may not be set up for this repository.
 
 #### Also apply LaunchDarkly's "Ready for cleanup" rule
 
@@ -103,7 +103,7 @@ You cannot check evaluations or lifecycle status yourself: `get-flags` returns t
 
 **A flag that is OFF in a critical environment is not `launched`, so it is not ready for code removal.** This is true even when every critical environment is OFF and serves the same `offVariation`. A flag that is off everywhere often guards a feature that was never released. If you hardcode the `offVariation`, you delete the code for that feature. LaunchDarkly lists a flag that is off everywhere, has had no evaluations recently, and has no code references as **ready to archive**, not as ready for code removal.
 
-If `details.lifecycle.readyForCodeRemoval` is `false`, or targeting is OFF in a critical environment, stop and tell the user why, even when the verdict is `safe`. Do not offer to continue unless the user explicitly asks to remove the flag anyway. For a flag that is off everywhere, continue only if the user explicitly confirms that the code behind the other variations is abandoned and must be deleted. Record that confirmation in the PR description.
+If `details.lifecycle.readyForCodeRemoval` is `false`, or targeting is OFF in a critical environment, stop and tell the user why, even when the verdict is `safe`. One exception: if `details.lifecycle.codeAlreadyRemoved` is `true` and you found references in Step 1, continue. LaunchDarkly passes every other check for this flag, and `readyForCodeRemoval` is `false` only because LaunchDarkly does not scan this repository. Do not offer to continue unless the user explicitly asks to remove the flag anyway. For a flag that is off everywhere, continue only if the user explicitly confirms that the code behind the other variations is abandoned and must be deleted. Record that confirmation in the PR description.
 
 ### Step 3: Determine the Forward Value
 
