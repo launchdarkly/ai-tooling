@@ -94,9 +94,9 @@
     },
     {
       "name": "alert-investigation",
-      "description": "Investigates a triggered observability alert and returns a structured diagnosis with likely cause, scope, and next steps.",
+      "description": "Investigates a firing or recently fired observability alert: finds the firing and replays the value it evaluated, decides whether the alert is chronic noise or a new problem, reuses any automatic investigation, then finds the cause (what changed, which host, version or route is over-represented) and returns a structured diagnosis with cause, scope and next steps.",
       "path": "skills/observability/alert-investigation",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
@@ -230,9 +230,9 @@
     },
     {
       "name": "investigate",
-      "description": "Analyzes observability data \u2014 logs, traces, errors, sessions, and metrics \u2014 to find root cause and actionable evidence. Use when the user reports a bug, an unexpected behavior, or asks about patterns across application data.",
+      "description": "Finds the root cause of a production problem from observability data (logs, traces, errors, sessions, metrics): scope and onset, what changed (deploys and flag changes), which host, version, route or flag variation is over-represented against a baseline, then trace, log and error evidence and blast radius. Use when the user reports a bug, an outage, an error or latency spike, an incident, or asks about patterns across application data.",
       "path": "skills/observability/investigate",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
