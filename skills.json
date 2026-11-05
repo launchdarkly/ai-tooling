@@ -491,9 +491,9 @@
       "name": "onboarding",
       "description": "Scripted onboarding for LaunchDarkly: quiet execution, fixed sequence, SDK install, first flag with a live reveal, MCP offered afterwards. Enforces step completion before advancing and redirects drift. Use when adding LaunchDarkly, setting up or integrating feature flags in a project, SDK integration, or 'onboard me'.",
       "path": "skills/onboarding",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "license": "Apache-2.0",
-      "compatibility": "Requires an MCP-capable coding agent and `npx` on PATH for optional skill installs. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.",
+      "compatibility": "Requires an MCP-capable coding agent. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.",
       "tags": [
         "launchdarkly",
         "feature-flags",

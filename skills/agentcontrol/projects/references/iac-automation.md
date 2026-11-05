@@ -120,6 +120,8 @@ resource "local_file" "sdk_key_production" {
 
 ## GitHub Actions
 
+These pipelines read the token from the CI platform's secret store (GitHub Actions secrets, GitLab masked CI/CD variables, Kubernetes Secrets), set by an admin in that platform. They never read a developer's local environment, and an agent should not run them locally.
+
 Automate project creation in CI/CD:
 
 ### Create Project on Deploy
@@ -408,8 +410,10 @@ version: '3.8'
 services:
   setup-launchdarkly:
     image: python:3.11-slim
-    environment:
-      - LAUNCHDARKLY_API_TOKEN=${LAUNCHDARKLY_API_TOKEN}
+    # Run once with `docker compose run --rm setup-launchdarkly`;
+    # create_project.py prompts for the API token (getpass).
+    stdin_open: true
+    tty: true
     volumes:
       - ./scripts:/scripts
       - ./.env.production:/output/.env
