@@ -9,7 +9,7 @@
     }
   },
   {
-    "name": "get-release-autopilot",
+    "name": "get-automations",
     "description": "Get Release Autopilot settings: the account-wide auto-flagging and auto-releasing (the master gate a repository cannot exceed) and a page of repositories on the account's GitHub App install, each with mapped true or false and its project and effective settings when mapped. Mapped repositories not visible on the install are listed too, with visibleOnInstall false and no repo name. Pass repo (owner/name) or githubRepoId for one repository. Leave mapped unset to list connected and not-yet-connected repositories together; set it only when the user wants just one of the two groups. When hasMore is true, pass nextOffset as offset. When githubConnectUrl is present, GitHub is not connected: give that link to the user and retry after they finish. reposError means the install could not be read; retry later.",
     "input_schema": {
       "additionalProperties": false,
@@ -47,7 +47,7 @@
     }
   },
   {
-    "name": "update-release-autopilot",
+    "name": "update-automations",
     "description": "Update Release Autopilot auto-flagging and auto-releasing. accountWide is required: true changes account settings; false maps or changes one repository (repo or githubRepoId), with projectKey required on the first map. Send only what changed; omitted fields keep their stored value or inherit the account. approvalRequired applies only to auto-flagging. When githubConnectUrl is present, give that link to the user and retry after they finish.",
     "input_schema": {
       "additionalProperties": false,
@@ -104,7 +104,7 @@
     }
   },
   {
-    "name": "delete-release-autopilot-repo-settings",
+    "name": "delete-automations-repo-settings",
     "description": "Unmap a GitHub repository from Release Autopilot, removing its project mapping and overrides. Idempotent: an already-unmapped repository still succeeds. Pass repo as owner/name or githubRepoId.",
     "input_schema": {
       "additionalProperties": false,

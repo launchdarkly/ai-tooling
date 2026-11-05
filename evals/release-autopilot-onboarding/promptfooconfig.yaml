@@ -57,7 +57,7 @@ tests:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 25
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: false }
             autoReleasing: { enabled: false }
@@ -261,7 +261,7 @@ tests:
       user_request: "Set up Release Autopilot for my repos."
       max_turns: 15
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: false }
             autoReleasing: { enabled: false }
@@ -300,7 +300,7 @@ tests:
       max_turns: 25
       mock_overrides:
         get-member-self: { id: "member-3", email: "writer@acme.example", role: "writer", teams: [] }
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: false }
             autoReleasing: { enabled: false }
@@ -353,7 +353,7 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: false }
             autoReleasing: { enabled: false }
@@ -551,7 +551,7 @@ tests:
         our GitHub org owner installed the App, and that is done now.
       max_turns: 20
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: false }
             autoReleasing: { enabled: false }
@@ -598,7 +598,7 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: false }
             autoReleasing: { enabled: false }
@@ -609,7 +609,7 @@ tests:
             - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
           totalCount: 3
           hasMore: false
-        update-release-autopilot:
+        update-automations:
           by_arg: accountWide
           cases:
             "true":
@@ -645,7 +645,7 @@ tests:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: false }
             autoReleasing: { enabled: false }
@@ -712,7 +712,7 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for my repos."
       max_turns: 18
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: false }
             autoReleasing: { enabled: false }
@@ -751,7 +751,7 @@ tests:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 10
       mock_overrides:
-        get-release-autopilot: { error: "LaunchDarkly API error: 404 Not Found" }
+        get-automations: { error: "LaunchDarkly API error: 404 Not Found" }
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noWrites
@@ -774,7 +774,7 @@ tests:
       user_request: "Why didn't Release Autopilot classify my pull request acme/demo#42?"
       max_turns: 12
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: false }
             autoReleasing: { enabled: false }
@@ -806,7 +806,7 @@ tests:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: false }
             autoReleasing: { enabled: false }
@@ -868,7 +868,7 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for my repos."
       max_turns: 12
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: true }
             autoReleasing: { enabled: false }
@@ -906,7 +906,7 @@ tests:
       user_request: "Set up Release Autopilot auto-archival for project default."
       max_turns: 16
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: true }
             autoReleasing: { enabled: false }
@@ -971,7 +971,7 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for acme/storefront in project default. I don't want auto-releasing."
       max_turns: 22
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           repos:
             - repo: acme/storefront
               githubRepoId: 101
@@ -1007,7 +1007,7 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default, using our own Anthropic key."
       max_turns: 22
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: true }
             autoReleasing: { enabled: false }
@@ -1049,7 +1049,7 @@ tests:
       user_request: "Do a dry run: preview what you'd change to set up Release Autopilot auto-flagging and auto-releasing for project default. Don't change anything."
       max_turns: 18
       mock_overrides:
-        get-release-autopilot:
+        get-automations:
           account:
             autoFlagging: { enabled: false, approvalRequired: true }
             autoReleasing: { enabled: false }

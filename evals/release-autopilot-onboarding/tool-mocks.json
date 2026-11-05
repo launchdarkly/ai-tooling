@@ -5,7 +5,7 @@
     "role": "admin",
     "teams": []
   },
-  "get-release-autopilot": {
+  "get-automations": {
     "account": {
       "autoFlagging": {
         "enabled": true,
@@ -67,7 +67,7 @@
     "totalCount": 4,
     "hasMore": false
   },
-  "update-release-autopilot": {
+  "update-automations": {
     "autoFlagging": {
       "enabled": true,
       "approvalRequired": true
@@ -77,7 +77,7 @@
     },
     "version": 10
   },
-  "delete-release-autopilot-repo-settings": {
+  "delete-automations-repo-settings": {
     "deleted": true
   },
   "get-release-plans": {
