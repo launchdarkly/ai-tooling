@@ -321,7 +321,7 @@ Never silently dump code with no tradeoff, and never rigidly refuse. If they ins
 
 - **SDK already installed:** Skip Step 3. Say so in one line that names what you found and where, then go to Step 4. Do not re-explain the SDK or run install commands. If the user asked for observability, still add the plugin to the existing client first ([Observability plugin](references/sdk/observability-plugin.md)).
 - **MCP already configured:** Use it. Skip the Step 2 offer. Call `get-project` to store keys and continue.
-- **Deprecated mcp/aiconfigs or mcp/fm found:** Both are deprecated. Ask before migrating to the unified `mcp/launchdarkly` server. Do not auto-migrate.
+- **Deprecated mcp/aiconfigs or mcp/fm found:** Both are deprecated. Ask before migrating to the unified `https://mcp.launchdarkly.com/mcp` server. Do not auto-migrate.
 - **No supported agent detected:** Ask directly. Provide manual config if needed.
 - **npx not available:** Provide manual skill installation (clone repo, copy skill directories).
 - **User only wants partial setup:** Respect it. State what is missing and what that limits.
