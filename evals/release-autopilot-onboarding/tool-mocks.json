@@ -5,17 +5,69 @@
     "role": "admin",
     "teams": []
   },
-  "get-release-autopilot-settings": {
-    "autoFlagging": {
-      "enabled": true,
-      "approvalRequired": true
+  "get-release-autopilot": {
+    "account": {
+      "autoFlagging": {
+        "enabled": true,
+        "approvalRequired": true
+      },
+      "autoReleasing": {
+        "enabled": true
+      },
+      "version": 9
     },
-    "autoReleasing": {
-      "enabled": true
-    },
-    "version": 9
+    "repos": [
+      {
+        "repo": "acme/storefront",
+        "githubRepoId": 101,
+        "mapped": true,
+        "visibleOnInstall": true,
+        "isPublic": false,
+        "projectKey": "default",
+        "autoFlagging": {
+          "enabled": true,
+          "approvalRequired": true,
+          "enabledOverride": false
+        },
+        "autoReleasing": {
+          "enabled": true,
+          "enabledOverride": false
+        }
+      },
+      {
+        "repo": "acme/api",
+        "githubRepoId": 102,
+        "mapped": false,
+        "visibleOnInstall": true,
+        "isPublic": false
+      },
+      {
+        "repo": "acme/demo",
+        "githubRepoId": 103,
+        "mapped": false,
+        "visibleOnInstall": true,
+        "isPublic": true
+      },
+      {
+        "githubRepoId": 999,
+        "mapped": true,
+        "visibleOnInstall": false,
+        "projectKey": "default",
+        "autoFlagging": {
+          "enabled": true,
+          "approvalRequired": true,
+          "enabledOverride": false
+        },
+        "autoReleasing": {
+          "enabled": true,
+          "enabledOverride": false
+        }
+      }
+    ],
+    "totalCount": 4,
+    "hasMore": false
   },
-  "update-release-autopilot-settings": {
+  "update-release-autopilot": {
     "autoFlagging": {
       "enabled": true,
       "approvalRequired": true
@@ -25,78 +77,10 @@
     },
     "version": 10
   },
-  "list-release-autopilot-github-repos": {
-    "installed": true,
-    "userAuthorized": true,
-    "repositories": [
-      {
-        "githubRepoId": 101,
-        "name": "acme/storefront",
-        "isPublic": false
-      },
-      {
-        "githubRepoId": 102,
-        "name": "acme/api",
-        "isPublic": false
-      },
-      {
-        "githubRepoId": 103,
-        "name": "acme/demo",
-        "isPublic": true
-      }
-    ],
-    "totalCount": 3
-  },
-  "list-release-autopilot-repo-settings": {
-    "repos": [
-      {
-        "githubRepoId": 101,
-        "projectKey": "default",
-        "autoFlagging": {
-          "enabled": true,
-          "approvalRequired": true,
-          "enabledOverride": false
-        },
-        "autoReleasing": {
-          "enabled": true,
-          "enabledOverride": false
-        }
-      },
-      {
-        "githubRepoId": 999,
-        "projectKey": "default",
-        "autoFlagging": {
-          "enabled": true,
-          "approvalRequired": true,
-          "enabledOverride": false
-        },
-        "autoReleasing": {
-          "enabled": true,
-          "enabledOverride": false
-        }
-      }
-    ],
-    "totalCount": 2
-  },
-  "get-release-autopilot-repo-settings": {
-    "error": "LaunchDarkly API error: 404: Factory settings for this repository were not found"
-  },
-  "update-release-autopilot-repo-settings": {
-    "projectKey": "{{projectKey}}",
-    "autoFlagging": {
-      "enabled": true,
-      "approvalRequired": true
-    },
-    "autoReleasing": {
-      "enabled": false,
-      "enabledOverride": true
-    },
-    "version": 1
-  },
   "delete-release-autopilot-repo-settings": {
     "deleted": true
   },
-  "list-release-plans": {
+  "get-release-plans": {
     "items": [],
     "totalCount": 0
   },

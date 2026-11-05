@@ -1,6 +1,6 @@
 # LaunchDarkly Config Targeting Skill
 
-An Agent Skill for configuring config targeting rules via the LaunchDarkly API.
+An Agent Skill for configuring config targeting rules with the LaunchDarkly MCP server.
 
 ## Overview
 
@@ -17,7 +17,7 @@ Copy `skills/agentcontrol/configs-targeting/` into your agent client's skills pa
 
 ## Prerequisites
 
-- LaunchDarkly API access token with `ai-configs:write` permission
+- The LaunchDarkly MCP server (scripts without MCP need an API access token with `ai-configs:write`)
 - Existing config with variations (use `configs-create` skill)
 - Understanding of contexts (see `context-basic` skill)
 

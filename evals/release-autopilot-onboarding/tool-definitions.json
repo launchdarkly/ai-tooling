@@ -1,176 +1,186 @@
 [
   {
     "name": "get-member-self",
-    "description": "Return the member ID, profile, role, and team memberships for the currently authenticated user.",
+    "description": "Return the authenticated member's profile and team memberships.",
     "input_schema": {
-      "type": "object",
-      "properties": {}
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
     }
   },
   {
-    "name": "get-release-autopilot-settings",
-    "description": "Get account-wide Release Autopilot settings: whether auto-flagging and auto-releasing are on, and whether auto-flagging pull requests need approval. These are the master gate. Do not use autoCleanup.",
+    "name": "get-release-autopilot",
+    "description": "Get Release Autopilot settings: the account-wide auto-flagging and auto-releasing (the master gate a repository cannot exceed) and a page of repositories on the account's GitHub App install, each with mapped true or false and its project and effective settings when mapped. Mapped repositories not visible on the install are listed too, with visibleOnInstall false and no repo name. Pass repo (owner/name) or githubRepoId for one repository. Leave mapped unset to list connected and not-yet-connected repositories together; set it only when the user wants just one of the two groups. When hasMore is true, pass nextOffset as offset. When githubConnectUrl is present, GitHub is not connected: give that link to the user and retry after they finish. reposError means the install could not be read; retry later.",
     "input_schema": {
-      "type": "object",
-      "properties": {}
-    }
-  },
-  {
-    "name": "update-release-autopilot-settings",
-    "description": "Update account-wide Release Autopilot settings (auto-flagging and auto-releasing). Send only what changed. Requires permission to update account Release Autopilot settings. Do not send autoCleanup.",
-    "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "autoFlagging": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "approvalRequired": {
-              "type": "boolean"
-            }
-          }
-        },
-        "autoReleasing": {
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            },
-            "approvalRequired": {
-              "type": "boolean"
-            }
-          }
-        }
-      }
-    }
-  },
-  {
-    "name": "list-release-autopilot-github-repos",
-    "description": "List GitHub repositories on this account's LaunchDarkly GitHub App install, with name (owner/name) and numeric githubRepoId. When githubConnectUrl is present, give that link to the user and retry after they finish.",
-    "input_schema": {
-      "type": "object",
-      "properties": {
-        "projectKey": {
-          "type": "string"
-        }
-      }
-    }
-  },
-  {
-    "name": "list-release-autopilot-repo-settings",
-    "description": "List Release Autopilot settings for GitHub repositories already mapped to a LaunchDarkly project. Each automation is the effective value. githubRepoId is numeric; repo names are not included.",
-    "input_schema": {
-      "type": "object",
-      "properties": {}
-    }
-  },
-  {
-    "name": "get-release-autopilot-repo-settings",
-    "description": "Get Release Autopilot settings for one GitHub repository. Pass repo as owner/name, or githubRepoId. 404 means the repo is not mapped yet.",
-    "input_schema": {
-      "type": "object",
-      "properties": {
-        "repo": {
-          "type": "string"
-        },
         "githubRepoId": {
-          "type": "number"
+          "description": "Numeric GitHub repository id, an alternative to repo.",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "limit": {
+          "description": "Repositories per page. Defaults to 10.",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mapped": {
+          "description": "true lists only repositories mapped to a project; false only unmapped ones. Omit to list both.",
+          "type": "boolean"
+        },
+        "offset": {
+          "description": "Pass nextOffset from the previous page.",
+          "minimum": 0,
+          "type": "integer"
         },
         "projectKey": {
+          "description": "Any LaunchDarkly project key, used to look up the account-wide GitHub App install. Defaults to the oldest project.",
+          "type": "string"
+        },
+        "repo": {
+          "description": "GitHub repository as owner/name, for example launchdarkly/gonfalon.",
           "type": "string"
         }
-      }
+      },
+      "type": "object"
     }
   },
   {
-    "name": "update-release-autopilot-repo-settings",
-    "description": "Map a GitHub repository to a LaunchDarkly project and optionally override auto-flagging or auto-releasing. Pass repo as owner/name. projectKey is required on the first map. An omitted automation inherits the account setting. Do not send autoCleanup.",
+    "name": "update-release-autopilot",
+    "description": "Update Release Autopilot auto-flagging and auto-releasing. accountWide is required: true changes account settings; false maps or changes one repository (repo or githubRepoId), with projectKey required on the first map. Send only what changed; omitted fields keep their stored value or inherit the account. approvalRequired applies only to auto-flagging. When githubConnectUrl is present, give that link to the user and retry after they finish.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "repo": {
-          "type": "string"
-        },
-        "githubRepoId": {
-          "type": "number"
-        },
-        "projectKey": {
-          "type": "string"
+        "accountWide": {
+          "description": "true changes account settings and rejects repo, githubRepoId, and projectKey. false changes one repository and requires repo or githubRepoId.",
+          "type": "boolean"
         },
         "autoFlagging": {
-          "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "enabled": {
+            "approvalRequired": {
+              "description": "Whether auto-flagging pull requests need approval.",
               "type": "boolean"
             },
-            "approvalRequired": {
+            "enabled": {
               "type": "boolean"
             }
-          }
+          },
+          "type": "object"
         },
         "autoReleasing": {
-          "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": {
               "type": "boolean"
-            },
-            "approvalRequired": {
-              "type": "boolean"
             }
-          }
+          },
+          "type": "object"
+        },
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "githubRepoId": {
+          "description": "Numeric GitHub repository id, an alternative to repo.",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "projectKey": {
+          "description": "Only when accountWide is false: the LaunchDarkly project to map the repository to. Required on the first map.",
+          "type": "string"
+        },
+        "repo": {
+          "description": "GitHub repository as owner/name, for example launchdarkly/gonfalon.",
+          "type": "string"
         }
-      }
+      },
+      "required": [
+        "accountWide",
+        "confirm"
+      ],
+      "type": "object"
     }
   },
   {
     "name": "delete-release-autopilot-repo-settings",
-    "description": "Unmap a GitHub repository from Release Autopilot.",
+    "description": "Unmap a GitHub repository from Release Autopilot, removing its project mapping and overrides. Idempotent: an already-unmapped repository still succeeds. Pass repo as owner/name or githubRepoId.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "repo": {
-          "type": "string"
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
         },
         "githubRepoId": {
-          "type": "number"
+          "description": "Numeric GitHub repository id, an alternative to repo.",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "projectKey": {
+          "description": "Any LaunchDarkly project key, used to look up the account-wide GitHub App install. Defaults to the oldest project.",
+          "type": "string"
+        },
+        "repo": {
+          "description": "GitHub repository as owner/name, for example launchdarkly/gonfalon.",
+          "type": "string"
         }
-      }
+      },
+      "required": [
+        "confirm"
+      ],
+      "type": "object"
     }
   },
   {
-    "name": "list-release-plans",
-    "description": "List environment-scoped release plans. A release plan is a reusable progressive-release recipe for one environment. It replaces project-level release policies.",
+    "name": "get-release-plans",
+    "description": "Get an environment's release plans, reusable progressive-release recipes. Beta API. Without releasePlanKey: a page ordered by creation time with totalCount; when hasMore is true, pass nextOffset as offset. With releasePlanKey: one plan with its phases (clauses and steps), metrics, randomizationUnit, advancementMode, and cleanupBehavior.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
-          "type": "string"
-        },
         "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
-        "includeIncomplete": {
-          "type": "boolean"
+        "limit": {
+          "description": "Only without releasePlanKey. Defaults to 20.",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Only without releasePlanKey. Pass nextOffset from the previous page.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "releasePlanKey": {
+          "description": "Get one plan. Omit to list plans.",
+          "type": "string"
         }
       },
       "required": [
         "projectKey",
         "environmentKey"
-      ]
+      ],
+      "type": "object"
     }
   },
   {
     "name": "create-release-plan",
-    "description": "Create an environment-scoped release plan, a reusable progressive-release recipe. Does not start a release. PHASES: 1-10; every phase needs 1-10 clauses AND 1-10 steps. An \"everyone\" phase still needs a clause, e.g. { attribute: \"kind\", op: \"in\", values: [\"user\"], contextKind: \"user\" }. STEPS: allocation is per-100k (5000 = 5%, 100000 = 100%); durationMillis is the hold before the next step. METRICS: keyed object; {} = progressive. advancementMode defaults to manual.",
+    "description": "Create an environment-scoped release plan, a reusable progressive-release recipe. Does not start a release on a flag. Check existing plans with get-release-plans first: an active key returns 409. Beta API.\n\nGATHERING CONFIG: ask the user about each setting as its own question, in its own step. Never bundle randomizationUnit, advancementMode and cleanupBehavior into one prompt or offer pre-mixed combinations. Ask (1) randomizationUnit: the context kind to randomize by (e.g. user, account); (2) advancementMode: manual or automatic; (3) cleanupBehavior: leave_rules_in_place or remove_rules_and_update_default_rule, stating each outcome. Then make one create call with the complete config.\n\nprogressiveRelease: randomizationUnit, optional advancementMode (manual or automatic, default manual) and cleanupBehavior, phases, and optional metrics. cleanupBehavior sets what happens when a release finishes: leave_rules_in_place keeps the rules, so the release stays limited to the audience in them; remove_rules_and_update_default_rule removes the rules and releases to everyone through the default rule (the API default).\n\nPHASES: 1-10, each with 1-10 clauses and 1-10 steps. Every phase's clauses must include the randomization unit clause {attribute: \"kind\", op: \"in\", values: [<randomizationUnit>], contextKind: <randomizationUnit>}; alone it releases to every context of that kind. Clauses use the flag targeting shape {attribute, op, values, contextKind?, negate?}; attribute may be empty only for segmentMatch.\n\nSTEPS: {allocation, durationMillis}. allocation is per-100k (5000 = 5%, 100000 = 100%); durationMillis is the hold before the next step (14400000 = 4h).\n\nMETRICS: object keyed by metric or metric group key, each {isGroup, autoRollback?}. Empty makes a progressive release; any keys make releases from the plan guarded. Max 10 metrics and 5 groups; keys must exist in the project.",
     "input_schema": {
-      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "projectKey": {
+        "description": {
           "type": "string"
         },
         "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
           "type": "string"
         },
         "key": {
@@ -179,47 +189,59 @@
         "name": {
           "type": "string"
         },
-        "description": {
-          "type": "string"
-        },
         "progressiveRelease": {
-          "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "randomizationUnit": {
-              "type": "string"
-            },
             "advancementMode": {
-              "type": "string",
               "enum": [
                 "manual",
                 "automatic"
-              ]
+              ],
+              "type": "string"
             },
             "cleanupBehavior": {
-              "type": "string",
               "enum": [
                 "leave_rules_in_place",
                 "remove_rules_and_update_default_rule"
-              ]
+              ],
+              "type": "string"
+            },
+            "metrics": {
+              "additionalProperties": {
+                "additionalProperties": false,
+                "properties": {
+                  "autoRollback": {
+                    "type": "boolean"
+                  },
+                  "isGroup": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "isGroup"
+                ],
+                "type": "object"
+              },
+              "type": "object"
             },
             "phases": {
-              "type": "array",
               "items": {
-                "type": "object",
+                "additionalProperties": false,
                 "properties": {
-                  "description": {
-                    "type": "string"
-                  },
                   "clauses": {
-                    "type": "array",
                     "items": {
-                      "type": "object",
+                      "additionalProperties": false,
                       "properties": {
                         "attribute": {
                           "type": "string"
                         },
+                        "contextKind": {
+                          "type": "string"
+                        },
+                        "negate": {
+                          "type": "boolean"
+                        },
                         "op": {
-                          "type": "string",
                           "enum": [
                             "in",
                             "endsWith",
@@ -236,59 +258,76 @@
                             "semVerLessThan",
                             "semVerGreaterThan",
                             "segmentMatch"
-                          ]
-                        },
-                        "values": {
-                          "type": "array",
-                          "items": {}
-                        },
-                        "contextKind": {
+                          ],
                           "type": "string"
                         },
-                        "negate": {
-                          "type": "boolean"
+                        "values": {
+                          "items": true,
+                          "type": "array"
                         }
                       },
                       "required": [
                         "attribute",
                         "op",
                         "values"
-                      ]
-                    }
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 10,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "description": {
+                    "type": "string"
                   },
                   "steps": {
-                    "type": "array",
                     "items": {
-                      "type": "object",
+                      "additionalProperties": false,
                       "properties": {
                         "allocation": {
-                          "type": "number"
+                          "maximum": 100000,
+                          "minimum": 0,
+                          "type": "integer"
                         },
                         "durationMillis": {
-                          "type": "number"
+                          "minimum": 0,
+                          "type": "integer"
                         }
                       },
                       "required": [
                         "allocation",
                         "durationMillis"
-                      ]
-                    }
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 10,
+                    "minItems": 1,
+                    "type": "array"
                   }
                 },
                 "required": [
                   "clauses",
                   "steps"
-                ]
-              }
+                ],
+                "type": "object"
+              },
+              "maxItems": 10,
+              "minItems": 1,
+              "type": "array"
             },
-            "metrics": {
-              "type": "object"
+            "randomizationUnit": {
+              "type": "string"
             }
           },
           "required": [
             "randomizationUnit",
             "phases"
-          ]
+          ],
+          "type": "object"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
         }
       },
       "required": [
@@ -297,7 +336,8 @@
         "key",
         "name",
         "progressiveRelease"
-      ]
+      ],
+      "type": "object"
     }
   }
 ]

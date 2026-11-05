@@ -28,7 +28,7 @@ That's why a missing rationale is the most common nudge, why A/A is checked befo
 
 ## Tool use: read-only, and only to check what exists
 
-**Allowed:** `get-flags`, `get-metrics`, `get-projects`, `get-environment`. On older LaunchDarkly MCP servers the same lookups are named `get-flag`, `list-flags`, `get-metric`, `list-metrics`, and `get-project`; use whichever set the server offers.
+**Allowed:** `get-flags`, `get-metrics`, `get-projects`, `get-environment`.
 
 **Never call any other tool.** Every tool not in the list above is off limits, including any that create, change, start, approve, or delete something (for example `create-flag`, `create-metric`, `create-experiment`, `save-and-start-experiment-iteration`, `apply-approval-request`). If the user wants something built, hand off to `launchdarkly-experiment-setup` (see Handoff). If that skill isn't available, give them the handoff payload anyway. Don't do the writes yourself, and never say a flag, metric, or experiment was created.
 

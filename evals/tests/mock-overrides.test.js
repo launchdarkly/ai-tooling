@@ -57,10 +57,10 @@ const { renderMockResponse, createMockState } = require("../providers/_mock");
 const TEMPLATES = require("../mocks/tool-responses.json");
 const { overrideFor } = require("../providers/claude-skill-agent-sdk");
 
-test("a get-flag override doesn't hide a flag the agent created", () => {
+test("a get-flags override doesn't hide a flag the agent created", () => {
   const state = createMockState();
-  const overrides = { "get-flag": { error: "flag not found" } };
-  assert.deepEqual(overrideFor(overrides, "get-flag", 0, { flagKey: "exp-a" }, state), { error: "flag not found" });
+  const overrides = { "get-flags": { error: "flag not found" } };
+  assert.deepEqual(overrideFor(overrides, "get-flags", 0, { flagKey: "exp-a" }, state), { error: "flag not found" });
   renderMockResponse(TEMPLATES["create-flag"], { projectKey: "p", key: "exp-a", name: "A" }, "create-flag", state);
-  assert.equal(overrideFor(overrides, "get-flag", 1, { flagKey: "exp-a" }, state), undefined);
+  assert.equal(overrideFor(overrides, "get-flags", 1, { flagKey: "exp-a" }, state), undefined);
 });

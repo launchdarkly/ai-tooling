@@ -108,6 +108,7 @@ const {
   createMockState,
   resolveMockOverride,
   renderOverride,
+  templateKey,
 } = require("./_mock");
 const { inputSchemaToZodShape } = require("./_jsonschema-to-zod");
 
@@ -246,9 +247,9 @@ function resolveExposeMcpTools(configValue, varValue) {
 }
 
 // A test's override for this call, except that an override never hides a flag
-// the agent created or changed in this run: get-flag then reads the stored flag.
+// the agent created or changed in this run: get-flags then reads the stored flag.
 function overrideFor(overrides, toolName, callIndex, args, state) {
-  if (toolName === "get-flag" || toolName === "get-feature-flag") {
+  if (toolName === "get-flags" || toolName === "get-feature-flag") {
     const key = args && (args.flagKey || args.key);
     if (key && state && state.flags && state.flags[key]) return undefined;
   }
@@ -412,7 +413,7 @@ class ClaudeSkillAgentSdk {
               const callIndex = toolCallCounts[def.name] || 0;
               toolCallCounts[def.name] = callIndex + 1;
               const override = overrideFor(mockOverrides, def.name, callIndex, args, mockState);
-              const template = this.mockTemplates[def.name];
+              const template = this.mockTemplates[templateKey(def.name, args)];
               let mock;
               if (override !== undefined) {
                 // Release Autopilot tools keep their recorded state under an
