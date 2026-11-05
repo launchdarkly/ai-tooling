@@ -21,10 +21,9 @@ providers:
       skill_slug: launchdarkly-experiment-hypothesis-builder
       # The skill may look up flags and metrics, never write. Expose only the
       # read-only tools so a write is impossible, and assert none are attempted.
-      # Current hosted MCP read names plus the older names the shared tool set still uses.
-      mcp_tool_allowlist: [get-flags, get-metrics, get-projects, get-environment, get-flag, list-flags, get-metric, list-metrics, get-project]
-      # Suite-local definitions for read tools the shared set lacks (the new names,
-      # plus get-metric and get-environment), so every lookup the skill lists exists.
+      # Hosted MCP read tools.
+      mcp_tool_allowlist: [get-flags, get-metrics, get-projects, get-environment]
+      # Suite-local definitions for read tools the shared set lacks (get-environment), so every lookup the skill lists exists.
       tool_definitions: launchdarkly-experiment-hypothesis-builder/tools.json
       tool_mocks: launchdarkly-experiment-hypothesis-builder/mocks.json
       expose_ask_question: false
@@ -335,7 +334,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const READ = ['get-flags', 'get-metrics', 'get-projects', 'get-environment', 'get-flag', 'list-flags', 'get-metric', 'list-metrics', 'get-project'];
+          const READ = ['get-flags', 'get-metrics', 'get-projects', 'get-environment'];
           const writes = tools.filter(t => !READ.includes(t) && /^(create|update|toggle|start|stop|archive|delete)-/.test(t));
           const text = String(output.response || '');
           const handoff = text.includes('handoffFrom') || text.includes('launchdarkly-experiment-setup');

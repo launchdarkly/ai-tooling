@@ -2,12 +2,17 @@
 // promptfoo javascript assertion, referenced as file://assertions.js:<name>.
 
 const WRITE_TOOLS = new Set([
-  "update-release-autopilot-settings",
-  "update-release-autopilot-repo-settings",
-  "delete-release-autopilot-repo-settings",
+  "update-automations",
+  "delete-automations-repo-settings",
   "create-release-plan",
   "create-metric",
 ]);
+
+// update-automations covers both scopes: accountWide true is the account
+// write, false is a repo write.
+const isAccountWrite = (t) => t.tool === "update-automations" && (t.arguments || {}).accountWide === true;
+const isRepoUpdate = (t) => t.tool === "update-automations" && (t.arguments || {}).accountWide === false;
+const isRepoWrite = (t) => isRepoUpdate(t) || t.tool === "delete-automations-repo-settings";
 
 const traj = (output) => (output && output.trajectory) || [];
 const writes = (output) => traj(output).filter((t) => WRITE_TOOLS.has(t.tool));
@@ -52,7 +57,7 @@ module.exports.confirmsBeforeWriting = (output) => {
 
 // Every repo write targets `repo` in `project` and sends enabled:false for each cap.
 const mapsRepoWithOverrides = (repo, project, caps) => (output) => {
-  const maps = traj(output).filter((t) => t.tool === "update-release-autopilot-repo-settings");
+  const maps = traj(output).filter(isRepoUpdate);
   if (!maps.length) return result(false, "never wrote a repo mapping");
   const wrong = maps.filter((m) => (m.arguments || {}).repo !== repo || (project && (m.arguments || {}).projectKey !== project));
   if (wrong.length) return result(false, `wrote ${wrong.map((m) => `${m.arguments.repo}@${m.arguments.projectKey}`).join(", ")}; want only ${repo}@${project}`);
@@ -62,7 +67,7 @@ const mapsRepoWithOverrides = (repo, project, caps) => (output) => {
 
 module.exports.accountWriteLast = (output) => {
   const steps = traj(output);
-  const acct = steps.findIndex((t) => t.tool === "update-release-autopilot-settings");
+  const acct = steps.findIndex(isAccountWrite);
   if (acct === -1) return result(false, "no account write");
   const laterWrite = steps.slice(acct + 1).some((t) => WRITE_TOOLS.has(t.tool));
   return result(!laterWrite, laterWrite ? "a write came after the account write" : "account write was last");
@@ -84,18 +89,21 @@ const noneOf = (tools) => (output) => {
 };
 
 module.exports.releasePlansCalledAtMostOnce = (output) => {
-  const n = traj(output).filter((t) => t.tool === "list-release-plans").length;
-  return result(n <= 1, `list-release-plans called ${n} time(s)`);
+  const n = traj(output).filter((t) => t.tool === "get-release-plans").length;
+  return result(n <= 1, `get-release-plans called ${n} time(s)`);
 };
 
 module.exports.repoTurnsAutoReleasingOff = mapsRepoWithOverrides("acme/demo", "default", ["autoReleasing"]);
 module.exports.storefrontAutoReleasingOff = mapsRepoWithOverrides("acme/storefront", null, ["autoReleasing"]);
-module.exports.noRepoWrite = noneOf(["update-release-autopilot-repo-settings", "delete-release-autopilot-repo-settings"]);
+module.exports.noRepoWrite = (output) => {
+  const hit = traj(output).filter(isRepoWrite);
+  return result(hit.length === 0, hit.length ? `wrote a repo: ${JSON.stringify(hit[0].arguments)}` : "no repo writes");
+};
 
 module.exports.planBeforeRepoWrite = (output) => {
   const steps = traj(output);
   const plan = steps.findIndex((t) => t.tool === "create-release-plan");
-  const repo = steps.findIndex((t) => t.tool === "update-release-autopilot-repo-settings");
+  const repo = steps.findIndex(isRepoUpdate);
   if (plan === -1) return result(false, "never created a release plan");
   if (repo === -1) return result(false, "never mapped acme/demo");
   const args = steps[repo].arguments || {};
@@ -121,15 +129,18 @@ module.exports.plansHaveClauses = (output) => {
   return result(true, "every phase has valid clauses and steps");
 };
 module.exports.noReleasePlanCreated = noneOf(["create-release-plan"]);
-module.exports.noAccountWrite = noneOf(["update-release-autopilot-settings"]);
+module.exports.noAccountWrite = (output) => {
+  const hit = traj(output).filter(isAccountWrite);
+  return result(hit.length === 0, hit.length ? `wrote account settings: ${JSON.stringify(hit[0].arguments)}` : "no account write");
+};
 
 const finalText = (output) => String((output && output.response) || "");
 
 // Raw tool and field names the skill's voice rules ban from user-facing text.
 const RAW_NAMES = [
-  "update-release-autopilot", "get-release-autopilot", "list-release-autopilot",
+  "update-automations", "get-automations", "delete-automations",
   "githubRepoId", "enabledOverride", "autoReleasing", "autoFlagging", "approvalRequired",
-  "create-release-plan", "list-release-plans", "list-release-policies",
+  "create-release-plan", "get-release-plans", "get-release-policies",
   "preview mode", "policy mode", "plan mode",
 ];
 
@@ -207,8 +218,8 @@ module.exports.skippedGithubNotReported = (output) => {
 
 module.exports.stopsAfterFailedWrite = (output) => {
   const steps = traj(output);
-  const acct = steps.findIndex((t) => t.tool === "update-release-autopilot-settings");
-  const repo = steps.findIndex((t) => t.tool === "update-release-autopilot-repo-settings");
+  const acct = steps.findIndex(isAccountWrite);
+  const repo = steps.findIndex(isRepoUpdate);
   if (acct === -1) return result(false, "never attempted the account write");
   const after = steps.slice(acct + 1).filter((t) => WRITE_TOOLS.has(t.tool));
   const pass = repo !== -1 && repo < acct && after.length === 0;
@@ -250,13 +261,13 @@ module.exports.noProductNameAfterIntro = (output) => {
 // The remap case must leave acme/storefront alone; other repo writes come
 // from unscripted questions the harness answers with their first option.
 module.exports.noStorefrontRemap = (output) => {
-  const hit = traj(output).filter((t) => t.tool.endsWith("-repo-settings") && /^(update|delete)/.test(t.tool) && (t.arguments || {}).repo === "acme/storefront");
+  const hit = traj(output).filter((t) => isRepoWrite(t) && (t.arguments || {}).repo === "acme/storefront");
   return result(hit.length === 0, hit.length ? `wrote acme/storefront: ${JSON.stringify(hit[0].arguments)}` : "acme/storefront left alone");
 };
 
 module.exports.relistsAfterDone = (output) => {
-  const n = traj(output).filter((t) => t.tool === "list-release-autopilot-github-repos").length;
-  return result(n >= 2, `listed GitHub repos ${n} time(s)`);
+  const n = traj(output).filter((t) => t.tool === "get-automations").length;
+  return result(n >= 2, `read Release Autopilot settings and GitHub repos ${n} time(s)`);
 };
 
 // After "Done" with no install, the skill names this connection's member and
@@ -338,7 +349,7 @@ module.exports.neverSendsApproval = (output) => {
 // release plan or policy lookup otherwise.
 module.exports.noReleaseSetup = (output) => {
   const steps = traj(output);
-  const lookups = steps.filter((t) => t.tool === "list-release-plans" || t.tool === "list-release-policies");
+  const lookups = steps.filter((t) => t.tool === "get-release-plans" || t.tool === "get-release-policies");
   const envQ = steps.filter((t) => t.tool === "ask-question" && /environment/i.test(String((t.arguments && t.arguments.prompt) || "")));
   const pass = lookups.length === 0 && envQ.length === 0;
   return result(pass, `release lookups: ${lookups.length}, environment questions: ${envQ.length}`);
@@ -374,12 +385,12 @@ module.exports.pausesBeforeMapping = (output) => {
 const isForbidden = (t) => /403|not allow/i.test(String(t.mock_response_preview || ""));
 const releaseSetupLookups = (projectKey, selectedEnvs) => (output) => {
   const steps = traj(output);
-  const plans = steps.filter((t) => t.tool === "list-release-plans");
+  const plans = steps.filter((t) => t.tool === "get-release-plans");
   if (!plans.length) return result(false, "never checked release plans");
   const bad = plans.find((t) => (t.arguments || {}).projectKey !== projectKey || !selectedEnvs.includes((t.arguments || {}).environmentKey));
-  if (bad) return result(false, `release-plans lookup outside ${projectKey} ${JSON.stringify(selectedEnvs)}: ${JSON.stringify(bad.arguments)}`);
+  if (bad) return result(false, `get-release-plans lookup outside ${projectKey} ${JSON.stringify(selectedEnvs)}: ${JSON.stringify(bad.arguments)}`);
   if (isForbidden(plans[0])) {
-    const policies = steps.filter((t) => t.tool === "list-release-policies");
+    const policies = steps.filter((t) => t.tool === "get-release-policies");
     const ok = policies.filter((t) => (t.arguments || {}).projectKey === projectKey);
     const pass = plans.length === 1 && ok.length >= 1 && ok.length === policies.length;
     return result(pass, `release policies path: plans lookups ${plans.length}; policy lookups for ${projectKey}: ${ok.length} of ${policies.length}`);
@@ -419,7 +430,7 @@ module.exports.previewListsBrowserSteps = (output) => {
 // Archival-only setup needs no GitHub step and no repo mapping.
 module.exports.noGithubOrMapping = (output) => {
   const steps = traj(output);
-  const repoWrites = steps.filter((t) => /^(update|delete)-release-autopilot-repo-settings$/.test(t.tool)).length;
+  const repoWrites = steps.filter(isRepoWrite).length;
   const ghQ = steps.filter((t) => t.tool === "ask-question" && (
     /github/i.test(String((t.arguments && t.arguments.prompt) || "")) ||
     ((t.arguments && t.arguments.options) || []).some((o) => /^[\w.-]+\/[\w.-]+$/.test(String(o.label || "")))
@@ -429,10 +440,10 @@ module.exports.noGithubOrMapping = (output) => {
 
 module.exports.storefrontAutoFlaggingOn = (output) => {
   const steps = traj(output);
-  const w = steps.findIndex((t) => t.tool === "update-release-autopilot-repo-settings" && (t.arguments || {}).repo === "acme/storefront" &&
+  const w = steps.findIndex((t) => isRepoUpdate(t) && (t.arguments || {}).repo === "acme/storefront" &&
     t.arguments.autoFlagging && t.arguments.autoFlagging.enabled === true);
   if (w === -1) return result(false, "did not clear the repo's auto-flagging override");
-  const verified = steps.slice(w + 1).some((t) => t.tool === "get-release-autopilot-repo-settings" && (t.arguments || {}).repo === "acme/storefront");
+  const verified = steps.slice(w + 1).some((t) => t.tool === "get-automations" && (t.arguments || {}).repo === "acme/storefront");
   return result(verified, verified ? "turned auto-flagging on for acme/storefront and read it back" : "turned it on but never verified the repo's effective value");
 };
 

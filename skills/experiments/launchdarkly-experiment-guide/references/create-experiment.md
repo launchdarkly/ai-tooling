@@ -7,14 +7,14 @@ Detection order (already confirmed up front by the skill's **Step 0** preflight,
 which checks for the *specific* create tools — a flags-only MCP does not qualify):
 1. **An LD MCP exposing the experiment + metric tools** (`create-experiment`,
    `create-metric`, `start-experiment-iteration`, …) → MCP path (preferred).
-2. **Else a LaunchDarkly API token** (`LD_API_KEY` / `LAUNCHDARKLY_ACCESS_TOKEN`) → REST path.
+2. **Else a LaunchDarkly API access token the user pastes for this session** → REST path.
 3. **Both present** → use MCP; fall back to REST only for an operation MCP doesn't expose.
 4. **No create capability** (flags-only MCP, or nothing) → you should never reach
    the create step: Step 0 fails fast. If the user chose **draft-only** mode,
    present these calls for them to run later and stop.
 
 You need these values, gathered in earlier steps:
-- `projectKey`, `environmentKey` (from `get-project`, or `get-environment` for one environment).
+- `projectKey`, `environmentKey` (from `get-projects`, or `get-environment` for one environment).
 - Primary metric key (reused or newly created).
 - Flag key, the variation IDs for control/treatment, the targeting `ruleId`
   (fallthrough rule id is the string `"fallthrough"`), and current
@@ -61,12 +61,12 @@ You need these values, gathered in earlier steps:
 }
 ```
 
-3. **Verify** — `get-experiment`; confirm the experiment exists with a
+3. **Verify** — `get-experiments`; confirm the experiment exists with a
    `not_started` iteration.
 
 Create the experiment as a draft. Start it only after the flag and tracking
 code are deployed and the user says yes again. Starting
-(`start-experiment-iteration`) requires the flag to be on, a
+(`start-experiment-iteration`, with `confirm: true`) requires the flag to be on, a
 `randomizationUnit`, and at least one non-zero allocation.
 
 Rules that matter: exactly one treatment has `baseline: true`; allocations sum
@@ -77,7 +77,7 @@ to 100; the `iteration` object is required on create.
 ## REST fallback
 
 Base URL `https://app.launchdarkly.com`. Header:
-`Authorization: <token>` (plus `Content-Type: application/json`, and
+`Authorization: <token>`, where `<token>` is the API access token the user pasted (plus `Content-Type: application/json`, and
 `LD-API-Version: beta` for experiment endpoints).
 
 **Create a metric** (skip if reusing):

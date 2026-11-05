@@ -10,7 +10,7 @@ Use the unified server URL for new configurations:
 
 | Server | URL | Purpose |
 |--------|-----|---------|
-| LaunchDarkly (unified) | `https://mcp.launchdarkly.com/mcp/launchdarkly` | Feature flags and AgentControl |
+| LaunchDarkly (unified) | `https://mcp.launchdarkly.com/mcp` | Feature flags and AgentControl |
 
 **Legacy URLs (deprecated):**
 - `mcp/fm` — **deprecated**. Migrate to the unified server.
@@ -28,7 +28,7 @@ Config file: `.cursor/mcp.json` in the project root.
 {
   "mcpServers": {
     "LaunchDarkly": {
-      "url": "https://mcp.launchdarkly.com/mcp/launchdarkly",
+      "url": "https://mcp.launchdarkly.com/mcp",
       "headers": {}
     }
   }
@@ -63,7 +63,7 @@ Config file: `.mcp.json` in the project root, or `~/.claude.json` for global con
   "mcpServers": {
     "LaunchDarkly": {
       "type": "http",
-      "url": "https://mcp.launchdarkly.com/mcp/launchdarkly"
+      "url": "https://mcp.launchdarkly.com/mcp"
     }
   }
 }
@@ -98,7 +98,7 @@ Configured via the GitHub web UI, not a local config file.
 {
   "mcpServers": {
     "LaunchDarkly": {
-      "url": "https://mcp.launchdarkly.com/mcp/launchdarkly",
+      "url": "https://mcp.launchdarkly.com/mcp",
       "headers": {}
     }
   }
@@ -115,7 +115,7 @@ Windsurf uses a similar MCP configuration format. Add to the agent's MCP config:
 {
   "mcpServers": {
     "LaunchDarkly": {
-      "url": "https://mcp.launchdarkly.com/mcp/launchdarkly"
+      "url": "https://mcp.launchdarkly.com/mcp"
     }
   }
 }
@@ -146,7 +146,7 @@ The `mcp/fm` URL is deprecated. Replace it with the unified server.
 {
   "mcpServers": {
     "LaunchDarkly": {
-      "url": "https://mcp.launchdarkly.com/mcp/launchdarkly",
+      "url": "https://mcp.launchdarkly.com/mcp",
       "headers": {}
     }
   }
@@ -176,7 +176,7 @@ The `mcp/aiconfigs` URL is deprecated. Replace it with the unified server.
 {
   "mcpServers": {
     "LaunchDarkly": {
-      "url": "https://mcp.launchdarkly.com/mcp/launchdarkly",
+      "url": "https://mcp.launchdarkly.com/mcp",
       "headers": {}
     }
   }
@@ -215,7 +215,7 @@ If the user has the old npx-based server configured with an inline API key, repl
 {
   "mcpServers": {
     "LaunchDarkly": {
-      "url": "https://mcp.launchdarkly.com/mcp/launchdarkly",
+      "url": "https://mcp.launchdarkly.com/mcp",
       "headers": {}
     }
   }

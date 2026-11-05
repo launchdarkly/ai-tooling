@@ -12,7 +12,7 @@
  *
  *   2. Stateful overlay keeps an in-memory map of configs per `callApi`
  *      invocation. Write tools (create/setup/update) record into state; read
- *      tools (get-ai-config, get-ai-config-health) build their response from
+ *      tools (get-agent-configs with a configKey) build their response from
  *      state when one exists, falling back to the template otherwise. This
  *      prevents the agent from believing its own writes failed when the static
  *      template returns generic placeholder data.
@@ -25,17 +25,22 @@ function buildReplacements(input) {
   return {
     flagKey: safe.flagKey || safe.key || "unknown-flag",
     flagName: safe.flagName || safe.name || "Unknown Flag",
-    configKey: safe.configKey || safe.key || "unknown-config",
+    configKey: safe.configKey || "unknown-config",
     configName: safe.configName || safe.name || "Unknown Config",
     variationKey:
-      safe.variationKey || safe.key || safe.sourceVariationKey || "default",
-    variationName: safe.variationName || safe.name || "Default",
+      safe.variationKey ||
+      (safe.fallthrough && safe.fallthrough.variationKey) ||
+      safe.sourceVariationKey ||
+      "default",
+    variationName: safe.variationName || "Default",
     toolKey: safe.toolKey || safe.key || "unknown-tool",
     modelConfigKey: safe.modelConfigKey || "OpenAI.gpt-4o",
     modelName: safe.modelName || "gpt-4o",
     mode: safe.mode || "completion",
     toolDescription: safe.description || "A tool",
     projectKey: safe.projectKey || "my-project",
+    newProjectKey: safe.key || "new-project",
+    newProjectName: safe.name || "New Project",
     environmentKey: safe.environmentKey || safe.env || "production",
     metricKey: safe.metricKey || safe.key || "unknown-metric",
     metricName: safe.metricName || safe.name || "Unknown Metric",
@@ -126,6 +131,7 @@ function createMockState() {
   return {
     configs: {},      // configKey -> config object
     flags: {},        // flagKey -> flag object
+    targeting: {},    // configKey -> { env -> on } for targeting writes this run
     raSettings: null, // Release Autopilot account settings written this run
     raRepos: {},      // owner/name -> Release Autopilot repo settings written this run
     raPlans: {},      // environmentKey -> release plans created this run
@@ -151,7 +157,7 @@ function flagStatusResponse(flagKey, productionStatus) {
 }
 
 // experiment-setup sentinel. The exact key cta-clicked is not in that suite's
-// list-metric-events template; a query for it returns the similar keys from
+// get-metric-events template; a query for it returns the similar keys from
 // the template that was passed in. Every other call falls through and returns
 // that template unchanged, so another suite keeps its own event list.
 function similarCtaMetricEvents(template, replacements) {
@@ -276,6 +282,44 @@ function runningExperiment(input) {
 }
 
 /**
+ * Template key for a call. A tool that both lists and gets (get-flags,
+ * get-agent-configs, ...) has one template per mode, keyed `<tool>#<mode>`.
+ */
+function templateKey(toolName, input) {
+  const safe = input || {};
+  switch (toolName) {
+    case "get-flags":
+      return safe.flagKey ? "get-flags#flagKey" : toolName;
+    case "get-agent-configs":
+      if (!safe.configKey) return toolName;
+      if (safe.section === "health") return "get-agent-configs#health";
+      if (safe.section === "status") return "get-agent-configs#status";
+      return "get-agent-configs#configKey";
+    case "get-ai-tools":
+      return safe.toolKey ? "get-ai-tools#toolKey" : toolName;
+    case "get-projects":
+      return safe.projectKey ? "get-projects#projectKey" : toolName;
+    case "get-experiments":
+      return safe.experimentKey ? "get-experiments#experimentKey" : toolName;
+    case "create-agent-config":
+      if (safe.resource === "variation") {
+        return safe.sourceVariationKey
+          ? "create-agent-config#variation-clone"
+          : "create-agent-config#variation";
+      }
+      return safe.variationKey ? "create-agent-config#with-variation" : toolName;
+    case "update-agent-config":
+      if (safe.resource === "variation") return "update-agent-config#variation";
+      if (safe.resource === "targeting") return "update-agent-config#targeting";
+      return toolName;
+    case "delete-agent-config":
+      return safe.resource === "variation" ? "delete-agent-config#variation" : toolName;
+    default:
+      return toolName;
+  }
+}
+
+/**
  * Render a mock response for `toolName` given `input` (raw tool arguments).
  * `state` is the per-invocation map from `createMockState()`.
  * `templates` is the full parsed mocks/tool-responses.json.
@@ -292,27 +336,40 @@ function mergeDeep(base, patch) {
 // later reads (the skill's verify step) reflect them instead of the template.
 function renderReleaseAutopilot(template, input, toolName, state, replacements) {
   const args = input || {};
-  if (toolName === "update-release-autopilot-settings") {
-    state.raSettings = mergeDeep(state.raSettings, args);
-    return { ...state.raSettings };
+  if (toolName === "update-automations") {
+    const { accountWide, repo, githubRepoId, confirm, ...rest } = args;
+    if (accountWide === true) {
+      state.raSettings = mergeDeep(state.raSettings, rest);
+      return { ...state.raSettings };
+    }
+    if (repo) {
+      state.raRepos[repo] = mergeDeep(state.raRepos[repo] || { repo }, rest);
+      return { ...state.raRepos[repo] };
+    }
+    return undefined;
   }
-  if (toolName === "get-release-autopilot-settings" && state.raSettings) {
-    return mergeDeep(walk(template, replacements), state.raSettings);
-  }
-  if (toolName === "update-release-autopilot-repo-settings" && args.repo) {
-    const { repo, githubRepoId, ...rest } = args;
-    state.raRepos[repo] = mergeDeep(state.raRepos[repo] || { repo }, rest);
-    return { ...state.raRepos[repo] };
-  }
-  if (toolName === "get-release-autopilot-repo-settings" && args.repo && state.raRepos[args.repo]) {
-    return { ...state.raRepos[args.repo] };
+  if (toolName === "get-automations") {
+    const base = walk(template, replacements);
+    if (!base || base.error) return base;
+    const account = mergeDeep(base.account, state.raSettings);
+    const known = new Set((base.repos || []).map((r) => r.repo));
+    let repos = (base.repos || []).map((r) =>
+      state.raRepos[r.repo] ? mergeDeep(r, { ...state.raRepos[r.repo], mapped: true }) : r,
+    );
+    for (const [name, written] of Object.entries(state.raRepos)) {
+      if (!known.has(name)) repos.push({ ...written, repo: name, mapped: true, visibleOnInstall: true });
+    }
+    if (args.githubRepoId !== undefined) repos = repos.filter((r) => r.githubRepoId === args.githubRepoId);
+    else if (args.repo) repos = repos.filter((r) => r.repo === args.repo);
+    if (typeof args.mapped === "boolean") repos = repos.filter((r) => r.mapped === args.mapped);
+    return { ...base, account, repos, totalCount: repos.length, hasMore: false };
   }
   if (toolName === "create-release-plan" && args.environmentKey) {
     const plan = { key: args.key, name: args.name, environmentKey: args.environmentKey, progressiveRelease: args.progressiveRelease };
     (state.raPlans[args.environmentKey] = state.raPlans[args.environmentKey] || []).push(plan);
     return plan;
   }
-  if (toolName === "list-release-plans" && state.raPlans[args.environmentKey]) {
+  if (toolName === "get-release-plans" && state.raPlans[args.environmentKey]) {
     const items = state.raPlans[args.environmentKey];
     return { items, totalCount: items.length };
   }
@@ -321,6 +378,7 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
 
 function renderMockResponse(template, input, toolName, state) {
   const replacements = buildReplacements(input);
+  const mode = templateKey(toolName, input);
 
   // An error template on a write (for example a 403 override) wins over
   // stateful handling, so the failed write is not recorded. Reads still use
@@ -332,8 +390,8 @@ function renderMockResponse(template, input, toolName, state) {
   }
 
   // ---------- stateful reads ----------
-  if (toolName === "get-ai-config") {
-    const key = input.configKey || input.key;
+  if (mode === "get-agent-configs#configKey") {
+    const key = input.configKey;
     if (key) {
       if (!state.configs[key] && SEED_CONFIGS[key]) {
         state.configs[key] = JSON.parse(JSON.stringify(SEED_CONFIGS[key]));
@@ -342,8 +400,21 @@ function renderMockResponse(template, input, toolName, state) {
     }
   }
 
-  if (toolName === "get-ai-config-health") {
-    const key = input.configKey || input.key;
+  if (mode === "get-agent-configs#status") {
+    // A targeting write this run overrides the template's `on` for that
+    // environment, so re-reading status after turning targeting off agrees.
+    const written = (state.targeting || {})[input.configKey];
+    const out = walk(template, replacements);
+    if (written && out && out.environments) {
+      for (const [env, on] of Object.entries(written)) {
+        if (out.environments[env]) out.environments[env] = { ...out.environments[env], on };
+      }
+    }
+    return out;
+  }
+
+  if (mode === "get-agent-configs#health") {
+    const key = input.configKey;
     if (key && state.configs[key]) {
       const cfg = state.configs[key];
       return {
@@ -364,7 +435,7 @@ function renderMockResponse(template, input, toolName, state) {
     }
   }
 
-  if (toolName === "list-ai-configs") {
+  if (mode === "get-agent-configs") {
     // Merge state configs into the static template list for consistent reads.
     // State entries always win over the static template for the same key, so
     // an agent-created (or updated) config is reflected immediately.
@@ -391,7 +462,7 @@ function renderMockResponse(template, input, toolName, state) {
     return staticList;
   }
 
-  if (toolName === "get-flag" || toolName === "get-feature-flag") {
+  if (mode === "get-flags#flagKey") {
     const key = input.flagKey || input.key;
     if (key && state.flags[key]) return state.flags[key];
 
@@ -426,9 +497,9 @@ function renderMockResponse(template, input, toolName, state) {
   }
 
   // ---------- stateful writes ----------
-  if (toolName === "setup-ai-config") {
+  if (mode === "create-agent-config#with-variation") {
     const cfg = {
-      key: input.key,
+      key: input.configKey,
       name: input.name,
       mode: input.mode,
       description: input.description || "",
@@ -449,13 +520,13 @@ function renderMockResponse(template, input, toolName, state) {
         },
       ],
     };
-    state.configs[input.key] = cfg;
+    state.configs[input.configKey] = cfg;
     return cfg;
   }
 
-  if (toolName === "create-ai-config") {
+  if (mode === "create-agent-config") {
     const cfg = {
-      key: input.key,
+      key: input.configKey,
       name: input.name,
       mode: input.mode,
       description: input.description || "",
@@ -463,15 +534,15 @@ function renderMockResponse(template, input, toolName, state) {
       archived: false,
       variations: [],
     };
-    state.configs[input.key] = cfg;
+    state.configs[input.configKey] = cfg;
     return cfg;
   }
 
-  if (toolName === "create-ai-config-variation") {
+  if (mode === "create-agent-config#variation") {
     const cfg = state.configs[input.configKey];
     const variation = {
-      key: input.key,
-      name: input.name,
+      key: input.variationKey,
+      name: input.variationName,
       modelConfigKey: input.modelConfigKey,
       modelName: input.modelName,
       ...(input.instructions !== undefined
@@ -486,7 +557,7 @@ function renderMockResponse(template, input, toolName, state) {
       cfg.variations = [...(cfg.variations || []), variation];
     } else {
       // Parent config not in state — create a minimal stub so the variation
-      // is reachable via get-ai-config and list-ai-configs. The real API
+      // is reachable via get-agent-configs. The real API
       // would 404 here; the mock recovers gracefully.
       state.configs[input.configKey] = {
         key: input.configKey,
@@ -501,10 +572,23 @@ function renderMockResponse(template, input, toolName, state) {
     return { configKey: input.configKey, variation };
   }
 
-  if (toolName === "update-ai-config") {
-    const cfg = state.configs[input.key || input.configKey];
+  if (mode === "update-agent-config") {
+    // The server rejects archived: an AgentControl Config cannot be archived.
+    if (input.archived !== undefined) {
+      return {
+        error: "invalid_input",
+        status: 400,
+        message:
+          "archived is not supported: an AgentControl Config cannot be archived. " +
+          "Delete it with delete-agent-config resource=config and confirm=true",
+      };
+    }
+    const cfg = state.configs[input.configKey];
     if (cfg) {
-      const CONFIG_FIELDS = ["name", "description", "tags", "archived"];
+      const CONFIG_FIELDS = [
+        "name", "description", "tags", "defaultVariationKey",
+        "evaluationMetricKey", "isInverted", "maintainerId", "maintainerTeamKey",
+      ];
       for (const k of CONFIG_FIELDS) {
         if (input[k] !== undefined) cfg[k] = input[k];
       }
@@ -513,11 +597,17 @@ function renderMockResponse(template, input, toolName, state) {
     return walk(template, replacements);
   }
 
-  if (toolName === "update-ai-config-variation") {
+  if (mode === "update-agent-config#targeting" && !failedWrite && input.env && typeof input.on === "boolean") {
+    state.targeting = state.targeting || {};
+    (state.targeting[input.configKey] = state.targeting[input.configKey] || {})[input.env] = input.on;
+    return walk(template, replacements);
+  }
+
+  if (mode === "update-agent-config#variation") {
     const cfg = state.configs[input.configKey];
     if (cfg) {
       const VARIATION_FIELDS = [
-        "key", "name", "modelConfigKey", "modelName",
+        "modelConfigKey", "modelName",
         "instructions", "messages", "parameters", "tools", "status",
       ];
       cfg.variations = (cfg.variations || []).map((v) => {
@@ -526,13 +616,14 @@ function renderMockResponse(template, input, toolName, state) {
         for (const k of VARIATION_FIELDS) {
           if (input[k] !== undefined) patch[k] = input[k];
         }
+        if (input.variationName !== undefined) patch.name = input.variationName;
         return { ...v, ...patch };
       });
     }
     return walk(template, replacements);
   }
 
-  if (toolName === "clone-ai-config-variation") {
+  if (mode === "create-agent-config#variation-clone") {
     const configKey = input.configKey;
     if (!state.configs[configKey] && SEED_CONFIGS[configKey]) {
       state.configs[configKey] = JSON.parse(JSON.stringify(SEED_CONFIGS[configKey]));
@@ -545,8 +636,8 @@ function renderMockResponse(template, input, toolName, state) {
       if (sourceVariation) {
         const newVariation = {
           ...sourceVariation,
-          key: input.key,
-          name: input.name !== undefined ? input.name : sourceVariation.name,
+          key: input.variationKey,
+          name: input.variationName !== undefined ? input.variationName : sourceVariation.name,
           ...(input.modelConfigKey !== undefined ? { modelConfigKey: input.modelConfigKey } : {}),
           ...(input.modelName !== undefined ? { modelName: input.modelName } : {}),
           ...(input.instructions !== undefined ? { instructions: input.instructions } : {}),
@@ -562,7 +653,7 @@ function renderMockResponse(template, input, toolName, state) {
     return walk(template, replacements);
   }
 
-  if (toolName === "create-flag" || toolName === "create-feature-flag") {
+  if (mode === "create-flag") {
     // Fail-closed test hook: a fixture that sets projectKey "restricted" makes
     // flag creation fail (permission denied), so an eval can assert the skill
     // stops rather than proceeding to wire code or record a release.
@@ -587,21 +678,21 @@ function renderMockResponse(template, input, toolName, state) {
 
   if (toolName === "search-contexts") return searchContextsResponse(input || {});
 
-  if (toolName === "list-metric-events") {
+  if (toolName === "get-metric-events") {
     const query = typeof (input || {}).query === "string" ? input.query.trim().toLowerCase() : "";
     if (query === "cta-clicked") return similarCtaMetricEvents(template, replacements);
   }
 
-  if (toolName === "list-flags") {
-    // experiment-setup's missing-flag case uses this project. Any search there
-    // returns the similar keys and omits the missing one. Other projects, and
-    // list-feature-flags, keep the template they were given.
+  if (mode === "get-flags") {
+    // experiment-setup's missing-flag case uses this project. Any list call there
+    // returns the similar keys and omits the missing one. Other projects keep
+    // the template they were given.
     const projectKey =
       typeof (input || {}).projectKey === "string" ? input.projectKey.trim() : "";
     if (projectKey === "exp-setup-missing-flag") return similarCheckoutFlags();
   }
 
-  if (toolName === "get-experiment") {
+  if (toolName === "get-experiments") {
     const experimentKey = input.experimentKey || input.key;
     if (experimentKey === "checkout-running") return runningExperiment(input);
   }
@@ -649,4 +740,5 @@ module.exports = {
   createMockState,
   resolveMockOverride,
   renderOverride,
+  templateKey,
 };

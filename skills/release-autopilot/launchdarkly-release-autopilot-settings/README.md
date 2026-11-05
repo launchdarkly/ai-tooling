@@ -17,7 +17,7 @@ This skill teaches agents how to:
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot settings tools (`get-release-autopilot-settings`, `list-release-autopilot-github-repos`, `update-release-autopilot-repo-settings`, and siblings). If `list-release-autopilot-github-repos` returns `githubConnectUrl`, give the user that link. This skill does not complete GitHub OAuth itself.
+The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot settings tools (`get-automations`, `update-automations`, and `delete-automations-repo-settings`). If `get-automations` returns `githubConnectUrl`, give the user that link. This skill does not complete GitHub OAuth itself.
 
 The endpoints behind these tools require the Release Autopilot add-on, so accounts without it enabled get 404s.
 

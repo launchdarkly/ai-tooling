@@ -1,26 +1,5 @@
 [
   {
-    "name": "get-metric",
-    "description": "Get a single metric by key, including its name, kind, measure type and event key.",
-    "input_schema": {
-      "type": "object",
-      "properties": {
-        "projectKey": {
-          "type": "string",
-          "description": "The project key"
-        },
-        "metricKey": {
-          "type": "string",
-          "description": "The metric key"
-        }
-      },
-      "required": [
-        "projectKey",
-        "metricKey"
-      ]
-    }
-  },
-  {
     "name": "get-environment",
     "description": "Get a single environment in a project by key.",
     "input_schema": {
