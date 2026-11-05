@@ -984,8 +984,8 @@ tests:
               mapped: true
               visibleOnInstall: true
               projectKey: default
-              autoFlagging: { enabled: false, approvalRequired: true, enabledOverride: true }
-              autoReleasing: { enabled: false, enabledOverride: true }
+              autoFlagging: { enabled: false, approvalRequired: true, enabledOverride: false }
+              autoReleasing: { enabled: false, enabledOverride: false }
           totalCount: 1
       mock_ask_question_match: true
       mock_ask_question_answers:
