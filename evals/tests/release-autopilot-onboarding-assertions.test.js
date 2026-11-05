@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 const ra = require("../release-autopilot-onboarding/assertions");
 
-const repoWrite = (args) => ({ tool: "update-release-autopilot", arguments: { accountWide: false, repo: "acme/demo", projectKey: "default", ...args } });
+const repoWrite = (args) => ({ tool: "update-automations", arguments: { accountWide: false, repo: "acme/demo", projectKey: "default", ...args } });
 const ask = (prompt, labels = ["Done", "Later"]) => ({
   tool: "ask-question",
   arguments: { prompt, options: labels.map((label, i) => ({ id: String(i), label })) },

@@ -21,8 +21,10 @@ Follow the write rules of [`launchdarkly-release-autopilot-settings`](../launchd
 This skill requires the remotely hosted LaunchDarkly MCP server. Installing the LaunchDarkly plugin is the first step: it adds this skill and the MCP server. In Claude Code, run `/plugin marketplace add launchdarkly/ai-tooling`, then `/plugin install launchdarkly@launchdarkly-ai-tooling`. In Cursor, install **LaunchDarkly** from **Settings > Plugins**. Then sign in to the `launchdarkly` server when the client asks.
 
 **Required MCP tools:**
-- `get-release-autopilot` / `update-release-autopilot`: `get-release-autopilot` returns the account settings and the repos on the GitHub App install with their mappings; `update-release-autopilot` takes `accountWide: true` for account settings or `accountWide: false` with `repo` for one repository
+- `get-automations` / `update-automations`: `get-automations` returns the account settings and the repos on the GitHub App install with their mappings; `update-automations` takes `accountWide: true` for account settings or `accountWide: false` with `repo` for one repository
 - `get-member-self`
+
+On a server that has not picked up the Automations rename yet, the same tools are named `get-release-autopilot`, `update-release-autopilot`, and `delete-release-autopilot-repo-settings`; use those names with the same arguments. If a call fails with "this tool has been removed from the server", ask the user to reconnect the LaunchDarkly MCP server so it loads the new tool names, then retry.
 
 **Required for auto-releasing:**
 - `get-release-policies`
@@ -55,7 +57,7 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 4. **Don't ask what the account already answers.** If live state already settles a question, state the answer and move on.
 5. **Never act in the user's browser, and defer browser changes.** GitHub install and authorization come early, because repo mapping needs them. Bring your own key, auto-cleanup, and auto-archival change settings in the browser, so they happen only after "Looks good", in [Step 8](#step-8-apply). Give the exact link and wait for the user to say they finished.
 6. **Only touch what the user named.** Never map every repo on the install. Never create release plans in environments the user did not pick.
-7. **Each repo's own settings decide what runs in it.** On accounts that use the project Automations settings page, only the repo's settings count: a capability that the repo does not turn on is off. Other accounts still use the account settings too, until a migration moves them. There, a capability runs in a repo only when the account has it on and the repo does not turn it off. So each repo write turns on every picked capability, and the account write still turns on a picked capability that the account has off. The effective values that `get-release-autopilot` returns for a repo follow the rule that its account uses.
+7. **Each repo's own settings decide what runs in it.** On accounts that use the project Automations settings page, only the repo's settings count: a capability that the repo does not turn on is off. Other accounts still use the account settings too, until a migration moves them. There, a capability runs in a repo only when the account has it on and the repo does not turn it off. So each repo write turns on every picked capability, and the account write still turns on a picked capability that the account has off. The effective values that `get-automations` returns for a repo follow the rule that its account uses.
 
 ## Speaking to the user
 
@@ -97,7 +99,7 @@ Run these reads. Do not write anything.
    - `reader` or `no_access`: switch to Preview. Tell the user: "You have read-only access, so I'll show what would change and make no changes."
    - `admin` or `owner`: can make every write in this flow.
    - Any other role, including `writer` and custom roles: may map repos in projects they can edit, but account settings need an admin or owner. In Step 7, mark account writes as "needs an admin" and leave them out of Step 8.
-2. `get-release-autopilot`: `account` holds the account settings, and `repos` lists the repos on the GitHub App install (`repo` as `owner/name`, `githubRepoId`, `mapped`, and for mapped repos `projectKey` and the effective capabilities). When GitHub is not connected, the response includes a `githubConnectUrl`. Page through `repos` with `nextOffset` as `offset` while `hasMore` is true.
+2. `get-automations`: `account` holds the account settings, and `repos` lists the repos on the GitHub App install (`repo` as `owner/name`, `githubRepoId`, `mapped`, and for mapped repos `projectKey` and the effective capabilities). When GitHub is not connected, the response includes a `githubConnectUrl`. Page through `repos` with `nextOffset` as `offset` while `hasMore` is true.
 
 The server already joins mapped repos to the install list. For a repo with `visibleOnInstall: false` (mapped, but no longer on the install), tell the user, for example, "One more repository (ID 999) is mapped to project default but is no longer on the GitHub install; I'll leave it alone." Do not write the field name or change that repo. If a later step fails with a generative AI eligibility error, see [references/edge-cases.md](references/edge-cases.md).
 
@@ -144,7 +146,7 @@ Give the user the exact URL. The link acts on whatever LaunchDarkly session the 
   - label: "Done", description: "I authorized GitHub"
   - label: "I can't authorize", description: "My GitHub account can't see that organization's install"
 
-On "Done", call `get-release-autopilot` again. If it still returns `githubConnectUrl`, do not repeat the link. The most common cause is a browser signed in to a different LaunchDarkly account or member, so the App was installed there. Ask header "Browser account", with this connection's email in the question text (for example, "This connection is signed in as admin@acme.example. Which account is your browser signed in to?"):
+On "Done", call `get-automations` again. If it still returns `githubConnectUrl`, do not repeat the link. The most common cause is a browser signed in to a different LaunchDarkly account or member, so the App was installed there. Ask header "Browser account", with this connection's email in the question text (for example, "This connection is signed in as admin@acme.example. Which account is your browser signed in to?"):
 
 - label: "The same", description: "My browser is signed in as that member"
 - label: "A different one", description: "My browser is signed in to another account or member"
@@ -152,13 +154,13 @@ On "Done", call `get-release-autopilot` again. If it still returns `githubConnec
 
 For "A different one" or "Not sure", tell them to check at `/profile`, sign in as the member from Step 1, open the link again, and finish there; then list again. For "The same", check the other causes in [references/github-troubleshooting.md](references/github-troubleshooting.md). On "Need an org owner", summarize the decisions so far, repeat the exact URL for the org owner, tell the user to say "continue Release Autopilot setup" after the App is installed, and stop. On "I can't authorize", pause the same way: summarize the decisions so far, tell them to sign in to GitHub with an account that is a member of that organization (or ask an org owner to add theirs), repeat the exact URL, tell them to say "continue Release Autopilot setup" once they have authorized, and stop. See the GitHub-identity cause in [references/github-troubleshooting.md](references/github-troubleshooting.md).
 
-Never go on to Step 4 while `get-release-autopilot` still returns `githubConnectUrl`: an empty repo list then means GitHub is not connected, not that the repo's organization lacks the App.
+Never go on to Step 4 while `get-automations` still returns `githubConnectUrl`: an empty repo list then means GitHub is not connected, not that the repo's organization lacks the App.
 
 ### Step 4: Map repositories
 
 Only if the user picked auto-flagging or auto-releasing. If they picked only auto-cleanup or auto-archival, do not map repos: ask which projects to set up (header "Projects", `multiSelect: true`, from `get-projects`, or ask for the keys) and go to Step 5.
 
-1. **Choose repos.** If the current workspace has a `git remote` on the install list, offer it first. Use `AskUserQuestion` with header "Repos", `multiSelect: true`, and up to four repos from the install list, as `owner/name`. If the install has more than four repos, say the user can type any other `owner/name` from the list in Other. Use only repos that came back from `get-release-autopilot`.
+1. **Choose repos.** If the current workspace has a `git remote` on the install list, offer it first. Use `AskUserQuestion` with header "Repos", `multiSelect: true`, and up to four repos from the install list, as `owner/name`. If the install has more than four repos, say the user can type any other `owner/name` from the list in Other. Use only repos that came back from `get-automations`.
 
    If a repo the user wants is not on the list, its owner decides the fix: a listed owner means the App needs access to that repo, and a new owner means an org owner must install the App there (no `githubConnectUrl` appears for this case). See [references/edge-cases.md](references/edge-cases.md). Wait for "Done" and list again.
 2. **Choose a project for each repo.** Each repo maps to one LaunchDarkly project, which is where auto-flagging creates flags and metrics for that repo. If `get-projects` is available, offer the projects as options. Otherwise ask for the project key.
@@ -257,8 +259,8 @@ Make only the writes in the confirmed plan, in this order. Stop at the first fai
 
 1. Release plans only: metrics recorded in Step 6, created in LaunchDarkly with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md). Skip its instrumentation steps.
 2. Release plans only: `create-release-plan` for each new plan.
-3. `update-release-autopilot` with `accountWide: false` for each repo, with `repo: "owner/name"` and `projectKey`. For each picked capability that can work, send `{ "enabled": true }`, because on accounts that use project Automations settings, a capability the repo does not turn on is off. For each capability the user did not pick, or that cannot work yet, send `{ "enabled": false }`, so the repo does not get it from the account settings.
-4. `update-release-autopilot` with `accountWide: true` and only the confirmed fields. Never send `autoCleanup`.
+3. `update-automations` with `accountWide: false` for each repo, with `repo: "owner/name"` and `projectKey`. For each picked capability that can work, send `{ "enabled": true }`, because on accounts that use project Automations settings, a capability the repo does not turn on is off. For each capability the user did not pick, or that cannot work yet, send `{ "enabled": false }`, so the repo does not get it from the account settings.
+4. `update-automations` with `accountWide: true` and only the confirmed fields. Never send `autoCleanup`.
 
 The order matters. When the plan creates release plans, they come first, so that no release can start without the plan the user chose. The account settings come last because, on accounts that still use them, turning a capability on there starts it in every mapped repo that does not turn it off.
 
@@ -274,8 +276,8 @@ Record each answer as reported by the user. Never do these in Preview mode.
 
 ### Step 9: Verify
 
-1. `get-release-autopilot`: `account` matches the plan.
-2. `get-release-autopilot` with `repo` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan. If a picked capability is still effectively off for a repo, say which and do not call the setup complete.
+1. `get-automations`: `account` matches the plan.
+2. `get-automations` with `repo` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan. If a picked capability is still effectively off for a repo, say which and do not call the setup complete.
 3. With release plans: `get-release-plans` for each environment lists the new plans. With release policies: report the policy state from Step 6.
 
 If any change was left for an admin or failed, lead with "Partly set up: waiting on an admin" and the admin checklist, and never call the setup complete. Then report a short checklist with each item marked verified, reported by the user (browser steps the user did in this flow), or already set up (steps the flow skipped because they were already done), then the follow-ups. Tell the user how to see it work; if a change is waiting on an admin, make that conditional ("Once an admin turns on auto-flagging, open a pull request…"):

@@ -27,7 +27,7 @@ The skill is in Claude Code plugin 1.0.3 and Cursor plugin 1.0.4 and later. With
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot tools (`get-release-autopilot`, `update-release-autopilot`), and `get-release-policies` and `get-metrics` for auto-releasing (`get-release-plans` and `create-release-plan` when the account has environment release plans). Accounts without the Release Autopilot add-on enabled get 404s.
+The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot tools (`get-automations`, `update-automations`), and `get-release-policies` and `get-metrics` for auto-releasing (`get-release-plans` and `create-release-plan` when the account has environment release plans). Accounts without the Release Autopilot add-on enabled get 404s.
 
 ## Usage
 

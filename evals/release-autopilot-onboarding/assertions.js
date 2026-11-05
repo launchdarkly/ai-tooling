@@ -2,17 +2,17 @@
 // promptfoo javascript assertion, referenced as file://assertions.js:<name>.
 
 const WRITE_TOOLS = new Set([
-  "update-release-autopilot",
-  "delete-release-autopilot-repo-settings",
+  "update-automations",
+  "delete-automations-repo-settings",
   "create-release-plan",
   "create-metric",
 ]);
 
-// update-release-autopilot covers both scopes: accountWide true is the account
+// update-automations covers both scopes: accountWide true is the account
 // write, false is a repo write.
-const isAccountWrite = (t) => t.tool === "update-release-autopilot" && (t.arguments || {}).accountWide === true;
-const isRepoUpdate = (t) => t.tool === "update-release-autopilot" && (t.arguments || {}).accountWide === false;
-const isRepoWrite = (t) => isRepoUpdate(t) || t.tool === "delete-release-autopilot-repo-settings";
+const isAccountWrite = (t) => t.tool === "update-automations" && (t.arguments || {}).accountWide === true;
+const isRepoUpdate = (t) => t.tool === "update-automations" && (t.arguments || {}).accountWide === false;
+const isRepoWrite = (t) => isRepoUpdate(t) || t.tool === "delete-automations-repo-settings";
 
 const traj = (output) => (output && output.trajectory) || [];
 const writes = (output) => traj(output).filter((t) => WRITE_TOOLS.has(t.tool));
@@ -147,7 +147,7 @@ const finalText = (output) => String((output && output.response) || "");
 
 // Raw tool and field names the skill's voice rules ban from user-facing text.
 const RAW_NAMES = [
-  "update-release-autopilot", "get-release-autopilot", "delete-release-autopilot",
+  "update-automations", "get-automations", "delete-automations",
   "githubRepoId", "enabledOverride", "autoReleasing", "autoFlagging", "approvalRequired",
   "create-release-plan", "get-release-plans", "get-release-policies",
   "preview mode", "policy mode", "plan mode",
@@ -279,7 +279,7 @@ module.exports.noStorefrontRemap = (output) => {
 };
 
 module.exports.relistsAfterDone = (output) => {
-  const n = traj(output).filter((t) => t.tool === "get-release-autopilot").length;
+  const n = traj(output).filter((t) => t.tool === "get-automations").length;
   return result(n >= 2, `read Release Autopilot settings and GitHub repos ${n} time(s)`);
 };
 
@@ -456,7 +456,7 @@ module.exports.storefrontAutoFlaggingOn = (output) => {
   const w = steps.findIndex((t) => isRepoUpdate(t) && (t.arguments || {}).repo === "acme/storefront" &&
     t.arguments.autoFlagging && t.arguments.autoFlagging.enabled === true);
   if (w === -1) return result(false, "did not clear the repo's auto-flagging override");
-  const verified = steps.slice(w + 1).some((t) => t.tool === "get-release-autopilot" && (t.arguments || {}).repo === "acme/storefront");
+  const verified = steps.slice(w + 1).some((t) => t.tool === "get-automations" && (t.arguments || {}).repo === "acme/storefront");
   return result(verified, verified ? "turned auto-flagging on for acme/storefront and read it back" : "turned it on but never verified the repo's effective value");
 };
 
