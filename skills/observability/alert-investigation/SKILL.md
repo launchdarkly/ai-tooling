@@ -37,8 +37,9 @@ The investigation itself follows the "first five minutes" in [investigate](../in
   - `firing_count` and `last_fired_at`
   - `firings`: newest first, each with its `group`, state change, `investigation_conversation_id` and `replay`
   - `current_state`: the latest state per group, which tells an alert firing now from one that has resolved
+  - `summary`: the episode view, read from up to 500 firings (`firings_counted`, `complete`). See step 3.
 
-Name the group that fired (for example `task.type=5`), not just the alert. Ignore `current_state` entries for groups that have not reported for weeks.
+Name the group that fired (for example `task.type=5`), not just the alert. `current_state` leaves out groups that have been Normal and unchanged for 14 days (`idle_groups_omitted`; set `includeIdleGroups: true` to see them). On an older server those groups are listed; ignore entries that have not changed for weeks.
 
 ### 2. Replay the value
 
@@ -53,16 +54,25 @@ A current state of `NoData` means the alert's query matches nothing: the service
 
 ### 3. Chronic, noisy, or new?
 
-Decide this before you look for a cause. Signs of a **chronic or noisy** alert:
+Decide this before you look for a cause. Start from the firing history's `summary`:
 
-- Many firings in the lookback (`firing_count` in the dozens over 7 days), on the same group, flapping between Warn and Alert.
+- `chronic` and `chronic_reason`: `chronic: true` means it fired on more than 4 of the last 7 days.
+- `episodes` (`start`, `end`, `firings`, `span_minutes`, `group_by_key`, `investigation_conversation_id`) and `episode_count`: firings close together are merged (`episode_gap_minutes`). One long episode is one problem; ten short ones a day is flapping.
+- `flaps`, `firings_per_day` (last 7 days), `days_fired` (whole lookback) and `groups` (firings, first and last per group).
+- `value_source`: the value at each firing is not stored; it says how to recompute it (pass that firing's `replay` to `search-aggregations`, step 2). `time_in_alert_note` explains why time in Alert is not given.
+
+`get-changes` shows the same alert as `alert_episode` rows on the service's timeline, next to deploys and flag changes. On a server without `summary`, count firings per day from `firings` yourself.
+
+Other signs of a **chronic or noisy** alert:
+
+- Many firings in the lookback on the same group, flapping between Warn and Alert.
 - The replayed value is close to the `compareTo` value from last week.
-- The alert evaluates a high percentile over few rows. A P99 over about 600 spans per window is the sixth-slowest span; a handful of slow requests flips it. Over sampled data the row count is far smaller than the request count; see "Sampling and percentiles" in [investigate](../investigate/SKILL.md).
+- The alert evaluates a high percentile over few rows. A P99 over about 600 spans per window is the sixth-slowest span; a handful of slow requests flips it. A `low_sample` block on the replay says so directly; see "Sampling and percentiles" in [investigate](../investigate/SKILL.md).
 - The threshold sits inside the normal range of the series: run the replay over 3 to 7 days with `bucketCount` 24 to 48 and see how often it is crossed.
 
 If it is chronic, say so, show the numbers, and still explain what the tail is made of (one `get-trace` of the slowest span usually does it). Recommend a concrete retune: a lower percentile (P95), a higher threshold, a minimum count, a longer window, or excluding the group.
 
-If it is **new**, the onset is the first firing in the episode; carry on.
+If it is **new**, the onset is the `start` of the current episode; carry on.
 
 ### 4. Reuse the automatic investigation
 
@@ -72,7 +82,7 @@ If the firing has an `investigation_conversation_id`, call `get-investigation` w
 
 Run steps 3 to 6 of the first five minutes in [investigate](../investigate/SKILL.md), scoped to the alert's query and the onset window:
 
-- **What changed:** `get-changes` for the service the alert's query names, from 1 to 2 hours before the onset. Pass the alert's ID in `alertIds` to see its own state changes on the same timeline.
+- **What changed:** `get-changes` for the service the alert's query names, from 1 to 2 hours before the onset. Pass the alert's ID in `alertIds` to see its own `alert_episode` rows on the same timeline.
 - **What is over-represented:** break the alert's own signal down by `host.name`, the version key, `http.route`, and the flag variation, each with `compareTo`. If the alert is grouped, compare the firing group with its sibling groups too.
 - **Evidence:** traces, logs and error groups from the slice that stands out.
 - **Blast radius:** `search-service-map` with `include: ["health"]` for the service.
@@ -100,7 +110,7 @@ Alert investigations feed notifications and on-call handoffs. Use this structure
 
 ## Verdict
 
-<New problem, chronic condition, or noise, with the evidence: firings in the last 7 days, value vs the same window last week.>
+<New problem, chronic condition, or noise, with the evidence: chronic_reason or firings in the last 7 days, episodes, value vs the same window last week.>
 
 ## Likely cause
 

@@ -17,7 +17,7 @@ Size the problem with `search-aggregations` (`productType: "traces"`) or `search
 - **Endpoints:** HTTP middleware often names server spans only by method (`GET`). Filter `span_kind=Server` and group by `http.route`, not `span_name`.
 - **Breakdown against a baseline:** group by `host.name`, the version key, or `http.route` with `compareTo` (see step 4 in `SKILL.md`). For latency, report `P95` of `duration` and rank groups by `Count`.
 - **Time per child span:** to see which child operation owns a parent's time, filter `span_name=(childA OR childB OR childC)` and aggregate `Sum` of `duration` grouped by `span_name` with `exact: true`; compare each child's sum with the parent's. Read one trace with `get-trace` first to learn the child span names.
-- **Flag variation:** spans carry flag evaluations as `feature_flag.key` and `feature_flag.result.variationIndex` (check with `get-keys search=feature_flag`). Filter `feature_flag.key=<flag>` and group by `feature_flag.result.variationIndex`, with and without `has_errors=true`, to see whether one variation holds the failures. `search-flag-evaluations` lists evaluations of one flag in detail.
+- **Flag variation:** spans carry flag evaluations as `feature_flag.key` and `feature_flag.result.value` (also `feature_flag.result.variationIndex`; check with `get-keys search=feature_flag`). Filter `feature_flag.key=<flag>` and group by `feature_flag.result.value`, with and without `has_errors=true`, to see whether one variation holds the failures. `search-flag-evaluations` with `flagKey` and no `sessionSecureId` counts the flag's evaluations per value across the project.
 
 ## Pull traces (`search-traces`)
 
@@ -35,7 +35,11 @@ Pass `traceId` and, whenever you know a span time, `timestamp` (the span's times
 
 - For large traces, `onlyServiceEntrySpans: true` keeps one span per service hop and every error span.
 - `expandSpanId` returns one span with its full attributes (route, exception details) and its subtree uncollapsed.
-- **Find where the time goes.** A span's own time is its duration minus the time covered by its children. A 2.3 s span whose two children take 0.25 s and 0.49 s spent about 1.5 s in its own code; blaming the children would be wrong. Work this out for the slowest span before naming a cause.
+- **Find where the time goes.** A span's own time is its duration minus the time covered by its children. A 2.3 s span whose two children take 0.25 s and 0.49 s spent about 1.5 s in its own code; blaming the children would be wrong. `get-trace` computes this for you on the full tree, before `onlyServiceEntrySpans` or `maxTokens` trimming:
+  - `self_ms` on each span: its duration minus the union of its children's intervals.
+  - `critical_path`: up to 15 spans, walking back from the root to the child that finished last, each with `duration_ms`, `self_ms` and `critical_ms` (the time it held the request up).
+  - `top_self_time`: the 5 spans with the most `self_ms`, each with `share_of_root`.
+  Name the cause from `top_self_time` and `critical_path`, not from the longest child. On a server without these fields, subtract the children's durations from the parent's by hand.
 - **Find where the failure started.** Error spans propagate upward; the lowest error span in the tree, usually in a downstream service, is the origin.
 - If the trace is incomplete (a Kafka consumer whose parent is the producer span, or sampled-out spans), say so; do not infer timing from gaps.
 

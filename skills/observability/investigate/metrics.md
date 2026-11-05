@@ -29,7 +29,7 @@ One call per candidate dimension, `bucketCount: 1`, `groupByLimit` 10 to 20, ove
 | Version | the key `get-changes` detected: `service_version`, `tags.version` or `version` |
 | Endpoint | `http.route` with `span_kind=Server` |
 | Environment or region | `environment`, `cloud.region` |
-| Flag variation | `feature_flag.result.variationIndex` with `feature_flag.key=<flag>` |
+| Flag variation | `feature_flag.result.value` with `feature_flag.key=<flag>` |
 
 Run each for the failures and for all traffic, and compare shares. A composite `groupBy: ["<versionKey>", "host.name"]` separates "bad version" from "bad host".
 
@@ -46,7 +46,13 @@ Up to five `series` (each with an `id` a to e, its own `query` and an aggregator
 
 ## Sampling
 
-Traces and logs are sampled unless `exact` is set. When the result has `estimated: true`, counts are scaled estimates and percentiles come from the rows actually read. Set `exact: true` for short windows, rare events, distinct counts, and any number you quote. A P99 over fewer than about 200 sampled rows, or a P95 over fewer than about 50, is not reliable: add a `Count` expression to see the row count and prefer fewer, wider buckets.
+Traces and logs are sampled unless `exact` is set. When the result has `estimated: true`, counts are scaled estimates and percentiles come from the rows actually read. Set `exact: true` for short windows, rare events, distinct counts, and any number you quote.
+
+A sampled result with a percentile carries a `low_sample` block when some buckets rest on too few rows: a `warning`, and per expression the `buckets`, `min_sampled_rows` and `threshold` (P99 under 200 rows, P95 under 50, other percentiles under 20); each percentile bucket also gets `sampled_rows`. Treat a flagged percentile as noise: rerun with `exact: true` or fewer, wider buckets. `exact` is not switched on for you. Servers without `low_sample` apply no check, so add a `Count` expression and apply the same thresholds yourself.
+
+## Is the data complete? (`includeIngest`)
+
+`includeIngest: true` adds an `ingest` block: `sampling_rate`, `minute_rate_limit`, `exclusion_query`, `filter_rules`, `quota` (shown near or over the limit) and, when the server can check it, a one-line `completeness_note` naming sampling, rate limiting, dropping filter rules, an exclusion query or an exceeded quota. `get-keys` adds the same block by itself when a non-default setting applies. Check it before you report that data is missing or that a count dropped.
 
 ## Keep responses small
 
@@ -58,3 +64,4 @@ Prefer 10 to 50 buckets, a single total (`bucketCount: 1`) when you only need a 
 - Ranking groups by a percentile, so a group with three slow requests tops the list. Rank by `Count`.
 - Guessing a key. A wrong `groupBy` key returns one empty group; a wrong filter key widens the result silently.
 - Reading `Max` of a cumulative counter as a level. Load the `observability/metrics` guide for counters.
+- Ignoring a `low_sample` warning and reporting a percentile swing as a regression.
