@@ -20,7 +20,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server.
 - `get-automations-archival`: the project's archival `settings` and `automationsPage`, the link to the project's Automations page.
 - `update-automations-archival`: change one or more settings, or turn archival off. Omitted fields keep their stored values. It cannot turn archival on (see [Turn it on](#turn-it-on)).
 
-**Optional:** `get-projects` to pick the project, `get-members` and `get-teams` to resolve notification recipients, `get-approval-requests` for pending archival approvals.
+**Optional:** `get-projects` to pick the project, `search-members` to resolve notification member IDs (team keys come from the user), `get-approval-requests` for pending archival approvals.
 
 If these tools are missing, the server has not picked them up yet. Ask the user to reconnect the LaunchDarkly MCP server once. If they are still missing, guide the browser steps in [references/browser-steps.md](references/browser-steps.md) instead. Do not invent REST calls.
 

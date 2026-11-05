@@ -278,7 +278,6 @@ Record each answer as reported by the user. Never do these in Preview mode.
 
 1. `get-automations`: `account` matches the plan.
 2. `get-automations` with `repo` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan. If a picked capability is still effectively off for a repo, say which and do not call the setup complete.
-3. Auto-cleanup and auto-archival the user reported as done: `get-automations-cleanup` and `get-automations-archival` for each project, when the server has them (see [references/auto-cleanup.md](references/auto-cleanup.md) and [references/auto-archival.md](references/auto-archival.md)). Without them, mark the steps as reported, not verified.
 3. With release plans: `get-release-plans` for each environment lists the new plans. With release policies: report the policy state from Step 6.
 
 If any change was left for an admin or failed, lead with "Partly set up: waiting on an admin" and the admin checklist, and never call the setup complete. Then report a short checklist with each item marked verified, reported by the user (browser steps the user did in this flow), or already set up (steps the flow skipped because they were already done), then the follow-ups. Tell the user how to see it work; if a change is waiting on an admin, make that conditional ("Once an admin turns on auto-flagging, open a pull request…"):

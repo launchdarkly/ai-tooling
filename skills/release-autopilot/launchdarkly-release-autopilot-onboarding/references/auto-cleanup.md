@@ -13,6 +13,6 @@ For each project, give the user `/projects/{projectKey}/settings/automations` on
 
 Cleanup jobs run with the permissions of the member who saved the settings. If that member loses access, someone else must save the settings again.
 
-When the user says it is done, verify with `get-automations-cleanup` if the server has it: the schedule is not `disabled` and the repositories match. Otherwise record the result as reported by the user; it cannot be verified.
+Record the result as reported by the user. Onboarding does not verify it.
 
 Docs: [Automated flag cleanup](https://launchdarkly.com/docs/home/flags/manage/flag-cleanup-vega#automated-flag-cleanup)

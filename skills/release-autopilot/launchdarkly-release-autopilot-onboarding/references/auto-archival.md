@@ -13,4 +13,4 @@ For each project, give the user `/projects/{projectKey}/settings/automations` on
 
 If the page has no "Automatic archival" section, the feature is not available for their account yet: record it as a follow-up, not as done.
 
-When the user says it is done, verify with `get-automations-archival` if the server has it: `enabled` is true. If it says automatic archival is not available, record it as a follow-up. Otherwise record the result as reported by the user; it cannot be verified.
+Record the result as reported by the user. Onboarding does not verify it.
