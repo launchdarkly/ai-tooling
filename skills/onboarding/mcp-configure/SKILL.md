@@ -25,7 +25,7 @@ LaunchDarkly provides a unified hosted MCP server for all functionality:
 
 | Server      | URL                                             | Purpose                       |
 | ----------- | ----------------------------------------------- | ----------------------------- |
-| LaunchDarkly (unified) | `https://mcp.launchdarkly.com/mcp/launchdarkly` | Feature flags and AgentControl |
+| LaunchDarkly (unified) | `https://mcp.launchdarkly.com/mcp` | Feature flags and AgentControl |
 
 The legacy `mcp/fm` and `mcp/aiconfigs` URLs are **deprecated** — migrate any existing usage to the unified server (see [Edge Cases](#edge-cases)).
 
@@ -117,7 +117,7 @@ Cursor does not need a restart after enabling an MCP server. Claude Code does: i
 
 ## Edge Cases
 
-- **User already has MCP configured:** Verify by checking for existing LD MCP entries in the config. If the unified server (`mcp/launchdarkly`) is present and working, skip configuration. If the deprecated `mcp/fm` or `mcp/aiconfigs` is present, see below.
+- **User already has MCP configured:** Verify by checking for existing LD MCP entries in the config. If the unified server (`https://mcp.launchdarkly.com/mcp`, or the older `/mcp/launchdarkly` path, which still works) is present and working, skip configuration. If the deprecated `mcp/fm` or `mcp/aiconfigs` is present, see below.
 - **User has the deprecated `mcp/aiconfigs` or `mcp/fm` server:** These URLs are deprecated. Do **not** auto-migrate. Use a blocking question:
 
 ```json
@@ -125,7 +125,7 @@ Cursor does not need a restart after enabling an MCP server. Claude Code does: i
   "questions": [
     {
       "id": "legacy_migration",
-      "prompt": "I found a deprecated LaunchDarkly MCP URL in your config (mcp/fm or mcp/aiconfigs). It should be replaced with the unified LaunchDarkly server (mcp/launchdarkly), which handles both feature flags and AgentControl. Do you want me to migrate?",
+      "prompt": "I found a deprecated LaunchDarkly MCP URL in your config (mcp/fm or mcp/aiconfigs). It should be replaced with the unified LaunchDarkly server (mcp.launchdarkly.com/mcp), which handles both feature flags and AgentControl. Do you want me to migrate?",
       "options": [
         { "id": "yes", "label": "Yes, remove the old server and add the unified one" },
         { "id": "no", "label": "No, leave it as is for now" }
@@ -135,11 +135,11 @@ Cursor does not need a restart after enabling an MCP server. Claude Code does: i
 }
 ```
 
-  - If **yes**: remove the deprecated entry, ensure the unified `mcp/launchdarkly` server is present (do not duplicate if it's already there), and continue.
+  - If **yes**: remove the deprecated entry, ensure the unified `https://mcp.launchdarkly.com/mcp` server is present (do not duplicate if it, or the older `/mcp/launchdarkly` path, is already there), and continue.
   - If **no**: leave the config untouched and continue with onboarding — the deprecated server may still work for now.
 
 - **User has the old npx-based local server:** Migrate them to the hosted server. Remove the old `npx @launchdarkly/mcp-server` entry and any `LD_ACCESS_TOKEN` env vars. Replace with the hosted server config.
-- **Agent not in known list:** Provide the generic pattern: the user needs to add an MCP server entry pointing to `https://mcp.launchdarkly.com/mcp/launchdarkly` using whatever format their agent expects.
+- **Agent not in known list:** Provide the generic pattern: the user needs to add an MCP server entry pointing to `https://mcp.launchdarkly.com/mcp` using whatever format their agent expects.
 - **User opts out of MCP during onboarding:** Document that choice and continue; do not block SDK work.
 
 ## What NOT to Do
