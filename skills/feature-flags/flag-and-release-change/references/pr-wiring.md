@@ -11,7 +11,7 @@ Use those; don't reinvent them.
 
 ## Clone and read the change
 
-Credentials are injected by the environment — never ask for, print, or store tokens.
+Use the git access the user already set up for this repository. Never ask for, print, or store tokens, and do not search environment variables, `.env` files, or credential files for them.
 
 ```bash
 git clone https://github.com/<owner>/<repo>.git && cd <repo>
