@@ -9,14 +9,21 @@ This skill teaches agents how to:
 - Ask which capabilities the user wants (auto-flagging, auto-releasing) and set up only what those need
 - Hand the user the GitHub App install or authorize link, and continue after they finish
 - Map chosen `owner/name` repos to LaunchDarkly projects
-- Offer auto-cleanup and auto-archival, and guide the project's Lifecycle settings for each
+- Offer auto-cleanup and auto-archival, and guide the project's Automations settings for each
 - Explain whose AI model account runs the agents (LaunchDarkly's by default, or the user's own Anthropic or OpenAI key) and guide bring-your-own-key setup
 - Review or create environment release plans for auto-releasing, or show release policies where plans are not available
 - Confirm one plan that lists every write before making any change, then verify
 
-## Installation (Local)
+## Installation
 
-- **Generic**: copy `skills/release-autopilot/launchdarkly-release-autopilot-onboarding/` into your client's skills path
+Install the LaunchDarkly plugin first. It includes this skill and the LaunchDarkly MCP server that the skill needs.
+
+- **Claude Code**: run `/plugin marketplace add launchdarkly/ai-tooling`, then `/plugin install launchdarkly@launchdarkly-ai-tooling`. Then open `/mcp` and sign in to the `launchdarkly` server.
+- **Cursor**: open **Settings > Plugins**, search for **LaunchDarkly**, and install it.
+
+The skill is in Claude Code plugin 1.0.3 and Cursor plugin 1.0.4 and later. With an earlier plugin, a request to set up Release Autopilot starts the SDK onboarding skill instead, so update the plugin first.
+
+- **Other clients**: copy `skills/release-autopilot/launchdarkly-release-autopilot-onboarding/` into your client's skills path, and connect the hosted LaunchDarkly MCP server.
 
 ## Prerequisites
 

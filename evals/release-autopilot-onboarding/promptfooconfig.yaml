@@ -48,11 +48,13 @@ providers:
 tests:
   # ------------------------------------------------------------------
   # Fresh account, auto-flagging only. The repo mapping must turn
-  # auto-releasing off for the repo, the account write comes after the
+  # auto-flagging on and auto-releasing off for the repo (a repo that
+  # leaves a capability unset has it off on accounts that use project
+  # Automations settings), the account write comes after the
   # repo write, and no write happens before the confirm question.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Fresh account, auto-flagging only: confirm first, repo override off, account write last"
+    description: "Fresh account, auto-flagging only: confirm first, repo auto-flagging on and auto-releasing off, account write last"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 25
@@ -95,6 +97,10 @@ tests:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
         metric: repo_override_unpicked
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoFlaggingOn
+        metric: repo_turns_picked_on
         weight: 4
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:accountWriteLast
@@ -640,7 +646,7 @@ tests:
   # question, autoCleanup is never sent, and the repo write is confirmed.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Auto-cleanup: lifecycle settings link in the question, never sends autoCleanup"
+    description: "Auto-cleanup: Automations settings link in the question, never sends autoCleanup"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
@@ -684,8 +690,8 @@ tests:
         metric: no_auto_cleanup
         weight: 3
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:cleanupQuestionHasLifecycleLink
-        metric: lifecycle_link_in_question
+        value: file://../release-autopilot-onboarding/assertions.js:cleanupQuestionHasAutomationsLink
+        metric: automations_link_in_question
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
@@ -801,7 +807,7 @@ tests:
   # the only write is the confirmed repo mapping.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Auto-archival: lifecycle settings link in the question, confirmed repo write only"
+    description: "Auto-archival: Automations settings link in the question, confirmed repo write only"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
@@ -841,8 +847,8 @@ tests:
         metric: no_unpicked_cleanup
         weight: 3
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:archivalQuestionHasLifecycleLink
-        metric: lifecycle_link_in_question
+        value: file://../release-autopilot-onboarding/assertions.js:archivalQuestionHasAutomationsLink
+        metric: automations_link_in_question
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
@@ -932,8 +938,8 @@ tests:
         metric: browser_after_confirm
         weight: 3
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:archivalQuestionHasLifecycleLink
-        metric: lifecycle_link_in_question
+        value: file://../release-autopilot-onboarding/assertions.js:archivalQuestionHasAutomationsLink
+        metric: automations_link_in_question
         weight: 2
 
   # ------------------------------------------------------------------
@@ -999,10 +1005,10 @@ tests:
 
   # ------------------------------------------------------------------
   # Bring your own key is a browser change: it comes after "Looks good",
-  # with the project's Vega settings link in the question.
+  # with the project's Automations settings link in the question.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Bring your own key: Vega settings step comes after confirm"
+    description: "Bring your own key: Automations settings step comes after confirm"
     vars:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default, using our own Anthropic key."
       max_turns: 22
@@ -1030,8 +1036,8 @@ tests:
         metric: browser_after_confirm
         weight: 4
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:byokQuestionHasVegaLink
-        metric: vega_link_in_question
+        value: file://../release-autopilot-onboarding/assertions.js:byokQuestionHasAutomationsLink
+        metric: automations_link_in_question
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff

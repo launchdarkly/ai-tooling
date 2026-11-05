@@ -1,8 +1,8 @@
 # Auto-archival
 
-Auto-archival archives flags that are ready to archive, after archival safety checks and a grace period. It is set per project, in the **Automatic archival** section of Lifecycle settings. No MCP tool manages it. The section is still rolling out, so some accounts do not see it yet.
+Auto-archival archives flags that are ready to archive, after archival safety checks and a grace period. It is set per project, in the **Automatic archival** section of the project's **Settings > Automations** page. No MCP tool manages it. The section is still rolling out, so some accounts do not see it yet.
 
-For each project, give the user `/projects/{projectKey}/settings/lifecycle` on their LaunchDarkly instance (for example `https://app.launchdarkly.com`, or their EU or federal URL). In the "Automatic archival" section they:
+For each project, give the user `/projects/{projectKey}/settings/automations` on their LaunchDarkly instance (for example `https://app.launchdarkly.com`, or their EU or federal URL). If the link opens the general project settings page instead, the account does not have the Automations page yet, and they use `/projects/{projectKey}/settings/lifecycle`. In the "Automatic archival" section they:
 
 1. Turn on **Enable automatic archival**, and confirm in the "Enable automatic archival?" dialog.
 2. Set the grace period before a ready flag is archived.
