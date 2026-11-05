@@ -180,6 +180,32 @@ Name the attribute, the hunk and what reads it in the evidence.
 **Unresolved when:** Whether the attribute is emitted depends on an exporter or wrapper the
 tree does not show.
 
+## B8: Does a shipping hunk change what cloud resources get provisioned, or how: instance type or size, disk, machine image, network placement, pool membership, or scaling?
+
+YES if a shipping hunk is in code that creates, sizes, places or
+replaces cloud resources at runtime (a provisioner, a launch or create
+path, a warm or standby pool, an autoscaler, a resource reconciler),
+and it changes, for some request that code already handled, what is
+launched or kept: the instance type or size, disk size or performance,
+the machine image, the subnet, zone or security group, which pool a
+resource is in or claimed from, how many are kept, or when one is
+replaced or retired. Say which resource and what changes about it.
+
+A default-off flag does not make it NO: a provisioning change is an
+infrastructure change, which is never low.
+
+NO when the hunk leaves what gets provisioned the same: a refactor,
+rename or move; comments and types; removing a flag that already
+serves its final value everywhere; logging, metrics or tracing.
+NO for software installed or run on a resource after it exists (tool
+updates, setup scripts), and for infrastructure config files, which
+A4 and B3 ask about. NO when "provisioning" means something other than
+cloud resources, such as account plans, seats or entitlements.
+
+**Unresolved when:** Whether the changed code runs on a provisioning path, or what a flag
+that would make the change a no-op serves in production, cannot be told
+from the tree and the flag lookups.
+
 ## C1: Does at least one changed file end up inside a deployed runtime artifact? (from the changed paths)
 
 Tests, fixtures, stories, docs and editor
@@ -387,6 +413,7 @@ and the change.
 - **medium**: Touches middleware, authentication, authorization, session or crypto code without changing access.
 - **medium**: Makes a kind of change a repository approval policy file forbids approving automatically.
 - **medium**: Changes telemetry a product view displays to customers (an attribute's name, value, derivation or emission).
+- **medium**: Changes what cloud resources get provisioned, or how (instance type or size, disk, image, network placement, pool membership, scaling).
 - **medium**: Changes how existing logic that more than one feature relies on behaves (a validation, a query parser or builder, a request helper, a database write), with no flag.
 - **medium**: Behavior change whose failure would be silent, spread beyond its surface, or not undone by a revert.
 - **low**: Nothing ships: tests, docs, comments, stories, or other files outside the runtime.
