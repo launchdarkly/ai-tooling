@@ -103,7 +103,10 @@ tests:
             - { key: "storefront-telemetry-default-error-rate", name: "Error rate", measureType: "occurrence", successCriteria: "LowerThanBaseline", eventKey: "$ld:telemetry:error", analysisUnits: ["user"] }
           totalCount: 2
         get-flags:
-          error: "flag not found"
+          by_arg: flagKey
+          cases:
+            "exp-checkout-conversion-button-copy":
+              error: "flag not found"
     assert:
       - type: javascript
         value: |
@@ -157,7 +160,10 @@ tests:
       mock_overrides:
         get-metrics: *metrics_with_error
         get-flags:
-          error: "flag not found"
+          by_arg: flagKey
+          cases:
+            "exp-checkout-conversion-button-label":
+              error: "flag not found"
     assert:
       - type: javascript
         value: |
@@ -293,14 +299,17 @@ tests:
       mock_overrides:
         get-metrics: *metrics_with_error
         get-flags:
-          key: "exp-checkout-conversion-button-label"
-          kind: "multivariate"
-          variations:
-            - { _id: "var-continue", value: "Continue", name: "Continue" }
-            - { _id: "var-place-order", value: "Place order", name: "Place order" }
-            - { _id: "var-buy-now", value: "Buy now", name: "Buy now" }
-          defaults: { onVariation: 0, offVariation: 0 }
-          environment: { on: false, version: 2, rules: [], targets: [], fallthrough: { variation: 0 }, offVariation: 0 }
+          by_arg: flagKey
+          cases:
+            "exp-checkout-conversion-button-label":
+              key: "exp-checkout-conversion-button-label"
+              kind: "multivariate"
+              variations:
+                - { _id: "var-continue", value: "Continue", name: "Continue" }
+                - { _id: "var-place-order", value: "Place order", name: "Place order" }
+                - { _id: "var-buy-now", value: "Buy now", name: "Buy now" }
+              defaults: { onVariation: 0, offVariation: 0 }
+              environment: { on: false, version: 2, rules: [], targets: [], fallthrough: { variation: 0 }, offVariation: 0 }
     assert:
       - type: javascript
         value: |
@@ -423,11 +432,14 @@ tests:
               - { id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
               - { id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
         get-flags:
-          key: "exp-checkout-conversion-button-copy"
-          kind: "boolean"
-          variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
-          defaults: { onVariation: 1, offVariation: 1 }
-          environment: { on: true, version: 5, rules: [], targets: [], fallthrough: { variation: 1 }, offVariation: 1 }
+          by_arg: flagKey
+          cases:
+            "exp-checkout-conversion-button-copy":
+              key: "exp-checkout-conversion-button-copy"
+              kind: "boolean"
+              variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
+              defaults: { onVariation: 1, offVariation: 1 }
+              environment: { on: true, version: 5, rules: [], targets: [], fallthrough: { variation: 1 }, offVariation: 1 }
         get-experiment-metric-results:
           by_arg: metricKey
           cases:
@@ -509,11 +521,14 @@ tests:
               - { id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
               - { id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
         get-flags:
-          key: "exp-checkout-conversion-button-copy"
-          kind: "boolean"
-          variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
-          defaults: { onVariation: 1, offVariation: 1 }
-          environment: { on: true, version: 5, rules: [], targets: [], fallthrough: { variation: 1 }, offVariation: 1 }
+          by_arg: flagKey
+          cases:
+            "exp-checkout-conversion-button-copy":
+              key: "exp-checkout-conversion-button-copy"
+              kind: "boolean"
+              variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
+              defaults: { onVariation: 1, offVariation: 1 }
+              environment: { on: true, version: 5, rules: [], targets: [], fallthrough: { variation: 1 }, offVariation: 1 }
         get-experiment-metric-results:
           by_arg: metricKey
           cases:
@@ -579,11 +594,14 @@ tests:
               - { id: "treat-control", name: "Control", baseline: true, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-false" }] }
               - { id: "treat-treatment", name: "Treatment", baseline: false, allocationPercent: 5, parameters: [{ flagKey: "exp-checkout-conversion-button-copy", variationId: "var-true" }] }
         get-flags:
-          key: "exp-checkout-conversion-button-copy"
-          kind: "boolean"
-          variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
-          defaults: { onVariation: 1, offVariation: 1 }
-          environment: { on: true, version: 5, rules: [], targets: [], fallthrough: { variation: 1 }, offVariation: 1 }
+          by_arg: flagKey
+          cases:
+            "exp-checkout-conversion-button-copy":
+              key: "exp-checkout-conversion-button-copy"
+              kind: "boolean"
+              variations: [{ _id: "var-true", value: true, name: "true" }, { _id: "var-false", value: false, name: "false" }]
+              defaults: { onVariation: 1, offVariation: 1 }
+              environment: { on: true, version: 5, rules: [], targets: [], fallthrough: { variation: 1 }, offVariation: 1 }
         get-experiment-metric-results:
           by_arg: metricKey
           cases:
