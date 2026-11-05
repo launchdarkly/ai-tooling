@@ -27,8 +27,9 @@ something you could reasonably infer, and never dump jargon on them.
 - A local codebase (this skill reads files and `git log`).
 - A connection to LaunchDarkly that can **create metrics and experiments** —
   **either** an LD MCP server that exposes those tools, **or** a LaunchDarkly API
-  token in the environment (`LD_API_KEY` / `LAUNCHDARKLY_ACCESS_TOKEN`) for REST
-  calls. A flags-only MCP is not enough: it can scan and draft but not create.
+  access token that the user pastes for this session, for REST calls. Do not
+  search environment variables, `.env` files, or agent/MCP config files for
+  credentials. A flags-only MCP is not enough: it can scan and draft but not create.
   **Step 0 checks the specific capabilities and fails fast** if the create path
   is missing, offering a draft-only plan instead of grinding through the whole
   flow to a dead end.
@@ -78,8 +79,8 @@ Resolve a path, in precedence order:
 1. **An LD MCP that exposes the experiment + metric tools** (`create-experiment`,
    `start-experiment-iteration`, `create-metric`, `list-metrics`, …) → full
    **MCP path**. Preferred.
-2. **Else a LaunchDarkly API token** (`LD_API_KEY` / `LAUNCHDARKLY_ACCESS_TOKEN`)
-   → full path via the **REST API**.
+2. **Else a LaunchDarkly API access token the user pastes for this session**
+   → full path via the **REST API**. Ask for it; never read it from the machine.
 3. **Partial — an LD MCP is connected for flags/environments but has no
    experiment/metric tools, and there's no API token.** You *can* read the
    account (so the Step 2 scan still works), but you **cannot create the metric
@@ -100,7 +101,7 @@ Resolve a path, in precedence order:
 - **Partial (3):** you can reach the account, so **still run the Step 2 scan** and
   reuse what fits, then produce the draft. At **Step 8, stop before any write**
   and tell the user you can't create from here — offer to connect a create-capable
-  path (an experiment-capable LD MCP or an `LD_API_KEY` token) and re-run, or take
+  path (an experiment-capable LD MCP, or an API access token they paste) and re-run, or take
   the draft + ready-to-run commands and finish in the UI or via
   `launchdarkly-experiment-setup`. Don't tell them LaunchDarkly is unreachable —
   it isn't; you just can't create from here.
@@ -112,8 +113,8 @@ Resolve a path, in precedence order:
   > "I can read your code, but I can't reach your LaunchDarkly account — so I
   > can't see your existing flags/metrics or create the experiment. Connect the
   > LaunchDarkly MCP server (setup guide:
-  > https://launchdarkly.com/docs/home/getting-started/mcp-hosted) or set an
-  > `LD_API_KEY` token in your shell and restart this session, then re-run.
+  > https://launchdarkly.com/docs/home/getting-started/mcp-hosted) or paste a
+  > LaunchDarkly API access token for this session, then re-run.
   > Or say **'draft only'** and I'll produce the hypothesis, metric/flag plan,
   > code snippets, and exact API calls — without touching your account."
 
@@ -292,7 +293,7 @@ code, then tell you to start it).
 |-----------|--------|
 | No git history / brand-new repo | Skip the recent-features scan; lean on the README and manifest, and ask what they're working on. |
 | Can't tell what the product is | State your best guess and ask — don't silently pick. |
-| No LaunchDarkly access (no MCP, no token) | Caught at Step 0 — fail fast: stop and offer to connect (MCP server or `LD_API_KEY`), or explicit draft-only mode (no account scan, no create). Don't grind through the flow to a dead end. |
+| No LaunchDarkly access (no MCP, no token) | Caught at Step 0 — fail fast: stop and offer to connect (MCP server, or an API access token the user pastes), or explicit draft-only mode (no account scan, no create). Don't grind through the flow to a dead end. |
 | A flag or metric already fits | Reuse it. Say so explicitly and skip creation for that piece. |
 | User has no idea what to measure | Start from the outcome (revenue, sign-ups, retention, speed) and map backward to a metric and feature. |
 | Feature isn't behind a flag yet | Delegate to `launchdarkly-flag-create` first; an experiment needs a flag to split traffic. |
