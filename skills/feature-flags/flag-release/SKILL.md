@@ -101,7 +101,7 @@ Only after confirmation:
 - **Don't turn the flag on yourself, or toggle it after recording the config.** The rollout owns that; double-toggling causes audit noise and confuses the scheduler.
 - **Don't skip `match-release-policies`.** Proposing `policy` without knowing what it resolves to is guessing.
 - **Don't silently release against a stated hold/`notBefore`.** Honor intent or hold — never drop it.
-- **Don't handle or print credentials.** Access is injected by the environment.
+- **Don't handle or print credentials.** Use the MCP server's OAuth and the user's existing git access; never read tokens from the machine.
 
 ## References
 

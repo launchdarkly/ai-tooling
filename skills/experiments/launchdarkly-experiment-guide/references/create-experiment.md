@@ -7,7 +7,7 @@ Detection order (already confirmed up front by the skill's **Step 0** preflight,
 which checks for the *specific* create tools — a flags-only MCP does not qualify):
 1. **An LD MCP exposing the experiment + metric tools** (`create-experiment`,
    `create-metric`, `start-experiment-iteration`, …) → MCP path (preferred).
-2. **Else a LaunchDarkly API token** (`LD_API_KEY` / `LAUNCHDARKLY_ACCESS_TOKEN`) → REST path.
+2. **Else a LaunchDarkly API access token the user pastes for this session** → REST path.
 3. **Both present** → use MCP; fall back to REST only for an operation MCP doesn't expose.
 4. **No create capability** (flags-only MCP, or nothing) → you should never reach
    the create step: Step 0 fails fast. If the user chose **draft-only** mode,
@@ -77,7 +77,7 @@ to 100; the `iteration` object is required on create.
 ## REST fallback
 
 Base URL `https://app.launchdarkly.com`. Header:
-`Authorization: <token>` (plus `Content-Type: application/json`, and
+`Authorization: <token>`, where `<token>` is the API access token the user pasted (plus `Content-Type: application/json`, and
 `LD-API-Version: beta` for experiment endpoints).
 
 **Create a metric** (skip if reusing):

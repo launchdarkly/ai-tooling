@@ -38,7 +38,7 @@ MCP tools are used *via the composed skills* — `create-flag`/`get-flags` throu
 
 ## Working With the Pull Request
 
-Work from a clone so you can read the change and push the flag wiring back to its branch. Credentials are provided by the environment — never ask for, print, or store tokens.
+Work from a clone so you can read the change and push the flag wiring back to its branch. Use the git access the user already set up for this repository. Never ask for, print, or store tokens, and do not search environment variables, `.env` files, or credential files for them.
 
 ```bash
 git clone https://github.com/<owner>/<repo>.git && cd <repo>
@@ -85,7 +85,7 @@ Only after approval:
 - **Don't re-document flag creation, SDK guarding, or rollout mechanics here** — those are [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md) and [`flag-release`](../flag-release/SKILL.md). Link to them.
 - **Don't turn the flag on yourself.** The recorded release owns that; creating the flag OFF is the point.
 - **Don't over-flag.** One kill-switch beats several speculative flags.
-- **Don't handle or print credentials.** Git access is injected.
+- **Don't handle or print credentials.** Use the user's existing git access; never read tokens from the machine.
 
 ## References
 
