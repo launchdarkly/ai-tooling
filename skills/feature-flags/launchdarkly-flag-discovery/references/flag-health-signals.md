@@ -56,7 +56,7 @@ Combine signals to reach a recommendation:
 | Yes | Inactive 30+ days, has code references | Any | None | **Needs investigation**: not ready for code removal |
 | Yes | OFF in every critical environment | Any | None | **Not ready for code removal**: confirm with the user that the feature is abandoned |
 | Yes | Launched | Any | None | **Ready to hardcode and remove** |
-| Yes | Never requested, 7+ days old | Any | None | **Likely abandoned: verify with the user before removing** |
+| Yes | Never requested, 7+ days old | Any | None | **Not ready for code removal**: not `launched`. Possibly abandoned: ask the user |
 | Yes | Active | Any | Any | **Leave alone: actively used** |
 | No | Inactive 30+ days | Any | None | **Ask the user**: permanent flags may be intentionally dormant |
 | No | Launched | Any | None | **Ask the user**: may want to keep as permanent config |
