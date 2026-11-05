@@ -17,14 +17,13 @@ You're using a skill that will guide you through auditing and understanding the 
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `list-flags`: search and browse flags with filtering by state, type, tags
-- `get-flag`: get full configuration for a single flag in a specific environment
+- `get-flags`: search and browse flags with filtering by state, type, tags; with `flagKey`, get full configuration for a single flag in a specific environment
 - `get-flag-status-across-envs`: check a flag's lifecycle status across all environments
 
 **Optional MCP tools (enhance depth):**
-- `find-stale-flags`: find flags that are candidates for cleanup, sorted by staleness
+- `search-stale-flags`: find flags that are candidates for cleanup, sorted by staleness
 - `get-flag-health`: get combined health view for a single flag (merges status + config)
-- `check-removal-readiness`: detailed safety check for a specific flag
+- `get-removal-readiness`: detailed safety check for a specific flag
 
 ## Workflow
 
@@ -43,13 +42,13 @@ Before diving into flag data, establish context:
 Adapt your approach to the user's goal:
 
 **For a broad audit:**
-- Use `list-flags` scoped to a critical environment (default to `production`).
+- Use `get-flags` scoped to a critical environment (default to `production`).
 - Note the total count: this tells you the scale of the flag surface area.
-- Filter by `state` (active, inactive, launched, new) to segment the landscape.
+- Filter by `state` (`live`, `deprecated`, `archived`) to segment the landscape. Lifecycle status (new, active, launched, inactive) comes from `get-flag-status-across-envs`.
 - Filter by `type` (temporary vs permanent): temporary flags are the primary cleanup targets.
 
 **For cleanup planning:**
-- Use `find-stale-flags`: this is the most efficient entry point. It returns a prioritized list of cleanup candidates sorted by staleness, categorized as:
+- Use `search-stale-flags`: this is the most efficient entry point. It returns a prioritized list of cleanup candidates sorted by staleness, categorized as:
   - `never_requested`: created but never evaluated (possibly abandoned)
   - `inactive_30d`: no SDK evaluations in the specified period
   - `launched_no_changes`: fully rolled out, no recent changes
@@ -58,7 +57,7 @@ Adapt your approach to the user's goal:
 
 **For a targeted investigation:**
 - Use `get-flag-health` for a single-flag deep dive. It merges status data with configuration context in one call, returning lifecycle state, last-requested timestamp, targeting summary, age, and whether it's temporary.
-- Or use `get-flag` for the full configuration including rules, targets, and fallthrough details.
+- Or use `get-flags` for the full configuration including rules, targets, and fallthrough details.
 
 ### Step 3: Assess Flag Health
 
@@ -89,7 +88,7 @@ Group flags into actionable categories:
 
 ### Step 5: Assess Removal Readiness (When Applicable)
 
-If the user wants to know whether a specific flag can be removed, use `check-removal-readiness`. This tool orchestrates multiple API calls in parallel and returns a structured verdict:
+If the user wants to know whether a specific flag can be removed, use `get-removal-readiness`. This tool orchestrates multiple API calls in parallel and returns a structured verdict:
 
 - **`safe`**: No blockers or warnings, and LaunchDarkly marks the flag ready for code removal (`details.lifecycle.readyForCodeRemoval` is `true`). Recommend the cleanup workflow. If instead `details.lifecycle.codeAlreadyRemoved` is `true`, the flag is launched everywhere and has no code references left: recommend archiving it.
 - **`caution`**: Warnings exist (code references, expiring targets, permanent flag type, or `code_removal_readiness_unavailable`). `caution` is not permission to remove code. Present each warning and ask the user to confirm before you recommend removal. For `code_removal_readiness_unavailable`, ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment.

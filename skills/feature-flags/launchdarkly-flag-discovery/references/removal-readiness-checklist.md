@@ -6,7 +6,7 @@ A systematic safety check to determine whether a feature flag can be safely remo
 
 ### 1. Cross-Environment Status
 
-**Check:** Use `get-flag-status-across-envs` to verify the flag's state in all environments. If you ran `check-removal-readiness`, `details.lifecycle` holds LaunchDarkly's own result: `readyForCodeRemoval`, `readyToArchive`, and the lifecycle status in each critical environment.
+**Check:** Use `get-flag-status-across-envs` to verify the flag's state in all environments. If you ran `get-removal-readiness`, `details.lifecycle` holds LaunchDarkly's own result: `readyForCodeRemoval`, `readyToArchive`, and the lifecycle status in each critical environment.
 
 **Pass criteria (code removal):**
 - Flag is `launched` in ALL critical environments (production, staging, etc.): targeting ON, one variation served to every context, evaluated in the last 7 days, and targeting not changed in the last 7 days. This is the rule the LaunchDarkly **Ready for cleanup** view uses.
@@ -22,7 +22,7 @@ A systematic safety check to determine whether a feature flag can be safely remo
 
 ### 2. Configuration Consistency
 
-**Check:** Use `get-flag` for each critical environment and compare configurations.
+**Check:** Use `get-flags` for each critical environment and compare configurations.
 
 **Pass criteria:**
 - All critical environments are ON and serve the same `fallthrough.variation` (the same `offVariation` is not enough: see check 1)
@@ -50,7 +50,7 @@ A systematic safety check to determine whether a feature flag can be safely remo
 
 ### 4. Code References
 
-**Check:** If available, use `check-removal-readiness` which includes code reference statistics. Otherwise, use `get-code-references` to find repositories that reference this flag.
+**Check:** If available, use `get-removal-readiness` which includes code reference statistics. Otherwise, use `get-flag-code-references` to find repositories that reference this flag.
 
 **Pass criteria:**
 - No code references found, or references only exist in the current repository (about to be cleaned up)

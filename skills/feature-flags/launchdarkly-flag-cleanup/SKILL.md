@@ -19,8 +19,8 @@ If you haven't already identified which flag to clean up, use the [flag discover
 This skill requires the remotely hosted LaunchDarkly MCP server to be configured in your environment.
 
 **Required MCP tools:**
-- `check-removal-readiness`: detailed safety check (orchestrates flag config, cross-env status, dependencies, code references, expiring targets, and LaunchDarkly's own code removal verdict in parallel)
-- `get-flag`: fetch flag configuration for a specific environment
+- `get-removal-readiness`: detailed safety check (orchestrates flag config, cross-env status, dependencies, code references, expiring targets, and LaunchDarkly's own code removal verdict in parallel)
+- `get-flags`: fetch flag configuration for a specific environment
 
 **Optional MCP tools:**
 - `archive-flag`: archive the flag in LaunchDarkly after code removal
@@ -55,7 +55,7 @@ Before touching LaunchDarkly or removing code, understand how this flag is used 
 
 ### Step 2: Run the Removal Readiness Check
 
-Use `check-removal-readiness` to get a detailed safety assessment. This single tool call orchestrates multiple checks in parallel:
+Use `get-removal-readiness` to get a detailed safety assessment. This single tool call orchestrates multiple checks in parallel:
 - Flag configuration and targeting state
 - Cross-environment status
 - Dependent flags (prerequisites)
@@ -93,7 +93,7 @@ The verdict alone is not enough. Use the same rule as the **Ready for cleanup** 
 
 The day counts are the defaults. A project can change them, and it can turn off the temporary, prerequisite, and single-variation checks, in its flag lifecycle settings.
 
-`details.lifecycle.readyForCodeRemoval` from `check-removal-readiness` is LaunchDarkly's result for this rule, with the project's own lifecycle settings and critical environments. Use `get-flag` in each critical environment to confirm items 1 to 4.
+`details.lifecycle.readyForCodeRemoval` from `get-removal-readiness` is LaunchDarkly's result for this rule, with the project's own lifecycle settings and critical environments. Use `get-flags` in each critical environment to confirm items 1 to 4.
 
 **A flag that is OFF in a critical environment is not `launched`, so it is not ready for code removal.** This is true even when every critical environment is OFF and serves the same `offVariation`. A flag that is off everywhere often guards a feature that was never released. If you hardcode the `offVariation`, you delete the code for that feature. LaunchDarkly lists a flag that is off everywhere, has had no evaluations recently, and has no code references as **ready to archive**, not as ready for code removal.
 
@@ -101,7 +101,7 @@ If any item is false, stop and tell the user which items fail, even when the ver
 
 ### Step 3: Determine the Forward Value
 
-Use `get-flag` to fetch the flag configuration in each critical environment. The **forward value** is the variation that replaces the flag in code.
+Use `get-flags` to fetch the flag configuration in each critical environment. The **forward value** is the variation that replaces the flag in code.
 
 | Scenario | Forward Value |
 |----------|---------------|
@@ -117,7 +117,7 @@ Before modifying any code, present a summary to the user and wait for confirmati
 1. **The forward value** — which variation will be hardcoded and why (based on the flag's current state).
 2. **All code references found** — file paths and line numbers from Step 1.
 3. **Planned changes** — for each reference, describe what will be removed and what will be kept.
-4. **Readiness verdict** — the result from `check-removal-readiness` (safe, caution, or blocked), any warnings, and whether the flag meets the "Ready for cleanup" rule in Step 2. If the flag is off in every critical environment, say so and say that the user confirmed the code behind the other variations is abandoned.
+4. **Readiness verdict** — the result from `get-removal-readiness` (safe, caution, or blocked), any warnings, and whether the flag meets the "Ready for cleanup" rule in Step 2. If the flag is off in every critical environment, say so and say that the user confirmed the code behind the other variations is abandoned.
 5. **LaunchDarkly action** — confirm the flag will be archived after code changes are complete.
 
 **Do not proceed with code changes until the user explicitly confirms.**
@@ -162,7 +162,7 @@ return renderNewCheckout();
 Use the template in [references/pr-template.md](references/pr-template.md) for a structured PR description. The PR should clearly communicate:
 - What flag was removed and why
 - What the forward value is and why it's correct
-- The readiness assessment results (from `check-removal-readiness`)
+- The readiness assessment results (from `get-removal-readiness`)
 - What code was removed and what behavior is preserved
 - Whether other repos still reference this flag
 
@@ -202,7 +202,7 @@ Before considering the job done:
 
 Once the PR is merged and deployed:
 1. **Archive the flag in LaunchDarkly** using `archive-flag`. Archival is reversible; deletion is not. Always archive first.
-2. **Notify other teams** if `check-removal-readiness` reported code references in other repositories.
+2. **Notify other teams** if `get-removal-readiness` reported code references in other repositories.
 3. **If the flag had targeting changes pending,** they can be ignored: the flag is being removed.
 
 ## References
