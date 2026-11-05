@@ -14,7 +14,7 @@ Trace alerts carry:
 
 ## Investigation shape
 
-1. **Pull representative slow or failing traces** using the `query-traces` tool with the alert's `query` and `timeRange`. Limit to 5–10 to start; you don't need all of them.
+1. **Pull representative slow or failing traces** using the `search-traces` tool with the alert's `query`, and `startDate`/`endDate` covering its `timeRange`. Limit to 5–10 to start; you don't need all of them.
 2. **Identify the dominant span.** In a slow trace, which span owns most of the duration? If spans error, which span is the originating failure (lowest in the hierarchy)?
 3. **Compare against baseline.** If the alert is a latency regression, pull a trace for the same operation from before the alert window. Apples-to-apples: same `span_name`, same service version.
 4. **Look for external signals.** Deploy correlating with the onset? Upstream dependency failure? Traffic shift?

@@ -11,24 +11,24 @@ Load this file when the investigation concerns request flow, latency, or span-le
 
 Traces are high-volume and unbounded queries are rarely useful. Always anchor to a trace ID, a narrow time window, or a specific service+operation.
 
-## Tool guidance (`query-traces`)
+## Tool guidance (`search-traces`)
 
-The `query-traces` tool returns paginated trace entries with timestamp, span details, and attributes.
+The `search-traces` tool returns paginated trace entries with timestamp, span details, and attributes.
 
-- `start_date` is required; ISO format.
-- `end_date` defaults to now. **Never query more than 24 hours of traces.** If you need a wider window, use `query-aggregations` to aggregate first.
+- `startDate` is required; ISO format.
+- `endDate` defaults to now. **Never query more than 24 hours of traces.** If you need a wider window, use `search-aggregations` to aggregate first.
 - `query` filters by span attributes — e.g. `span_name="getUserData" AND service_name=auth`.
 - `limit` defaults to 20, max 50.
 - `direction` is `ASC` or `DESC`. Defaults to `DESC`.
 
 **Duration is in nanoseconds.** Convert before reporting — a latency of `2500000000` is 2.5 seconds.
 
-**Session-scoped traces.** Use `query="secure_session_id=<id>"` with `start_date` = session `created_at`, `end_date` = +3 hours.
+**Session-scoped traces.** Use `query="secure_session_id=<id>"` with `startDate` = session `created_at`, `endDate` = +3 hours.
 
 ## Typical patterns
 
-1. **Latency investigation** — find the slow operation via `query-aggregations` with `product_type="traces"` and `group_by="span_name"`, then drill in with `query-traces` for specific slow instances.
-2. **Critical-path analysis** — pull one representative slow trace, identify the span that dominates total duration, then check if it's consistently slow across many traces (`query-traces` + query filter) or a one-off.
+1. **Latency investigation** — find the slow operation via `search-aggregations` with `productType="traces"` and `groupBy="span_name"`, then drill in with `search-traces` for specific slow instances.
+2. **Critical-path analysis** — pull one representative slow trace, identify the span that dominates total duration, then check if it's consistently slow across many traces (`search-traces` + query filter) or a one-off.
 3. **Cross-service failure** — when a trace shows an error span, look at the parent and child spans. The failure often cascades; the true root is usually a downstream service.
 4. **Compare healthy vs. unhealthy** — pull one trace of each for the same operation. Apples-to-apples — same span_name, same service version.
 
@@ -40,6 +40,6 @@ The `query-traces` tool returns paginated trace entries with timestamp, span det
 
 ## Common mistakes
 
-- Querying traces across 7-day windows. Max 24 hours; use `query-aggregations` for longer ranges.
+- Querying traces across 7-day windows. Max 24 hours; use `search-aggregations` for longer ranges.
 - Reporting duration in raw nanoseconds. Always convert to ms or s.
 - Treating a single slow trace as a systemic problem. Check frequency before recommending a fix.

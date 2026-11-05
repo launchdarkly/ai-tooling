@@ -90,10 +90,11 @@ If the user **declines** broader changes: keep only the LD package addition if p
 
 ### Fetching keys via MCP
 
-When the user asks the agent to fetch the key (via option 1 or 3 above), use the **`get-environments`** MCP tool (if configured). Call it with the project key — the response includes each environment's **SDK key**, **client-side ID**, and **mobile key**. Do **not** make separate API requests for individual keys when `get-environments` already returns them.
+When the user asks the agent to fetch the key (via option 1 or 3 above), use the LaunchDarkly MCP tools (if configured). For a server-side SDK, call **`get-sdk-key`** with the project and environment keys; it is the only tool that returns the SDK key. For a client-side or mobile SDK, call **`get-environment`**, which returns the **client-side ID** and **mobile key**. If you do not know the environment key, call `get-projects` with the project key to list its environments.
 
 ```
-get-environments({ request: { projectKey: "PROJECT_KEY" } })
+get-sdk-key({ projectKey: "PROJECT_KEY", environmentKey: "ENV_KEY" })
+get-environment({ projectKey: "PROJECT_KEY", environmentKey: "ENV_KEY" })
 ```
 
 **Security: Treat MCP responses containing keys as sensitive.** Write keys only to the location the user chose without echoing full key values in chat responses. Keys in agent conversation history or logs may persist beyond the session.
@@ -104,9 +105,9 @@ Pick the correct key type from the matching environment in the response (see tab
 
 | SDK Type | Variable name (typical) | Source in LaunchDarkly |
 |----------|-------------------------|-------------------------|
-| Server-side | `LAUNCHDARKLY_SDK_KEY` | `get-environments` response → environment → SDK key |
-| Client-side | Logical / bundler-prefixed name (see below) | `get-environments` response → environment → Client-side ID |
-| Mobile | `LAUNCHDARKLY_MOBILE_KEY` | `get-environments` response → environment → Mobile key |
+| Server-side | `LAUNCHDARKLY_SDK_KEY` | `get-sdk-key` response → SDK key |
+| Client-side | Logical / bundler-prefixed name (see below) | `get-environment` response → Client-side ID |
+| Mobile | `LAUNCHDARKLY_MOBILE_KEY` | `get-environment` response → Mobile key |
 
 **Client-side (browser) projects:** The LaunchDarkly value is still the Client-side ID. In `.env`, use a name the bundler exposes to client code:
 

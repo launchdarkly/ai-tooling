@@ -23,9 +23,9 @@ providers:
     config:
       skill_slug: flag-release
       allow_builtins: false
-      # The cases name dev, staging, and production; the shared mock has only
-      # test and production, so an agent that checks environments first could
-      # not find staging and mapped it to test or stopped to ask.
+      # The cases name dev, staging, and production; this suite's
+      # get-projects (with projectKey) mock returns exactly those, so an agent
+      # that checks environments first finds them without a stray test env.
       tool_mocks: flag-release/tool-mocks.json
 
 tests:
@@ -92,7 +92,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -149,7 +149,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -213,7 +213,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -277,7 +277,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };
@@ -339,7 +339,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['toggle-flag','update-flag-settings','delete-flag'];
+          const forbidden = ['toggle-flag','update-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not toggle the flag by hand' : 'called: ' + called.join(', ') };

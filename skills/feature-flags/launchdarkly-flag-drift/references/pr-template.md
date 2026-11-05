@@ -35,7 +35,7 @@ matches the default rule.
 - The flag itself (not removed, not archived)
 
 ### Reviewer checklist
-- [ ] Fallthrough was resolved from `get-flag` in **every** critical environment, and they agree
+- [ ] Fallthrough was resolved from `get-flags` in **every** critical environment, and they agree
 - [ ] New default matches that agreed fallthrough value
 - [ ] Only the default argument changed (no logic/branching edits)
 - [ ] Default type matches the flag's variation type
@@ -71,7 +71,7 @@ the fallback to `true` so behavior is consistent when LaunchDarkly is unreachabl
 - The flag itself
 
 ### Reviewer checklist
-- [x] Fallthrough was resolved from `get-flag` in `production` and `eu-production`, and they agree on `true`
+- [x] Fallthrough was resolved from `get-flags` in `production` and `eu-production`, and they agree on `true`
 - [x] New default matches that agreed fallthrough value
 - [x] Only the default argument changed (no logic/branching edits)
 - [x] Default type matches the flag's variation type

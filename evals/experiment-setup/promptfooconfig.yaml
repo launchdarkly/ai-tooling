@@ -40,7 +40,7 @@ providers:
 tests:
   # ------------------------------------------------------------------
   # 1. Every required piece is already named. Look up the flag and the
-  # metric, show one design, and wait. checkout-flow's get-flag template
+  # metric, show one design, and wait. checkout-flow's get-flags template
   # is version 1 and its fallthrough rule id is "fallthrough".
   # ------------------------------------------------------------------
   - description: "Complete design: one design, then wait, with nothing created or started"
@@ -59,10 +59,10 @@ tests:
           const tools = output.tools_called || [];
           const writes = ['create-metric','create-experiment','create-flag','start-experiment-iteration','save-and-start-experiment-iteration','toggle-flag','update-flag-settings','update-feature-flag','create-feature-flag'];
           const called = writes.filter(name => tools.includes(name));
-          const gotFlag = traj.some(t => t.tool === 'get-flag' && (t.arguments || {}).flagKey === 'checkout-flow');
-          const listedMetrics = tools.includes('list-metrics');
+          const gotFlag = traj.some(t => t.tool === 'get-flags' && (t.arguments || {}).flagKey === 'checkout-flow');
+          const listedMetrics = tools.includes('get-metrics');
           const pass = gotFlag && listedMetrics && called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: 'get-flag=' + gotFlag + ' list-metrics=' + listedMetrics + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
+          return { pass, score: pass ? 1 : 0, reason: 'get-flags=' + gotFlag + ' get-metrics=' + listedMetrics + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
         metric: looks_up_flag_and_metric_and_does_not_write
         weight: 3
       - type: llm-rubric
@@ -98,7 +98,7 @@ tests:
           const tools = output.tools_called || [];
           const writes = ['create-metric','create-experiment','create-flag','start-experiment-iteration','save-and-start-experiment-iteration','toggle-flag','update-flag-settings','update-feature-flag','create-feature-flag'];
           const called = writes.filter(name => tools.includes(name));
-          const gotFlag = traj.some(t => t.tool === 'get-flag' && (t.arguments || {}).flagKey === 'checkout-active');
+          const gotFlag = traj.some(t => t.tool === 'get-flags' && (t.arguments || {}).flagKey === 'checkout-active');
           const searches = traj.filter(t => t.tool === 'search-contexts');
           const revealsOthers = searches.some(t => {
             const a = t.arguments || {};
@@ -110,7 +110,7 @@ tests:
             return kindBlank && filterBlank;
           });
           const pass = gotFlag && revealsOthers && called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: 'get-flag=' + gotFlag + ' revealsOthers=' + revealsOthers + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
+          return { pass, score: pass ? 1 : 0, reason: 'get-flags=' + gotFlag + ' revealsOthers=' + revealsOthers + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
         metric: looks_up_active_flag_and_contexts
         weight: 3
       - type: llm-rubric
@@ -147,7 +147,7 @@ tests:
           const tools = output.tools_called || [];
           const writes = ['create-metric','create-experiment','create-flag','start-experiment-iteration','save-and-start-experiment-iteration','toggle-flag','update-flag-settings','update-feature-flag','create-feature-flag'];
           const called = writes.filter(name => tools.includes(name));
-          const gotFlag = traj.some(t => t.tool === 'get-flag' && (t.arguments || {}).flagKey === 'checkout-inactive');
+          const gotFlag = traj.some(t => t.tool === 'get-flags' && (t.arguments || {}).flagKey === 'checkout-inactive');
           const gotStatus = traj.some(t => t.tool === 'get-flag-status-across-envs' && (t.arguments || {}).flagKey === 'checkout-inactive');
           const searches = traj.filter(t => t.tool === 'search-contexts');
           const revealsOthers = searches.some(t => {
@@ -160,7 +160,7 @@ tests:
             return kindBlank && filterBlank;
           });
           const pass = gotFlag && gotStatus && revealsOthers && called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: 'get-flag=' + gotFlag + ' status=' + gotStatus + ' revealsOthers=' + revealsOthers + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
+          return { pass, score: pass ? 1 : 0, reason: 'get-flags=' + gotFlag + ' status=' + gotStatus + ' revealsOthers=' + revealsOthers + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
         metric: looks_up_inactive_flag_and_mixed_contexts
         weight: 3
       - type: llm-rubric
@@ -203,10 +203,10 @@ tests:
         weight: 1
 
   # ------------------------------------------------------------------
-  # 5. The custom event has not arrived. list-metric-events runs, the
+  # 5. The custom event has not arrived. get-metric-events runs, the
   # design warns and lists similar keys, and nothing is created.
   # ------------------------------------------------------------------
-  - description: "Missing event: list-metric-events runs, the design warns, and nothing is created"
+  - description: "Missing event: get-metric-events runs, the design warns, and nothing is created"
     vars:
       user_request: >
         Set up an experiment in project "my-project", environment "production".
@@ -222,9 +222,9 @@ tests:
           const tools = output.tools_called || [];
           const writes = ['create-metric','create-experiment','create-flag','start-experiment-iteration','save-and-start-experiment-iteration','toggle-flag','update-flag-settings','update-feature-flag','create-feature-flag'];
           const called = writes.filter(name => tools.includes(name));
-          const listedEvents = tools.includes('list-metric-events');
+          const listedEvents = tools.includes('get-metric-events');
           const pass = listedEvents && called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: 'list-metric-events=' + listedEvents + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
+          return { pass, score: pass ? 1 : 0, reason: 'get-metric-events=' + listedEvents + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
         metric: lists_events_and_does_not_create
         weight: 3
       - type: llm-rubric
@@ -255,10 +255,10 @@ tests:
           const tools = output.tools_called || [];
           const writes = ['create-metric','create-experiment','create-flag','start-experiment-iteration','save-and-start-experiment-iteration','toggle-flag','update-flag-settings','update-feature-flag','create-feature-flag'];
           const called = writes.filter(name => tools.includes(name));
-          const gotFlag = traj.some(t => t.tool === 'get-flag' && (t.arguments || {}).flagKey === 'checkout-flow');
-          const listedEvents = tools.includes('list-metric-events');
+          const gotFlag = traj.some(t => t.tool === 'get-flags' && (t.arguments || {}).flagKey === 'checkout-flow');
+          const listedEvents = tools.includes('get-metric-events');
           const pass = gotFlag && listedEvents && called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: 'get-flag=' + gotFlag + ' list-metric-events=' + listedEvents + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
+          return { pass, score: pass ? 1 : 0, reason: 'get-flags=' + gotFlag + ' get-metric-events=' + listedEvents + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
         metric: looks_up_flag_and_event_and_does_not_start
         weight: 3
       - type: llm-rubric
@@ -274,7 +274,7 @@ tests:
   # ------------------------------------------------------------------
   # 7. The named flag does not exist. Look up the key and similar flags.
   # Offer three choices. Do not create the flag. The project key is unique
-  # so only this case's list-flags calls return the similar checkout flags.
+  # so only this case's get-flags calls return the similar checkout flags.
   # ------------------------------------------------------------------
   - description: "Missing flag: three choices, and the flag is not created"
     vars:
@@ -291,10 +291,10 @@ tests:
           const tools = output.tools_called || [];
           const writes = ['create-metric','create-experiment','create-flag','start-experiment-iteration','save-and-start-experiment-iteration','toggle-flag','update-flag-settings','update-feature-flag','create-feature-flag'];
           const called = writes.filter(name => tools.includes(name));
-          const lookedUp = traj.some(t => t.tool === 'get-flag' && (t.arguments || {}).flagKey === 'missing-checkout');
-          const listed = traj.some(t => t.tool === 'list-flags');
+          const lookedUp = traj.some(t => t.tool === 'get-flags' && (t.arguments || {}).flagKey === 'missing-checkout');
+          const listed = traj.some(t => t.tool === 'get-flags' && !(t.arguments || {}).flagKey);
           const pass = lookedUp && listed && called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: 'get-flag=' + lookedUp + ' list-flags=' + listed + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
+          return { pass, score: pass ? 1 : 0, reason: 'get-flags(flagKey)=' + lookedUp + ' get-flags(list)=' + listed + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
         metric: looks_up_missing_flag_and_does_not_create
         weight: 3
       - type: llm-rubric
@@ -327,9 +327,9 @@ tests:
           const tools = output.tools_called || [];
           const writes = ['create-metric','create-experiment','create-flag','start-experiment-iteration','save-and-start-experiment-iteration','toggle-flag','update-flag-settings','update-feature-flag','create-feature-flag'];
           const called = writes.filter(name => tools.includes(name));
-          const sawRunning = traj.some(t => t.tool === 'get-experiment' && ((t.arguments || {}).experimentKey === 'checkout-running' || (t.arguments || {}).key === 'checkout-running'));
+          const sawRunning = traj.some(t => t.tool === 'get-experiments' && ((t.arguments || {}).experimentKey === 'checkout-running' || (t.arguments || {}).key === 'checkout-running'));
           const pass = sawRunning && called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: 'get-experiment=' + sawRunning + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
+          return { pass, score: pass ? 1 : 0, reason: 'get-experiments=' + sawRunning + (called.length ? ' wrote ' + called.join(', ') : ' no writes') };
         metric: reads_running_experiment_and_does_not_start
         weight: 3
       - type: llm-rubric

@@ -16,11 +16,11 @@ You are investigating a specific triggered alert. Alerts arrive with structured 
 
 This skill uses the following LaunchDarkly observability MCP tools:
 
-- `query-logs` — query log records
-- `query-traces` — query distributed traces
-- `query-error-groups` — query error groups
-- `query-sessions` — query sessions
-- `query-aggregations` — query aggregated/time-bucketed metrics
+- `search-logs` — query log records
+- `search-traces` — query distributed traces
+- `search-error-groups` — query error groups
+- `search-sessions` — query sessions
+- `search-aggregations` — query aggregated/time-bucketed metrics
 - `get-keys` — discover available attribute keys before filtering
 
 ## Workflow
