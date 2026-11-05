@@ -2,6 +2,8 @@
 
 Patterns for cloning projects across regions, teams, or environments.
 
+> **API token:** these examples take the LaunchDarkly API access token as an explicit `api_token` / `apiToken` argument. In an agent session, ask the user to paste a token and pass it in. Do not read it from environment variables, `.env` files, or config files.
+
 ## Use Cases
 
 - **Multi-region deployments:** Clone project structure for US, EU, APAC regions
@@ -26,7 +28,7 @@ def clone_project(source_key: str, new_name: str, new_key: str, tags: List[str] 
     Returns:
         The newly created project
     """
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     
     # Get source project settings
     source = pm.get_project(source_key)
@@ -53,7 +55,7 @@ async function cloneProject(
   newKey: string,
   tags?: string[]
 ): Promise<Project> {
-  const pm = new ProjectManager();
+  const pm = new ProjectManager(apiToken);
   
   // Get source project settings
   const source = await pm.getProject(sourceKey);
@@ -87,7 +89,7 @@ def clone_for_regions(base_project: str, regions: List[str]):
         clone_for_regions("ai-service", ["us", "eu", "apac"])
         Creates: ai-service-us, ai-service-eu, ai-service-apac
     """
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     base = pm.get_project(base_project)
     
     if not base:
@@ -135,7 +137,7 @@ async function cloneForTenants(
   baseProject: string,
   tenants: Tenant[]
 ): Promise<Project[]> {
-  const pm = new ProjectManager();
+  const pm = new ProjectManager(apiToken);
   const base = await pm.getProject(baseProject);
   
   if (!base) {
@@ -190,7 +192,7 @@ def clone_for_teams(template_project: str, teams: List[str]):
     Example:
         clone_for_teams("ai-template", ["platform", "customer", "product"])
     """
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     template = pm.get_project(template_project)
     
     if not template:
@@ -243,7 +245,7 @@ def clone_from_csv(source_key: str, csv_file: str):
         mobile-ai-us,Mobile Agent US,"mobile,us,production"
         mobile-ai-eu,Mobile Agent EU,"mobile,eu,production"
     """
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     created_projects = []
     
     with open(csv_file, 'r') as f:
@@ -415,7 +417,7 @@ Verify clones after creation:
 ```python
 def verify_clones(clones: List[str]):
     """Verify all cloned projects exist and have SDK keys."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     
     for project_key in clones:
         project = pm.get_project(project_key)

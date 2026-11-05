@@ -2,6 +2,8 @@
 
 Implementation patterns for Python applications using the LaunchDarkly API.
 
+> **API token:** these examples take the LaunchDarkly API access token as an explicit `api_token` / `apiToken` argument. In an agent session, ask the user to paste a token and pass it in. Do not read it from environment variables, `.env` files, or config files.
+
 ## Prerequisites
 
 ```bash
@@ -14,19 +16,19 @@ Create a reusable module for project operations:
 
 ```python
 # launchdarkly/projects.py
-import os
 import requests
 from typing import Optional, Dict, List
 
-API_TOKEN = os.environ.get("LAUNCHDARKLY_API_TOKEN")
 BASE_URL = "https://app.launchdarkly.com/api/v2"
 
 
 class ProjectManager:
     """Manage LaunchDarkly projects via API."""
     
-    def __init__(self, api_token: Optional[str] = None):
-        self.api_token = api_token or API_TOKEN
+    def __init__(self, api_token: str):
+        if not api_token:
+            raise ValueError("api_token is required")
+        self.api_token = api_token
         self.headers = {
             "Authorization": self.api_token,
             "Content-Type": "application/json"
@@ -102,7 +104,7 @@ class ProjectManager:
 ```python
 from launchdarkly.projects import ProjectManager
 
-pm = ProjectManager()
+pm = ProjectManager(api_token)
 
 # Create new project
 project = pm.create_project(
@@ -117,7 +119,7 @@ if project:
 
 ### Get SDK Key
 ```python
-pm = ProjectManager()
+pm = ProjectManager(api_token)
 
 # Get production SDK key
 sdk_key = pm.get_sdk_key("support-ai", "production")
@@ -130,7 +132,7 @@ print(f"Test SDK Key: {test_sdk_key}")
 
 ### List Projects
 ```python
-pm = ProjectManager()
+pm = ProjectManager(api_token)
 
 projects = pm.list_projects()
 for project in projects:
@@ -183,11 +185,10 @@ For Django applications:
 import os
 from launchdarkly.projects import ProjectManager
 
-LAUNCHDARKLY_API_TOKEN = os.environ.get("LAUNCHDARKLY_API_TOKEN")
 LAUNCHDARKLY_PROJECT_KEY = os.environ.get("LAUNCHDARKLY_PROJECT_KEY", "django-app")
 
 # Ensure project exists on startup
-pm = ProjectManager(api_token=LAUNCHDARKLY_API_TOKEN)
+pm = ProjectManager(api_token=api_token)  # the token the user provided
 project = pm.create_project(
     name="Django Application",
     key=LAUNCHDARKLY_PROJECT_KEY
@@ -216,7 +217,7 @@ def cli():
 @click.option("--tags", multiple=True, help="Project tags")
 def create(name: str, key: str, tags: tuple):
     """Create a new project."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     project = pm.create_project(name, key, list(tags))
     if project:
         click.echo(f"✓ Created: {project['name']} ({project['key']})")
@@ -224,7 +225,7 @@ def create(name: str, key: str, tags: tuple):
 @cli.command()
 def list():
     """List all projects."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     projects = pm.list_projects()
     for project in projects:
         click.echo(f"- {project['name']} ({project['key']})")
@@ -234,7 +235,7 @@ def list():
 @click.option("--env", default="production", help="Environment")
 def get_key(project_key: str, env: str):
     """Get SDK key for a project environment."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     sdk_key = pm.get_sdk_key(project_key, env)
     if sdk_key:
         click.echo(sdk_key)

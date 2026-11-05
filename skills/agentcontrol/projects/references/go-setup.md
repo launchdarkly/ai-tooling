@@ -2,6 +2,8 @@
 
 Implementation patterns for Go applications using the LaunchDarkly API.
 
+> **API token:** these examples take the LaunchDarkly API access token as an explicit `api_token` / `apiToken` argument. In an agent session, ask the user to paste a token and pass it in. Do not read it from environment variables, `.env` files, or config files.
+
 ## Prerequisites
 
 ```bash
@@ -22,7 +24,6 @@ import (
     "fmt"
     "io"
     "net/http"
-    "os"
 )
 
 const BaseURL = "https://app.launchdarkly.com/api/v2"
@@ -50,10 +51,7 @@ type Environment struct {
 }
 
 func NewProjectManager(apiToken string) *ProjectManager {
-    if apiToken == "" {
-        apiToken = os.Getenv("LAUNCHDARKLY_API_TOKEN")
-    }
-    
+    // apiToken is the API access token the user provided; it is required.
     return &ProjectManager{
         apiToken: apiToken,
         client:   &http.Client{},
@@ -195,7 +193,7 @@ import (
 )
 
 func main() {
-    pm := launchdarkly.NewProjectManager("")
+    pm := launchdarkly.NewProjectManager(apiToken)
     
     project, err := pm.CreateProject(
         "Customer Agent Service",
@@ -214,7 +212,7 @@ func main() {
 
 ```go
 func main() {
-    pm := launchdarkly.NewProjectManager("")
+    pm := launchdarkly.NewProjectManager(apiToken)
     
     // Get production SDK key
     sdkKey, err := pm.GetSDKKey("customer-ai", "production")
@@ -230,7 +228,7 @@ func main() {
 
 ```go
 func main() {
-    pm := launchdarkly.NewProjectManager("")
+    pm := launchdarkly.NewProjectManager(apiToken)
     
     projects, err := pm.ListProjects()
     if err != nil {
@@ -262,7 +260,7 @@ import (
 
 func main() {
     // Initialize LaunchDarkly project
-    pm := launchdarkly.NewProjectManager(os.Getenv("LAUNCHDARKLY_API_TOKEN"))
+    pm := launchdarkly.NewProjectManager(apiToken)
     
     project, err := pm.CreateProject(
         "Go API Service",
@@ -330,7 +328,7 @@ func main() {
         os.Exit(1)
     }
     
-    pm := launchdarkly.NewProjectManager("")
+    pm := launchdarkly.NewProjectManager(apiToken)
     
     switch os.Args[1] {
     case "create":

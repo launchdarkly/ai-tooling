@@ -2,6 +2,8 @@
 
 Automate project management using IaC tools and CI/CD pipelines.
 
+> **API token:** these examples take the LaunchDarkly API access token as an explicit `api_token` / `apiToken` argument. In an agent session, ask the user to paste a token and pass it in. Do not read it from environment variables, `.env` files, or config files.
+
 ## Terraform
 
 ### LaunchDarkly Terraform Provider
@@ -91,11 +93,11 @@ resource "launchdarkly_project" "my_project" {
 # Initialize
 terraform init
 
-# Plan changes
-terraform plan -var="launchdarkly_access_token=$LAUNCHDARKLY_API_TOKEN"
+# Plan changes (Terraform prompts for the sensitive launchdarkly_access_token)
+terraform plan
 
 # Apply
-terraform apply -var="launchdarkly_access_token=$LAUNCHDARKLY_API_TOKEN"
+terraform apply
 
 # Get SDK key
 terraform output -raw customer_ai_sdk_key_production
@@ -280,8 +282,11 @@ Manage projects with Ansible:
 ---
 - name: Setup LaunchDarkly Projects
   hosts: localhost
+  vars_prompt:
+    - name: launchdarkly_api_token
+      prompt: LaunchDarkly API access token
+      private: true
   vars:
-    launchdarkly_api_token: "{{ lookup('env', 'LAUNCHDARKLY_API_TOKEN') }}"
     projects:
       - name: "Customer Agent Service"
         key: "customer-ai"
@@ -453,7 +458,7 @@ from kubernetes import client, config
 @kopf.on.create('launchdarkly.com', 'v1', 'projects')
 def create_project(spec, name, namespace, **kwargs):
     """Handle Project creation."""
-    pm = ProjectManager()
+    pm = ProjectManager(api_token)
     
     # Create project
     project = pm.create_project(

@@ -2,6 +2,8 @@
 
 Implementation patterns for Node.js and TypeScript applications.
 
+> **API token:** these examples take the LaunchDarkly API access token as an explicit `api_token` / `apiToken` argument. In an agent session, ask the user to paste a token and pass it in. Do not read it from environment variables, `.env` files, or config files.
+
 ## Prerequisites
 
 ```bash
@@ -42,10 +44,10 @@ interface CreateProjectParams {
 export class ProjectManager {
   private client: AxiosInstance;
 
-  constructor(apiToken?: string) {
-    const token = apiToken || process.env.LAUNCHDARKLY_API_TOKEN;
+  constructor(apiToken: string) {
+    const token = apiToken;
     if (!token) {
-      throw new Error('LAUNCHDARKLY_API_TOKEN is required');
+      throw new Error('apiToken is required');
     }
 
     this.client = axios.create({
@@ -103,9 +105,9 @@ const axios = require('axios');
 
 class ProjectManager {
   constructor(apiToken) {
-    const token = apiToken || process.env.LAUNCHDARKLY_API_TOKEN;
+    const token = apiToken;
     if (!token) {
-      throw new Error('LAUNCHDARKLY_API_TOKEN is required');
+      throw new Error('apiToken is required');
     }
 
     this.client = axios.create({
@@ -167,7 +169,7 @@ import { ProjectManager } from './launchdarkly/projects';
 dotenv.config();
 
 const app = express();
-const pm = new ProjectManager();
+const pm = new ProjectManager(apiToken);
 
 // Ensure project exists on startup
 async function initializeLaunchDarkly() {
@@ -236,16 +238,16 @@ export class LaunchDarklyModule implements OnModuleInit {
 
 
 // src/launchdarkly/projects.ts (Injectable version)
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 
 @Injectable()
 export class ProjectManager {
   private client: AxiosInstance;
 
-  constructor(private config: ConfigService) {
-    const apiToken = this.config.get('LAUNCHDARKLY_API_TOKEN');
+  // Register LD_API_TOKEN with the token the user provided, e.g.
+  // { provide: 'LD_API_TOKEN', useValue: apiToken }
+  constructor(@Inject('LD_API_TOKEN') apiToken: string) {
     this.client = axios.create({
       baseURL: 'https://app.launchdarkly.com/api/v2',
       headers: {
@@ -270,7 +272,7 @@ import { Command } from 'commander';
 import { ProjectManager } from '../src/launchdarkly/projects';
 
 const program = new Command();
-const pm = new ProjectManager();
+const pm = new ProjectManager(apiToken);
 
 program
   .name('ld-projects')
