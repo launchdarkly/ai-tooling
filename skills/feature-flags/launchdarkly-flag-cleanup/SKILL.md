@@ -67,19 +67,19 @@ The tool returns a readiness verdict:
 
 **`safe`**: No blockers or warnings, and LaunchDarkly marks the flag ready for code removal (`details.lifecycle.readyForCodeRemoval` is `true`). Continue to the "Ready for cleanup" check below.
 
-**`caution`**: No hard blockers, but warnings exist (e.g., code references in other repos, expiring targets scheduled, flag marked as permanent, or `code_removal_readiness_unavailable`). `caution` is not permission to remove code. Present each warning and ask the user to confirm before you continue. For `code_removal_readiness_unavailable`, the tool could not get LaunchDarkly's code removal verdict: ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment.
+**`caution`**: No hard blockers, but warnings exist (e.g., expiring targets scheduled, `code_already_removed`, or `code_removal_readiness_unavailable`). `caution` is not permission to remove code. Present each warning and ask the user to confirm before you continue. For `code_removal_readiness_unavailable`, the tool could not get LaunchDarkly's code removal verdict: ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment.
 
-**`blocked`**: Hard blockers prevent removal (e.g., dependent flags, actively receiving requests, targeting is on with active rules, or `not_ready_for_code_removal`). Present blockers: the user must resolve them first. Do not remove code.
+**`blocked`**: LaunchDarkly does not consider the flag ready for code removal. The only blocker is `not_ready_for_code_removal`. Present it: the user must resolve it first. Do not remove code.
 
-For a `not_ready_for_code_removal` blocker, tell the user why LaunchDarkly does not consider the flag ready for code removal. The blocker detail and `details.lifecycle.environments` name the critical environments where the flag is not `launched`.
+For a `not_ready_for_code_removal` blocker, tell the user why LaunchDarkly does not consider the flag ready for code removal. The blocker detail and `details.lifecycle.codeRemovalBlockers` give each reason: `prerequisite` (other flags use it as a prerequisite), `notTemporary`, `newerThanMinimumAge`, or `notLaunchedInEveryEnvironment`. `details.lifecycle.notLaunchedEnvironments` names the critical environments where the flag is not `launched`, and `details.lifecycle.environments` gives the lifecycle status in each one.
 
 **If `details.lifecycle.readyToArchive` is `true`, suggest archiving the flag instead.** LaunchDarkly considers the flag inactive in every critical environment and without code references. Do not remove code and do not hardcode a variation.
 - If you found no references in Step 1, offer to archive it with `archive-flag`.
 - If you found references in Step 1, do not offer to archive it: an archived flag is absent, so that code gets its fallback value. Tell the user that LaunchDarkly reports no code references for this flag, so code references may not be set up for this repository. The flag is not ready for code removal either. Stop.
 
-**If `details.lifecycle.codeAlreadyRemoved` is `true`,** the flag is launched in every critical environment and LaunchDarkly finds no code references for it. The verdict is `caution` with a `code_already_removed` warning.
+**If `details.lifecycle.codeAlreadyRemoved` is `true`,** the flag passes every LaunchDarkly check for code removal, but LaunchDarkly finds no code references for it. The flag is launched in every critical environment (or, when the project ignores evaluations for code removal with `ignoreEvalsForCodeRemoval`, fully rolled out and unchanged in every one). The code is already removed, or it is in a repository that LaunchDarkly does not scan. The verdict is `caution` with a `code_already_removed` warning.
 - If you found no references in Step 1, the code removal is done. Offer to archive the flag with `archive-flag` only after the user confirms that the cleanup is deployed everywhere the flag is evaluated. Until then, SDKs that run the old code still evaluate the flag and would get their fallback value.
-- If you found references in Step 1, do not offer to archive it. The flag is launched and passes every other lifecycle check, so continue with code removal. Tell the user that code references may not be set up for this repository.
+- If you found references in Step 1, do not offer to archive it. The flag passes every other lifecycle check, so continue with code removal. Tell the user that code references may not be set up for this repository.
 
 #### Also apply LaunchDarkly's "Ready for cleanup" rule
 

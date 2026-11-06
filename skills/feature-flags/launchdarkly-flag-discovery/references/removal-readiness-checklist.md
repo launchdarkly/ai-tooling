@@ -77,8 +77,8 @@ A systematic safety check to determine whether a feature flag can be safely remo
 **Pass criteria:**
 - Flag is marked as `temporary`: it was intended to be removed
 
-**Caution criteria:**
-- Flag is marked as `permanent`: it may be intentionally long-lived. Confirm with the user before recommending removal.
+**Fail criteria:**
+- Flag is marked as `permanent`: it may be intentionally long-lived. Unless the project's flag lifecycle settings turn off the temporary check, LaunchDarkly reports the `notTemporary` reason and `get-removal-readiness` returns `blocked`.
 
 ## Readiness Levels
 
@@ -92,19 +92,18 @@ All checks pass. No blockers or warnings, and LaunchDarkly marks the flag ready 
 ### Caution
 No hard blockers, but warnings exist. `caution` is not permission to remove code.
 - Present each warning with context, and ask the user to confirm before you recommend code removal
-- For `code_already_removed`: the flag is launched everywhere and its code references are gone. Recommend archiving it after the cleanup is deployed everywhere the flag is evaluated
+- For `code_already_removed`: the flag passes every code removal check, but LaunchDarkly finds no code references. The code is already removed, or it is in a repository that LaunchDarkly does not scan. Recommend archiving it after the cleanup is deployed everywhere the flag is evaluated
 - For `code_removal_readiness_unavailable`: the tool could not get LaunchDarkly's code removal verdict. Ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment
 - Recommend **archive** (reversible) over **delete** (permanent)
 - Suggest addressing warnings first (e.g., remove code references, then re-check)
 
 ### Blocked
-Hard blockers prevent safe removal. Do not recommend code removal.
-- Present each blocker with specifics
-- For `not_ready_for_code_removal`: LaunchDarkly does not consider the flag ready for code removal. Name the critical environments where the flag is not `launched` (from the blocker detail or `details.lifecycle.environments`)
+The only blocker is `not_ready_for_code_removal`: LaunchDarkly does not consider the flag ready for code removal. Do not recommend code removal.
+- Present each reason from the blocker detail or `details.lifecycle.codeRemovalBlockers`
+- Name the critical environments where the flag is not `launched` (from `details.lifecycle.notLaunchedEnvironments`)
 - If `details.lifecycle.readyToArchive` is `true`: the flag is inactive everywhere and has no code references. Recommend archiving the flag in LaunchDarkly, not code removal
-- For prerequisite dependencies: user must update dependent flags first
-- For active targeting: the user should finish the rollout (targeting ON, one variation served to everyone) and wait 7 days without changes. Do not tell the user to turn the flag off: a flag that is off everywhere is not ready for code removal
-- For active status: flag is still being used: don't remove
+- For `prerequisite`: user must update dependent flags first
+- For `notLaunchedInEveryEnvironment`: the user should finish the rollout (targeting ON, one variation served to everyone) and wait 7 days without changes. Do not tell the user to turn the flag off: a flag that is off everywhere is not ready for code removal
 
 ## Presenting Results
 
