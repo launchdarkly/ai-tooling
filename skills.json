@@ -306,7 +306,7 @@
       "name": "launchdarkly-flag-cleanup",
       "description": "Safely remove a feature flag from code while preserving production behavior. Use when the user wants to remove a flag from code, delete flag references, or create a PR that hardcodes the winning variation after a rollout is complete.",
       "path": "skills/feature-flags/launchdarkly-flag-cleanup",
-      "version": "1.0.0-experimental",
+      "version": "1.1.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -361,7 +361,7 @@
       "name": "launchdarkly-flag-discovery",
       "description": "Audit your LaunchDarkly feature flags to understand the landscape, find stale or launched flags, and assess removal readiness. Use when the user asks about flag debt, stale flags, cleanup candidates, flag health, or wants to understand their flag inventory.",
       "path": "skills/feature-flags/launchdarkly-flag-discovery",
-      "version": "1.0.0-experimental",
+      "version": "1.1.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [

@@ -132,5 +132,7 @@ This change is safe because:
 - Used by a batch job or infrequent process
 - Referenced but never called
 
+⚠️ **Warning**: The flag is OFF in every critical environment, so it is not `launched` and LaunchDarkly does not list it as ready for cleanup. The flag may guard a feature that was never released. The requester confirmed that the code behind the `true` variation is abandoned.
+
 **Recommendation**: Verify with the team that this code path is truly unused before merging.
 ```
