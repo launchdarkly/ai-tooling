@@ -6,7 +6,7 @@ An Agent Skill for configuring Release Autopilot (GitHub App auto-flagging and a
 
 This skill teaches agents how to:
 
-- Diagnose "why didn't Release Autopilot classify my PR?" (account gate → mapped repo → repo override) before changing anything
+- Diagnose "why didn't Release Autopilot classify my PR?" (mapped repo → effective repo setting → account settings, on accounts that still use them) before changing anything
 - Read account-wide Release Autopilot defaults
 - Confirm every write (account, map, repo override, unmap) before calling MCP
 - List GitHub App install repos as `owner/name`
