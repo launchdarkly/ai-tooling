@@ -53,6 +53,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `experiments/launchdarkly-experiment-guide` | Guided experiment setup: find what to test, propose a hypothesis and metric, wire the flag, then draft and create the experiment |
 | `experiments/launchdarkly-experiment-setup` | Set up experiments with metrics, treatments, and data collection |
 | `experiments/launchdarkly-experiment-hypothesis-builder` | Grade or coach a testable hypothesis against the Change / Measurement / Rationale rubric, then hand it off to experiment setup (draft) |
+| `experiments/launchdarkly-experiment-analyze` | Check a running experiment's health, read results with each metric's direction, recommend ship / keep running / iterate / keep control, stop with a confirmed winner, and write a readout (draft) |
 
 ### Metrics
 
