@@ -472,6 +472,14 @@
       ]
     },
     {
+      "name": "legacy-sdk-migrate",
+      "description": "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server` plus handler packages). Use when code calls `LDAIClient`, `initAi`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade to the turnkey AI SDKs.",
+      "path": "skills/agentcontrol/legacy-sdk-migrate",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Python 3.12+ or Node.js. No LaunchDarkly MCP tools needed; the AgentControl configs already exist."
+    },
+    {
       "name": "mcp-configure",
       "description": "Configure the LaunchDarkly hosted MCP server during onboarding. Use when the parent LaunchDarkly onboarding skill reaches the MCP offer, after the first flag works. Supports Cursor, Claude Code, Windsurf, GitHub Copilot, and other MCP-compatible agents. OAuth authentication; no API keys for the hosted server.",
       "path": "skills/onboarding/mcp-configure",
