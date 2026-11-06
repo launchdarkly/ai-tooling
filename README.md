@@ -37,6 +37,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 |-------|-------------|
 | `agentcontrol/configs-create` | Create configs with variations for agent or completion mode |
 | `agentcontrol/migrate` | Migrate an app with hardcoded LLM prompts to AgentControl in five stages (extract, wrap, tools, tracking, evals) |
+| `agentcontrol/legacy-sdk-migrate` | Migrate from the legacy Python and Node.js AI SDKs to the current handler-based SDKs (packages, init, `config()`, tools, registries, judges, graphs, fallbacks) |
 | `agentcontrol/configs-update` | Update and delete configs, manage lifecycle |
 | `agentcontrol/configs-variations` | Manage config variations for A/B testing |
 | `agentcontrol/tools` | Create and attach tools for function calling |
