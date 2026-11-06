@@ -17,6 +17,8 @@
     "eval:flag-command:single": "promptfoo eval -c shared/defaults.yaml -c launchdarkly-flag-command/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:hypothesis-builder": "promptfoo eval -c shared/defaults.yaml -c launchdarkly-experiment-hypothesis-builder/promptfooconfig.yaml --env-file .env --no-cache -o launchdarkly-experiment-hypothesis-builder/results.json",
     "eval:hypothesis-builder:single": "promptfoo eval -c shared/defaults.yaml -c launchdarkly-experiment-hypothesis-builder/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
+    "eval:experiment-analyze": "promptfoo eval -c shared/defaults.yaml -c launchdarkly-experiment-analyze/promptfooconfig.yaml --env-file .env --no-cache -o launchdarkly-experiment-analyze/results.json",
+    "eval:experiment-analyze:single": "promptfoo eval -c shared/defaults.yaml -c launchdarkly-experiment-analyze/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:flag-drift": "promptfoo eval -c shared/defaults.yaml -c launchdarkly-flag-drift/promptfooconfig.yaml --env-file .env --no-cache -o launchdarkly-flag-drift/results.json",
     "eval:flag-drift:single": "promptfoo eval -c shared/defaults.yaml -c launchdarkly-flag-drift/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:should-flag-change": "promptfoo eval -c shared/defaults.yaml -c should-flag-change/promptfooconfig.yaml --env-file .env --no-cache -o should-flag-change/results.json",

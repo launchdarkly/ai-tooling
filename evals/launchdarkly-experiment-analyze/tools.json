@@ -1,0 +1,574 @@
+[
+  {
+    "name": "toggle-flag",
+    "description": "Turn a feature flag's targeting on or off in a specific environment.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "comment": {
+          "type": "string"
+        },
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "env": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "on": {
+          "type": "boolean"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagKey",
+        "env",
+        "on",
+        "confirm"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "get-metrics",
+    "description": "LaunchDarkly metrics used by experiments and guarded rollouts; for observability metric names in a time window, use get-keys with productType metrics. Without metricKey: list metrics in a project (query, tags, eventKind, isNumeric, hasConnections, maintainerIds, maintainerTeamKey, metricUsedIn, dataSourceKeys, versionIds, sort, limit, offset). With metricKey: get full details for one metric. To find which metric a metric version ID belongs to (experiments reference metrics by version), list with versionIds. Timestamps in the result are UTC.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "dataSourceKeys": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "eventKind": {
+          "type": "string"
+        },
+        "hasConnections": {
+          "type": "boolean"
+        },
+        "isNumeric": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "integer"
+        },
+        "maintainerIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "maintainerTeamKey": {
+          "type": "string"
+        },
+        "metricKey": {
+          "type": "string"
+        },
+        "metricUsedIn": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "sort": {
+          "description": "createdAt, name, connectionCount, or activeConnectionCount. Prefix with - for descending order.",
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "versionIds": {
+          "description": "Metric version IDs. Returns the metrics these versions belong to; each result carries its versionId.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "projectKey"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "start-guarded-rollout",
+    "description": "Before calling this tool, call load-skill for the `feature-flags/launchdarkly-guarded-rollout` guide without asking the user, since loading is read-only; it covers stage design, metric choice, and regression thresholds, which this tool does not validate. Start a guarded rollout on an enabled flag's default rule. Stage weights use basis points and cannot exceed 50000 (50%); each metric identifies a metric or group and whether regression automatically rolls back. Success is returned only when LaunchDarkly's response contains the same flag identity and an active measured rollout. Approval-required environments return instructions for create-approval-request.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "comment": {
+          "type": "string"
+        },
+        "controlVariationId": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "metrics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "autoRollback": {
+                "type": "boolean"
+              },
+              "isGroup": {
+                "type": "boolean"
+              },
+              "key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "isGroup",
+              "autoRollback"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "randomizationUnit": {
+          "type": "string"
+        },
+        "stages": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "monitoringWindowMilliseconds": {
+                "exclusiveMinimum": 0,
+                "type": "number"
+              },
+              "rolloutWeight": {
+                "exclusiveMinimum": 0,
+                "maximum": 50000,
+                "type": "number"
+              }
+            },
+            "required": [
+              "rolloutWeight",
+              "monitoringWindowMilliseconds"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "testVariationId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagKey",
+        "environmentKey",
+        "testVariationId",
+        "controlVariationId",
+        "randomizationUnit",
+        "stages",
+        "metrics"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "update-rollout",
+    "description": "Change a flag's default rule to a percentage rollout or a single variation in one environment.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "comment": {
+          "type": "string"
+        },
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "contextKind": {
+          "type": "string"
+        },
+        "env": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "rolloutType": {
+          "enum": [
+            "percentage",
+            "variation"
+          ],
+          "type": "string"
+        },
+        "variationIndex": {
+          "type": "integer"
+        },
+        "weights": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "percent": {
+                "type": "number"
+              },
+              "variationIndex": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "variationIndex",
+              "percent"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagKey",
+        "env",
+        "rolloutType",
+        "confirm"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "stop-experiment-iteration",
+    "description": "Stop the currently running experiment iteration with a required winning treatment. Timestamps in the result are UTC.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "experimentKey": {
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "winningReason": {
+          "type": "string"
+        },
+        "winningTreatmentId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "experimentKey",
+        "winningTreatmentId",
+        "confirm"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "get-experiment-results",
+    "description": "Get an overall results summary across every metric on an experiment iteration. Timestamps in the result are UTC.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "disableMultipleComparisonCorrection": {
+          "type": "boolean"
+        },
+        "disableSequentialTesting": {
+          "type": "boolean"
+        },
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "experimentKey": {
+          "type": "string"
+        },
+        "iterationId": {
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "experimentKey"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "get-experiment-metric-results",
+    "description": "Get detailed statistical results for one metric on an experiment iteration. Timestamps in the result are UTC.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "disableMultipleComparisonCorrection": {
+          "type": "boolean"
+        },
+        "disableSequentialTesting": {
+          "type": "boolean"
+        },
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "experimentKey": {
+          "type": "string"
+        },
+        "iterationId": {
+          "type": "string"
+        },
+        "metricKey": {
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "experimentKey",
+        "metricKey"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "get-metric-events",
+    "description": "Metric event keys LaunchDarkly has observed. Without eventKey: list recently observed event keys (query, environmentKey, dataSourceKey, limit up to 50). With dataSourceKey and eventKey: check whether that warehouse data source has produced the event. ready false means it has not been seen yet; contextKinds are the analysis units a metric on the event can use.",
+    "input_schema": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "not": {
+            "required": [
+              "eventKey"
+            ]
+          }
+        },
+        {
+          "propertyNames": {
+            "enum": [
+              "projectKey",
+              "dataSourceKey",
+              "eventKey"
+            ]
+          },
+          "required": [
+            "dataSourceKey",
+            "eventKey"
+          ]
+        }
+      ],
+      "properties": {
+        "dataSourceKey": {
+          "description": "Warehouse metric data source key. Required with eventKey.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "environmentKey": {
+          "description": "Listing only: keep events seen in this environment. Not with eventKey; a data source already belongs to one environment.",
+          "type": "string"
+        },
+        "eventKey": {
+          "description": "Check this event key on dataSourceKey. Takes only projectKey and dataSourceKey alongside it.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "description": "Listing only. Defaults to 50. Not with eventKey.",
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "query": {
+          "description": "Listing only: fuzzy match on event key. Not with eventKey.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "get-flags",
+    "description": "Without flagKey: search and browse feature flags; returns a paginated summary per flag (key, name, kind, tags, temporary, archived, deprecated, maintainer, and whether targeting is on) in one environment. Set includeDescription to also return each flag's description. Always set env to the environment the user named. With flagKey: get one flag scoped to env, with the full targeting tree (rules, individual targets, fallthrough, prerequisites) and variations. Each rule and each clause carries an `_id`; pass them as ruleId and clauseId to update-targeting-rules (addValuesToClause, removeValuesFromClause, updateClause) or create-approval-request to edit a clause in place.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "env": {
+          "description": "Environment key. Always set to the environment the user named.",
+          "type": "string"
+        },
+        "expand": {
+          "description": "Only with flagKey. A comma-separated list of fields to expand in the response.",
+          "type": "string"
+        },
+        "flagKey": {
+          "description": "The feature flag key. Omit to list flags; pass to get one flag.",
+          "type": "string"
+        },
+        "includeDescription": {
+          "description": "Only without flagKey. Return each flag's description. Off by default.",
+          "type": "boolean"
+        },
+        "limit": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maintainerId": {
+          "type": "string"
+        },
+        "maintainerTeamKey": {
+          "type": "string"
+        },
+        "offset": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "projectKey": {
+          "description": "The project key",
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "sdkAvailability": {
+          "enum": [
+            "client",
+            "mobile",
+            "anyClient",
+            "server"
+          ],
+          "type": "string"
+        },
+        "sort": {
+          "enum": [
+            "creationDate",
+            "-creationDate",
+            "name",
+            "-name"
+          ],
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "live",
+            "deprecated",
+            "archived"
+          ],
+          "type": "string"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "type": {
+          "enum": [
+            "temporary",
+            "permanent"
+          ],
+          "type": "string"
+        },
+        "view": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "get-experiments",
+    "description": "Without experimentKey: list experiments in a project, optionally filtered by environmentKey, flagKey, or status; each entry has key, name, description, and current iteration status. With experimentKey (environmentKey also required): get one experiment including its treatments, metrics, and current iteration status. Timestamps in the result are UTC.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "experimentKey": {
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "offset": {
+          "type": "number"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey"
+      ],
+      "type": "object"
+    }
+  }
+]
