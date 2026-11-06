@@ -1,16 +1,16 @@
 ---
 name: launchdarkly-experiment-setup
-description: "Set up and run experiments in LaunchDarkly. Create experiments with metrics, treatments, and flag config, start iterations to collect data, swap design between iterations, and stop with a winner."
+description: "Set up and run experiments in LaunchDarkly. Create experiments with metrics, treatments, and flag config, start iterations to collect data, and change the design between iterations. Stopping, interpreting results, and shipping a winner are handled by launchdarkly-experiment-analyze."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.3.1"
+  version: "0.4.0"
 ---
 
 # LaunchDarkly Experiment Setup
 
-You're using a skill that guides you through setting up and running experiments in LaunchDarkly. Your job is to design the experiment, create it with the right metrics, treatments, and flag config, start data collection, evolve the design between iterations when needed, and stop with a winner. Never create a metric or experiment until the user approves a complete design, never start an iteration until the user says to start, and never change a flag unless the user asks. See Before you create anything for required pieces, suggestions, and labels. See the workflow for gathering and approval, Step 1 for the event check, and Step 4 for starting.
+You're using a skill that guides you through setting up and running experiments in LaunchDarkly. Your job is to design the experiment, create it with the right metrics, treatments, and flag config, start data collection, and evolve the design between iterations when needed. Stopping and shipping belong to `launchdarkly-experiment-analyze`. Never create a metric or experiment until the user approves a complete design, never start an iteration until the user says to start, and never change a flag unless the user asks. See Before you create anything for required pieces, suggestions, and labels. See the workflow for gathering and approval, Step 1 for the event check, and Step 4 for starting.
 
 ## Prerequisites
 
@@ -25,7 +25,6 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 - `get-experiments` — browse existing experiments in the project.
 - `update-experiment` — update fields on the experiment or its current iteration. Honours `mutableFieldsByStatus`, so what's editable depends on whether the iteration is `not_started`, `running`, or `stopped`. Returns rejected inputs under `skipped`.
 - `save-and-start-experiment-iteration` — the API-recommended way to change locked fields on a running experiment. Stops the current iteration, creates a new draft with the supplied field updates, and starts it in one call.
-- `stop-experiment-iteration` — stop the running iteration. You must declare a winner: pass the `winningTreatmentId` (and a `winningReason`). If no variation outperformed, pick the baseline/control as the winner.
 - `get-metrics`, `create-metric`, `get-metric-events` — manage metrics referenced by the experiment.
 - `get-flags` — without `flagKey`, search flags in a project by name or key (`query`); with `flagKey` and `env`, read one flag's targeting: whether it is on, the variation a rule serves, its off variation, and whether that rule is a percentage rollout.
 - `create-flag` — create a feature flag in a project. It is off in every environment until turned on.
@@ -48,10 +47,8 @@ Experiments in LaunchDarkly measure the impact of feature flag variations on key
 
 1. **Create** the experiment with its first iteration (`create-experiment`).
 2. **Start the iteration** to begin data collection (`start-experiment-iteration`), only after the user explicitly says to start.
-3. **Monitor** results as data accumulates (`get-experiments`).
-4. **Evolve the design** mid-experiment if needed — change locked fields like `treatments`, `metrics`, or `methodology` by calling `save-and-start-experiment-iteration`, which stops the current iteration, creates a new draft with your changes, and starts it. That call starts data collection, so make it only after the user explicitly says to start.
-5. **Stop the iteration** when you have a winner or a clear call (`stop-experiment-iteration`).
-6. **Ship** the winning variation.
+3. **Evolve the design** mid-experiment if needed — change locked fields like `treatments`, `metrics`, or `methodology` by calling `save-and-start-experiment-iteration`, which stops the current iteration, creates a new draft with your changes, and starts it. That call starts data collection, so make it only after the user explicitly says to start.
+4. **Check, decide, and ship** with `launchdarkly-experiment-analyze`: it monitors results, recommends a call, and stops the iteration (which ships the winner) only after the user confirms. This skill doesn't stop iterations or ship.
 
 ## Core Principles
 
@@ -227,6 +224,7 @@ Pass `changeJustification` if you're restarting after a prior iteration was stop
 1. After the user has asked you to start, call `get-experiments` and confirm `currentIteration.status === "running"`.
 2. Check that treatments are present with the expected allocations.
 3. Check the metric list and the primary metric.
+4. To check results, stop, or ship, follow `launchdarkly-experiment-analyze`. If it isn't installed, tell the user to stop and ship from the experiment's results page in LaunchDarkly (`resultsUrl` from `get-experiments`), and explain that stopping serves the chosen winner to everyone in the experiment's rule.
 
 ### Step 6: Evolve the Design Mid-Experiment (when needed)
 
@@ -268,30 +266,6 @@ Example: swap the treatment allocation and add a metric in a single call.
 }
 ```
 
-### Step 7: Stop the Iteration
-
-When the results support a decision, or the user has made a call, stop the iteration. For a frequentist experiment that decision is statistical significance. For a Bayesian experiment it is the probability to beat baseline or the probability to be best. Quote only the statistic for the methodology in use. **A winning treatment is required to stop** — LaunchDarkly does not let you end an iteration without declaring a winner. Pass the winning treatment's id (returned as `id` on each treatment when `get-experiments` is called with `experimentKey` and `environmentKey`) plus a `winningReason`.
-
-If the experiment was inconclusive or no variation beat the control, declare the **baseline/control treatment as the winner** and say so in `winningReason` (e.g. "Inconclusive — keeping control"). There is no "stop without a winner" path.
-
-```json
-{
-  "projectKey": "my-project",
-  "environmentKey": "production",
-  "experimentKey": "checkout-flow-v2-experiment",
-  "winningTreatmentId": "treat-002",
-  "winningReason": "Two weeks of data, +4.1% lift on the primary metric.",
-  "confirm": true
-}
-```
-
-Name the decision statistic in `winningReason`. Frequentist: significance, or that it was not significant. Bayesian: probability to beat baseline or probability to be best. Do not quote a Bayesian probability, or a prior, on a frequentist experiment.
-
-**Report results:**
-- Iteration stopped with the declared `winningTreatmentId` (the control/baseline if inconclusive).
-- Lift on the primary metric, plus the decision statistic for the methodology in use.
-- Next steps (ship the winner, roll back, or start a follow-up iteration).
-
 ## Edge Cases
 
 | Situation | Action |
@@ -310,7 +284,7 @@ Name the decision statistic in `winningReason`. Frequentist: significance, or th
 | You don't know the flag's `ruleId` / `flagConfigVersion` | Use `get-flags` with `flagKey` and `env`. The fallthrough rule's id is the string `"fallthrough"`. |
 | Experiment already exists | Use `get-experiments` to find it, then `get-experiments` with `experimentKey` for details. |
 | Need to change locked fields mid-experiment | Use `save-and-start-experiment-iteration` (single call) rather than stopping and recreating by hand. |
-| `update-experiment` returns `skipped` for a field | Each `skipped` entry gives the `field` and a `reason`; when nothing applied, the response also has `currentStatus` and `allowedFields`. The field isn't mutable in the current iteration status. Either stop the iteration first or use `save-and-start-experiment-iteration`. |
+| `update-experiment` returns `skipped` for a field | Each `skipped` entry gives the `field` and a `reason`; when nothing applied, the response also has `currentStatus` and `allowedFields`. The field isn't mutable in the current iteration status. Use `save-and-start-experiment-iteration` instead. |
 
 ## What NOT to Do
 
@@ -324,5 +298,5 @@ Name the decision statistic in `winningReason`. Frequentist: significance, or th
 - Don't set `baseline: true` on more than one treatment.
 - Don't let `allocationPercent` values fail to sum to 100 across treatments.
 - Don't try to change locked iteration fields with `update-experiment` while the iteration is `running` — reach for `save-and-start-experiment-iteration` instead.
-- Don't stop iterations early — wait for a decision the methodology supports. See Step 7.
+- Don't call `stop-experiment-iteration`. Stopping ships the winner; that decision belongs to `launchdarkly-experiment-analyze`, or to the user in the LaunchDarkly UI.
 - Don't run multiple experiments on the same flag at the same time without a careful holdout design.

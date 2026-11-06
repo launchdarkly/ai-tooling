@@ -237,6 +237,14 @@
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
+      "name": "launchdarkly-experiment-analyze",
+      "description": "Check on a running or finished LaunchDarkly experiment, or a set of them, and help a person make the call. Runs a health check (data flowing, evaluations versus exposures, sample ratio mismatch, under-counted metrics, metric windows), reads results with each metric's success direction so a regression is never called a winner, explains in plain words what each result means, recommends ship, keep running (with a time estimate), iterate, or keep control, and then follows the same decision as the LaunchDarkly UI: stop and ship the control or a treatment, edit the design and start a new iteration, or keep running, writing only after explicit confirmation. Links back to the results page to review and to download a PDF. Ends with a readout for Slack, a stakeholder summary, or JSON for BI tools, plus a suggested next experiment. Use when a user asks how an experiment is doing, whether it's ready, what the results mean, which variation won, why the numbers look off, or wants to stop, ship, or share an experiment.",
+      "path": "skills/experiments/launchdarkly-experiment-analyze",
+      "version": "0.6.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Reads only until a person confirms a decision in the conversation; its one write is stopping the iteration, which ships the chosen variation. Fully usable with read-only access. An optional gradual ship goes to launchdarkly-guarded-rollout; new iterations go to launchdarkly-experiment-setup."
+    },
+    {
       "name": "launchdarkly-experiment-guide",
       "description": "Guide a developer from 'I don't know what to test' to a ready-to-create LaunchDarkly experiment. Use when someone wants to run an experiment or A/B test but doesn't have a metric, a flag, or a hypothesis yet, or isn't sure what to measure. Scans the codebase and the connected LaunchDarkly account, proposes a hypothesis and metric from real context, wires up the flag and tracking code, then drafts the experiment and offers to create it. Built for engineers without a data-science or product-analytics background.",
       "path": "skills/experiments/launchdarkly-experiment-guide",
@@ -265,9 +273,9 @@
     },
     {
       "name": "launchdarkly-experiment-setup",
-      "description": "Set up and run experiments in LaunchDarkly. Create experiments with metrics, treatments, and flag config, start iterations to collect data, swap design between iterations, and stop with a winner.",
+      "description": "Set up and run experiments in LaunchDarkly. Create experiments with metrics, treatments, and flag config, start iterations to collect data, and change the design between iterations. Stopping, interpreting results, and shipping a winner are handled by launchdarkly-experiment-analyze.",
       "path": "skills/experiments/launchdarkly-experiment-setup",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
