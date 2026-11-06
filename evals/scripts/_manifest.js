@@ -109,6 +109,12 @@ const SUITES = [
     skillDir: "skills/experiments/launchdarkly-experiment-hypothesis-builder",
     readme: "skills/experiments/launchdarkly-experiment-hypothesis-builder/README.md",
   },
+  {
+    // No readme yet: the skill folder holds SKILL.md and references/.
+    suite: "launchdarkly-experiment-analyze",
+    skillKey: "experiments/launchdarkly-experiment-analyze",
+    skillDir: "skills/experiments/launchdarkly-experiment-analyze",
+  },
 ];
 
 /**
