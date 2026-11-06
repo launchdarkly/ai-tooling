@@ -237,6 +237,37 @@
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
+      "name": "launchdarkly-automations-archival-settings",
+      "description": "Read and change a LaunchDarkly project's Automations auto-archival settings via the hosted MCP. Auto-archival archives flags that are ready to archive after a grace period, or creates approval requests for them. Use when the user wants to see or change the grace period, approval requirement, run limit, recheck cadence, or notification recipients, turn automatic archival off or on, or asks why a flag was or was not archived automatically. For first-time setup of every Release Autopilot capability, use launchdarkly-release-autopilot-onboarding.",
+      "path": "skills/release-autopilot/launchdarkly-automations-archival-settings",
+      "version": "0.1.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "automations",
+        "auto-archival",
+        "flag-archival",
+        "mcp"
+      ]
+    },
+    {
+      "name": "launchdarkly-automations-cleanup-settings",
+      "description": "Read and change a LaunchDarkly project's Automations auto-cleanup settings via the hosted MCP. Auto-cleanup runs on a schedule and opens pull requests that remove the code for flags that are ready. Use when the user wants to turn automated flag cleanup on or off, change its schedule, repositories, flag states, job limit, or agent instructions, see which flags the next run will pick up, or asks why cleanup did not open a pull request. For first-time setup of every Release Autopilot capability, use launchdarkly-release-autopilot-onboarding.",
+      "path": "skills/release-autopilot/launchdarkly-automations-cleanup-settings",
+      "version": "0.1.0-experimental",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "automations",
+        "auto-cleanup",
+        "flag-cleanup",
+        "github",
+        "mcp"
+      ]
+    },
+    {
       "name": "launchdarkly-experiment-guide",
       "description": "Guide a developer from 'I don't know what to test' to a ready-to-create LaunchDarkly experiment. Use when someone wants to run an experiment or A/B test but doesn't have a metric, a flag, or a hypothesis yet, or isn't sure what to measure. Scans the codebase and the connected LaunchDarkly account, proposes a hypothesis and metric from real context, wires up the flag and tracking code, then drafts the experiment and offers to create it. Built for engineers without a data-science or product-analytics background.",
       "path": "skills/experiments/launchdarkly-experiment-guide",
@@ -439,7 +470,7 @@
       "name": "launchdarkly-release-autopilot-onboarding",
       "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), review release policies (release plans by GA), and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
-      "version": "0.3.1-experimental",
+      "version": "0.4.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -459,7 +490,7 @@
       "name": "launchdarkly-release-autopilot-settings",
       "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, review release policies), use launchdarkly-release-autopilot-onboarding instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-settings",
-      "version": "1.4.1-experimental",
+      "version": "1.5.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [

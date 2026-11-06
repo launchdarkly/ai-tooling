@@ -94,6 +94,15 @@ module.exports.releasePlansCalledAtMostOnce = (output) => {
 };
 
 module.exports.repoTurnsAutoReleasingOff = mapsRepoWithOverrides("acme/demo", "default", ["autoReleasing"]);
+
+// On accounts that use project Automations settings, a capability the repo
+// does not turn on is off, so the mapping turns on each picked capability.
+module.exports.repoTurnsAutoFlaggingOn = (output) => {
+  const maps = traj(output).filter((t) => isRepoUpdate(t) && (t.arguments || {}).repo === "acme/demo");
+  if (!maps.length) return result(false, "never mapped acme/demo");
+  const on = maps.some((m) => m.arguments.autoFlagging && m.arguments.autoFlagging.enabled === true);
+  return result(on, on ? "acme/demo written with auto-flagging on" : "acme/demo mapping leaves auto-flagging unset");
+};
 module.exports.storefrontAutoReleasingOff = mapsRepoWithOverrides("acme/storefront", null, ["autoReleasing"]);
 module.exports.noRepoWrite = (output) => {
   const hit = traj(output).filter(isRepoWrite);
@@ -242,9 +251,13 @@ module.exports.githubQuestionHasLink = (output) => {
   return result(pass, pass ? "GitHub question contains the connect link" : "no question contains the githubConnectUrl");
 };
 
-module.exports.cleanupQuestionHasLifecycleLink = (output) => {
-  const pass = askPrompts(output).some((p) => /\/projects\/[^/\s]+\/settings\/lifecycle/.test(p));
-  return result(pass, pass ? "auto-cleanup question contains the lifecycle settings link" : "no question contains /settings/lifecycle");
+// Cleanup, archival, and bring your own key are on the project's Automations
+// settings page.
+const AUTOMATIONS_LINK = /\/projects\/[^/\s]+\/settings\/automations/;
+
+module.exports.cleanupQuestionHasAutomationsLink = (output) => {
+  const pass = askPrompts(output).some((p) => AUTOMATIONS_LINK.test(p));
+  return result(pass, pass ? "auto-cleanup question contains the Automations settings link" : "no question contains /settings/automations");
 };
 
 // "Release Autopilot" belongs only in the welcome, the resume phrase, and the
@@ -295,9 +308,9 @@ module.exports.saysAutoFlaggingOff = (output) => {
   return result(pass, pass ? "says auto-flagging is off for the account" : "did not say auto-flagging is off");
 };
 
-module.exports.archivalQuestionHasLifecycleLink = (output) => {
-  const pass = askPrompts(output).some((p) => /\/projects\/[^/\s]+\/settings\/lifecycle/.test(p) && /archiv/i.test(p));
-  return result(pass, pass ? "auto-archival question contains the lifecycle settings link" : "no archival question contains /settings/lifecycle");
+module.exports.archivalQuestionHasAutomationsLink = (output) => {
+  const pass = askPrompts(output).some((p) => AUTOMATIONS_LINK.test(p) && /archiv/i.test(p));
+  return result(pass, pass ? "auto-archival question contains the Automations settings link" : "no archival question contains /settings/automations");
 };
 
 // Step 6 must not walk the user through cleanup or archival they did not pick.
@@ -313,10 +326,11 @@ module.exports.noArchivalQuestion = (output) => {
   return result(hit.length === 0, hit.length ? `asked about unpicked auto-archival: "${hit[0].slice(0, 90)}"` : "no auto-archival step");
 };
 
-// A diagnosis request is answered before any setup: the agent says auto-flagging
-// is off before its first question, and that question is an offer, not the
-// capability picker. (An unscripted offer gets the harness's first option, so
-// the flow may continue into setup; writes are then graded by confirmsBeforeWriting.)
+// A diagnosis request is answered before any setup: the agent gives the first
+// failed check (the repo is not mapped, or auto-flagging is off) before its
+// first question, and that question is an offer, not the capability picker.
+// (An unscripted offer gets the harness's first option, so the flow may
+// continue into setup; writes are then graded by confirmsBeforeWriting.)
 module.exports.diagnosesBeforeOffering = (output) => {
   const steps = traj(output);
   const firstAsk = steps.findIndex((t) => t.tool === "ask-question");
@@ -324,7 +338,7 @@ module.exports.diagnosesBeforeOffering = (output) => {
   const firstAskTurn = firstAsk === -1 ? Infinity : steps[firstAsk].turn;
   const before = turns.filter((x) => (x.turn === undefined ? true : x.turn <= firstAskTurn)).map((x) => x.text || "").join("\n").toLowerCase()
     + (firstAsk === -1 ? finalText(output).toLowerCase() : String(steps[firstAsk].arguments.prompt || "").toLowerCase());
-  const saidOff = /auto-flagging (is )?(turned )?off|auto-flagging is not (turned )?on|auto-flagging isn't (turned )?on|nothing is set up|isn't set up|not set up/.test(before);
+  const saidOff = /auto-flagging (is )?(turned )?off|auto-flagging is not (turned )?on|auto-flagging isn't (turned )?on|nothing is set up|isn't set up|not set up|(is )?not mapped|isn't mapped|not connected to a project|isn't connected to a project/.test(before);
   const firstIsPicker = firstAsk !== -1 && ((steps[firstAsk].arguments.options || []).some((o) => /auto-releasing|auto-cleanup|auto-archival/i.test(String(o.label || ""))));
   const pass = saidOff && !firstIsPicker;
   return result(pass, `said why before asking: ${saidOff}; first question is the capability picker: ${firstIsPicker}`);
@@ -405,7 +419,7 @@ module.exports.releaseSetupLookupsProduction = releaseSetupLookups("default", ["
 
 // A browser step question: a "Done" option and a settings topic (by link or by
 // words), so a pre-confirm question without the right link is still caught.
-const BROWSER_TOPIC = /settings\/(lifecycle|vega)|lifecycle settings|vega settings|own key|api key|flag cleanup|automatic archival|auto-archival|auto-cleanup/i;
+const BROWSER_TOPIC = /settings\/(automations|lifecycle|vega)|automations settings|lifecycle settings|vega settings|own key|api key|flag cleanup|automatic archival|auto-archival|auto-cleanup/i;
 const isBrowserStepQuestion = (t) => t.tool === "ask-question" &&
   ((t.arguments && t.arguments.options) || []).some((o) => /^done\b/i.test(String(o.label || ""))) &&
   BROWSER_TOPIC.test(String((t.arguments && t.arguments.prompt) || "")) &&
@@ -423,8 +437,8 @@ module.exports.browserStepsAfterConfirm = (output) => {
 // Preview never asks the user to change something in the browser, and lists it.
 module.exports.previewListsBrowserSteps = (output) => {
   const asked = traj(output).filter(isBrowserStepQuestion).length;
-  const listed = /settings\/lifecycle/.test(finalText(output));
-  return result(asked === 0 && listed, `browser step questions: ${asked}; lifecycle link listed: ${listed}`);
+  const listed = AUTOMATIONS_LINK.test(finalText(output));
+  return result(asked === 0 && listed, `browser step questions: ${asked}; Automations link listed: ${listed}`);
 };
 
 // Archival-only setup needs no GitHub step and no repo mapping.
@@ -447,9 +461,9 @@ module.exports.storefrontAutoFlaggingOn = (output) => {
   return result(verified, verified ? "turned auto-flagging on for acme/storefront and read it back" : "turned it on but never verified the repo's effective value");
 };
 
-module.exports.byokQuestionHasVegaLink = (output) => {
-  const pass = askPrompts(output).some((p) => /\/projects\/[^/\s]+\/settings\/vega/.test(p));
-  return result(pass, pass ? "bring-your-own-key question contains the Vega settings link" : "no question contains /projects/{key}/settings/vega");
+module.exports.byokQuestionHasAutomationsLink = (output) => {
+  const pass = askPrompts(output).some((p) => AUTOMATIONS_LINK.test(p));
+  return result(pass, pass ? "bring-your-own-key question contains the Automations settings link" : "no question contains /projects/{key}/settings/automations");
 };
 
 // Preview with GitHub disconnected and auto-releasing picked lists the
