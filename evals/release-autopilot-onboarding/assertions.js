@@ -326,10 +326,11 @@ module.exports.noArchivalQuestion = (output) => {
   return result(hit.length === 0, hit.length ? `asked about unpicked auto-archival: "${hit[0].slice(0, 90)}"` : "no auto-archival step");
 };
 
-// A diagnosis request is answered before any setup: the agent says auto-flagging
-// is off before its first question, and that question is an offer, not the
-// capability picker. (An unscripted offer gets the harness's first option, so
-// the flow may continue into setup; writes are then graded by confirmsBeforeWriting.)
+// A diagnosis request is answered before any setup: the agent gives the first
+// failed check (the repo is not mapped, or auto-flagging is off) before its
+// first question, and that question is an offer, not the capability picker.
+// (An unscripted offer gets the harness's first option, so the flow may
+// continue into setup; writes are then graded by confirmsBeforeWriting.)
 module.exports.diagnosesBeforeOffering = (output) => {
   const steps = traj(output);
   const firstAsk = steps.findIndex((t) => t.tool === "ask-question");
@@ -337,7 +338,7 @@ module.exports.diagnosesBeforeOffering = (output) => {
   const firstAskTurn = firstAsk === -1 ? Infinity : steps[firstAsk].turn;
   const before = turns.filter((x) => (x.turn === undefined ? true : x.turn <= firstAskTurn)).map((x) => x.text || "").join("\n").toLowerCase()
     + (firstAsk === -1 ? finalText(output).toLowerCase() : String(steps[firstAsk].arguments.prompt || "").toLowerCase());
-  const saidOff = /auto-flagging (is )?(turned )?off|auto-flagging is not (turned )?on|auto-flagging isn't (turned )?on|nothing is set up|isn't set up|not set up/.test(before);
+  const saidOff = /auto-flagging (is )?(turned )?off|auto-flagging is not (turned )?on|auto-flagging isn't (turned )?on|nothing is set up|isn't set up|not set up|(is )?not mapped|isn't mapped|not connected to a project|isn't connected to a project/.test(before);
   const firstIsPicker = firstAsk !== -1 && ((steps[firstAsk].arguments.options || []).some((o) => /auto-releasing|auto-cleanup|auto-archival/i.test(String(o.label || ""))));
   const pass = saidOff && !firstIsPicker;
   return result(pass, `said why before asking: ${saidOff}; first question is the capability picker: ${firstIsPicker}`);

@@ -770,7 +770,7 @@ tests:
 
   # ------------------------------------------------------------------
   # "Why didn't my PR get classified?" on an account with nothing set up.
-  # The skill answers first (auto-flagging is off), then offers setup
+  # The skill answers first (acme/demo is not mapped), then offers setup
   # instead of starting the wizard. The harness answers the unscripted offer
   # with its first option, so any later writes must follow "Looks good".
   # ------------------------------------------------------------------

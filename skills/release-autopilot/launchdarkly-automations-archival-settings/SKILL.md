@@ -82,13 +82,14 @@ If `update-automations-archival` returns `applied: false` with a `nextStep`, not
 
 ### Why was (or wasn't) a flag archived automatically?
 
-Read-only. Call `get-automations-archival` and check:
+Read-only. Ask for the flag key if the user did not give one. Then check in this order, and stop at the first cause you can show from a tool result:
 
-1. `enabled` is false: archival is off for the project.
-2. The flag has no maintainer: flags with no maintainer are never archived automatically.
-3. The flag is not ready to archive, or became ready less than `graceSeconds` ago.
+1. `get-automations-archival`: `enabled` is false, so archival is off for the project.
+2. `get-flags` with `projectKey` and `flagKey`: the flag has no maintainer (flags with no maintainer are never archived automatically), or it is already archived (`archived` true; a flag archived automatically has the `auto-archived` tag).
+3. `get-flag-status-across-envs` with `allEnvs: true`, and `get-projects` with `projectKey` and `fullSettings: true` (`settings.lifecycle` holds the checks and day thresholds for ready to archive): the flag is still evaluated or does not meet those checks, so it is not ready to archive.
 4. `requireApproval` is true: look for a pending approval request with `get-approval-requests`.
-5. More flags were ready than `maxArchivalsPerRun`: the rest wait for a later run.
+
+These tools do not show when a flag became ready to archive or which flags a run picked. If none of the checks above explains it, say the likely causes without claiming either one: it became ready less than `graceSeconds` ago, or more flags were ready than `maxArchivalsPerRun` and the rest wait for a later run.
 
 Flags archived this way get the `auto-archived` tag. "View auto-archived flags" on the Automations page lists them. Do not change settings to try something.
 
