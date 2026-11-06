@@ -24,5 +24,24 @@ class DecisionMatrixTests(unittest.TestCase):
             self.assertNotIn("before removing", row)
 
 
+class CodeAlreadyRemovedTests(unittest.TestCase):
+    def test_discovery_checks_this_repository_before_archiving(self):
+        """`codeAlreadyRemoved` can mean the code is in a repository that
+        LaunchDarkly does not scan, so discovery must not recommend archiving
+        while this repository still references the flag (EMSR-2643 Bugbot)."""
+        discovery = ROOT / "skills/feature-flags/launchdarkly-flag-discovery"
+        for path in (
+            discovery / "SKILL.md",
+            discovery / "references/removal-readiness-checklist.md",
+        ):
+            line = next(
+                line
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if "code_already_removed" in line and "archiving" in line
+            )
+            self.assertIn("Search this repository for the flag key first", line, path)
+            self.assertIn("do not recommend archiving", line, path)
+
+
 if __name__ == "__main__":
     unittest.main()

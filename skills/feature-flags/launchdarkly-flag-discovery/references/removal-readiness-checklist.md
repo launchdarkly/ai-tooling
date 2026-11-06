@@ -92,7 +92,7 @@ All checks pass. No blockers or warnings, and LaunchDarkly marks the flag ready 
 ### Caution
 No hard blockers, but warnings exist. `caution` is not permission to remove code.
 - Present each warning with context, and ask the user to confirm before you recommend code removal
-- For `code_already_removed`: the flag passes every code removal check, but LaunchDarkly finds no code references. The code is already removed, or it is in a repository that LaunchDarkly does not scan. Recommend archiving it after the cleanup is deployed everywhere the flag is evaluated
+- For `code_already_removed`: the flag passes every code removal check, but LaunchDarkly finds no code references. The code is already removed, or it is in a repository that LaunchDarkly does not scan. Search this repository for the flag key first. If you find references, do not recommend archiving (an archived flag is absent, so that code gets its fallback value): recommend code removal instead. If you find none, recommend archiving it after the cleanup is deployed everywhere the flag is evaluated
 - For `code_removal_readiness_unavailable`: the tool could not get LaunchDarkly's code removal verdict. Ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment
 - Recommend **archive** (reversible) over **delete** (permanent)
 - Suggest addressing warnings first (e.g., remove code references, then re-check)
