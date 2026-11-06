@@ -14,7 +14,7 @@
     "cache:clear": "promptfoo cache clear"
   },
   "devDependencies": {
-    "promptfoo": "^0.124.0"
+    "promptfoo": "^0.125.1"
   },
   "overrides": {
     "@ai-sdk/provider-utils@4": "4.0.46",
