@@ -16,7 +16,7 @@ This skill teaches agents how to:
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose `get-automations-cleanup` and `update-automations-cleanup`. Without them, the skill guides the browser steps instead.
+The remotely hosted LaunchDarkly MCP server must expose `get-automations` with `section: "cleanup"` and `update-automations` with `cleanup`. Without them, the skill guides the browser steps instead.
 
 ## Usage
 

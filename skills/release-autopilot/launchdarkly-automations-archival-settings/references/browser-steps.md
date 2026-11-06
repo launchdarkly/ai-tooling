@@ -1,6 +1,6 @@
 # Auto-archival in the browser
 
-Use these steps only when the MCP server does not have `get-automations-archival` and `update-automations-archival`.
+Use these steps only when the MCP server's `get-automations` has no `section` argument for archival.
 
 Give the user `/projects/{projectKey}/settings/automations` on their LaunchDarkly instance (for example `https://app.launchdarkly.com`, or their EU or federal URL). If the link opens the general project settings page instead, the account does not have the Automations page yet, and they use `/projects/{projectKey}/settings/lifecycle`. In the "Automatic archival" section they:
 

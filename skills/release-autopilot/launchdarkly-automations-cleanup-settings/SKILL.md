@@ -17,12 +17,12 @@ You're using a skill that reads and changes a project's auto-cleanup settings, f
 This skill requires the remotely hosted LaunchDarkly MCP server.
 
 **Required MCP tools:**
-- `get-automations-cleanup`: the project's cleanup `settings`, the `upcoming` run (`enabled`, `flagKeys`, `nextRunAt` in Unix milliseconds), and `automationsPage`, the link to the project's Automations page.
-- `update-automations-cleanup`: change one or more settings. Omitted fields keep their stored values.
+- `get-automations` with `section: "cleanup"` and `projectKey`: the project's cleanup `settings`, the `upcoming` run (`enabled`, `flagKeys`, `nextRunAt` in Unix milliseconds), and `automationsPage`, the link to the project's Automations page.
+- `update-automations` with `projectKey` and a `cleanup` object: change one or more settings. Omitted fields keep their stored values. Send `cleanup` on its own, without `accountWide`, `repo`, or `archival`.
 
 **Optional:** `get-projects` to pick the project, `get-automations` to suggest the repositories already mapped to the project.
 
-If these tools are missing, the server has not picked them up yet. Ask the user to reconnect the LaunchDarkly MCP server once. If they are still missing, guide the browser steps in [references/browser-steps.md](references/browser-steps.md) instead. Do not invent REST calls.
+If `get-automations` has no `section` argument, or rejects `section`, the server has not picked up cleanup and archival yet. Ask the user to reconnect the LaunchDarkly MCP server once. If it still has none, guide the browser steps in [references/browser-steps.md](references/browser-steps.md) instead. Do not invent REST calls.
 
 ## What the settings mean
 
@@ -39,7 +39,7 @@ If these tools are missing, the server has not picked them up yet. Ask the user 
 ## Core Principles
 
 1. **Confirm before every write.** State the current and proposed values, wait for a yes that names the change in this turn, then write. A yes from an earlier turn, or a vague "go ahead", is not enough.
-2. **Saving changes who cleanup runs as.** Every `update-automations-cleanup` call makes the calling member the one whose permissions cleanup jobs use. Say so in the proposal when `configuredByMemberId` is someone else.
+2. **Saving changes who cleanup runs as.** Every cleanup save with `update-automations` makes the calling member the one whose permissions cleanup jobs use. Say so in the proposal when `configuredByMemberId` is someone else.
 3. **Lists replace.** `repositories` and `flagStates` replace the whole stored list. To add one repository, read the current list and send it with the new one. To remove one, send the list without it.
 4. **Least privilege.** Only add repositories the user named. Never add every repository on the GitHub App install. Keep `flagStates` at `readyToArchive` unless the user asks for more: `live` picks up flags that are still serving.
 5. **Turning it on starts pull requests.** Any schedule other than `disabled` makes LaunchDarkly open pull requests in the listed repositories, starting with the next run. A schedule with no repositories opens none.
@@ -48,26 +48,26 @@ If these tools are missing, the server has not picked them up yet. Ask the user 
 
 ### Read the settings
 
-`get-automations-cleanup` with `projectKey`. Report the schedule, repositories, job limit, flag states, and who cleanup runs as. If `upcoming.enabled` is true, say when the next run is (`nextRunAt`) and which flags it will pick up (`upcoming.flagKeys`).
+`get-automations` with `section: "cleanup"` and `projectKey`. Report the schedule, repositories, job limit, flag states, and who cleanup runs as. If `upcoming.enabled` is true, say when the next run is (`nextRunAt`) and which flags it will pick up (`upcoming.flagKeys`).
 
 ### Turn it on or change it
 
-1. Read the settings with `get-automations-cleanup`.
+1. Read the settings: `get-automations` with `section: "cleanup"`.
 2. Ask for anything the change needs and the user did not give: the schedule, and at least one repository when none is stored. Suggest the repositories mapped to the project in `get-automations`. Only the user's answer goes in.
 3. Propose the change, for example:
 
    > Automated flag cleanup is off for project `default`. Turn it on weekly in `acme/web`, with at most 10 pull requests per run? LaunchDarkly will start opening pull requests that remove the code for flags that are ready to archive. Cleanup jobs will run with your permissions.
 
-4. After the user confirms, call `update-automations-cleanup` with `projectKey`, `confirm: true`, and only the confirmed fields.
-5. The response lists `changed` and the `settings` as read back. If it reports a mismatch on read-back, show the user the current values from `get-automations-cleanup` and do not retry blindly.
+4. After the user confirms, call `update-automations` with `projectKey`, `confirm: true`, and a `cleanup` object holding only the confirmed fields.
+5. The response lists `changed` and the `settings` as read back. If it reports a mismatch on read-back, show the user the current values from `get-automations` with `section: "cleanup"` and do not retry blindly.
 
 ### Turn it off
 
-Propose it ("Turn off automated flag cleanup for project `default`? No new cleanup pull requests will open; open ones stay open."), then `update-automations-cleanup` with `schedule: "disabled"` and `confirm: true`.
+Propose it ("Turn off automated flag cleanup for project `default`? No new cleanup pull requests will open; open ones stay open."), then `update-automations` with `projectKey`, `cleanup: { "schedule": "disabled" }`, and `confirm: true`.
 
 ### Why didn't cleanup open a pull request?
 
-Read-only. Call `get-automations-cleanup` and check in this order. Stop at the first answer.
+Read-only. Call `get-automations` with `section: "cleanup"` and check in this order. Stop at the first answer.
 
 1. `settings.schedule` is `disabled`: cleanup is off.
 2. `settings.repositories` is empty: there is nowhere to open pull requests.
@@ -80,7 +80,7 @@ If none of these explain it, point the user at the cleanup history in the "Autom
 ## Errors
 
 - **403:** the member lacks permission to update the project's lifecycle settings, or to view the project. Say which, and stop.
-- **Tool missing:** see [Prerequisites](#prerequisites).
+- **No `section` argument:** see [Prerequisites](#prerequisites).
 
 ## Out of scope
 

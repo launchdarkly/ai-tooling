@@ -17,7 +17,7 @@ This skill teaches agents how to:
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose `get-automations-archival` and `update-automations-archival`. Without them, the skill guides the browser steps instead. Accounts without automatic archival get an error saying it is not available yet.
+The remotely hosted LaunchDarkly MCP server must expose `get-automations` with `section: "archival"` and `update-automations` with `archival`. Without them, the skill guides the browser steps instead. Accounts without automatic archival get an error saying it is not available yet.
 
 ## Usage
 
