@@ -323,6 +323,53 @@ function's inputs, not caller by caller.
 **Unresolved when:** The callers are dispatched dynamically and cannot be counted from the
 tree.
 
+## C10: Does a behavior-carrying hunk change what a person can do with the product: what a page, tool or agent does, accepts, saves or returns, or how a flow works?
+
+YES if a behavior-carrying hunk changes, for someone using the product, what
+happens when they use it: an action added, removed, enabled or disabled;
+what an input or form accepts or rejects; what is saved, sent, deleted or
+returned; what a page, report or API shows as data (not how it is styled);
+the steps, order or defaults of a flow; or what an agent does or answers.
+An edit to a deployed agent's prompt or skill text changes what the agent
+does, so it is YES. Any person counts, customers or staff (an admin tool,
+an internal page). New behavior counts as much as a change to existing
+behavior.
+
+An opt-in setting, a preview link or a beta toggle with no feature flag is
+not a flag: a change reached that way is YES.
+
+NO when every behavior-carrying hunk is:
+  - withheld by a flag that serves off in every production environment:
+    the changed code only runs when that flag is on. Decide this from the
+    flag's live state (the flag lookups), never from the default
+    written in code: a flag that is on for any account, segment, rollout
+    or rule is live, and the change reaches those people. That holds
+    whether this PR adds the flag or the code already sat behind one (a
+    page, route or component that renders only when the flag is on). Look
+    up every gate before answering;
+  - a flag removal that keeps the flag-on path, when that path already
+    serves everywhere: nothing changes for anyone;
+  - presentation only: markup, styling, layout, spacing, icon slots,
+    labels, how a value is displayed, with the same data and the same
+    actions;
+  - wording only: different text in a message, reply or comment, with the
+    same outcome (the same action still allowed or refused);
+  - developer tooling: lint rules and baselines, dev-server, build, test
+    and editor settings, CI helpers, and internal bots and scripts that
+    only engineers run or read (a CI flake bot, a report script). A
+    deployed agent's prompt or skill text is not developer tooling, even
+    for an internal agent: it is YES;
+  - code no person reaches yet: a new endpoint, function, job or response
+    field that nothing calls or reads yet.
+Copy-only changes, telemetry and PRs wholly behind a new default-off flag
+are asked earlier (C3, C5, C4); this question still checks each hunk.
+
+Name the person, the surface and what changes for them, and the gate you
+checked.
+
+**Unresolved when:** Whether any person can reach the changed behavior depends on a caller,
+route or flag state the tree and the flag lookups do not show.
+
 ## C7: Would a failure of this change show on the surface it changes, reach only users of that surface, and be fully undone by reverting the PR?
 
 Three facts, all must hold:
@@ -415,6 +462,7 @@ and the change.
 - **medium**: Changes telemetry a product view displays to customers (an attribute's name, value, derivation or emission).
 - **medium**: Changes what cloud resources get provisioned, or how (instance type or size, disk, image, network placement, pool membership, scaling).
 - **medium**: Changes how existing logic that more than one feature relies on behaves (a validation, a query parser or builder, a request helper, a database write), with no flag.
+- **medium**: Changes what a person can do with the product: what a page, tool or agent does, accepts, saves or returns, or how a flow works.
 - **medium**: Behavior change whose failure would be silent, spread beyond its surface, or not undone by a revert.
 - **low**: Nothing ships: tests, docs, comments, stories, or other files outside the runtime.
 - **low**: Ships, but changes no runtime behavior: formatting, rename, or regenerated output with unchanged inputs.
