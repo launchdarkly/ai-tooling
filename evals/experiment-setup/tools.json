@@ -63,34 +63,60 @@
     }
   },
   {
-    "name": "search-contexts",
-    "description": "Search for stored LaunchDarkly contexts in an environment by kind, key, or attribute value. Returns context records including their stored attributes (e.g., merchantCountryCode, disbursementRail) and when the context was last seen. Convenience param: - `kind`: filter to a specific context kind (e.g. `Merchant`, `user`, `organization`). Emitted as the filter clause `kind equals \"<kind>\"`. Raw filter syntax (passed in `filter`) uses `field operator value` clauses. Operators: `equals`, `notEquals`, `anyOf`, `startsWith`, `exists`, `before`, `after`; `contains` and `notContains` are not supported. Combine clauses with `,` (AND) or `|` (OR); group with `()`. Supported fields: `kind`, `key`, `kindKey`, `name`, `applicationId`, `q` (fuzzy), and `<kind>.<attribute>` for context attributes. Examples: - `kind equals \"Merchant\"` — contexts of a specific kind - `Merchant.merchantCountryCode equals \"US\"` — Merchant contexts whose attribute matches - `key startsWith \"merchant-\"` — contexts whose key has a prefix - `applicationId equals \"GoSDK/1.2\"` — contexts reported by a specific SDK/application Example combining both params: set `kind=Merchant` and `filter=Merchant.disbursementRail equals \"PIX\"` to find Merchant contexts on the PIX rail. Note: the contexts API cannot filter by which flag a context evaluated; there is no `flagEvaluated` field. Filter by kind, key, applicationId, or attribute values instead. Ordering is fixed by the API; there is no sort parameter. Pagination: responses include `totalCount` and `continuationToken`. Pass `continuationToken` from the previous response to get the next page.",
+    "name": "get-contexts",
+    "description": "Read LaunchDarkly contexts, the context kinds a project defines, and the attributes contexts carry. `resource` picks what to read and defaults to `contexts`. resource=kinds: the project's context kinds (e.g. `user`, `organization`, `device`) with when each was last seen. No environmentKey needed. Use it to learn which kinds exist before targeting or choosing an experiment's randomization unit. resource=attributes (environmentKey required): without `attribute`, the attribute names recently seen on contexts, optionally for one `kind`, each with a `weight` estimating how many recent contexts carry it. With `attribute` (a name from that list, such as `/country`) and `kind`, the values recently seen for that attribute, each with a weight. `prefix` narrows names or values to those starting with it. Use this to find which attribute holds a concept (\"plan\", \"region\") and which values it takes before writing a targeting clause. resource=contexts (environmentKey required): without `key`, search stored contexts by kind, key, or attribute value; returns context records with their stored attributes and when each was last seen. With `kind` and `key`, every stored instance of that one context, with its full attribute set and which SDK or application reported each instance. Search filter syntax (`filter`, resource=contexts) uses `field operator value` clauses. Operators: `equals`, `notEquals`, `anyOf`, `startsWith`, `exists`, `before`, `after`; `contains` and `notContains` are not supported. Combine clauses with `,` (AND) or `|` (OR); group with `()`. Supported fields: `kind`, `key`, `kindKey`, `name`, `applicationId`, `q` (fuzzy), and `<kind>.<attribute>` for context attributes. `kind` is emitted as the clause `kind equals \"<kind>\"`. Examples: - `Merchant.merchantCountryCode equals \"US\"` — Merchant contexts whose attribute matches - `key startsWith \"merchant-\"` — contexts whose key has a prefix - `applicationId equals \"GoSDK/1.2\"` — contexts reported by a specific SDK/application The contexts API cannot filter by which flag a context evaluated; there is no `flagEvaluated` field. Ordering is fixed by the API; there is no sort parameter. Pagination (resource=contexts): responses include `totalCount` and `continuationToken`. Pass `continuationToken` from the previous response to get the next page.",
     "input_schema": {
       "type": "object",
       "properties": {
+        "attribute": {
+          "type": "string",
+          "description": "resource=attributes only: an attribute name such as /country; returns its values."
+        },
+        "continuationToken": {
+          "type": "string",
+          "description": "resource=contexts only."
+        },
+        "environmentKey": {
+          "type": "string",
+          "description": "Environment key. If the user hasn't named one, ask; don't guess."
+        },
+        "filter": {
+          "type": "string",
+          "description": "resource=contexts search only."
+        },
+        "key": {
+          "type": "string",
+          "description": "resource=contexts only: return every stored instance of the context with this kind and key."
+        },
         "kind": {
-          "type": "string"
+          "type": "string",
+          "description": "Context kind. contexts: filter, and required with key. attributes: limits names to one kind; required with attribute."
         },
         "limit": {
           "type": "number"
         },
-        "filter": {
-          "type": "string"
+        "prefix": {
+          "type": "string",
+          "description": "resource=attributes only: names, or values with attribute, starting with this text."
         },
         "projectKey": {
-          "type": "string"
+          "type": "string",
+          "description": "Project key. If the user hasn't named one, ask; don't guess."
         },
-        "environmentKey": {
-          "type": "string"
-        },
-        "continuationToken": {
-          "type": "string"
+        "resource": {
+          "type": "string",
+          "description": "Defaults to contexts.",
+          "enum": [
+            "contexts",
+            "kinds",
+            "attributes"
+          ]
         }
       },
       "required": [
-        "projectKey",
-        "environmentKey"
-      ]
+        "projectKey"
+      ],
+      "additionalProperties": false
     }
   },
   {

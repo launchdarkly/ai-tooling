@@ -25,7 +25,7 @@
     "count": 4,
     "_note": "4 event key(s) found with recent activity."
   },
-  "search-contexts": {
+  "get-contexts": {
     "items": [
       {
         "kind": "user",

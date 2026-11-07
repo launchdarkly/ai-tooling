@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.3.1"
+  version: "0.3.2"
 ---
 
 # LaunchDarkly Experiment Setup
@@ -30,7 +30,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 - `get-flags` — without `flagKey`, search flags in a project by name or key (`query`); with `flagKey` and `env`, read one flag's targeting: whether it is on, the variation a rule serves, its off variation, and whether that rule is a percentage rollout.
 - `create-flag` — create a feature flag in a project. It is off in every environment until turned on.
 - `get-flag-status-across-envs` — read a flag's status in each environment (`new`, `active`, `launched`, or `inactive`).
-- `search-contexts` — find stored contexts in an environment by kind, to see which context kinds are in use.
+- `get-contexts` — find stored contexts in an environment by kind (the default `resource`), to see which context kinds are in use.
 
 ## Core Concepts
 
@@ -76,7 +76,7 @@ If you received a handoff payload from `launchdarkly-experiment-hypothesis-build
 - Ask, and leave it blank, when the flag is brand new, the targeted rule serves a percentage rollout, or the flag is off and `get-flag-status-across-envs` reports that environment as `inactive`. A flag is brand new if you created it in this conversation, or `get-flag-status-across-envs` reports that environment as `new`: the flag was created fewer than seven days ago and has never been evaluated there. A percentage rollout is a targeted rule that splits traffic across variations instead of serving one. `get-flags` shows which. `inactive` means the flag has not been evaluated for at least seven days, so no one is currently being served the off variation.
 - Otherwise suggest one. If the flag is on, suggest the variation the targeted rule serves today. If the flag is off, suggest its off variation.
 
-**Randomization unit**: the context kind the experiment randomizes on. If the user named it, use that. If they did not, call `search-contexts` for this project and environment. Suggest `user` only when a `kind` of `user` returns contexts and `filter` `kind notEquals "user"` returns `totalCount` 0, so `user` is the only context kind in use. If `search-contexts` is unavailable, returns no contexts, or any other kind is stored, ask and leave it blank.
+**Randomization unit**: the context kind the experiment randomizes on. If the user named it, use that. If they did not, call `get-contexts` for this project and environment. Suggest `user` only when a `kind` of `user` returns contexts and `filter` `kind notEquals "user"` returns `totalCount` 0, so `user` is the only context kind in use. If `get-contexts` is unavailable, returns no contexts, or any other kind is stored, ask and leave it blank.
 
 Label every suggested value in the design as suggested, with a one-line reason, for example `Control (suggested, what users see today): Start free trial`. The user can change any suggestion before approving. Approving the design accepts the suggestions still shown in it.
 
