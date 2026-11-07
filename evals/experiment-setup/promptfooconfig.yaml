@@ -99,7 +99,7 @@ tests:
           const writes = ['create-metric','create-experiment','create-flag','start-experiment-iteration','save-and-start-experiment-iteration','toggle-flag','update-flag-settings','update-feature-flag','create-feature-flag'];
           const called = writes.filter(name => tools.includes(name));
           const gotFlag = traj.some(t => t.tool === 'get-flags' && (t.arguments || {}).flagKey === 'checkout-active');
-          const searches = traj.filter(t => t.tool === 'search-contexts');
+          const searches = traj.filter(t => t.tool === 'get-contexts');
           const revealsOthers = searches.some(t => {
             const a = t.arguments || {};
             const filter = String(a.filter || '');
@@ -149,7 +149,7 @@ tests:
           const called = writes.filter(name => tools.includes(name));
           const gotFlag = traj.some(t => t.tool === 'get-flags' && (t.arguments || {}).flagKey === 'checkout-inactive');
           const gotStatus = traj.some(t => t.tool === 'get-flag-status-across-envs' && (t.arguments || {}).flagKey === 'checkout-inactive');
-          const searches = traj.filter(t => t.tool === 'search-contexts');
+          const searches = traj.filter(t => t.tool === 'get-contexts');
           const revealsOthers = searches.some(t => {
             const a = t.arguments || {};
             const filter = String(a.filter || '');

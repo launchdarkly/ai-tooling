@@ -676,7 +676,7 @@ function renderMockResponse(template, input, toolName, state) {
     return flagStatusResponse(flagKey, productionStatus);
   }
 
-  if (toolName === "search-contexts") return searchContextsResponse(input || {});
+  if (toolName === "get-contexts") return searchContextsResponse(input || {});
 
   if (toolName === "get-metric-events") {
     const query = typeof (input || {}).query === "string" ? input.query.trim().toLowerCase() : "";

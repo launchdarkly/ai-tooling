@@ -552,7 +552,7 @@ test("experiment-setup suite files own the three tools the shared catalog does n
   const suiteDefs = require("../experiment-setup/tools.json").map((def) => def.name);
   const owned = [
     "get-metric-events",
-    "search-contexts",
+    "get-contexts",
     "save-and-start-experiment-iteration",
   ];
   for (const name of owned) {
@@ -674,36 +674,36 @@ test("get-flags list without that query keeps the shared flag list", () => {
   );
 });
 
-test("search-contexts suggests user only when no other kind is stored", () => {
+test("get-contexts suggests user only when no other kind is stored", () => {
   const state = createMockState();
-  const users = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
+  const users = renderMockResponse(SUITE_TEMPLATES["get-contexts"], {
     projectKey: "only-user",
     environmentKey: "production",
     kind: "user",
-  }, "search-contexts", state);
-  const others = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
+  }, "get-contexts", state);
+  const others = renderMockResponse(SUITE_TEMPLATES["get-contexts"], {
     projectKey: "only-user",
     environmentKey: "production",
     filter: 'kind notEquals "user"',
-  }, "search-contexts", state);
+  }, "get-contexts", state);
   assert.equal(users.totalCount, 1);
   assert.equal(users.items[0].kind, "user");
   assert.equal(others.totalCount, 0);
 });
 
-test("search-contexts with no kind filter lists every stored kind", () => {
+test("get-contexts with no kind filter lists every stored kind", () => {
   const state = createMockState();
-  const onlyUser = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
+  const onlyUser = renderMockResponse(SUITE_TEMPLATES["get-contexts"], {
     projectKey: "only-user",
     environmentKey: "production",
-  }, "search-contexts", state);
+  }, "get-contexts", state);
   assert.deepEqual(onlyUser.items.map((item) => item.kind), ["user"]);
   assert.equal(onlyUser.totalCount, 1);
 
-  const mixed = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
+  const mixed = renderMockResponse(SUITE_TEMPLATES["get-contexts"], {
     projectKey: "mixed-contexts",
     environmentKey: "production",
-  }, "search-contexts", state);
+  }, "get-contexts", state);
   assert.deepEqual(
     mixed.items.map((item) => item.kind).sort(),
     ["organization", "user"],
@@ -711,13 +711,13 @@ test("search-contexts with no kind filter lists every stored kind", () => {
   assert.equal(mixed.totalCount, 2);
 });
 
-test("search-contexts on mixed-contexts returns another kind", () => {
+test("get-contexts on mixed-contexts returns another kind", () => {
   const state = createMockState();
-  const others = renderMockResponse(SUITE_TEMPLATES["search-contexts"], {
+  const others = renderMockResponse(SUITE_TEMPLATES["get-contexts"], {
     projectKey: "mixed-contexts",
     environmentKey: "production",
     filter: 'kind notEquals "user"',
-  }, "search-contexts", state);
+  }, "get-contexts", state);
   assert.ok(others.totalCount > 0);
   assert.equal(others.items[0].kind, "organization");
 });
