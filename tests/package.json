@@ -18,13 +18,20 @@
   },
   "overrides": {
     "@ai-sdk/provider-utils@4": "4.0.46",
-    "adm-zip": "^0.6.0",
-    "brace-expansion": "^5.0.9",
-    "js-yaml@4": "^4.3.1",
+    "adm-zip": "^0.6.1",
+    "axios": "^1.20.0",
+    "brace-expansion": "^5.0.12",
+    "fast-uri": "^3.1.6",
+    "hono": "^4.13.5",
+    "ip-address": "^10.7.1",
+    "js-yaml@4": "^4.3.2",
+    "js-yaml@5": "^5.4.1",
     "mongoose": "^9.7.2",
-    "sharp": "^0.35.3",
+    "proxy-addr": "^2.0.8",
+    "sharp": "^0.35.4",
     "simple-git": "^4.0.2",
     "socket.io-parser": "^4.2.7",
+    "undici@7": "^7.29.1",
     "uuid@13": "^13.0.1"
   }
 }
