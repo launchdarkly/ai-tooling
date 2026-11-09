@@ -527,3 +527,65 @@ module.exports.verifyReportsSetup = (output) => {
   const testPr = /test pull request|test PR/i.test(text);
   return result(github && repo && testPr, `GitHub connected: ${github}; lists acme/demo: ${repo}; offers a test PR: ${testPr}`);
 };
+
+// Adding a repo to a running cleanup sends the whole list: existing plus new.
+module.exports.cleanupKeepsExistingRepos = (output) => {
+  const w = traj(output).find((t) => t.tool === "update-automations" && (t.arguments || {}).cleanup && t.arguments.cleanup.repositories);
+  if (!w) return result(false, "never wrote cleanup repositories");
+  const repos = w.arguments.cleanup.repositories;
+  const pass = repos.includes("acme/api") && repos.includes("acme/demo");
+  return result(pass, `cleanup repositories written: ${JSON.stringify(repos)}`);
+};
+
+// An environment with a complete plan the user keeps: set it as default, do
+// not create another.
+module.exports.existingPlanSetAsDefault = (output) => {
+  const steps = traj(output);
+  const created = steps.filter((t) => t.tool === "create-environment-release-plan").length;
+  const def = steps.some((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).releasePlanKey === "gradual" && t.arguments.default === true);
+  return result(created === 0 && def, `plans created: ${created}; existing plan set as default: ${def}`);
+};
+
+// Archival already on: nothing to do for it.
+module.exports.noArchivalStep = (output) => {
+  const steps = traj(output);
+  const asked = steps.filter((t) => t.tool === "ask-question" && /automatic archival|auto-archival/i.test(String((t.arguments && t.arguments.prompt) || "")) &&
+    ((t.arguments && t.arguments.options) || []).some((o) => /^done\b/i.test(String(o.label || "")))).length;
+  const writes = steps.filter((t) => t.tool === "update-automations" && (t.arguments || {}).archival).length;
+  return result(asked === 0 && writes === 0, `archival browser questions: ${asked}; archival writes: ${writes}`);
+};
+
+module.exports.reportListsDefaultPlan = (output) => {
+  const text = finalText(output).toLowerCase();
+  const pass = /default/.test(text) && /internal|progressive/.test(text) && /production/.test(text);
+  return result(pass, pass ? "report names production's default plan" : "report does not name the default plan");
+};
+
+module.exports.reportListsCleanup = (output) => {
+  const text = finalText(output).toLowerCase();
+  const pass = /cleanup/.test(text) && /weekly/.test(text) && text.includes("acme/demo");
+  return result(pass, pass ? "report lists the cleanup schedule and repository" : "report does not list the cleanup schedule and repository");
+};
+
+// Before creating a starter plan, the unit is checked against stored contexts;
+// the email attribute is read rather than asked.
+module.exports.checksContextsBeforeStarter = (output) => {
+  const steps = traj(output);
+  const create = steps.findIndex((t) => t.tool === "create-environment-release-plan");
+  if (create === -1) return result(false, "no release plan created");
+  const unit = steps.slice(0, create).some((t) => t.tool === "search-contexts" && (t.arguments || {}).kind);
+  const emailQ = steps.filter((t) => t.tool === "ask-question" && /email attribute|send an email/i.test(String((t.arguments && t.arguments.prompt) || ""))).length;
+  return result(unit && emailQ === 0, `context kind checked before create: ${unit}; email questions asked: ${emailQ}`);
+};
+
+// Guarded starter: the plan carries the picked rollback metric with
+// automatic rollback, and no internal-users phase without an email attribute.
+module.exports.guardedStarterMetrics = (output) => {
+  const p = traj(output).find((t) => t.tool === "create-environment-release-plan");
+  if (!p) return result(false, "no release plan created");
+  const pr = p.arguments.progressiveRelease || {};
+  const m = (pr.metrics || {})["user-error-rate"];
+  const email = (pr.phases || []).some((ph) => (ph.clauses || []).some((c) => c.attribute === "email"));
+  const pass = Boolean(m && m.autoRollback === true && m.isGroup === false) && !email;
+  return result(pass, `metrics: ${JSON.stringify(pr.metrics || {})}; email clause: ${email}`);
+};

@@ -10,7 +10,7 @@ The onboarding write sends only:
 - `repositories`: the `owner/name` repos cleanup opens pull requests in, all on the GitHub App install
 - `maxJobsPerRun`: pull requests per run (3 is a safe start)
 
-Leave `flagStates` at its default (`readyToArchive`). Saving makes the calling member the one whose permissions cleanup jobs use; if that member loses access, someone else must save the settings again. Any schedule other than `disabled` makes LaunchDarkly open pull requests, so the Step 7 line must state the schedule, repositories, and pull requests per run.
+Leave `flagStates` at its default (`readyToArchive`). Lists replace the whole stored list: when adding repositories to a running cleanup, send the existing `repositories` from the read plus the new ones. Saving makes the calling member the one whose permissions cleanup jobs use; if that member loses access, someone else must save the settings again. Any schedule other than `disabled` makes LaunchDarkly open pull requests, so the Step 7 line must state the schedule, repositories, and pull requests per run.
 
 In the UI, the same settings are in the **Automated flag cleanup** section of `/projects/{projectKey}/settings/automations`.
 

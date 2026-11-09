@@ -239,7 +239,7 @@
   },
   {
     "name": "create-environment-release-plan",
-    "description": "Create an environment release plan, a reusable progressive-release recipe. Does not start a release. Check existing plans with get-environment-release-plans first: an active key returns 409. PHASES: 1-10, each with 1-10 clauses and 1-10 steps. Every phase's clauses must include the randomization unit clause {attribute: \"kind\", op: \"in\", values: [<randomizationUnit>], contextKind: <randomizationUnit>}. STEPS: {allocation, durationMillis}; allocation is per-100k, greater than 0, at most 99000, increasing. Do not add a 100% step.",
+    "description": "Create an environment release plan, a reusable progressive-release recipe. Does not start a release. Check existing plans with get-environment-release-plans first: an active key returns 409. PHASES: 1-10, each with 1-10 clauses and 1-10 steps. Every phase's clauses must include the randomization unit clause {attribute: \"kind\", op: \"in\", values: [<randomizationUnit>], contextKind: <randomizationUnit>}. STEPS: {allocation, durationMillis}; allocation is per-100k, greater than 0, at most 99000, increasing. Do not add a 100% step. METRICS: keyed object, each value { isGroup, autoRollback? }; {} = progressive.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -274,22 +274,23 @@
               "type": "string"
             },
             "metrics": {
+              "type": "object",
+              "description": "Keyed by metric key. {} = progressive. Any key makes releases from this plan guarded. Each value is { isGroup, autoRollback? }.",
               "additionalProperties": {
-                "additionalProperties": false,
+                "type": "object",
                 "properties": {
-                  "autoRollback": {
+                  "isGroup": {
                     "type": "boolean"
                   },
-                  "isGroup": {
+                  "autoRollback": {
                     "type": "boolean"
                   }
                 },
                 "required": [
                   "isGroup"
                 ],
-                "type": "object"
-              },
-              "type": "object"
+                "additionalProperties": false
+              }
             },
             "phases": {
               "items": {
@@ -348,28 +349,28 @@
                     "type": "string"
                   },
                   "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 10,
                     "items": {
-                      "additionalProperties": false,
+                      "type": "object",
                       "properties": {
                         "allocation": {
-                          "maximum": 100000,
-                          "minimum": 0,
-                          "type": "integer"
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 99000
                         },
                         "durationMillis": {
-                          "minimum": 0,
-                          "type": "integer"
+                          "type": "integer",
+                          "minimum": 1
                         }
                       },
                       "required": [
                         "allocation",
                         "durationMillis"
                       ],
-                      "type": "object"
-                    },
-                    "maxItems": 10,
-                    "minItems": 1,
-                    "type": "array"
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": [
@@ -435,6 +436,37 @@
         "releasePlanKey",
         "default",
         "confirm"
+      ]
+    }
+  },
+  {
+    "name": "search-contexts",
+    "description": "Search for stored LaunchDarkly contexts in an environment by kind, key, or attribute value. Returns context records including their stored attributes. kind filters to one context kind. filter uses `field operator value` clauses with operators equals, notEquals, anyOf, startsWith, exists, before, after; fields include kind, key, and <kind>.<attribute>, for example `user.email exists`.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "number"
+        },
+        "continuationToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey"
       ]
     }
   }

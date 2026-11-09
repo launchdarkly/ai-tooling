@@ -6,13 +6,13 @@ Always call `get-environment-release-plans` before creating, so the new key does
 
 ## Starter plans
 
-Offer these when an environment has no plans. Each is a normal plan the user can change later. All use automatic advancement, `cleanupBehavior: "remove_rules_and_update_default_rule"` (the release finishes by serving everyone), and no metrics unless the user adds them. Allocations are per 100,000 (10000 = 10%); there is no 100% step, because completing the release reaches everyone. `<unit>` is the randomization unit, `user` unless the project uses another context kind.
+Offer these when an environment has no plans. Each is a normal plan the user can change later. All use automatic advancement and `cleanupBehavior: "remove_rules_and_update_default_rule"` (the release finishes by serving everyone). With no rollback metrics they are progressive; with rollback metrics they are guarded. Allocations are per 100,000 (10000 = 10%); there is no 100% step, because completing the release reaches everyone. `<unit>` is the randomization unit, `user` unless the project uses another context kind.
 
 | Starter | Key | Phases |
 |---------|-----|--------|
 | Progressive (non-production) | `progressive` | One phase for everyone: 10% for 4h, then 50% for 4h |
 | Progressive (production) | `progressive` | One phase for everyone: 10%, 25%, 50%, each for 4h |
-| Internal users first (production) | `internal-first` | Phase 1, internal users: 99% for 4h, with the clauses below. Phase 2, everyone: 10%, 25%, 50%, each for 4h |
+| Internal users first (production) | `internal-first` | Phase 1, internal users: 99% for 4h (the most one step allows, so nearly all of them), with the clauses below. Phase 2, everyone: 10%, 25%, 50%, each for 4h |
 
 Every phase includes the randomization unit clause; alone it means everyone:
 
@@ -26,7 +26,15 @@ The internal-users phase adds an email clause for the confirmed domain:
 { "attribute": "email", "op": "endsWith", "values": ["@acme.example"], "contextKind": "<unit>" }
 ```
 
-The email clause only works if the app sends an `email` attribute on that context kind. If the user is not sure, say so in Step 7, and suggest "Progressive" instead.
+The email clause only works if the app sends an `email` attribute on that context kind, so the skill offers this starter only when `search-contexts` finds a context of the unit's kind with `email` set.
+
+Rollback metrics go in `progressiveRelease.metrics`, keyed by metric key, each with automatic rollback:
+
+```json
+{ "user-error-rate": { "isGroup": false, "autoRollback": true } }
+```
+
+Use only metrics whose `randomizationUnits` include the plan's randomization unit; others cannot measure the release.
 
 Each 4-hour hold is `durationMillis: 14400000`. After Step 8 creates a starter, set it as the environment's default with `update-default-environment-release-plan` (`default: true`).
 
