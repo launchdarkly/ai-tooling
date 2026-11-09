@@ -504,7 +504,7 @@
     },
     {
       "name": "legacy-sdk-migrate",
-      "description": "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server` plus handler packages). Use when code calls `LDAIClient`, `initAi`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade to the turnkey AI SDKs.",
+      "description": "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server` plus handler packages). Use when code calls `LDAIClient`, `initAi`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade between LaunchDarkly AI SDKs. For apps with hardcoded LLM prompts that aren't on LaunchDarkly yet, use `migrate` instead.",
       "path": "skills/agentcontrol/legacy-sdk-migrate",
       "version": "0.1.0",
       "license": "Apache-2.0",

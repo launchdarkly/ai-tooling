@@ -15,8 +15,9 @@ Handler factory names follow `create_<provider>_<mode>_handler` (Python) and `cr
 7. [Agent mode and tools](#agent-mode-and-tools)
 8. [Registries](#registries)
 9. [Streaming and history](#streaming-and-history)
-10. [Judges](#judges)
-11. [Agent graphs](#agent-graphs)
+10. [User feedback](#user-feedback)
+11. [Judges](#judges)
+12. [Agent graphs](#agent-graphs)
 
 ## API mapping
 
@@ -28,8 +29,9 @@ Handler factory names follow `create_<provider>_<mode>_handler` (Python) and `cr
 | Multi-agent | `agent_configs()` / `agentConfigs()` | `graph()` or a native framework runner |
 | Managed objects | `create_model()`, `create_agent()` / `createModel().run()`, `createAgent()` | Convenience function or `config().invoke()` |
 | Metrics | `create_tracker()`, `track_metrics_of`, `track_*` / `createTracker()`, `trackMetricsOf`, `track*` | Automatic on every call, plus OpenTelemetry spans |
+| Feedback | `tracker.track_feedback()` / `tracker.trackFeedback()` | `get_client().track()` / `getClient().track()` with `result.track_data` / `result.trackData` |
 | Fallback | Default config object with `enabled=False` | `try`/`except` around `invoke()`; `inspect_config()` / `inspectConfig()` to read state |
-| Template variables | Fourth argument to `completion_config` / `completionConfig` | `variables=` (convenience, Python), `{ variables }` (convenience, Node), or third argument to `invoke()` |
+| Template variables | Fourth argument to `completion_config` / `completionConfig` | `variables=` (convenience, Python), `{ variables }` (convenience, Node), or third argument to `invoke()` (`{{name}}` without spaces; `{{ldContext.*}}` replaces `{{ldctx.*}}`) |
 | Judges | `create_judge()`, `judge_config()` / `createJudge()`, `judgeConfig()` | Judges attached to the variation; `skip_judges` / `skipJudges` plus `run_judge()` / `runJudge()` for async work |
 | Graphs | `agent_graph()`, `create_agent_graph()`, traversal helpers | `graph()`, `resolve_graph()` / `resolveGraph()` |
 | Shutdown | `ld_client.close()` / `ldClient.close()` | `shutdown()` |
@@ -280,7 +282,7 @@ if (agent.enabled) {
 }
 ```
 
-Current: completion and agent mode share `config()`. Register tool implementations by name; the handler runs the tool loop. Keys must match the tool names in the variation exactly, including case.
+Current: completion and agent mode share `config()`. Register tool implementations by name; the handler runs the tool loop. Keys must match the tool names in the variation exactly, including case. Each tool function receives a single `args` dict (Python) or object (Node.js), not unpacked keyword arguments—wrap multi-argument functions (`lambda args: get_preferences_fn(**args)`) or LangChain `@tool` objects (`lambda args: get_preferences_tool.invoke(args)`).
 
 ```python
 from launchdarkly_ai_server import config
@@ -377,29 +379,84 @@ result = await config(key="example-config-key", registry=openai_registry).invoke
 )
 ```
 
+## User feedback
+
+The current SDKs do not have a `track_feedback` / `trackFeedback` helper on a tracker, because there is no tracker. Instead, `invoke()` returns `result.track_data` (Python) / `result.trackData` (Node.js) identifying the config, variation, version, and model. Pass it to `get_client().track()` / `getClient().track()` when the user gives thumbs up or down:
+
+Legacy:
+
+```python
+from ldai.tracker import FeedbackKind
+
+tracker.track_feedback({"kind": FeedbackKind.Positive})
+```
+
+```typescript
+import { LDFeedbackKind } from '@launchdarkly/server-sdk-ai';
+
+tracker.trackFeedback({ kind: LDFeedbackKind.Positive });
+```
+
+Current:
+
+```python
+from ldclient import Context
+from launchdarkly_ai_server import config, get_client
+
+result = await config(key="example-config-key", registry=openai_registry).invoke(user_input, context)
+
+# When the user responds with thumbs up / down:
+event = "$ld:ai:feedback:user:positive" if thumbs_up else "$ld:ai:feedback:user:negative"
+get_client().track(event, Context.from_dict(context), result.track_data, 1)
+```
+
+```typescript
+import { config, getClient } from '@launchdarkly/ai-node';
+
+const result = await config({ key: 'example-config-key', registry: openaiRegistry }).invoke(userInput, context);
+
+// When the user responds with thumbs up / down:
+const event = thumbsUp ? '$ld:ai:feedback:user:positive' : '$ld:ai:feedback:user:negative';
+getClient().track(event, context, result.trackData, 1);
+```
+
+`stream()` does not currently return `track_data`, so feedback on streamed responses cannot yet be attributed to a variation.
+
 ## Judges
 
 Legacy apps created a judge and called it after each response. Now judges are attached to the config variation in LaunchDarkly and run inline by default on every `invoke()`. Delete `create_judge` / `createJudge` call sites once the judges are attached to the variation (ask the user to attach them if they aren't).
 
-To keep latency low, skip inline judges and run them in the background:
+To keep latency low, skip inline judges and run them in the background. `run_judge()` / `runJudge()` runs the judge model call and returns the score and merged `track_data` / `trackData`; record the evaluation metric with `get_client().track()` / `getClient().track()`:
 
 ```python
 import asyncio
-from launchdarkly_ai_server import config, global_registry, run_judge
+from ldclient import Context
+from launchdarkly_ai_server import config, get_client, global_registry, run_judge
 
 result = await config(
     key="example-config-key", registry=global_registry, skip_judges=True
 ).invoke(user_input, context)
 
+_background_tasks = set()
+
 async def judge_worker(task):
-    await run_judge(task, handlers)
+    judge_result = await run_judge(task, handlers)
+    if judge_result and task.evaluation_metric_key:
+        get_client().track(
+            task.evaluation_metric_key,
+            Context.from_dict(task.user_context),
+            judge_result.track_data,
+            judge_result.score,
+        )
 
 for task in result.judge_tasks or []:
-    asyncio.create_task(judge_worker(task))
+    t = asyncio.create_task(judge_worker(task))
+    _background_tasks.add(t)
+    t.add_done_callback(_background_tasks.discard)
 ```
 
 ```typescript
-import { config, globalRegistry, runJudge } from '@launchdarkly/ai-node';
+import { config, getClient, globalRegistry, runJudge } from '@launchdarkly/ai-node';
 
 const { response, judgeTasks } = await config({
   key: 'example-config-key',
@@ -408,7 +465,12 @@ const { response, judgeTasks } = await config({
 }).invoke(userInput, context);
 
 for (const task of judgeTasks ?? []) {
-  void runJudge(task, handlers); // or hand `task` to a worker thread or queue
+  void (async () => {
+    const judgeResult = await runJudge(task, handlers);
+    if (judgeResult && task.evaluationMetricKey) {
+      getClient().track(task.evaluationMetricKey, task.userContext, judgeResult.trackData, judgeResult.score);
+    }
+  })(); // or hand `task` to a worker thread or queue
 }
 ```
 

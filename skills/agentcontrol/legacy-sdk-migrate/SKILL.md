@@ -1,6 +1,6 @@
 ---
 name: legacy-sdk-migrate
-description: "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server` plus handler packages). Use when code calls `LDAIClient`, `initAi`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade to the turnkey AI SDKs."
+description: "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server` plus handler packages). Use when code calls `LDAIClient`, `initAi`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade between LaunchDarkly AI SDKs. For apps with hardcoded LLM prompts that aren't on LaunchDarkly yet, use `migrate` instead."
 license: Apache-2.0
 compatibility: Python 3.12+ or Node.js. No LaunchDarkly MCP tools needed; the AgentControl configs already exist.
 metadata:
@@ -18,7 +18,7 @@ Source guide: [Migrate from the legacy AI SDKs](https://launchdarkly.com/docs/sd
 
 ## Prerequisites
 
-- The app already uses a legacy AI SDK, and its AgentControl configs (formerly AI Configs) already exist in LaunchDarkly. The config keys, variations, tools, and judges carry over unchanged; this is a code migration only.
+- The app already uses a legacy AI SDK, and its AgentControl configs (formerly AI Configs) already exist in LaunchDarkly. The config keys, variations, tools, and judges carry over unchanged; this is a code migration only. (If the app calls an LLM provider directly with hardcoded prompts and does not use LaunchDarkly yet, use the `migrate` skill instead.)
 - `LD_SDK_KEY` (server-side SDK key) and the provider API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) available as environment variables. The current SDKs read them from the environment.
 - **Python:** the current packages require **Python 3.12 or later**, and the API is **async** (`await config(...).invoke(...)`). Check both before you start.
 - **Node.js:** `@launchdarkly/ai-node` for Node; `@launchdarkly/ai-server` plus a pre-initialized client for edge or custom runtimes.
@@ -95,10 +95,10 @@ Work one call site at a time. Full code for each step is in [references/api-mapp
    - Keep the base server SDK (`launchdarkly-server-sdk` / `@launchdarkly/node-server-sdk`) only if the app still evaluates ordinary feature flags with it.
 2. **Replace initialization.** Delete `LDAIClient(...)` / `initAi(...)`. The SDK initializes lazily from `LD_SDK_KEY` on the first AI call. Call `init_client()` / `initClient()` only to pass options or pre-warm, and call `shutdown()` on exit to flush events and spans.
 3. **Rewrite each call.** Replace evaluate → build messages → call provider → track with one convenience function or `config(...).invoke(user_input, context, variables)`. Read the output from `result.response`. Python contexts are plain dicts (`{"kind": "user", "key": "user-123"}`).
-4. **Move template variables** from the `completion_config` / `agent_config` argument to the `variables` keyword (convenience functions, Python), the `{ variables }` option (convenience functions, Node), or the third argument to `invoke()`.
-5. **Move tools.** Register implementations by name in `tool_handlers` / `toolHandlers` or a `Registry`. Keys must match the tool names in the config variation exactly, including case. Delete the hand-written tool loop.
+4. **Move template variables** from the `completion_config` / `agent_config` argument to the `variables` keyword (convenience functions, Python), the `{ variables }` option (convenience functions, Node), or the third argument to `invoke()`. Note that the current SDKs inject the evaluation context as `{{ldContext.*}}` (replacing legacy `{{ldctx.*}}`) and require Mustache placeholders without spaces (`{{name}}`, not `{{ name }}`).
+5. **Move tools.** Register implementations by name in `tool_handlers` / `toolHandlers` or a `Registry`. Keys must match the tool names in the config variation exactly, including case. Each tool function is called with a single `args` dict/object (not unpacked keyword arguments), so wrap multi-argument functions (`lambda args: fn(**args)`) or LangChain `@tool` objects (`lambda args: tool.invoke(args)`). Delete the hand-written tool loop.
 6. **Preserve fallbacks.** Wrap `invoke()` and return the app's previous fallback response on error. Use `inspect_config()` / `inspectConfig()` (never raises; returns `enabled`, `config`, `meta`) for health checks or to branch before invoking.
-7. **Delete tracking code.** Remove `create_tracker`, every `track_*` / `track*` call, and `get_ai_metrics_from_response` / `getAIMetricsFromResponse` helpers. Metrics and spans are automatic.
+7. **Delete tracking code.** Remove `create_tracker`, every `track_*` / `track*` call, and `get_ai_metrics_from_response` / `getAIMetricsFromResponse` helpers. Metrics and spans are automatic. If the app records user feedback (`track_feedback` / `trackFeedback`), replace it with `get_client().track()` / `getClient().track()` using `result.track_data` / `result.trackData` (see [references/api-mapping.md](references/api-mapping.md#user-feedback)).
 8. **Centralize.** If two or more call sites share handlers or tools, create one `Registry` (or register on `global_registry` / `globalRegistry` at startup) and pass `registry=`.
 9. **Remove dead imports and packages** once nothing references them.
 
@@ -118,10 +118,10 @@ Work one call site at a time. Full code for each step is in [references/api-mapp
 | Python below 3.12 | Stop and tell the user. The current Python packages need 3.12+. |
 | Synchronous Python code path (Flask, Django views, scripts) | Run the async call with `asyncio.run(...)` at the boundary, or move the handler to an async framework. Ask which. |
 | App reads provider-native fields (`choices`, `tool_calls`, `stop_reason`) | Use `result.response` and `result.usage`; ask before changing downstream logic that needs the raw object. |
-| Provider has no handler package (Bedrock, Gemini, Azure, internal gateway) | Use `litellm-*`, `langchain-*`, or `vercel-*`, or build a custom handler with `createHandler` / `create_handler`. |
-| App calls `track_feedback` / `trackFeedback` for thumbs up or down | The current SDKs have no feedback helper. Don't silently delete the call: tell the user, and leave it in place on the legacy client or ask how they want to record feedback. |
+| Provider has no handler package (Bedrock, Gemini, Azure, internal gateway) | Use `litellm-*`, `langchain-*`, or `vercel-*`, or build a custom handler with `createHandler` / `create_handler`. In Python, `provides_for` must be a tuple `("ProviderName", "messages")`, and custom handlers must call `parse_template` / `parseTemplate` on raw prompt strings. |
+| App calls `track_feedback` / `trackFeedback` for thumbs up or down | Replace `tracker.track_feedback` with `get_client().track("$ld:ai:feedback:user:positive" or ":negative", Context.from_dict(context), result.track_data, 1)` in Python or `getClient().track(event, context, result.trackData, 1)` in Node.js (note: `stream()` does not currently return `track_data`). |
 | Large app, gradual rollout | Migrate one call site at a time, verify it, and remove the legacy packages only after the last call site moves. |
-| Judges must not add latency | `skip_judges=True` / `skipJudges: true`, then run `judge_tasks` / `judgeTasks` in a background task or worker with `run_judge()` / `runJudge()`. |
+| Judges must not add latency | `skip_judges=True` / `skipJudges: true`, then run `judge_tasks` / `judgeTasks` in a background task or worker with `run_judge()` / `runJudge()` and record the score with `get_client().track()` / `getClient().track()`. |
 | Agent Skills from AgentControl are needed | Agent Skills reach apps only through the current SDKs; the legacy SDKs never deliver them. |
 
 ## What NOT to Do
