@@ -29,8 +29,10 @@ Handler factory names follow `create_<provider>_<mode>_handler` (Python) and `cr
 | Multi-agent | `agent_configs()` / `agentConfigs()` | `graph()` or a native framework runner |
 | Managed objects | `create_model()`, `create_agent()` / `createModel().run()`, `createAgent()` | Convenience function or `config().invoke()` |
 | Metrics | `create_tracker()`, `track_metrics_of`, `track_*` / `createTracker()`, `trackMetricsOf`, `track*` | Generation metrics are automatic on `invoke()` / `stream()`; a background `run_judge()` / `runJudge()` returns judge metrics that the worker must track |
-| Feedback | `tracker.track_feedback()` / `tracker.trackFeedback()` | `get_client().track()` / `getClient().track()` with `result.track_data` / `result.trackData` |
-| Fallback | Default config object with `enabled=False` | `try`/`except` around `invoke()`; `inspect_config()` / `inspectConfig()` to read state |
+| Feedback | `tracker.track_feedback()` / `tracker.trackFeedback()` | `get_client().track()` / `getClient().track()` with `result.track_data` / `result.trackData` (in Python, convert the context dict with `ldclient.Context.from_dict(context)`) |
+| Model parameters | Passed manually to provider client (`model=config.model.name`, `**config.model.parameters`) | Handler packages forward a per-handler allowlist of `model.parameters` (mapping `max_tokens` → `max_output_tokens` on OpenAI) and drop unknown keys; move app-scoped knobs to `model.custom`, and use an explicit allowlist in custom handlers |
+| Content capture | N/A (app owned any tracing) | Prompts, outputs, tool payloads, and judge reasoning are captured on OpenTelemetry spans by default in 1.0+ (`capture_content=True`); opt out with `configure(options=SDKOptions(capture_content=False))` / `configure({ options: { captureContent: false } })` |
+| Fallback | Default config object with `enabled=False` | `try`/`except` around `invoke()` (checking `inspect_config()` / `inspectConfig()` before falling back); `inspect_config()` / `inspectConfig()` to read state |
 | Template variables | Fourth argument to `completion_config` / `completionConfig` | `variables=` (convenience, Python), `{ variables }` (convenience, Node), or third argument to `invoke()` (`{{name}}` without spaces; `{{ldContext.*}}` replaces `{{ldctx.*}}`) |
 | Judges | `create_judge()`, `judge_config()` / `createJudge()`, `judgeConfig()` | Judges attached to the variation; `skip_judges` / `skipJudges` plus a durable worker that runs and tracks `run_judge()` / `runJudge()` results |
 | Graphs | `agent_graph()`, `create_agent_graph()`, traversal helpers | `graph()`, `resolve_graph()` / `resolveGraph()` |
@@ -97,6 +99,20 @@ await shutdown();
 ```
 
 If the app also evaluates ordinary feature flags, keep its existing server SDK client for those. To share one client, pass it to `init_client(client=ld_client)` / `initClient(ldClient)`.
+
+In 1.0+, OpenTelemetry spans capture prompts, model output, tool arguments/results, and judge reasoning by default (`capture_content=True`). To opt out process-wide, call `configure()` before the first AI call:
+
+```python
+from launchdarkly_ai_server import SDKOptions, configure
+
+configure(options=SDKOptions(capture_content=False))
+```
+
+```typescript
+import { configure } from '@launchdarkly/ai-node';
+
+configure({ options: { captureContent: false } });
+```
 
 ## Completion call: convenience function
 
@@ -546,3 +562,7 @@ console.log(result.response);
 ```
 
 To keep running on a framework the app already uses, call `resolve_graph()` / `resolveGraph()` and pass the result to that framework's runner: `to_lang_graph` / `toLangGraph`, `to_openai_agents` / `toOpenAIAgents`, or `to_claude_agents` / `toClaudeAgents`. Check the handler package's exports and README for the exact call.
+
+If the app walks the resolved topology by hand instead of using `graph().invoke()` or a native runner:
+- Node and edge accessors are attributes now: `graph.enabled`, `graph.root`, `node.key`, `node.config` (a plain dict), `node.edges`, and `edge.target_key` (replacing `is_enabled()`, `root()`, `get_key()`, `get_config()`, `get_edges()`, and `edge.target_config`).
+- `resolve_graph()` / `resolveGraph()` returns topology only and emits **no** telemetry on its own. Pass `handlers=` to `resolve_graph()` and execute nodes with `await graph.run_node(node, input, opts)` / `await graph.route(node, input, opts)`, or emit the 1.0 `$ld:ai:graph:*` events yourself (`$ld:ai:graph:node`, `$ld:ai:graph:handoff_success`, `$ld:ai:graph:handoff_failure`, `$ld:ai:graph:invocation_success`, `$ld:ai:graph:invocation_failure`, `$ld:ai:graph:duration:total`, `$ld:ai:graph:total_tokens`). Note that legacy event keys (`$ld:ai:graph:path`, `$ld:ai:graph:handoff`, `$ld:ai:graph:invocation`, `$ld:ai:graph:total`, `$ld:ai:tool`) changed in 1.0, so existing LaunchDarkly metrics built on the old keys must be updated.
