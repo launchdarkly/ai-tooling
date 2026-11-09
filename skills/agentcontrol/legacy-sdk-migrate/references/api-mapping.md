@@ -40,13 +40,13 @@ Handler factory names follow `create_<provider>_<mode>_handler` (Python) and `cr
 
 | Language | Remove | Add |
 |----------|--------|-----|
-| Python | `launchdarkly-server-sdk-ai`, `launchdarkly-server-sdk-ai-openai`, `launchdarkly-server-sdk-ai-langchain` (imports `ldai`, `ldai_openai`, `ldai_langchain`) | `launchdarkly-server-sdk` + `launchdarkly-ai-server`, or `"launchdarkly-ai-python[ld]"`; plus one `launchdarkly-ai-<provider>-<mode>` per handler |
+| Python | `launchdarkly-server-sdk-ai`, `launchdarkly-server-sdk-ai-openai`, `launchdarkly-server-sdk-ai-langchain` (imports `ldai`, `ldai_openai`, `ldai_langchain`) | `"launchdarkly-ai-server[ld]"` (or `launchdarkly-server-sdk` + `launchdarkly-ai-server`, or `"launchdarkly-ai-python[ld]"`); plus one `launchdarkly-ai-<provider>-<mode>` per handler |
 | Node.js | `@launchdarkly/server-sdk-ai`, `@launchdarkly/server-sdk-ai-openai`, `@launchdarkly/server-sdk-ai-langchain`, `@launchdarkly/server-sdk-ai-vercel` | `@launchdarkly/ai-node` (bundles `@launchdarkly/node-server-sdk`), or `@launchdarkly/ai-server` for edge runtimes; plus one `@launchdarkly/ai-<provider>-<mode>` per handler |
 
 ```bash
 # Python (3.12+)
 pip uninstall launchdarkly-server-sdk-ai launchdarkly-server-sdk-ai-openai
-pip install launchdarkly-server-sdk launchdarkly-ai-server launchdarkly-ai-openai-messages
+pip install "launchdarkly-ai-server[ld]" launchdarkly-ai-openai-messages
 
 # Node.js
 npm uninstall @launchdarkly/server-sdk-ai @launchdarkly/server-sdk-ai-openai
@@ -213,42 +213,47 @@ console.log(result.response, result.usage);
 
 ## Fallbacks and inspection
 
-There is no fallback argument. `invoke()` raises when the variation is disabled (`RuntimeError: Variation '<key>' is disabled.` in Python, `Error: Variation <key> is not enabled` in Node.js) or when LaunchDarkly cannot be reached. Port the legacy `if not config.enabled:` branch into an error handler:
+There is no fallback argument. `invoke()` raises when the variation is disabled (`RuntimeError: Variation '<key>' is disabled.` in Python, `Error: Variation <key> is not enabled` in Node.js) or when LaunchDarkly cannot be reached. Because handler packages also raise `RuntimeError` / `Error` when a run fails after starting (for example, hitting the tool-loop step limit), check `inspect_config()` / `inspectConfig()` in the error handler and re-raise when `enabled` is true so real run failures are not swallowed by the disabled-config fallback:
 
 ```python
+from launchdarkly_ai_server import inspect_config
+from launchdarkly_ai_openai_messages import openai_messages
+
 FALLBACK = "Sorry, the assistant is unavailable right now."
 
 try:
     result = await openai_messages("example-config-key", user_input, context)
     text = result.response
 except Exception:
-    logger.exception("AI config call failed; using fallback")
+    if (await inspect_config("example-config-key", context))["enabled"]:
+        raise
+    logger.warning("AI config disabled or unreachable; using fallback")
     text = FALLBACK
 ```
 
 ```typescript
+import { inspectConfig } from '@launchdarkly/ai-node';
+import { openaiMessages } from '@launchdarkly/ai-openai-messages';
+
 let text: string;
 try {
   text = (await openaiMessages('example-config-key', userInput, context)).response;
 } catch (err) {
-  logger.error('AI config call failed; using fallback', err);
+  if ((await inspectConfig('example-config-key', context)).enabled) throw err;
+  logger.warn('AI config disabled or unreachable; using fallback', err);
   text = FALLBACK;
 }
 ```
 
-To read state without raising and without calling a provider or emitting metrics, use `inspect_config()` / `inspectConfig()`. It returns `enabled`, `config` (the evaluated variation, or `None` / `null`), and `meta`:
+To read state up front without raising and without calling a provider or emitting metrics, use `inspect_config()` / `inspectConfig()`. It returns `enabled`, `config` (the evaluated variation, or `None` / `null`), and `meta`:
 
 ```python
-from launchdarkly_ai_server import inspect_config
-
 state = await inspect_config("example-config-key", context)
 if not state["enabled"]:
     return FALLBACK
 ```
 
 ```typescript
-import { inspectConfig } from '@launchdarkly/ai-node';
-
 const state = await inspectConfig('example-config-key', context);
 if (!state.enabled) return FALLBACK;
 ```
@@ -456,25 +461,10 @@ handlers = resolve_handlers(global_registry, None) or []
 
 def run_and_track_judge(task):
     judge_result = asyncio.run(run_judge(task, handlers))
-    if judge_result is None:
-        return
-
-    ld_context = Context.from_dict(task.user_context)
-    if judge_result.metrics:
-        for metric in judge_result.metrics:
-            get_client().track(
-                metric["eventKey"],
-                ld_context,
-                {
-                    **judge_result.track_data,
-                    "judgeConfigKey": metric["judgeConfigKey"],
-                },
-                metric["score"],
-            )
-    elif task.evaluation_metric_key:
+    if judge_result and task.evaluation_metric_key:
         get_client().track(
             task.evaluation_metric_key,
-            ld_context,
+            Context.from_dict(task.user_context),
             judge_result.track_data,
             judge_result.score,
         )
@@ -512,18 +502,7 @@ for (const task of judgeTasks ?? []) {
 // Durable worker / queue consumer:
 async function processJudgeTask(task) {
   const judgeResult = await runJudge(task, handlers);
-  if (!judgeResult) return;
-
-  if (judgeResult.metrics?.length) {
-    for (const metric of judgeResult.metrics) {
-      getClient().track(
-        metric.eventKey,
-        task.userContext,
-        { ...judgeResult.trackData, judgeConfigKey: metric.judgeConfigKey },
-        metric.score,
-      );
-    }
-  } else if (task.evaluationMetricKey) {
+  if (judgeResult && task.evaluationMetricKey) {
     getClient().track(
       task.evaluationMetricKey,
       task.userContext,

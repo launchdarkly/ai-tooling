@@ -25,6 +25,8 @@ class LegacySdkMigrateTests(unittest.TestCase):
         self.assertIn("Background judges are the exception", skill)
         self.assertIn("Do not fire and forget", skill)
         self.assertIn("returned score", skill)
+        self.assertIn("launchdarkly-server-sdk", skill)
+        self.assertNotIn("must be a tuple", skill)
 
 
 if __name__ == "__main__":

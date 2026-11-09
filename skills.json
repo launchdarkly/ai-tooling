@@ -508,7 +508,7 @@
       "path": "skills/agentcontrol/legacy-sdk-migrate",
       "version": "0.1.0",
       "license": "Apache-2.0",
-      "compatibility": "Python 3.12+ or Node.js. No LaunchDarkly MCP tools needed; the AgentControl configs already exist."
+      "compatibility": "Python 3.12+ (`launchdarkly-ai-server` 1.0.0+ with `launchdarkly-server-sdk`) or Node.js (`@launchdarkly/ai-node` 1.0.0+). No LaunchDarkly MCP tools needed; the AgentControl configs already exist."
     },
     {
       "name": "mcp-configure",
