@@ -65,7 +65,7 @@ Pick a target for each call site:
 | Streaming (`trackStreamMetricsOf`, manual TTFT) | `config(...).stream(...)`; iterate events (`chunk` events carry `text`; the final `done` event carries `response` and `usage`) |
 | Multi-turn chat (`createChat`, message arrays you maintain) | Pass prior turns as the `history` argument (fourth positional argument) to `invoke()` / `stream()` |
 | `agent_configs()` / `agentConfigs()`, `agent_graph()`, `create_agent_graph()`, managed graph runners | `graph(key, handlers=[...]).invoke(...)`, or `resolve_graph()` / `resolveGraph()` plus a native runner (`to_lang_graph` / `toLangGraph`, `to_openai_agents` / `toOpenAIAgents`, `to_claude_agents` / `toClaudeAgents`) |
-| `create_judge()` / `createJudge()` / `judge_config()` | Judges attached to the config variation run automatically. For background scoring, pass `skip_judges=True` / `skipJudges: true` and hand each `judge_tasks` / `judgeTasks` item to `run_judge()` / `runJudge()` |
+| `create_judge()` / `createJudge()` / `judge_config()` | Judges attached to the config variation run automatically. For background scoring, pass `skip_judges=True` / `skipJudges: true`, hand each `judge_tasks` / `judgeTasks` item to a durable worker, run `run_judge()` / `runJudge()`, and explicitly track the returned score(s) |
 | `create_model().run()` / `createModel().run()`, `create_agent()` | Same convenience function or `config().invoke()` path |
 | Same handlers and tools at many call sites | One shared `Registry` passed as `registry=` |
 
@@ -98,7 +98,7 @@ Work one call site at a time. Full code for each step is in [references/api-mapp
 4. **Move template variables** from the `completion_config` / `agent_config` argument to the `variables` keyword (convenience functions, Python), the `{ variables }` option (convenience functions, Node), or the third argument to `invoke()`. Note that the current SDKs inject the evaluation context as `{{ldContext.*}}` (replacing legacy `{{ldctx.*}}`) and require Mustache placeholders without spaces (`{{name}}`, not `{{ name }}`).
 5. **Move tools.** Register implementations by name in `tool_handlers` / `toolHandlers` or a `Registry`. Keys must match the tool names in the config variation exactly, including case. Each tool function is called with a single `args` dict/object (not unpacked keyword arguments), so wrap multi-argument functions (`lambda args: fn(**args)`) or LangChain `@tool` objects (`lambda args: tool.invoke(args)`). Delete the hand-written tool loop.
 6. **Preserve fallbacks.** Wrap `invoke()` and return the app's previous fallback response on error. Use `inspect_config()` / `inspectConfig()` (never raises; returns `enabled`, `config`, `meta`) for health checks or to branch before invoking.
-7. **Delete tracking code.** Remove `create_tracker`, every `track_*` / `track*` call, and `get_ai_metrics_from_response` / `getAIMetricsFromResponse` helpers. Metrics and spans are automatic. If the app records user feedback (`track_feedback` / `trackFeedback`), replace it with `get_client().track()` / `getClient().track()` using `result.track_data` / `result.trackData` (see [references/api-mapping.md](references/api-mapping.md#user-feedback)).
+7. **Replace tracking code.** Remove legacy `create_tracker`, generation/token/duration tracking, and `get_ai_metrics_from_response` / `getAIMetricsFromResponse` helpers; `invoke()` and `stream()` record those automatically. Preserve explicit app events: replace user feedback calls with `get_client().track()` / `getClient().track()` using `result.track_data` / `result.trackData` (see [references/api-mapping.md](references/api-mapping.md#user-feedback)). **Background judges are the exception:** `run_judge()` / `runJudge()` returns score data but deliberately does not call the LaunchDarkly client's `track()` method. Track every returned metric from the worker as shown in the reference.
 8. **Centralize.** If two or more call sites share handlers or tools, create one `Registry` (or register on `global_registry` / `globalRegistry` at startup) and pass `registry=`.
 9. **Remove dead imports and packages** once nothing references them.
 
@@ -108,7 +108,7 @@ Work one call site at a time. Full code for each step is in [references/api-mapp
 2. **Build and tests pass:** run the project's type check, linter, and test suite. Update mocks that patched `LDAIClient` / `initAi` to patch `config` or the convenience function instead.
 3. **Happy path:** with `LD_SDK_KEY` set, run each migrated call and confirm it returns a response from the provider the variation names.
 4. **Fallback path:** with targeting off for the config (or an invalid `LD_SDK_KEY`), confirm the app returns its fallback instead of crashing.
-5. **Metrics:** after a few calls, the config's Monitoring tab in LaunchDarkly shows generations, tokens, and duration for the new SDK version.
+5. **Metrics:** after a few calls, the config's Monitoring tab in LaunchDarkly shows generations, tokens, and duration for the new SDK version. If judges run in a worker, also confirm their evaluation metrics appear.
 6. **Report:** list each migrated call site (file and line), packages added and removed, and anything left unmigrated with the reason.
 
 ## Edge Cases
@@ -121,12 +121,13 @@ Work one call site at a time. Full code for each step is in [references/api-mapp
 | Provider has no handler package (Bedrock, Gemini, Azure, internal gateway) | Use `litellm-*`, `langchain-*`, or `vercel-*`, or build a custom handler with `createHandler` / `create_handler`. In Python, `provides_for` must be a tuple `("ProviderName", "messages")`, and custom handlers must call `parse_template` / `parseTemplate` on raw prompt strings. |
 | App calls `track_feedback` / `trackFeedback` for thumbs up or down | Replace `tracker.track_feedback` with `get_client().track("$ld:ai:feedback:user:positive" or ":negative", Context.from_dict(context), result.track_data, 1)` in Python or `getClient().track(event, context, result.trackData, 1)` in Node.js (note: `stream()` does not currently return `track_data`). |
 | Large app, gradual rollout | Migrate one call site at a time, verify it, and remove the legacy packages only after the last call site moves. |
-| Judges must not add latency | `skip_judges=True` / `skipJudges: true`, then run `judge_tasks` / `judgeTasks` in a background task or worker with `run_judge()` / `runJudge()` and record the score with `get_client().track()` / `getClient().track()`. |
+| Judges must not add latency | `skip_judges=True` / `skipJudges: true`, then put `judge_tasks` / `judgeTasks` on a durable worker or queue. Run `run_judge()` / `runJudge()` there and track the returned score(s) with their supplied track data. |
 | Agent Skills from AgentControl are needed | Agent Skills reach apps only through the current SDKs; the legacy SDKs never deliver them. |
 
 ## What NOT to Do
 
 - Don't keep the legacy tracker around the new call. The SDK already records metrics; you'll double-count.
+- Do not fire and forget `run_judge()` / `runJudge()`. A request-scoped task can be cancelled before it finishes, and the runner returns metrics for the worker to track rather than tracking them itself.
 - Don't pass a default or fallback config object to `config()`; it has no such argument. Handle errors instead.
 - Don't construct an OpenAI or Anthropic client to pass in. Handlers build their own clients from environment variables.
 - Don't rename config keys, tools, or variations in LaunchDarkly as part of this migration.

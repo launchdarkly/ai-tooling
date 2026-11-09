@@ -28,11 +28,11 @@ Handler factory names follow `create_<provider>_<mode>_handler` (Python) and `cr
 | Agent | `agent_config()` / `agentConfig()` | `config().invoke()`; mode comes from the variation |
 | Multi-agent | `agent_configs()` / `agentConfigs()` | `graph()` or a native framework runner |
 | Managed objects | `create_model()`, `create_agent()` / `createModel().run()`, `createAgent()` | Convenience function or `config().invoke()` |
-| Metrics | `create_tracker()`, `track_metrics_of`, `track_*` / `createTracker()`, `trackMetricsOf`, `track*` | Automatic on every call, plus OpenTelemetry spans |
+| Metrics | `create_tracker()`, `track_metrics_of`, `track_*` / `createTracker()`, `trackMetricsOf`, `track*` | Generation metrics are automatic on `invoke()` / `stream()`; a background `run_judge()` / `runJudge()` returns judge metrics that the worker must track |
 | Feedback | `tracker.track_feedback()` / `tracker.trackFeedback()` | `get_client().track()` / `getClient().track()` with `result.track_data` / `result.trackData` |
 | Fallback | Default config object with `enabled=False` | `try`/`except` around `invoke()`; `inspect_config()` / `inspectConfig()` to read state |
 | Template variables | Fourth argument to `completion_config` / `completionConfig` | `variables=` (convenience, Python), `{ variables }` (convenience, Node), or third argument to `invoke()` (`{{name}}` without spaces; `{{ldContext.*}}` replaces `{{ldctx.*}}`) |
-| Judges | `create_judge()`, `judge_config()` / `createJudge()`, `judgeConfig()` | Judges attached to the variation; `skip_judges` / `skipJudges` plus `run_judge()` / `runJudge()` for async work |
+| Judges | `create_judge()`, `judge_config()` / `createJudge()`, `judgeConfig()` | Judges attached to the variation; `skip_judges` / `skipJudges` plus a durable worker that runs and tracks `run_judge()` / `runJudge()` results |
 | Graphs | `agent_graph()`, `create_agent_graph()`, traversal helpers | `graph()`, `resolve_graph()` / `resolveGraph()` |
 | Shutdown | `ld_client.close()` / `ldClient.close()` | `shutdown()` |
 
@@ -426,37 +426,77 @@ getClient().track(event, context, result.trackData, 1);
 
 Legacy apps created a judge and called it after each response. Now judges are attached to the config variation in LaunchDarkly and run inline by default on every `invoke()`. Delete `create_judge` / `createJudge` call sites once the judges are attached to the variation (ask the user to attach them if they aren't).
 
-To keep latency low, skip inline judges and run them in the background. `run_judge()` / `runJudge()` runs the judge model call and returns the score and merged `track_data` / `trackData`; record the evaluation metric with `get_client().track()` / `getClient().track()`:
+To keep latency low, skip inline judges and put the returned tasks on a durable
+worker or queue. `run_judge()` / `runJudge()` executes the judge call but does
+**not** emit the judge's evaluation metric. The worker must track the returned
+score and supplied track data. Do not use a request-scoped `create_task()` or an
+unobserved promise: the request can end before either the judge or its metric
+finishes.
+
+Python example for a long-lived process (use a durable queue instead when the
+process can be suspended or terminated after the request):
 
 ```python
 import asyncio
+import threading
 from ldclient import Context
-from launchdarkly_ai_server import config, get_client, global_registry, run_judge
+from launchdarkly_ai_server import (
+    config,
+    get_client,
+    global_registry,
+    resolve_handlers,
+    run_judge,
+)
 
 result = await config(
     key="example-config-key", registry=global_registry, skip_judges=True
 ).invoke(user_input, context)
 
-_background_tasks = set()
+handlers = resolve_handlers(global_registry, None) or []
 
-async def judge_worker(task):
-    judge_result = await run_judge(task, handlers)
-    if judge_result and task.evaluation_metric_key:
+def run_and_track_judge(task):
+    judge_result = asyncio.run(run_judge(task, handlers))
+    if judge_result is None:
+        return
+
+    ld_context = Context.from_dict(task.user_context)
+    if judge_result.metrics:
+        for metric in judge_result.metrics:
+            get_client().track(
+                metric["eventKey"],
+                ld_context,
+                {
+                    **judge_result.track_data,
+                    "judgeConfigKey": metric["judgeConfigKey"],
+                },
+                metric["score"],
+            )
+    elif task.evaluation_metric_key:
         get_client().track(
             task.evaluation_metric_key,
-            Context.from_dict(task.user_context),
+            ld_context,
             judge_result.track_data,
             judge_result.score,
         )
 
 for task in result.judge_tasks or []:
-    t = asyncio.create_task(judge_worker(task))
-    _background_tasks.add(t)
-    t.add_done_callback(_background_tasks.discard)
+    threading.Thread(
+        target=run_and_track_judge,
+        args=(task,),
+        daemon=False,
+    ).start()
 ```
 
+Node.js worker example. Enqueue each `judgeTask` from the request handler, then
+run this function in the queue consumer:
+
 ```typescript
-import { config, getClient, globalRegistry, runJudge } from '@launchdarkly/ai-node';
+import {
+  config,
+  getClient,
+  globalRegistry,
+  runJudge,
+} from '@launchdarkly/ai-node';
 
 const { response, judgeTasks } = await config({
   key: 'example-config-key',
@@ -464,17 +504,39 @@ const { response, judgeTasks } = await config({
   skipJudges: true,
 }).invoke(userInput, context);
 
+// Request path: enqueue the serializable task; do not run it as an unobserved promise.
 for (const task of judgeTasks ?? []) {
-  void (async () => {
-    const judgeResult = await runJudge(task, handlers);
-    if (judgeResult && task.evaluationMetricKey) {
-      getClient().track(task.evaluationMetricKey, task.userContext, judgeResult.trackData, judgeResult.score);
+  await judgeQueue.enqueue(task);
+}
+
+// Durable worker / queue consumer:
+async function processJudgeTask(task) {
+  const judgeResult = await runJudge(task, handlers);
+  if (!judgeResult) return;
+
+  if (judgeResult.metrics?.length) {
+    for (const metric of judgeResult.metrics) {
+      getClient().track(
+        metric.eventKey,
+        task.userContext,
+        { ...judgeResult.trackData, judgeConfigKey: metric.judgeConfigKey },
+        metric.score,
+      );
     }
-  })(); // or hand `task` to a worker thread or queue
+  } else if (task.evaluationMetricKey) {
+    getClient().track(
+      task.evaluationMetricKey,
+      task.userContext,
+      judgeResult.trackData,
+      judgeResult.score,
+    );
+  }
 }
 ```
 
-`handlers` is the list of provider handlers the judge configs can use. Delete manual `track_judge_result` / `trackJudgeResult` calls.
+`handlers` is the list of provider handlers the judge configs can use. Remove
+the legacy `track_judge_result` / `trackJudgeResult` calls, but preserve their
+behavior with the current client's `track()` call shown above.
 
 ## Agent graphs
 
