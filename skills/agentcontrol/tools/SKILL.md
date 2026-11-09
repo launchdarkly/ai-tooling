@@ -2,7 +2,7 @@
 name: tools
 description: "Give your agents capabilities through tools (function calling). Helps you identify what your agent needs to do, create tool definitions, and attach them to config variations."
 license: Apache-2.0
-compatibility: Requires the remotely hosted LaunchDarkly MCP server
+compatibility: Requires the remotely hosted LaunchDarkly MCP server. Application code examples use `launchdarkly-ai-server` 1.0.0+ (Python) or `@launchdarkly/ai-node` 1.0.0+ (Node.js).
 metadata:
   author: launchdarkly
   version: "1.1.0-experimental"
@@ -18,12 +18,11 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **Required MCP tools:**
 - `create-ai-tool` -- create a new tool definition with a schema
-- `update-ai-config-variation` -- attach tools to a config variation
-- `get-ai-config` -- verify tools are attached to the variation
+- `update-agent-config` with `resource: "variation"` -- attach tools to a config variation
+- `get-agent-configs` -- verify tools are attached to the variation
 
 **Optional MCP tools:**
-- `list-ai-tools` -- browse existing tools in the project
-- `get-ai-tool` -- inspect a specific tool's schema
+- `get-ai-tools` -- browse existing tools in the project; with `toolKey`, inspect one tool's schema
 
 ## Core Principles
 
@@ -43,12 +42,12 @@ What should the agent be able to do?
 - Consider framework: LangGraph/LangChain auto-generate schemas; direct SDK needs manual schemas
 
 If the user asks to check existing tools first, or you have no codebase context about what tools exist, follow this exact order:
-1. `list-ai-tools` -- explore what exists
+1. `get-ai-tools` -- explore what exists
 2. `create-ai-tool` -- create the new tool (with a key different from existing ones)
-3. `update-ai-config-variation` -- attach it
-4. `get-ai-config` -- verify
+3. `update-agent-config` with `resource: "variation"` -- attach it
+4. `get-agent-configs` -- verify
 
-Call `list-ai-tools` as your **first** tool call before any creation. Never stop after listing alone -- always proceed through all four steps.
+Call `get-ai-tools` as your **first** tool call before any creation. Never stop after listing alone -- always proceed through all four steps.
 
 ### Step 2: Create Tools
 
@@ -70,25 +69,27 @@ Use `create-ai-tool` with:
 
 ### Step 3: Attach to Variation
 
-Use `update-ai-config-variation` to attach tools. **Pass only the `tools` field.** Do not bundle `instructions`, `messages`, `model`, or `parameters` into this PATCH unless the user has explicitly asked you to also update those fields. Those fields may have been edited in the LaunchDarkly UI since the variation was created, and including them in a tool-attachment PATCH will silently clobber the UI edits.
+Use `update-agent-config` with `resource: "variation"` to attach tools. **Pass only the `tools` field** (plus `projectKey`, `configKey`, `variationKey`, and `confirm`). Do not bundle `instructions`, `messages`, `model`, or `parameters` into this PATCH unless the user has explicitly asked you to also update those fields. Those fields may have been edited in the LaunchDarkly UI since the variation was created, and including them in a tool-attachment PATCH will silently clobber the UI edits.
 
 ```json
 {
   "projectKey": "my-project",
   "configKey": "support-chatbot",
+  "resource": "variation",
   "variationKey": "default",
   "tools": [
     {"key": "search-knowledge-base", "version": 1}
-  ]
+  ],
+  "confirm": true
 }
 ```
 
-If you observe a UI-clear bug where attaching tools wipes other fields, **do not work around it by re-sending those fields from the previous `get-ai-config` response** — that masks the bug and can resurrect stale values that the user has since edited. Report the bug instead.
+If you observe a UI-clear bug where attaching tools wipes other fields, **do not work around it by re-sending those fields from the previous `get-agent-configs` response** — that masks the bug and can resurrect stale values that the user has since edited. Report the bug instead.
 
 ### Step 4: Verify
 
-1. Use `get-ai-tool` to confirm the tool exists with a valid schema
-2. Use `get-ai-config` to confirm the tool is attached to the variation (check `tools` in the variation's output)
+1. Use `get-ai-tools` to confirm the tool exists with a valid schema
+2. Use `get-agent-configs` to confirm the tool is attached to the variation (check `tools` in the variation's output)
 
 **Report results:**
 - Tool created with valid schema
@@ -118,11 +119,11 @@ result = await config(
 
 ```typescript
 import { config } from '@launchdarkly/ai-node';
-import { createOpenAIHandler } from '@launchdarkly/ai-openai-messages';
+import { createOpenAIMessagesHandler } from '@launchdarkly/ai-openai-messages';
 
 const result = await config({
   key: 'support-chatbot',
-  handler: [createOpenAIHandler()],
+  handler: [createOpenAIMessagesHandler()],
   toolHandlers: {
     'search-knowledge-base': async (args) => kb.search(args.query, args.limit ?? 10),
   },
@@ -154,7 +155,6 @@ The tool functions the SDK passes in are already wrapped to record `$ld:ai:tool_
 
 ```python
 from anthropic import AsyncAnthropic
-# tool_result_string needs launchdarkly-ai-server 0.4.0+
 from launchdarkly_ai_server import compose_history, create_handler, parse_template, tool_result_string
 
 anthropic_client = AsyncAnthropic()
@@ -207,7 +207,6 @@ async def call_anthropic(ld_config, user_input, tool_handlers, variables, histor
     text = "".join(b.text for b in response.content if b.type == "text")
     return {"output": text, "usage": usage}
 
-# provides_for must be a tuple in Python. A list never matches the router.
 anthropic_handler = create_handler(("Anthropic", "messages"), call_anthropic)
 ```
 

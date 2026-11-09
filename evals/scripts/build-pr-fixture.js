@@ -363,7 +363,7 @@ function main() {
   // 6. Assemble the fixture. Assertion bodies mirror the hand-written suite.
   const advisoryAssert = [
     "const tools = output.tools_called || [];",
-    "const forbidden = ['create-flag','create-feature-flag','update-flag-settings','update-feature-flag','toggle-flag','delete-flag'];",
+    "const forbidden = ['create-flag','update-flag','toggle-flag','delete-flag'];",
     "const called = forbidden.filter(f => tools.includes(f));",
     "const pass = called.length === 0;",
     "return { pass, score: pass ? 1 : 0, reason: pass ? 'stayed advisory' : 'called mutating tools: ' + called.join(', ') };",

@@ -1,0 +1,47 @@
+{
+  "get-environment": {
+    "key": "{{environmentKey}}",
+    "name": "{{environmentKey}}",
+    "color": "417505"
+  },
+  "get-metrics": {
+    "metrics": [
+      {
+        "key": "checkout-completed",
+        "name": "Checkout completed",
+        "kind": "custom",
+        "measureType": "occurrence",
+        "successCriteria": "HigherThanBaseline"
+      },
+      {
+        "key": "page-load-ms",
+        "name": "Page load time",
+        "kind": "custom",
+        "measureType": "value",
+        "unit": "ms",
+        "successCriteria": "LowerThanBaseline"
+      }
+    ],
+    "totalCount": 2
+  },
+  "get-flags": {
+    "flags": [
+      {
+        "key": "checkout-single-step",
+        "name": "Checkout single step",
+        "kind": "boolean",
+        "on": false
+      }
+    ],
+    "totalCount": 1
+  },
+  "get-projects": {
+    "items": [
+      {
+        "key": "default",
+        "name": "Default"
+      }
+    ],
+    "totalCount": 1
+  }
+}
