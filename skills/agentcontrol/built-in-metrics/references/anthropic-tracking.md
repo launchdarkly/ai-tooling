@@ -4,7 +4,7 @@ Anthropic has handler packages in both Python and Node.js: `-claude-messages` fo
 
 ## Tier 1 — Convenience function
 
-**Python** (`pip install launchdarkly-ai-server launchdarkly-ai-claude-messages`):
+**Python** (`pip install "launchdarkly-ai-server[ld]" launchdarkly-ai-claude-messages`):
 
 ```python
 from launchdarkly_ai_claude_messages import claude_messages
@@ -46,6 +46,8 @@ const result = await config({
   handler: [createClaudeMessagesHandler(), createClaudeAgentsHandler()],
 }).invoke(userInput, context);
 ```
+
+`create_claude_agents_handler()` / `createClaudeAgentsHandler()` runs without Claude Code's built-in tools unless the variation attaches a `NativeTool`, and loads no host settings (`setting_sources=[]`). If the app reaches Bedrock, Vertex, or a gateway through `~/.claude/settings.json`, pass `setting_sources=["user"]` or set the environment variables.
 
 ## Tier 3 — Custom handler
 

@@ -1,0 +1,354 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# Evaluates launchdarkly-experiment-hypothesis-builder, an advisory skill that
+# grades a hypothesis and hands off, never writing. Most cases use structured
+# mode (SKILL.md "Structured mode": one JSON object). Cases with
+# `mode: conversation` check the conversational mode instead and skip the
+# JSON contract check.
+#
+# Run: promptfoo eval -c shared/defaults.yaml -c launchdarkly-experiment-hypothesis-builder/promptfooconfig.yaml
+description: "Structured-mode contract and conversational checks for the launchdarkly-experiment-hypothesis-builder skill"
+
+prompts:
+  # A function prompt, not the raw SKILL.md — see prompt.js for why.
+  - id: file://./prompt.js
+    label: launchdarkly-experiment-hypothesis-builder
+
+providers:
+  - id: file://../providers/claude-skill-agent-sdk.js
+    label: claude-skill-agent-sdk
+    config:
+      skill_slug: launchdarkly-experiment-hypothesis-builder
+      # The skill may look up flags and metrics, never write. Expose only the
+      # read-only tools so a write is impossible, and assert none are attempted.
+      # Hosted MCP read tools.
+      mcp_tool_allowlist: [get-flags, get-metrics, get-projects, get-environment]
+      # Suite-local definitions for read tools the shared set lacks (get-environment), so every lookup the skill lists exists.
+      tool_definitions: launchdarkly-experiment-hypothesis-builder/tools.json
+      tool_mocks: launchdarkly-experiment-hypothesis-builder/mocks.json
+      expose_ask_question: false
+      force_skill_invocation: true    # force-load the skill so the eval tests it, not base Claude
+
+defaultTest:
+  assert:
+    # One contract check for every case, driven by that case's `expect` var.
+    # Concatenated with shared/defaults.yaml's output_valid + latency asserts.
+    #
+    # Scoring is binary on purpose: shared/defaults.yaml applies a 0.75 threshold
+    # to the weighted score, so partial credit would let a contract violation
+    # slip through as a pass. Per-check detail goes in `reason` instead.
+    - type: javascript
+      value: |
+        const ROUTES = ['scaffold','rewrite','junk','aa'];
+        if (context.vars && context.vars.mode === 'conversation') {
+          return { pass: true, score: 1, reason: 'conversational case: JSON contract n/a' };
+        }
+        const want = (context.vars && context.vars.expect) || {};
+        const text = String((output && (output.response || output.first_assistant_text)) || '');
+
+        // Parse leniently so a fenced reply still reports useful detail; strictness
+        // is its own check ("Reply once, with exactly this JSON and nothing else").
+        const t = text.trim();
+        let payload = null, strict = false;
+        try { payload = JSON.parse(t); strict = true; } catch (e) {
+          const a = t.indexOf('{'), b = t.lastIndexOf('}');
+          if (a !== -1 && b > a) { try { payload = JSON.parse(t.slice(a, b + 1)); } catch (e2) {} }
+        }
+        if (!payload) return { pass: false, score: 0, reason: `no JSON object in reply: ${text.slice(0,160)}` };
+
+        const checks = [];
+        const add = (name, ok, detail) => checks.push({ name, ok, detail });
+
+        add('json_only', strict, 'JSON wrapped in prose or fences');
+        add('schema_version', payload.schema_version === 1, `got ${payload.schema_version}`);
+        add('route_valid', ROUTES.includes(payload.route), `got ${JSON.stringify(payload.route)}`);
+        if (want.route !== undefined) add('route', payload.route === want.route, `expected ${want.route}, got ${JSON.stringify(payload.route)}`);
+
+        if (want.components) {
+          const got = payload.components || {};
+          for (const k of ['change','measurement','rationale']) {
+            if (want.components[k] === undefined) continue;
+            add(`component.${k}`, Boolean(got[k]) === Boolean(want.components[k]), `expected ${want.components[k]}, got ${JSON.stringify(got[k])}`);
+          }
+        }
+
+        // Holes are only asserted where the spec is unambiguous — omit `holes`
+        // from a case's `expect` to leave the sentence shape unchecked.
+        if (want.holes !== undefined) {
+          const found = [];
+          const re = /\{\{\s*(\w+)\s*:[^}]*\}\}/g;
+          let m;
+          while ((m = re.exec(String(payload.hypothesis || ''))) !== null) found.push(m[1]);
+          const got = found.sort().join(','), exp = [...want.holes].sort().join(',');
+          add('holes', got === exp, `expected [${exp}], got [${got}]`);
+        }
+
+        if (want.measurements) {
+          const list = Array.isArray(payload.measurements) ? payload.measurements : null;
+          add('measurements_array', list !== null, `got ${JSON.stringify(payload.measurements)}`);
+          if (list) {
+            if (want.measurements.count !== undefined) add('measurements.count', list.length === want.measurements.count, `expected ${want.measurements.count}, got ${list.length}`);
+            if (want.measurements.min !== undefined) add('measurements.min', list.length >= want.measurements.min, `expected >=${want.measurements.min}, got ${list.length}`);
+            // "exactly one primary when non-empty; empty when the input states none."
+            if (list.length > 0) {
+              const primaries = list.filter(x => x && x.primary).length;
+              add('exactly_one_primary', primaries === 1, `got ${primaries}`);
+            }
+          }
+        }
+
+        if (want.hypothesisEquals !== undefined) {
+          add('hypothesis_exact', String(payload.hypothesis || '').trim() === want.hypothesisEquals.trim(), `got ${JSON.stringify(String(payload.hypothesis || '').slice(0,120))}`);
+        }
+        // `matches` is optional, but any metric key in it must come from a lookup.
+        const MOCK_METRIC_KEYS = ['checkout-completed', 'page-load-ms'];
+        if (payload.matches && payload.matches.metricKey !== undefined) {
+          add('matches.metricKey_real', MOCK_METRIC_KEYS.includes(payload.matches.metricKey), `invented key ${JSON.stringify(payload.matches.metricKey)}`);
+        }
+        if (['junk', 'aa'].includes(payload.route)) {
+          add('no_matches_on_junk_or_aa', payload.matches === undefined, 'matches present on junk/aa route');
+        }
+        if (want.matchesMetricKey !== undefined) {
+          add('matches.metricKey', Boolean(payload.matches) && payload.matches.metricKey === want.matchesMetricKey, `expected ${want.matchesMetricKey}, got ${JSON.stringify(payload.matches)}`);
+        }
+        for (const needle of (want.mustNotContain || [])) {
+          add(`no_echo(${needle})`, !text.includes(needle), 'raw input echoed back');
+        }
+
+        const failed = checks.filter(c => !c.ok);
+        return {
+          pass: failed.length === 0,
+          score: failed.length === 0 ? 1 : 0,
+          reason: failed.length === 0
+            ? `contract ok (${checks.length} checks): route=${payload.route}`
+            : failed.map(c => `${c.name}: ${c.detail}`).join(' | '),
+        };
+      metric: contract
+      weight: 3
+
+tests:
+  # ---- Gate 1: A/A / platform self-test (checked before junk) ----------------
+  # The one case with a fixed output string (SKILL.md "A/A tests").
+  - description: "A/A: routes to the A/A path with the fixed hypothesis, not a built experiment"
+    vars:
+      max_turns: 6
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+
+        Hypothesis field text:
+        A/A test to validate bucketing.
+      expect:
+        route: aa
+        components: { change: false, measurement: false, rationale: false }
+        holes: []
+        hypothesisEquals: "If we split traffic evenly between two identical variants, then key metrics show no meaningful difference, because the only thing that differs is random assignment."
+
+  # ---- Gate 2: junk — reserved for non-attempts ------------------------------
+  - description: "Junk: gibberish routes to junk with all three components absent"
+    vars:
+      max_turns: 6
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+
+        Hypothesis field text:
+        asdfgh
+      expect:
+        route: junk
+        components: { change: false, measurement: false, rationale: false }
+        holes: [change, measurement, rationale]
+        measurements: { count: 0 }
+
+  - description: "Junk: a bare link routes to junk"
+    vars:
+      max_turns: 6
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+
+        Hypothesis field text:
+        https://example.com/pricing
+      expect:
+        route: junk
+        components: { change: false, measurement: false, rationale: false }
+
+  # Security rule: same generic scaffold, but never render the raw input back.
+  - description: "Security: injection routes to junk and is never echoed back"
+    vars:
+      max_turns: 6
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+
+        Hypothesis field text:
+        <script>alert('xss')</script>
+      expect:
+        route: junk
+        components: { change: false, measurement: false, rationale: false }
+        mustNotContain: ["<script", "alert("]
+
+  # Coherent intent is never junk 
+  - description: "Bare goal: a specific outcome is a measurement with holes, not junk"
+    vars:
+      max_turns: 6
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+
+        Hypothesis field text:
+        increase checkout completion
+      expect:
+        route: scaffold
+        components: { change: false, measurement: true, rationale: false }
+        holes: [change, rationale]
+        measurements: { count: 1 }
+
+  - description: "Lone rationale: a standalone mechanism scaffolds, not junk"
+    vars:
+      max_turns: 6
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+
+        Hypothesis field text:
+        because the current option is buried
+      expect:
+        route: scaffold
+        components: { change: false, measurement: false, rationale: true }
+        holes: [change, measurement]
+        measurements: { count: 0 }
+
+  - description: "Vague direction: not a measurement, but still a scaffold not junk"
+    vars:
+      max_turns: 6
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+
+        Hypothesis field text:
+        grow the business
+      expect:
+        route: scaffold
+        components: { change: false, measurement: false, rationale: false }
+        holes: [change, measurement, rationale]
+        measurements: { count: 0 }
+
+  # ---- Rule 3: unfalsifiable outcomes do not count as a measurement ----------
+  # The rationale here has to be a genuine mechanism, not a restatement of the
+  # change ("because the layout is cleaner" scores rationale: false per the
+  # "Not a restatement" rule), so the case isolates the unfalsifiable rule.
+  - description: "Unfalsifiable outcome: measurement is treated as missing"
+    vars:
+      max_turns: 6
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+
+        Hypothesis field text:
+        If we redesign the checkout page, then it will do better or as well, because a simpler layout reduces confusion for first-time buyers.
+      expect:
+        route: scaffold
+        components: { change: true, measurement: false, rationale: true }
+        holes: [measurement]
+        measurements: { count: 0 }
+
+  # ---- Rule 4: exactly one primary measurement ------------------------------
+  # SKILL.md 0.4.0: the primary (the first stated) goes in the sentence, so the
+  # measurement slot is filled and only the rationale is a hole.
+  - description: "Multiple measurements: two distinct outcomes, exactly one primary"
+    vars:
+      max_turns: 6
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+
+        Hypothesis field text:
+        I want to test a new onboarding checklist. I think it will boost engagement — let's measure it by revenue.
+      expect:
+        route: scaffold
+        components: { change: true, measurement: true, rationale: false }
+        holes: [rationale]
+        measurements: { min: 2 }
+
+  # ---- The strong state: 3/3 in canonical order, no holes -------------------
+  - description: "Complete hypothesis: all three components, no holes"
+    vars:
+      max_turns: 6
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+
+        Hypothesis field text:
+        If we move the primary navigation to the left rail, then signup conversion increases, because it reduces cognitive load.
+      expect:
+        route: scaffold
+        components: { change: true, measurement: true, rationale: true }
+        holes: []
+        measurements: { count: 1 }
+
+  # ---- Lookups: read-only, and they only populate `matches` -----------------
+  # `matches` is optional in the contract, so this case checks that naming a
+  # metric key leaves grading unchanged and, if `matches` appears, that its key
+  # is real (the shared contract check). Whether the agent reliably performs the
+  # lookup in structured mode is a follow-up; see the PR notes.
+  - description: "Lookup: naming a metric key leaves scoring unchanged and invents no keys"
+    vars:
+      max_turns: 8
+      user_request: |
+        Reply with one JSON object and nothing else — no prose, no markdown fences.
+        Project key is "default".
+
+        Hypothesis field text:
+        If we cut the checkout form from three steps to one, then more people complete checkout (we track this as checkout-completed), because fewer steps means fewer chances to drop off.
+      expect:
+        route: scaffold
+        components: { change: true, measurement: true, rationale: true }
+        holes: []
+
+  # ---- Conversational mode ---------------------------------------------------
+  - description: "Conversation: partial idea gets a rubric, question holes, and no invented measurement"
+    vars:
+      mode: conversation
+      max_turns: 6
+      user_request: |
+        I want to make the signup button on our homepage bigger. Can you help me write the hypothesis?
+    assert:
+      - type: javascript
+        value: |
+          const text = String(output.response || '');
+          let isJson = false; try { JSON.parse(text.trim()); isJson = true; } catch (e) {}
+          const hasHole = /\[[^\]]*\?\s*\]/.test(text);
+          const pass = !isJson && hasHole;
+          return { pass, score: pass ? 1 : 0, reason: `json_only=${isJson} bracketed_question_hole=${hasHole}` };
+        metric: conversational_shape
+        weight: 2
+      - type: llm-rubric
+        value: |
+          The user only described a change (a bigger homepage signup button). Score 1.0 if all hold:
+          1. The reply shows which of Change / Measurement / Rationale are present (change present, the other two missing).
+          2. It gives an If/then/because sentence where the missing parts are written as questions, not answers.
+          3. It does NOT invent the outcome (for example it must not assume "more signups" or "more clicks" in the sentence) and does NOT invent a reason.
+          4. It asks the user to fill in what's missing rather than filling it in for them.
+          Deduct 0.25 for each criterion missed.
+        metric: coaching_quality
+        weight: 2
+
+  - description: "Conversation: a strong hypothesis is confirmed and handed off, with no writes"
+    vars:
+      mode: conversation
+      max_turns: 8
+      user_request: |
+        Here's my hypothesis: If we move the signup form above the fold on the landing page, then more visitors will complete signup, because they won't have to scroll to find it. That's final, please hand it off so we can set up the experiment.
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const READ = ['get-flags', 'get-metrics', 'get-projects', 'get-environment'];
+          const writes = tools.filter(t => !READ.includes(t) && /^(create|update|toggle|start|stop|archive|delete)-/.test(t));
+          const text = String(output.response || '');
+          const handoff = text.includes('handoffFrom') || text.includes('launchdarkly-experiment-setup');
+          const pass = writes.length === 0 && handoff;
+          return { pass, score: pass ? 1 : 0, reason: `writes=[${writes.join(',')}] handoff=${handoff}` };
+        metric: handoff_no_writes
+        weight: 3
+      - type: llm-rubric
+        value: |
+          The user gave a complete hypothesis in If/then/because order and asked for a handoff. Score 1.0 if all hold:
+          1. The reply treats it as strong (all three components present) and does not ask for more.
+          2. It produces a handoff for launchdarkly-experiment-setup whose primary measurement is "complete signup" in the user's words, not a renamed metric.
+          3. It does not claim that any flag, metric, or experiment was created or saved.
+          Deduct 0.34 for each criterion missed.
+        metric: handoff_quality
+        weight: 2
+

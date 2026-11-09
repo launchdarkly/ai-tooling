@@ -7,7 +7,7 @@ There's no Gemini-specific handler package. Configs served from Gemini have the 
 The LangChain handler doesn't build Gemini models by default; without a factory it would send the Gemini model name to OpenAI. Pass a factory that builds `ChatGoogleGenerativeAI` from the served config:
 
 ```bash
-pip install launchdarkly-ai-server launchdarkly-ai-langchain-messages langchain-google-genai
+pip install "launchdarkly-ai-server[ld]" launchdarkly-ai-langchain-messages langchain-google-genai
 ```
 
 ```python

@@ -1,6 +1,6 @@
 # Metrics API
 
-Retrieve config metrics via the LaunchDarkly REST API. The MCP server has no tool for these totals; `get-agentcontrol-config-health` covers only recent success and error counts.
+Retrieve config metrics via the LaunchDarkly REST API. The MCP server has no tool for these totals.
 
 ## Endpoint
 

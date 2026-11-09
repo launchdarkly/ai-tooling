@@ -7,7 +7,7 @@ There's no Bedrock-specific handler package. Configs served from Bedrock have th
 The LangChain handler builds a `ChatBedrockConverse` model for any config whose provider is `Bedrock`. If the variation sets a model region, it's prepended to the model ID as the inference-profile prefix.
 
 ```bash
-pip install launchdarkly-ai-server launchdarkly-ai-langchain-messages langchain-aws
+pip install "launchdarkly-ai-server[ld]" launchdarkly-ai-langchain-messages langchain-aws
 ```
 
 ```python

@@ -2,7 +2,7 @@
 name: built-in-metrics
 description: "Instrument an existing codebase so LaunchDarkly records config metrics (duration, tokens, success/error, tool calls). Walks the ladder (convenience function → config() with a handler package → custom handler → manual track()) and picks the lowest-ceremony option that still captures what the Monitoring tab needs."
 license: Apache-2.0
-compatibility: Requires `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js), a handler package for your provider, and an existing config.
+compatibility: Requires `launchdarkly-ai-server` 1.0.0+ with `launchdarkly-server-sdk` (Python, `pip install "launchdarkly-ai-server[ld]"`) or `@launchdarkly/ai-node` 1.0.0+ (Node.js), a handler package for your provider, and an existing config.
 metadata:
   author: launchdarkly
   version: "2.0.0-experimental"
@@ -50,11 +50,11 @@ Before picking a tier, find the provider call and answer these questions:
 - [ ] **Streaming?** Use `stream()` instead of `invoke()`. Metrics are recorded the same way, but time to first token isn't.
 - [ ] **Language?** Python or Node.js? Handler coverage is the same in both.
 - [ ] **Already using a config?** If not, route to `configs-create` first.
-- [ ] **On a legacy SDK?** If the code imports `ldai` / `@launchdarkly/server-sdk-ai`, or calls `create_tracker()`, `track_metrics_of()`, `trackMetricsOf()`, `completion_config()`, or `create_model()`, it's on the legacy surface. Replace it as part of this work (see [Replacing legacy tracker code](#replacing-legacy-tracker-code)). For call sites with hardcoded models or prompts, hand off to `migrate` instead.
+- [ ] **On a legacy SDK?** If the code imports `ldai` / `@launchdarkly/server-sdk-ai`, or calls `create_tracker()`, `track_metrics_of()`, `trackMetricsOf()`, `completion_config()`, or `create_model()`, it's on the legacy surface. Replace it as part of this work (see [Replacing legacy tracker code](#replacing-legacy-tracker-code)), or use `legacy-sdk-migrate` for a full codebase upgrade. For call sites with hardcoded models or prompts, hand off to `migrate` instead.
 
 ### 2. Look up your handler
 
-Install the core package (`launchdarkly-ai-server` or `@launchdarkly/ai-node`) plus one handler package per provider and mode you serve:
+Install the core package (`"launchdarkly-ai-server[ld]"` or `@launchdarkly/ai-node`) plus one handler package per provider and mode you serve:
 
 | Provider / framework | Python handler package | Node.js handler package | Reference |
 |---|---|---|---|
@@ -75,10 +75,10 @@ Open the reference file and follow the pattern. Stop at the first tier that matc
 
 Guardrails that apply to every tier:
 
-1. **Handle disabled configs.** `invoke()` raises a `RuntimeError` when the served variation is disabled or the config can't be reached. Catch it and fall back to whatever the app does when the feature is off, or call `await inspect_config(key, context)` / `await inspectConfig(key, context)` first, which returns the `enabled` state without raising.
+1. **Handle disabled configs.** `invoke()` raises a `RuntimeError` when the served variation is disabled or the config can't be reached. If you fall back on `RuntimeError`, first check `(await inspect_config(key, context))["enabled"]` (or `(await inspectConfig(key, context)).enabled` in Node.js) and re-raise when it's `True` — the config was served, so the error came from the run.
 2. **Don't add tracking on top.** The SDK already records duration, tokens, success, and errors. A manual `track("$ld:ai:tokens:total", ...)` next to `invoke()` double counts.
 3. **Let errors propagate.** When a handler raises, the SDK records the duration and a generation error, then re-raises to the caller. Don't catch and swallow the exception inside a custom handler, or the call is recorded as a success.
-4. **Match the provider name exactly.** Handlers route on the config's provider name and mode, case-sensitively: `("OpenAI", "messages")`, `("Anthropic", "messages")`, `("Bedrock", "messages")`, `("Gemini", "messages")`. In Python the first argument to `create_handler` must be a tuple.
+4. **Match the provider name exactly.** Handlers route on the config's provider name and mode, case-sensitively: `("OpenAI", "messages")`, `("Anthropic", "messages")`, `("Bedrock", "messages")`, `("Gemini", "messages")`.
 5. **Shut down cleanly.** Call `await shutdown()` before the process exits. It flushes pending events, then closes the client. Trailing events are at risk of being lost otherwise, in short-lived scripts and long-running services alike.
 
 ### 4. Verify
@@ -87,7 +87,7 @@ Confirm the Monitoring tab fills in:
 
 - [ ] Run one real request through the instrumented path.
 - [ ] Open the config in LaunchDarkly → **Monitoring** tab. Duration, token counts, and generation counts should appear within 1–2 minutes.
-- [ ] Or check from the agent: the `get-agentcontrol-config-health` MCP tool reports recent generation successes and errors per environment. It doesn't return token or duration totals; for those, use the [metrics API](references/metrics-api.md).
+- [ ] Or query the [metrics API](references/metrics-api.md) directly for generation, token, and duration totals.
 - [ ] Force an error (bad API key, unreachable endpoint) and confirm the error count increments.
 - [ ] If you see generations but no tokens, the handler isn't returning usage. Custom handlers must return `{"output": ..., "usage": {"input": n, "output": n}}`.
 

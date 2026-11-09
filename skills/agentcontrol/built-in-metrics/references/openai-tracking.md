@@ -6,7 +6,7 @@ OpenAI has first-class handler packages in both Python and Node.js: `-openai-mes
 
 One provider, one mode, no tools. Duration, tokens, and success/error are recorded with no extra code.
 
-**Python** (`pip install launchdarkly-ai-server launchdarkly-ai-openai-messages`):
+**Python** (`pip install "launchdarkly-ai-server[ld]" launchdarkly-ai-openai-messages`):
 
 ```python
 from launchdarkly_ai_openai_messages import openai_messages
@@ -41,11 +41,11 @@ Use this when you need tools, template variables, streaming, background judges, 
 ```python
 from launchdarkly_ai_server import config, shutdown
 from launchdarkly_ai_openai_messages import create_openai_messages_handler
-from launchdarkly_ai_openai_agents import create_openai_agent_handler
+from launchdarkly_ai_openai_agents import create_openai_agents_handler
 
 support = config(
     key="customer-support-chat",
-    handler=[create_openai_messages_handler(), create_openai_agent_handler()],
+    handler=[create_openai_messages_handler(), create_openai_agents_handler()],
     tool_handlers={"lookup-order": lookup_order},
 )
 
@@ -59,12 +59,12 @@ await shutdown()  # before the process exits
 
 ```typescript
 import { config, shutdown } from '@launchdarkly/ai-node';
-import { createOpenAIHandler } from '@launchdarkly/ai-openai-messages';
-import { createOpenAIAgentHandler } from '@launchdarkly/ai-openai-agents';
+import { createOpenAIMessagesHandler } from '@launchdarkly/ai-openai-messages';
+import { createOpenAIAgentsHandler } from '@launchdarkly/ai-openai-agents';
 
 const support = config({
   key: 'customer-support-chat',
-  handler: [createOpenAIHandler(), createOpenAIAgentHandler()],
+  handler: [createOpenAIMessagesHandler(), createOpenAIAgentsHandler()],
   toolHandlers: { 'lookup-order': lookupOrder },
 });
 
@@ -76,7 +76,7 @@ await shutdown();
 
 **Errors.** If the OpenAI call fails, the SDK records the duration and a generation error, then re-raises. Let it propagate to your own error handling; don't add tracking calls.
 
-**Parameters in Python.** `launchdarkly-ai-openai-messages` 0.2.x sends no variation parameters to OpenAI, so `temperature`, `max_output_tokens`, and the rest are ignored. The Node.js handler forwards them, mapping `max_tokens` to `max_output_tokens`. If a Python variation depends on its parameters, use a custom handler (Tier 3) and check the CHANGELOG for changes.
+**Parameters.** Both SDKs forward the variation's parameters to OpenAI and map `max_tokens` to `max_output_tokens`. Keys the Responses API doesn't accept are dropped.
 
 ## Tier 3 — Custom handler (Azure OpenAI, LiteLLM, custom clients)
 

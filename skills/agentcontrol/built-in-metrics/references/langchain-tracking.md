@@ -48,7 +48,7 @@ console.log(result.response);
 
 ## Tier 2 — `config()` with handler packages
 
-**Python** (`pip install launchdarkly-ai-server launchdarkly-ai-langchain-messages launchdarkly-ai-langchain-agents langchain-openai`):
+**Python** (`pip install "launchdarkly-ai-server[ld]" launchdarkly-ai-langchain-messages launchdarkly-ai-langchain-agents langchain-openai`):
 
 ```python
 from launchdarkly_ai_server import config
@@ -66,17 +66,15 @@ result = await config(
 
 ```typescript
 import { config } from '@launchdarkly/ai-node';
-import { createLangChainHandler } from '@launchdarkly/ai-langchain-messages';
+import { createLangChainMessagesHandler } from '@launchdarkly/ai-langchain-messages';
 import { createLangChainAgentsHandler } from '@launchdarkly/ai-langchain-agents';
 
 const result = await config({
   key: 'research-agent',
-  handler: [createLangChainHandler(), createLangChainAgentsHandler()],
+  handler: [createLangChainMessagesHandler(), createLangChainAgentsHandler()],
   toolHandlers: { 'search-docs': searchDocs },
 }).invoke(userInput, context);
 ```
-
-The Node.js completion-mode factory is `createLangChainHandler`, not `createLangChainMessagesHandler`.
 
 ## Existing LangGraph graphs
 

@@ -24,9 +24,9 @@ async for event in config(key="customer-support-chat", handler=create_openai_mes
 
 ```typescript
 import { config } from '@launchdarkly/ai-node';
-import { createOpenAIHandler } from '@launchdarkly/ai-openai-messages';
+import { createOpenAIMessagesHandler } from '@launchdarkly/ai-openai-messages';
 
-for await (const event of config({ key: 'customer-support-chat', handler: createOpenAIHandler() }).stream(
+for await (const event of config({ key: 'customer-support-chat', handler: createOpenAIMessagesHandler() }).stream(
   userInput,
   { kind: 'user', key: 'user-123' },
 )) {
