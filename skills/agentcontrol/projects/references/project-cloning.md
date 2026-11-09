@@ -215,7 +215,7 @@ def clone_for_teams(template_project: str, teams: List[str]):
             new_key,
             "production",
             env_file=f".env.{team}",
-            var_name="LAUNCHDARKLY_SDK_KEY"
+            var_name="LD_SDK_KEY"
         )
         
         created_projects.append(project)

@@ -1,0 +1,26 @@
+{
+  "get-projects#projectKey": {
+    "key": "{{projectKey}}",
+    "name": "{{projectKey}}",
+    "environments": [
+      {
+        "key": "dev",
+        "name": "Development",
+        "clientSideId": "clientside-dev-abcdef12",
+        "mobileKey": "mob-dev-abcdef12-3456-7890-abcd-ef1234567890"
+      },
+      {
+        "key": "staging",
+        "name": "Staging",
+        "clientSideId": "clientside-staging-abcdef12",
+        "mobileKey": "mob-staging-abcdef12-3456-7890-abcd-ef1234567890"
+      },
+      {
+        "key": "production",
+        "name": "Production",
+        "clientSideId": "clientside-prod-abcdef12",
+        "mobileKey": "mob-prod-abcdef12-3456-7890-abcd-ef1234567890"
+      }
+    ]
+  }
+}

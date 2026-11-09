@@ -2,7 +2,7 @@
 name: migrate
 description: "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AgentControl implementation on the current AI SDKs in five stages: audit the code, wrap the call, move the tools, verify metrics, attach evaluators. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini, Strands) to a managed config, or stage a full hardcoded-to-LaunchDarkly migration. If the app already uses a legacy LaunchDarkly AI SDK (`launchdarkly-server-sdk-ai` / `ldai`, `@launchdarkly/server-sdk-ai`), use `legacy-sdk-migrate` instead."
 license: Apache-2.0
-compatibility: Requires the remotely hosted LaunchDarkly MCP server. Code examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js).
+compatibility: Requires the remotely hosted LaunchDarkly MCP server. Code examples use `launchdarkly-ai-server` 1.0.0+ with `launchdarkly-server-sdk` (Python, `pip install "launchdarkly-ai-server[ld]"`) or `@launchdarkly/ai-node` 1.0.0+ (Node.js).
 metadata:
   author: launchdarkly
   version: "0.2.0"
@@ -21,7 +21,7 @@ You're using a skill that will guide you through migrating an application from h
 > **⚠️ Three first-run failure modes to avoid.**
 >
 > 1. **Placeholders with spaces.** The SDK fills `{{name}}` and `{{user.name}}` only. `{{ name }}` with spaces is sent to the model as literal text. Rewrite every placeholder without spaces in Stage 2.
-> 2. **No fallback.** `invoke()` has no fallback argument. It raises `RuntimeError` when the variation is disabled, the config key doesn't exist, or LaunchDarkly is unreachable. Keep the original hardcoded call and run it from an `except RuntimeError` branch, or the app goes down with LaunchDarkly.
+> 2. **No fallback.** `invoke()` has no fallback argument. It raises `RuntimeError` when the variation is disabled, the config key doesn't exist, or LaunchDarkly is unreachable. Keep the original hardcoded call and run it from an `except RuntimeError` branch after checking `if (await inspect_config(key, context))["enabled"]: raise` (so mid-run handler errors still propagate), or the app goes down with LaunchDarkly.
 > 3. **Fallthrough not flipped after `/configs-create`.** A freshly created config's fallthrough points at an auto-generated disabled variation, so every `invoke()` raises until `/configs-targeting` runs. Flip it before Stage 2 verification.
 
 ## How the current SDK changes the migration
@@ -31,7 +31,7 @@ The SDK now owns the provider call. You evaluate a config and invoke it in one s
 | Concern | Current SDK |
 |---|---|
 | Provider call | A handler package (OpenAI, Anthropic, LangChain) or a custom handler that wraps your existing call |
-| Fallback | Your own code, run when `invoke()` raises `RuntimeError` |
+| Fallback | Your own code, run when `invoke()` raises `RuntimeError` and `inspect_config()` reports `enabled=False` |
 | Template variables | Third argument to `invoke()`; `{{name}}` placeholders, no spaces |
 | Tools | `tool_handlers={"tool-key": fn}` on `config()`; the handler runs the tool loop |
 | Metrics | Automatic: duration, tokens, success/error, tool calls |
@@ -70,7 +70,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 
 **MCP tools used directly by this skill:** none — every LaunchDarkly write happens in a focused sibling skill.
 
-**Check the SDK CHANGELOG before applying any pattern.** The SDKs are in beta and may have breaking changes. Before you start, skim the latest CHANGELOG for anything that contradicts the pattern you're about to apply:
+**Check the SDK CHANGELOG before applying any pattern.** Before you start, skim the latest CHANGELOG for anything that contradicts the pattern you're about to apply:
 
 - Python: https://github.com/launchdarkly/python-ai-sdk
 - Node.js: https://github.com/launchdarkly/js-ai-sdk
@@ -90,7 +90,7 @@ If a CHANGELOG entry post-dates this skill and changes an API you're about to us
 
 1. **Inspect before you mutate.** Every stage begins with a read-only audit. Do not touch code until Step 1 is confirmed by the user.
 2. **Move the source of config, not the business logic.** The request handler's logic and return shape stay the same. What changes is where the model, prompt, and parameters come from, and that the provider call runs inside a handler. The call site does change shape: it becomes async and needs a context source such as the user ID. Update every caller, or keep a sync wrapper that calls `asyncio.run()` for scripts.
-3. **The fallback is the current behavior.** Keep the original hardcoded call as a function and run it when `invoke()` raises, so the app is unchanged if LaunchDarkly is unreachable.
+3. **The fallback is the current behavior.** Keep the original hardcoded call as a function and run it when `invoke()` raises and `inspect_config()` reports `enabled=False`, so the app is unchanged if LaunchDarkly is unreachable.
 4. **Stages are ordered.** Wrap before you add tools. Add tools before you verify metrics. Verify metrics before you add evals.
 5. **Hand off to focused skills, manually.** Each stage that needs a LaunchDarkly write tells the user to run a sibling slash-command and waits for them to come back.
 
@@ -108,11 +108,11 @@ Use [phase-1-analysis-checklist.md](references/phase-1-analysis-checklist.md) to
 
 1. **Language and package manager** — Python (pip/poetry/uv) or TypeScript/JavaScript (npm/pnpm/yarn)
 2. **LLM provider and framework** — OpenAI, Anthropic, Bedrock, Gemini, LangChain, LangGraph, CrewAI, Strands
-3. **Existing LaunchDarkly usage** — an `LDClient` / `ldclient` initialization to reuse, and any legacy AI SDK usage to replace
+3. **Existing LaunchDarkly usage** — an `LDClient` / `ldclient` initialization to reuse, and any legacy AI SDK usage (route legacy AI SDK upgrades to `legacy-sdk-migrate`)
 4. **Hardcoded model configs** — model name string literals, temperature / max_tokens / top_p, system prompts, instruction strings
 5. **Template placeholders in prompts** — `.format()` calls, f-strings, JS/TS template literals, `%(var)s`, hand-rolled `str.replace("__VAR__", ...)`, and existing Mustache with spaces (`{{ var }}`). Flag each placeholder name and its runtime-value source; all get rewritten to `{{var}}` in Stage 2.
 6. **Externalized prompt files** — YAML / JSON / TOML / Markdown / `.prompt` / `.j2` files **and** prompt-template registries (`langchain.hub.pull(...)`, LangSmith `client.pull_prompt(...)`). See [phase-1-analysis-checklist.md § 4](references/phase-1-analysis-checklist.md).
-7. **Hardcoded app-scoped knobs** — search-result limits, retry budgets, tool-timeout overrides, feature toggles. These belong in `model.custom` on the variation, not `model.parameters`, which the handlers forward to the provider SDK.
+7. **Hardcoded app-scoped knobs** — search-result limits, retry budgets, tool-timeout overrides, feature toggles. These belong in `model.custom` on the variation, not `model.parameters`, because handlers won't pass `model.parameters` to your code and a custom or older handler would send it to the provider.
 8. **Mode decision** — completion mode (messages array) or agent mode (single instructions string). The variation's mode picks the handler at runtime.
 
 For each hardcoded target, record:
@@ -157,11 +157,9 @@ This is the first stage that writes code. It has eight sub-steps.
 1. **Delete hand-rolled model wrappers the audit flagged.** `load_chat_model(f"{provider}/{name}")` and similar one-argument `init_chat_model(...)` wrappers (shipped with `langchain-ai/react-agent` and its derivatives) drop every variation parameter. Delete the function and its module; the LangChain handler package replaces it. Hand-rolled `resolve_tools` / `TOOL_REGISTRY` helpers get replaced by `tool_handlers` in Stage 3.
 
 2. **Install the AI SDK.** Detect the package manager from Step 1, then install the core package plus one handler package per provider and mode:
-   - Python: `launchdarkly-ai-server` + `launchdarkly-ai-openai-messages`, `-openai-agents`, `-claude-messages`, `-claude-agents`, `-langchain-messages`, or `-langchain-agents`
+   - Python: `"launchdarkly-ai-server[ld]"` (the `[ld]` extra installs `launchdarkly-server-sdk`) + `launchdarkly-ai-openai-messages`, `-openai-agents`, `-claude-messages`, `-claude-agents`, `-langchain-messages`, or `-langchain-agents`
    - Node.js/TypeScript: `@launchdarkly/ai-node` + `@launchdarkly/ai-openai-messages`, `-openai-agents`, `-claude-messages`, `-claude-agents`, `-langchain-messages`, or `-langchain-agents`
    - Bedrock, Gemini, and custom HTTP: no handler package; use the LangChain handler or a custom handler (see `built-in-metrics`)
-
-   Pin exact versions; the SDKs are in beta.
 
 3. **Initialize the client.** The SDK initializes lazily from `LD_SDK_KEY` on the first call, so a plain app needs no init code. Call `init_client()` / `initClient()` at startup only to fail fast or pass options. If the app already has an `LDClient` for feature flags, hand it to the SDK instead of creating a second one:
 
@@ -222,23 +220,26 @@ This is the first stage that writes code. It has eight sub-steps.
 
    **Python — after:**
    ```python
-   from launchdarkly_ai_server import config
+   from launchdarkly_ai_server import config, inspect_config
    from launchdarkly_ai_openai_messages import create_openai_messages_handler
 
    chat = config(key="chat-assistant", handler=create_openai_messages_handler())
 
    async def answer(user_id: str, user_input: str) -> str:
+       context = {"kind": "user", "key": user_id}
        try:
-           result = await chat.invoke(user_input, {"kind": "user", "key": user_id})
+           result = await chat.invoke(user_input, context)
            return result.response
        except RuntimeError:
+           if (await inspect_config("chat-assistant", context))["enabled"]:
+               raise
            logger.warning("chat-assistant unavailable; using hardcoded fallback")
            return answer_hardcoded(user_input)
    ```
 
    The context is a plain dict (`{"kind": "user", "key": ..., "name": ...}`), not an `ldclient` `Context`. Reuse the attributes the app already uses for feature-flag targeting.
 
-   > **⚠️ Python handlers don't forward every model parameter.** In `launchdarkly-ai-openai-messages` 0.2.x, the handler sends no variation parameters to OpenAI, so `temperature`, `max_tokens`, and the rest are ignored. `launchdarkly-ai-claude-messages` forwards only `max_tokens`. The Node.js handlers and the Python LangChain handlers forward them all. If the hardcoded call depends on its parameters, use a custom handler (below) or the LangChain handler in Python until this changes, and confirm the behavior against the CHANGELOG.
+   > **Note on model parameters.** Before 0.5.0, `openai-messages` forwarded no parameters and `claude-messages` forwarded only `max_tokens`. From 0.5.0+ (including 1.0.0), every handler forwards its own fixed list of parameters (mapping `max_tokens` to `max_output_tokens` on OpenAI) and drops other keys.
 
    **If the provider has no handler package, or the call has logic you must keep** (retries, prompt caching, a proxy, Azure OpenAI), wrap the existing call in a custom handler instead. The handler receives the served config as a dict, so the hardcoded literals become reads from it:
 
@@ -267,7 +268,7 @@ This is the first stage that writes code. It has eight sub-steps.
    chat = config(key="chat-assistant", handler=create_handler(("OpenAI", "messages"), call_openai))
    ```
 
-   Custom handlers get the raw prompt, so render placeholders with `parse_template` / `parseTemplate`. The provider name in `create_handler` must match the config's provider exactly (`"OpenAI"`, `"Anthropic"`, `"Bedrock"`, `"Gemini"`), and in Python the first argument must be a tuple.
+   Custom handlers get the raw prompt, so render placeholders with `parse_template` / `parseTemplate`. The provider name in `create_handler` must match the config's provider exactly (`"OpenAI"`, `"Anthropic"`, `"Bedrock"`, `"Gemini"`).
 
    **Agent mode** — for LangGraph, CrewAI, Strands, or any framework that takes an instructions string: use an agent-mode handler package (`-openai-agents`, `-claude-agents`, `-langchain-agents`) or a custom handler registered for `(provider, "agent")` that reads `ld_config["instructions"]`. See [agent-mode-frameworks.md](references/agent-mode-frameworks.md).
 
@@ -292,7 +293,7 @@ Skip this step if the audited app has no function calling / tools. Otherwise:
 
    Record each tool's name, description, and JSON schema. For LangChain `@tool` tools, extract the schema with `tool.args_schema.model_json_schema()`; for plain callables, `StructuredTool.from_function(fn).args_schema.model_json_schema()`. Do not hand-write the schema.
 
-2. **Hand off to `tools`.** Print the extracted tool names, descriptions, and schemas, then tell the user: *"Run `/tools` with these tools and the variation key, then come back here."* Wait for the user to finish.
+2. **Hand off to `tools`.** Print the extracted tool names, descriptions, and schemas, then tell the user: *"Run `/tools` with these tools and the variation key, then come back here."* The sibling skill creates tool definitions (`create-ai-tool`) and attaches them to the variation (`update-agent-config` with `resource: "variation"`). Wait for the user to finish before proceeding to sub-step 3. Do not auto-invoke.
 
 3. **Pass the implementations as tool handlers.** Map each LaunchDarkly tool key to its function on the `config()` call, and delete the hardcoded tools array. The handler package converts the config's tool schemas for the provider, runs the tool loop (up to 10 model calls), and records a `$ld:ai:tool_call` event per call:
 
@@ -310,7 +311,7 @@ Skip this step if the audited app has no function calling / tools. Otherwise:
    ```typescript
    const chat = config({
      key: 'chat-assistant',
-     handler: createOpenAIHandler(),
+     handler: createOpenAIMessagesHandler(),
      toolHandlers: {
        'search-kb': (args) => searchKb(args.query),
        calculator: (args) => calculate(args.expression),
@@ -322,7 +323,7 @@ Skip this step if the audited app has no function calling / tools. Otherwise:
 
    **For custom `StateGraph` shapes and custom handlers**, the handler receives tracked tool functions in its `tool_handlers` argument. Build **both** the `.bind_tools(...)` list and the `ToolNode(...)` from that argument, so the model and the executor see the same tools — see [agent-mode-frameworks.md § Custom `StateGraph`](references/agent-mode-frameworks.md).
 
-4. **Verify.** Run the app; confirm the tool flows still execute correctly and `$ld:ai:tool_call` events appear for the config.
+4. **Verify.** Run the app; confirm the tool flows still execute correctly, `get-agent-configs` (via the delegate) confirms the tools are attached server-side, and `$ld:ai:tool_call` events appear for the config.
 
 Delegate: **`tools`** (sub-step 2).
 
@@ -373,10 +374,11 @@ Delegate: none required. Point the user at **`built-in-metrics`** for per-provid
 4. **For background judges**, pass `skip_judges=True` and hand each task to a worker. The `online-evals` skill has the full worker, including the Python `Context.from_dict()` conversion `track()` needs:
 
    ```python
-   result = await config(key="chat-assistant", handler=handlers, skip_judges=True).invoke(user_input, context)
-   # The event loop holds only weak references to tasks, so keep them until they finish
+   # At module scope — the event loop holds only weak references to tasks, so keep them until they finish
    _background = set()
 
+   # Inside the request handler:
+   result = await config(key="chat-assistant", handler=handlers, skip_judges=True).invoke(user_input, context)
    for task in result.judge_tasks or []:
        t = asyncio.create_task(run_judge_worker(task))
        _background.add(t)
@@ -411,7 +413,7 @@ Delegate: **`online-evals`** (sub-step 3, optional — offline eval doesn't dele
 
 ### Fallback and config lifetime (most common failure mode)
 
-- **Don't call `invoke()` without a fallback.** It raises `RuntimeError` for a disabled variation, a missing config key, a missing SDK key, or an unreachable LaunchDarkly. Catch `RuntimeError` specifically; provider errors are different exception types and should keep propagating.
+- **Don't call `invoke()` without a fallback.** It raises `RuntimeError` for a disabled variation, a missing config key, a missing SDK key, or an unreachable LaunchDarkly. Because handler packages also raise `RuntimeError` when a run fails after starting (for example hitting the tool-loop step limit), check `if (await inspect_config(key, context))["enabled"]: raise` in the `except RuntimeError` block before running the fallback.
 - **Don't delete the original hardcoded call.** It's the fallback. Rename it, don't remove it.
 - **Don't build a `config()` instance per request.** Build it once at module scope; `invoke()` evaluates targeting fresh on every call.
 - **Don't call `invoke()` more than once per user turn** for the same logical request. Each call is a flag evaluation and a recorded generation. For an agent, one turn is one `invoke()` call; the handler runs the loop.
@@ -426,13 +428,14 @@ Delegate: **`online-evals`** (sub-step 3, optional — offline eval doesn't dele
 
 - **If the repo contains a `load_chat_model(f"{provider}/{name}")` helper, delete it — don't just avoid using it.** It drops every variation parameter. The LangChain handler packages build the model with the served parameters.
 - **Same rule for hand-rolled `resolve_tools` / `TOOL_REGISTRY` / `ALL_TOOLS` helpers.** Replace them with `tool_handlers`.
-- **Don't put app-scoped knobs in `model.parameters`.** The handlers forward every parameter to the provider SDK, so `max_search_results` crashes the provider call. Use `model.custom`.
+- **Don't put app-scoped knobs in `model.parameters`.** Handlers won't pass `model.parameters` to your code, and a custom or older handler would send it to the provider. Use `model.custom`.
 - **Don't re-encode tool schemas in the fallback.** The fallback is the original call, with whatever tools it had.
 
 ### Stage / handoff discipline
 
 - Don't skip Step 1 even when the user says "just wrap it."
 - Don't delegate to `configs-create` before extracting the prompt and model.
+- Don't try to attach tools while creating the config with `create-agent-config`. Tool attachment is a separate step owned by `tools`.
 - Don't claim you "delegated to `configs-create`" or any other sibling skill. Print the inputs, tell the user to run the slash-command, then wait.
 - Don't skip `/configs-targeting` after `/configs-create`. A freshly created config serves a disabled variation, so `invoke()` raises and every request takes the fallback.
 - Don't attempt a multi-agent graph migration in one pass.

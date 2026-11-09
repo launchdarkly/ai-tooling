@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires an MCP-capable coding agent and `npx` on PATH for optional skill installs. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.
 metadata:
   author: launchdarkly
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # LaunchDarkly Onboarding
@@ -176,7 +176,7 @@ If they choose **Set it up**: follow [mcp-configure](mcp-configure/SKILL.md). Wh
 npx skills add launchdarkly/ai-tooling --skill mcp-configure -y --agent <detected-agent>
 ```
 
-If that fails, check `~/.agents/skills/` and `~/.cursor/skills/` for a cached copy, or configure the server inline using [MCP Config Templates](mcp-configure/references/mcp-config-templates.md). After it succeeds, call `get-project` once (`projectKey: "default"`) and store `projectKey` and `envKey` (`test`).
+If that fails, check `~/.agents/skills/` and `~/.cursor/skills/` for a cached copy, or configure the server inline using [MCP Config Templates](mcp-configure/references/mcp-config-templates.md). After it succeeds, call `get-projects` once (`projectKey: "default"`) and store `projectKey` and `envKey` (`test`).
 
 ---
 
@@ -200,6 +200,16 @@ When the app was scaffolded by the agent in Step 1, skip the nested skill and us
 
 Rules: the SDK key lives in an environment variable, never hardcoded. One client instance, shared. Wait for initialization before evaluating flags.
 
+### Observability plugin
+
+This applies whenever the user mentions observability, session replay, error monitoring, logs, or tracing, at any point: in the first message, mid-flow, or as a follow-up after onboarding is done ("Can you also add the observability plugin?"). Follow [Observability plugin](references/sdk/observability-plugin.md) for the package and wiring per stack. The essentials:
+
+- Add the plugin to the `plugins` option of the LaunchDarkly client's existing init, reusing its key. No second client, no second credential, no key prompt.
+- If the client is already initialized, add the plugin to that init without redoing the SDK install or asking for a key. Mid-onboarding, then continue to the first flag as usual. As a follow-up after onboarding finished, confirm in one line and stop: no restarted onboarding, no new first flag.
+- Session replay with no privacy level named: use the strictest setting (`privacySetting: 'strict'` in the browser).
+- If the installed SDK is too old to accept `plugins` and the fix is a major-version upgrade or a different package, ask before changing it, naming the version problem in one line.
+- If the stack has no observability plugin, say so in one line and continue with feature flags. Do not substitute OpenTelemetry or another package.
+
 ### SDK key
 
 The SDK needs a key. Default to fetching it for the user when MCP is connected; otherwise give them the direct link and let them paste it. Ask only if you cannot determine the path:
@@ -219,7 +229,7 @@ The SDK needs a key. Default to fetching it for the user when MCP is connected; 
 }
 ```
 
-- Account, MCP connected: fetch the key via `get-environments`, write it to `.env`, and ensure `.env` is gitignored. Never print key values.
+- Account, MCP connected: fetch the key via `get-sdk-key` (server-side) or `get-environment` (client-side ID, mobile key), write it to `.env`, and ensure `.env` is gitignored. Never print key values.
 - Account, no MCP: give the direct link and have them paste it. `https://app.launchdarkly.com/projects/{projectKey}/settings/environments/{envKey}/keys`
 - No account: share the resolved signup link. Write placeholder env vars so the code compiles, and continue.
 
@@ -233,7 +243,7 @@ Do not proceed until initialization is verified.
 
 Create the flag, wire it into the app, and let the user watch it turn on.
 
-- **Create the flag.** If MCP is connected, call `create-flag` (on a duplicate-key conflict, call `get-flag` and adopt the existing flag; do not `list-flags` first). If MCP is not connected, give them a dashboard link that opens the create form with the key prefilled and have them create it: `https://app.launchdarkly.com/projects/{projectKey}/flags/new?key={flagKey}`
+- **Create the flag.** If MCP is connected, call `create-flag` (on a duplicate-key conflict, call `get-flags` with that `flagKey` and adopt the existing flag; do not look it up first). If MCP is not connected, give them a dashboard link that opens the create form with the key prefilled and have them create it: `https://app.launchdarkly.com/projects/{projectKey}/flags/new?key={flagKey}`
 - **Add a flag-gated banner.** Insert a small, clean banner at the top of the app's main page, gated on the flag. Off state: a neutral banner reading "LaunchDarkly test banner (flag is off)" with a link to view the flag in LaunchDarkly. On state: the banner switches to a clearly different look (for example a green background) reading "LaunchDarkly test banner (flag is on)". Style it so it looks intentional, not like debug output. Add to the existing app, do not rewrite it. For an app with no rendered page, add one equivalent visible output (an endpoint or a startup line) that changes with the flag.
 - **Start the dev server on a free port** (check `lsof -ti :3000,4000,5173` first). **Keep it running until the user has seen the flag turn on. Do not stop the server before then.**
 - **Hand off the reveal to the user.** Give them the local URL and one choice for turning it on:
@@ -254,7 +264,7 @@ Create the flag, wire it into the app, and let the user watch it turn on.
 ```
 
 - If **I'll flip it in LaunchDarkly**: give them the direct link to the flag and wait. `https://app.launchdarkly.com/projects/{projectKey}/flags/{flagKey}/targeting?env={envKey}`
-- If **Flip it for me**: turn it on via `toggle-flag` (MCP) or the REST API, whichever is configured. If neither is, fall back to the dashboard link.
+- If **Flip it for me**: turn it on via `toggle-flag` (MCP, with `on: true` and `confirm: true`) or the REST API, whichever is configured. If neither is, fall back to the dashboard link.
 - Only offer **Flip it for me** when MCP or an API token is actually configured. Otherwise show just the LaunchDarkly option.
 
 Do not print the page or the banner text in chat. Point the user to their browser: the banner at `<url>` flips live with the server still running. That is the flag working.
@@ -264,7 +274,7 @@ Do not print the page or the banner text in chat. Point the user to their browse
 Keep it to a few lines:
 - The flag is live. See it in LaunchDarkly: `https://app.launchdarkly.com/projects/{projectKey}/flags/{flagKey}/targeting?env={envKey}`
 - Nothing is committed. Your changes are on the `launchdarkly-onboarding` branch, so you can review, keep, or drop them however you like.
-- One choice for what's next:
+- One choice for what's next. Drop the observability option if the plugin was added during setup.
 
 ```json
 {
@@ -309,9 +319,9 @@ Never silently dump code with no tradeoff, and never rigidly refuse. If they ins
 
 ## Edge Cases
 
-- **SDK already installed:** Skip Step 3. Say so in one line that names what you found and where, then go to Step 4. Do not re-explain the SDK or run install commands.
-- **MCP already configured:** Use it. Skip the Step 2 offer. Call `get-project` to store keys and continue.
-- **Deprecated mcp/aiconfigs or mcp/fm found:** Both are deprecated. Ask before migrating to the unified `mcp/launchdarkly` server. Do not auto-migrate.
+- **SDK already installed:** Skip Step 3. Say so in one line that names what you found and where, then go to Step 4. Do not re-explain the SDK or run install commands. If the user asked for observability, still add the plugin to the existing client first ([Observability plugin](references/sdk/observability-plugin.md)).
+- **MCP already configured:** Use it. Skip the Step 2 offer. Call `get-projects` to store keys and continue.
+- **Deprecated mcp/aiconfigs or mcp/fm found:** Both are deprecated. Ask before migrating to the unified `https://mcp.launchdarkly.com/mcp` server. Do not auto-migrate.
 - **No supported agent detected:** Ask directly. Provide manual config if needed.
 - **npx not available:** Provide manual skill installation (clone repo, copy skill directories).
 - **User only wants partial setup:** Respect it. State what is missing and what that limits.
@@ -322,3 +332,4 @@ Never silently dump code with no tradeoff, and never rigidly refuse. If they ins
 - [mcp-configure](mcp-configure/SKILL.md) and [MCP Config Templates](mcp-configure/references/mcp-config-templates.md) — Step 2
 - [sdk-install](sdk-install/SKILL.md) — Step 3 (detect, plan, apply)
 - [SDK recipes](references/sdk/recipes.md) and [SDK snippets](references/sdk/snippets/) — per-SDK install and init detail
+- [Observability plugin](references/sdk/observability-plugin.md) — Step 3, when the user asks for observability or session replay

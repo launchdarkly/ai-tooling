@@ -33,7 +33,7 @@ def answer(user_question: str) -> str:
 ```python
 import logging
 from openai import AsyncOpenAI, OpenAI
-from launchdarkly_ai_server import config, create_handler, parse_template
+from launchdarkly_ai_server import config, create_handler, inspect_config, parse_template
 
 logger = logging.getLogger(__name__)
 openai_client = OpenAI()
@@ -69,10 +69,13 @@ async def call_openai(ld_config, user_input, tool_handlers, variables, history):
 chat = config(key="chat-assistant", handler=create_handler(("OpenAI", "messages"), call_openai))
 
 async def answer(user_id: str, user_question: str) -> str:
+    context = {"kind": "user", "key": user_id}
     try:
-        result = await chat.invoke(user_question, {"kind": "user", "key": user_id})
+        result = await chat.invoke(user_question, context)
         return result.response
     except RuntimeError:
+        if (await inspect_config("chat-assistant", context))["enabled"]:
+            raise
         logger.warning("chat-assistant unavailable; using hardcoded fallback")
         return answer_hardcoded(user_question)
 ```
@@ -82,10 +85,10 @@ async def answer(user_id: str, user_question: str) -> str:
 - Model, parameters, and prompt come from the served config (`ld_config["model"]`, `ld_config["messages"]`) instead of literals
 - The provider call moved into a handler, and `**params` forwards every variation parameter except `tools`, which a custom handler has to convert itself if the variation has tools
 - `config()` is built once at module scope; `invoke()` evaluates targeting per request with a plain-dict context
-- The original function is renamed to `answer_hardcoded` and runs when `invoke()` raises
+- The original function is renamed to `answer_hardcoded` and runs when `invoke()` raises and `inspect_config()` confirms the config is not enabled
 - Duration, tokens, and success/error are recorded from the handler's return value
 
-If you don't need to keep the Chat Completions call, `create_openai_messages_handler()` replaces `call_openai` entirely. In Python 0.2.x it doesn't forward variation parameters; see the caveat in SKILL.md Stage 2.
+If you don't need to keep the Chat Completions call, `create_openai_messages_handler()` replaces `call_openai` entirely.
 
 ---
 
@@ -116,7 +119,7 @@ export async function answer(userQuestion: string): Promise<string> {
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { config } from '@launchdarkly/ai-node';
+import { config, inspectConfig } from '@launchdarkly/ai-node';
 import { createClaudeMessagesHandler } from '@launchdarkly/ai-claude-messages';
 
 const anthropic = new Anthropic();
@@ -136,11 +139,12 @@ async function answerHardcoded(userQuestion: string): Promise<string> {
 const chat = config({ key: 'chat-assistant', handler: createClaudeMessagesHandler() });
 
 export async function answer(userId: string, userQuestion: string): Promise<string> {
+  const context = { kind: 'user', key: userId };
   try {
-    const result = await chat.invoke(userQuestion, { kind: 'user', key: userId });
+    const result = await chat.invoke(userQuestion, context);
     return result.response;
   } catch (err) {
-    if (err instanceof Anthropic.APIError) throw err;
+    if ((await inspectConfig('chat-assistant', context)).enabled) throw err;
     console.warn('chat-assistant unavailable; using hardcoded fallback', err);
     return answerHardcoded(userQuestion);
   }
@@ -152,7 +156,7 @@ export async function answer(userId: string, userQuestion: string): Promise<stri
 - Hardcoded model, system prompt, and `max_tokens` are gone from the request path
 - No `convertToAnthropicFormat` helper: the handler hoists system messages into Anthropic's `system` parameter
 - The SDK reads `LD_SDK_KEY` and `ANTHROPIC_API_KEY` from the environment and initializes lazily
-- Anthropic API errors propagate; anything else from `invoke()` means the config is unavailable, so the fallback runs
+- When `inspectConfig` reports the config is enabled, errors from the run propagate; otherwise the fallback runs
 
 ---
 
@@ -189,7 +193,7 @@ def run_support(user_question: str) -> str:
 import logging
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
-from launchdarkly_ai_server import config
+from launchdarkly_ai_server import config, inspect_config
 from launchdarkly_ai_langchain_agents import create_langchain_agents_handler
 from my_tools import search_kb, calculator
 
@@ -215,10 +219,13 @@ support = config(
 )
 
 async def run_support(user_id: str, user_question: str) -> str:
+    context = {"kind": "user", "key": user_id}
     try:
-        result = await support.invoke(user_question, {"kind": "user", "key": user_id})
+        result = await support.invoke(user_question, context)
         return result.response
     except RuntimeError:
+        if (await inspect_config("support-agent", context))["enabled"]:
+            raise
         logger.warning("support-agent unavailable; using hardcoded fallback")
         out = await fallback_agent.ainvoke({"messages": [{"role": "user", "content": user_question}]})
         return out["messages"][-1].content

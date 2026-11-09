@@ -133,9 +133,9 @@ tests:
   # ------------------------------------------------------------------
   # Test 3: Verify after creation
   # The skill instructs the agent to verify the flag was created
-  # correctly using get-flag after create-flag.
+  # correctly using get-flags after create-flag.
   # ------------------------------------------------------------------
-  - description: "Verification: calls get-flag after create-flag to verify creation"
+  - description: "Verification: calls get-flags after create-flag to verify creation"
     vars:
       user_request: >
         Create a feature flag for our A/B test of the new onboarding flow.
@@ -148,7 +148,7 @@ tests:
         value: |
           const tools = output.tools_called || [];
           const createIdx = tools.indexOf('create-flag');
-          const verifyIdx = tools.lastIndexOf('get-flag');
+          const verifyIdx = tools.lastIndexOf('get-flags');
           const created = createIdx >= 0;
           const verified = verifyIdx > createIdx;
           const score = (created ? 0.6 : 0) + (verified ? 0.4 : 0);
@@ -210,7 +210,7 @@ tests:
           const a = call.arguments || {};
           // React app -> the flag must be client-side available to be read in the browser.
           const csa = a.clientSideAvailability || {};
-          const clientSide = csa.usingEnvironmentId === true || a.clientSide === true;
+          const clientSide = csa.usingEnvironmentId === true;
           return { pass: clientSide, score: clientSide ? 1 : 0.5, reason: `clientSideAvailability=${JSON.stringify(a.clientSideAvailability)}` };
         metric: client_side_available
         weight: 2

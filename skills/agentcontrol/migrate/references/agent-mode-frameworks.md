@@ -83,7 +83,7 @@ Rules for every custom handler:
 
 ## Tool-scoped and app-scoped knobs go in `model.custom`
 
-If the Stage 1 audit found configuration that isn't a model parameter, such as `max_search_results`, `chunk_size`, `retry_budget`, or a feature toggle, put it in the variation's `model.custom`, **not** `model.parameters`. Handler packages forward parameters to the provider SDK, which rejects unknown keys (`AsyncMessages.create() got an unexpected keyword argument 'max_search_results'`).
+If the Stage 1 audit found configuration that isn't a model parameter, such as `max_search_results`, `chunk_size`, `retry_budget`, or a feature toggle, put it in the variation's `model.custom`, **not** `model.parameters`. Handlers won't pass `model.parameters` to your code, and a custom or older handler would send it to the provider.
 
 A custom agent handler reads knobs from `ld_config["model"]["custom"]` once per turn and passes them to the tools that need them. Wrap the recorded tool from `tool_handlers` rather than replacing it, so tool-call metrics still flow:
 
@@ -103,15 +103,14 @@ agent = config(key="support-agent", handler=handlers, tool_handlers={"search": s
 
 Code outside a handler can read knobs with `(await inspect_config(key, context))["config"]["model"]["custom"]`, at the cost of a second evaluation per turn. Keep the current values as code defaults so the fallback behaves the same.
 
-Set the knobs with the `update-agentcontrol-config-variation` MCP tool. `custom` replaces the whole object, so send every knob, not only the one you're changing:
+**MCP caveat.** The `update-agent-config` MCP tool (`resource: "variation"`) does not currently expose the top-level `custom` field on a variation. To populate `model.custom` on an existing variation, PATCH it through the REST API directly (ask the user for an API access token; do not read it from env vars or config files):
 
-```json
-{
-  "projectKey": "{projectKey}",
-  "configKey": "{configKey}",
-  "variationKey": "{variationKey}",
-  "custom": {"max_search_results": 10}
-}
+```bash
+curl -X PATCH \
+  "https://app.launchdarkly.com/api/v2/projects/$PROJECT/ai-configs/$CONFIG_KEY/variations/$VARIATION_ID" \
+  -H "Authorization: {api_token}" \
+  -H "Content-Type: application/json" \
+  -d '{"patch":[{"op":"add","path":"/model/custom","value":{"max_search_results":10}}]}'
 ```
 
 ## Framework by framework
@@ -144,7 +143,7 @@ const agent = config({
 const result = await agent.invoke(userInput, context);
 ```
 
-- The handler registers for any provider. It maps `Anthropic` to `ChatAnthropic`, `Bedrock` to `ChatBedrockConverse`, and everything else to `ChatOpenAI`. For Gemini or a specially configured client, pass a model or a factory: `create_langchain_agents_handler(lambda cfg: ChatGoogleGenerativeAI(model=cfg["model"]["name"]))`.
+- The handler registers for any provider. It maps `Anthropic` to `ChatAnthropic`, `Bedrock` to `ChatBedrockConverse`, and everything else to `ChatOpenAI`. For Gemini or a specially configured client, pass a model or a factory: `create_langchain_agents_handler(lambda cfg: ChatGoogleGenerativeAI(model=cfg["model"]["name"], **{k: v for k, v in cfg["model"].get("parameters", {}).items() if k != "tools"}))`.
 - Delete hand-rolled `init_chat_model(...)` / `load_chat_model(...)` wrappers; they drop variation parameters, and the handler replaces them.
 - The handler runs the agent per call, so chat memory comes from the `history` argument rather than a `MemorySaver` checkpointer. If the app depends on a checkpointer, use a custom `StateGraph` handler instead.
 

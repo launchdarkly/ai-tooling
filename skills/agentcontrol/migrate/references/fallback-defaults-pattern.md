@@ -6,7 +6,7 @@ The current AI SDKs have no fallback argument. `config().invoke()` raises `Runti
 - the config key doesn't exist in the environment
 - no SDK key is set, or LaunchDarkly is unreachable
 
-The application owns the fallback. Provider errors (`openai.APIError`, `anthropic.APIStatusError`, and so on) are different exception types, so catching `RuntimeError` separates "LaunchDarkly can't serve this config" from "the model call failed."
+The application owns the fallback. Because handler packages also raise `RuntimeError` / `Error` when a run fails after starting (for example, hitting the tool-loop step limit or a Claude agent failure), check `(await inspect_config(key, context))["enabled"]` / `(await inspectConfig(key, context)).enabled` in the error handler and re-raise when `True`. That separates "LaunchDarkly can't serve this config" from "the run failed."
 
 ## Pattern 1: Keep the original call (start here)
 
@@ -16,7 +16,7 @@ The hardcoded function the migration replaces already mirrors current behavior e
 
 ```python
 import logging
-from launchdarkly_ai_server import config
+from launchdarkly_ai_server import config, inspect_config
 from launchdarkly_ai_openai_messages import create_openai_messages_handler
 
 logger = logging.getLogger(__name__)
@@ -36,10 +36,13 @@ def answer_hardcoded(user_input: str) -> str:
     return response.choices[0].message.content
 
 async def answer(user_id: str, user_input: str) -> str:
+    context = {"kind": "user", "key": user_id}
     try:
-        result = await chat.invoke(user_input, {"kind": "user", "key": user_id})
+        result = await chat.invoke(user_input, context)
         return result.response
     except RuntimeError as exc:
+        if (await inspect_config("chat-assistant", context))["enabled"]:
+            raise
         logger.warning("chat-assistant unavailable (%s); using hardcoded fallback", exc)
         return answer_hardcoded(user_input)
 ```
@@ -47,24 +50,25 @@ async def answer(user_id: str, user_input: str) -> str:
 ### Node.js
 
 ```typescript
-import { config } from '@launchdarkly/ai-node';
-import { createOpenAIHandler } from '@launchdarkly/ai-openai-messages';
+import { config, inspectConfig } from '@launchdarkly/ai-node';
+import { createOpenAIMessagesHandler } from '@launchdarkly/ai-openai-messages';
 
-const chat = config({ key: 'chat-assistant', handler: createOpenAIHandler() });
+const chat = config({ key: 'chat-assistant', handler: createOpenAIMessagesHandler() });
 
 export async function answer(userId: string, userInput: string): Promise<string> {
+  const context = { kind: 'user', key: userId };
   try {
-    const result = await chat.invoke(userInput, { kind: 'user', key: userId });
+    const result = await chat.invoke(userInput, context);
     return result.response;
   } catch (err) {
-    if (isProviderError(err)) throw err;
+    if ((await inspectConfig('chat-assistant', context)).enabled) throw err;
     console.warn('chat-assistant unavailable; using hardcoded fallback', err);
     return answerHardcoded(userInput);
   }
 }
 ```
 
-Node.js raises plain `Error`s for an unavailable config, so test for your provider SDK's error classes (for example `err instanceof OpenAI.APIError`) and rethrow those.
+`inspectConfig` never throws, so rethrowing when `enabled` is true ensures provider errors, tool-handler errors, and step-limit failures propagate instead of re-running the request on the fallback path.
 
 ### When to use
 

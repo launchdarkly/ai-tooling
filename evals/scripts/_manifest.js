@@ -79,6 +79,36 @@ const SUITES = [
     skillDir: "skills/onboarding",
     readme: "skills/onboarding/README.md",
   },
+  {
+    suite: "release-autopilot-onboarding",
+    skillKey: "release-autopilot/launchdarkly-release-autopilot-onboarding",
+    skillDir: "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
+    readme: "skills/release-autopilot/launchdarkly-release-autopilot-onboarding/README.md",
+  },
+  {
+    suite: "experiment-guide",
+    skillKey: "experiments/launchdarkly-experiment-guide",
+    skillDir: "skills/experiments/launchdarkly-experiment-guide",
+    readme: "skills/experiments/launchdarkly-experiment-guide/README.md",
+  },
+  {
+    suite: "experiment-setup",
+    skillKey: "experiments/launchdarkly-experiment-setup",
+    skillDir: "skills/experiments/launchdarkly-experiment-setup",
+    readme: "skills/experiments/launchdarkly-experiment-setup/README.md",
+  },
+  {
+    // No readme: the skill folder holds only the SKILL.md that ldcli embeds.
+    suite: "experiment-orchestration",
+    skillKey: "aws-devops-agent/experiment-orchestration",
+    skillDir: "skills/aws-devops-agent/experiment-orchestration",
+  },
+  {
+    suite: "launchdarkly-experiment-hypothesis-builder",
+    skillKey: "experiments/launchdarkly-experiment-hypothesis-builder",
+    skillDir: "skills/experiments/launchdarkly-experiment-hypothesis-builder",
+    readme: "skills/experiments/launchdarkly-experiment-hypothesis-builder/README.md",
+  },
 ];
 
 /**

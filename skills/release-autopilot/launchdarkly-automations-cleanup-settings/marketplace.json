@@ -1,0 +1,19 @@
+{
+  "name": "launchdarkly-automations-cleanup-settings",
+  "description": "Read and change a LaunchDarkly project's Automations auto-cleanup settings via MCP, or explain why cleanup did not open a pull request",
+  "version": "0.1.0-experimental",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "automations",
+    "auto-cleanup",
+    "flag-cleanup",
+    "github",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}

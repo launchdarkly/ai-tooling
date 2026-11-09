@@ -105,7 +105,7 @@ Configuration that governs *tool* or *app* behavior rather than *model* behavior
 - Environment variables read inside tool implementations
 - Constants declared in `tools.py` or a config module that a tool reads at call time
 
-If a value changes agent behavior between variations, it belongs in the config's `model.custom`, **not** `model.parameters`. Handler packages forward parameters to the provider SDK, which rejects unknown keys. A custom handler reads knobs from `ld_config["model"].get("custom", {})`; code outside a handler reads them from `(await inspect_config(key, context))["config"]["model"]["custom"]`. Keep the current values as defaults in code so the fallback path behaves the same.
+If a value changes agent behavior between variations, it belongs in the config's `model.custom`, **not** `model.parameters`. Handlers won't pass `model.parameters` to your code, and a custom or older handler would send it to the provider. A custom handler reads knobs from `ld_config["model"].get("custom", {})`; code outside a handler reads them from `(await inspect_config(key, context))["config"]["model"]["custom"]`. Keep the current values as defaults in code so the fallback path behaves the same.
 
 ### 7. Existing LaunchDarkly SDK usage
 
@@ -140,7 +140,7 @@ Feeds into Stage 2 (install + wrap). The current AI SDKs exist for Python and No
 
 | Language | Core package | Docs |
 |----------|--------------|------|
-| Python | `launchdarkly-ai-server` (bundles `launchdarkly-server-sdk`) | https://launchdarkly.com/docs/sdk/ai/python |
+| Python | `"launchdarkly-ai-server[ld]"` (the `[ld]` extra installs `launchdarkly-server-sdk`) | https://launchdarkly.com/docs/sdk/ai/python |
 | Node.js / TypeScript | `@launchdarkly/ai-node` (bundles `@launchdarkly/node-server-sdk`) | https://launchdarkly.com/docs/sdk/ai/node-js |
 | Go, Ruby, .NET | Legacy AI SDKs only; out of scope for this skill | https://launchdarkly.com/docs/sdk/ai |
 

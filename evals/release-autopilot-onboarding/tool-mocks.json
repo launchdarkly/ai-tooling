@@ -1,0 +1,92 @@
+{
+  "get-member-self": {
+    "id": "member-1",
+    "email": "admin@acme.example",
+    "role": "admin",
+    "teams": []
+  },
+  "get-automations": {
+    "account": {
+      "autoFlagging": {
+        "enabled": true,
+        "approvalRequired": true
+      },
+      "autoReleasing": {
+        "enabled": true
+      },
+      "version": 9
+    },
+    "repos": [
+      {
+        "repo": "acme/storefront",
+        "githubRepoId": 101,
+        "mapped": true,
+        "visibleOnInstall": true,
+        "isPublic": false,
+        "projectKey": "default",
+        "autoFlagging": {
+          "enabled": true,
+          "approvalRequired": true,
+          "enabledOverride": false
+        },
+        "autoReleasing": {
+          "enabled": true,
+          "enabledOverride": false
+        }
+      },
+      {
+        "repo": "acme/api",
+        "githubRepoId": 102,
+        "mapped": false,
+        "visibleOnInstall": true,
+        "isPublic": false
+      },
+      {
+        "repo": "acme/demo",
+        "githubRepoId": 103,
+        "mapped": false,
+        "visibleOnInstall": true,
+        "isPublic": true
+      },
+      {
+        "githubRepoId": 999,
+        "mapped": true,
+        "visibleOnInstall": false,
+        "projectKey": "default",
+        "autoFlagging": {
+          "enabled": true,
+          "approvalRequired": true,
+          "enabledOverride": false
+        },
+        "autoReleasing": {
+          "enabled": true,
+          "enabledOverride": false
+        }
+      }
+    ],
+    "totalCount": 4,
+    "hasMore": false
+  },
+  "update-automations": {
+    "autoFlagging": {
+      "enabled": true,
+      "approvalRequired": true
+    },
+    "autoReleasing": {
+      "enabled": false
+    },
+    "version": 10
+  },
+  "delete-automations-repo-settings": {
+    "deleted": true
+  },
+  "get-release-plans": {
+    "items": [],
+    "totalCount": 0
+  },
+  "create-release-plan": {
+    "key": "new-plan",
+    "environmentKey": "{{environmentKey}}",
+    "created": true
+  }
+}

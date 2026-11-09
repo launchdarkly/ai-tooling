@@ -11,7 +11,7 @@ Use those; don't reinvent them.
 
 ## Clone and read the change
 
-Credentials are injected by the environment — never ask for, print, or store tokens.
+Use the git access the user already set up for this repository. Never ask for, print, or store tokens, and do not search environment variables, `.env` files, or credential files for them.
 
 ```bash
 git clone https://github.com/<owner>/<repo>.git && cd <repo>
@@ -51,5 +51,5 @@ force-push, or touch the base branch.
 
 Once the flag exists and the wiring is pushed, hand off to
 [`flag-release`](../../flag-release/SKILL.md) to record the automated release so the merge
-triggers the rollout. Then verify the code compiles/lints and `get-flag` shows the flag
+triggers the rollout. Then verify the code compiles/lints and `get-flags` shows the flag
 created and OFF before reporting.
