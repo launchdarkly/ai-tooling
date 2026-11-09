@@ -2,7 +2,7 @@
 name: tools
 description: "Give your agents capabilities through tools (function calling). Helps you identify what your agent needs to do, create tool definitions, and attach them to config variations."
 license: Apache-2.0
-compatibility: Requires the remotely hosted LaunchDarkly MCP server. Application code examples use `launchdarkly-ai-server` 1.0.0+ (Python) or `@launchdarkly/ai-node` 1.0.0+ (Node.js).
+compatibility: Requires the remotely hosted LaunchDarkly MCP server. Application code examples use `launchdarkly-ai-server` 0.4.0+ (Python) or `@launchdarkly/ai-node` 0.4.0+ (Node.js).
 metadata:
   author: launchdarkly
   version: "1.1.0-experimental"
@@ -155,6 +155,7 @@ The tool functions the SDK passes in are already wrapped to record `$ld:ai:tool_
 
 ```python
 from anthropic import AsyncAnthropic
+# tool_result_string needs launchdarkly-ai-server 0.4.0+
 from launchdarkly_ai_server import compose_history, create_handler, parse_template, tool_result_string
 
 anthropic_client = AsyncAnthropic()
