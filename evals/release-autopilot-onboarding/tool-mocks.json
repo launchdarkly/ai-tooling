@@ -80,13 +80,46 @@
   "delete-automations-repo-settings": {
     "deleted": true
   },
-  "get-release-plans": {
+  "get-environment-release-plans": {
     "items": [],
     "totalCount": 0
   },
-  "create-release-plan": {
+  "create-environment-release-plan": {
     "key": "new-plan",
     "environmentKey": "{{environmentKey}}",
     "created": true
+  },
+  "update-default-environment-release-plan": {
+    "changed": true,
+    "previousDefaultKey": null
+  },
+  "get-automations#cleanup": {
+    "projectKey": "{{projectKey}}",
+    "settings": {
+      "schedule": "disabled",
+      "repositories": [],
+      "maxJobsPerRun": 3,
+      "flagStates": [
+        "readyToArchive"
+      ]
+    },
+    "upcoming": {
+      "flagKeys": [
+        "old-banner",
+        "legacy-checkout"
+      ],
+      "nextRunAt": null
+    },
+    "automationsPage": "/projects/{{projectKey}}/settings/automations"
+  },
+  "get-automations#archival": {
+    "projectKey": "{{projectKey}}",
+    "settings": {
+      "enabled": false,
+      "graceSeconds": 604800,
+      "requireApproval": false,
+      "maxArchivalsPerRun": 10
+    },
+    "automationsPage": "/projects/{{projectKey}}/settings/automations"
   }
 }

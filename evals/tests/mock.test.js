@@ -16,7 +16,7 @@ const ORCH_TEMPLATES = require("../experiment-orchestration/mocks.json");
 test("createMockState returns fresh empty state each call", () => {
   const a = createMockState();
   const b = createMockState();
-  assert.deepEqual(a, { configs: {}, flags: {}, targeting: {}, raSettings: null, raRepos: {}, raPlans: {} });
+  assert.deepEqual(a, { configs: {}, flags: {}, targeting: {}, raSettings: null, raRepos: {}, raPlans: {}, raDefaults: {}, raCleanup: {}, raArchival: {} });
   a.configs["x"] = {};
   assert.deepEqual(b.configs, {}); // independent
 });
@@ -865,4 +865,27 @@ test("get-agent-configs section=status is unchanged for a different config", () 
     state,
   );
   assert.equal(other.environments.production.on, true);
+});
+
+test("project cleanup write is read back by the cleanup section", () => {
+  const state = createMockState();
+  renderMockResponse({ ok: true }, { projectKey: "default", cleanup: { schedule: "weekly", repositories: ["acme/demo"], maxJobsPerRun: 3 }, confirm: true }, "update-automations", state);
+  const got = renderMockResponse({ settings: { schedule: "disabled" } }, { section: "cleanup", projectKey: "default" }, "get-automations", state);
+  assert.equal(got.settings.schedule, "weekly");
+  assert.deepEqual(got.settings.repositories, ["acme/demo"]);
+});
+
+test("archival cannot be turned on by update-automations", () => {
+  const state = createMockState();
+  const res = renderMockResponse({ ok: true }, { projectKey: "default", archival: { enabled: true }, confirm: true }, "update-automations", state);
+  assert.deepEqual(res.changed, []);
+  assert.ok(res.automationsPage);
+});
+
+test("default environment release plan is reflected in the plan list", () => {
+  const state = createMockState();
+  renderMockResponse({}, { projectKey: "default", environmentKey: "production", key: "progressive", name: "Progressive", progressiveRelease: { phases: [] } }, "create-environment-release-plan", state);
+  renderMockResponse({}, { projectKey: "default", environmentKey: "production", releasePlanKey: "progressive", default: true, confirm: true }, "update-default-environment-release-plan", state);
+  const got = renderMockResponse({ items: [] }, { projectKey: "default", environmentKey: "production" }, "get-environment-release-plans", state);
+  assert.equal(got.items[0].default, true);
 });

@@ -2,16 +2,20 @@
 // promptfoo javascript assertion, referenced as file://assertions.js:<name>.
 
 const WRITE_TOOLS = new Set([
+  "update-default-environment-release-plan",
   "update-automations",
   "delete-automations-repo-settings",
-  "create-release-plan",
+  "create-environment-release-plan",
   "create-metric",
 ]);
 
 // update-automations covers both scopes: accountWide true is the account
 // write, false is a repo write.
 const isAccountWrite = (t) => t.tool === "update-automations" && (t.arguments || {}).accountWide === true;
-const isRepoUpdate = (t) => t.tool === "update-automations" && (t.arguments || {}).accountWide === false;
+// A repo write names a repo; a project cleanup or archival write does not,
+// even if the agent also sends accountWide false.
+const isRepoUpdate = (t) => t.tool === "update-automations" && (t.arguments || {}).accountWide === false &&
+  Boolean((t.arguments || {}).repo || (t.arguments || {}).githubRepoId) && !(t.arguments || {}).cleanup && !(t.arguments || {}).archival;
 const isRepoWrite = (t) => isRepoUpdate(t) || t.tool === "delete-automations-repo-settings";
 
 const traj = (output) => (output && output.trajectory) || [];
@@ -89,8 +93,8 @@ const noneOf = (tools) => (output) => {
 };
 
 module.exports.releasePlansCalledAtMostOnce = (output) => {
-  const n = traj(output).filter((t) => t.tool === "get-release-plans").length;
-  return result(n <= 1, `get-release-plans called ${n} time(s)`);
+  const n = traj(output).filter((t) => t.tool === "get-environment-release-plans").length;
+  return result(n <= 1, `get-environment-release-plans called ${n} time(s)`);
 };
 
 module.exports.repoTurnsAutoReleasingOff = mapsRepoWithOverrides("acme/demo", "default", ["autoReleasing"]);
@@ -111,7 +115,7 @@ module.exports.noRepoWrite = (output) => {
 
 module.exports.planBeforeRepoWrite = (output) => {
   const steps = traj(output);
-  const plan = steps.findIndex((t) => t.tool === "create-release-plan");
+  const plan = steps.findIndex((t) => t.tool === "create-environment-release-plan");
   const repo = steps.findIndex(isRepoUpdate);
   if (plan === -1) return result(false, "never created a release plan");
   if (repo === -1) return result(false, "never mapped acme/demo");
@@ -121,7 +125,7 @@ module.exports.planBeforeRepoWrite = (output) => {
 };
 
 module.exports.plansHaveClauses = (output) => {
-  const plans = traj(output).filter((t) => t.tool === "create-release-plan");
+  const plans = traj(output).filter((t) => t.tool === "create-environment-release-plan");
   if (!plans.length) return result(false, "no release plan created");
   const okClause = (c) => c && typeof c.attribute === "string" && typeof c.op === "string" && Array.isArray(c.values);
   const okStep = (s) => s && typeof s.allocation === "number" && typeof s.durationMillis === "number";
@@ -137,7 +141,7 @@ module.exports.plansHaveClauses = (output) => {
   }
   return result(true, "every phase has valid clauses and steps");
 };
-module.exports.noReleasePlanCreated = noneOf(["create-release-plan"]);
+module.exports.noReleasePlanCreated = noneOf(["create-environment-release-plan"]);
 module.exports.noAccountWrite = (output) => {
   const hit = traj(output).filter(isAccountWrite);
   return result(hit.length === 0, hit.length ? `wrote account settings: ${JSON.stringify(hit[0].arguments)}` : "no account write");
@@ -149,7 +153,7 @@ const finalText = (output) => String((output && output.response) || "");
 const RAW_NAMES = [
   "update-automations", "get-automations", "delete-automations",
   "githubRepoId", "enabledOverride", "autoReleasing", "autoFlagging", "approvalRequired",
-  "create-release-plan", "get-release-plans", "get-release-policies",
+  "create-environment-release-plan", "get-environment-release-plans", "update-default-environment-release-plan", "get-release-policies",
   "preview mode", "policy mode", "plan mode",
 ];
 
@@ -266,6 +270,7 @@ module.exports.noProductNameAfterIntro = (output) => {
   const turns = ((output && output.assistant_turns) || []).map((x) => (typeof x === "string" ? x : (x && x.text) || ""));
   const texts = [...turns, finalText(output), ...askPrompts(output)]
     .filter((s) => !/Release Autopilot Setup|in a few short steps/i.test(s))
+    .map((s) => s.replace(/```[\s\S]*?```/g, ""))
     .map((s) => s.replace(/continue Release Autopilot setup|Release Autopilot settings skill|release-autopilot-settings|Release Autopilot add-on/gi, ""));
   const hits = texts.filter((s) => /Release Autopilot/.test(s));
   return result(hits.length === 0, hits.length ? `said "Release Autopilot" after the welcome: "${hits[0].slice(Math.max(0, hits[0].indexOf("Release Autopilot") - 40), hits[0].indexOf("Release Autopilot") + 40)}"` : "uses capability names");
@@ -363,7 +368,7 @@ module.exports.neverSendsApproval = (output) => {
 // release plan or policy lookup otherwise.
 module.exports.noReleaseSetup = (output) => {
   const steps = traj(output);
-  const lookups = steps.filter((t) => t.tool === "get-release-plans" || t.tool === "get-release-policies");
+  const lookups = steps.filter((t) => t.tool === "get-environment-release-plans" || t.tool === "get-release-policies");
   const envQ = steps.filter((t) => t.tool === "ask-question" && /environment/i.test(String((t.arguments && t.arguments.prompt) || "")));
   const pass = lookups.length === 0 && envQ.length === 0;
   return result(pass, `release lookups: ${lookups.length}, environment questions: ${envQ.length}`);
@@ -399,10 +404,10 @@ module.exports.pausesBeforeMapping = (output) => {
 const isForbidden = (t) => /403|not allow/i.test(String(t.mock_response_preview || ""));
 const releaseSetupLookups = (projectKey, selectedEnvs) => (output) => {
   const steps = traj(output);
-  const plans = steps.filter((t) => t.tool === "get-release-plans");
+  const plans = steps.filter((t) => t.tool === "get-environment-release-plans");
   if (!plans.length) return result(false, "never checked release plans");
   const bad = plans.find((t) => (t.arguments || {}).projectKey !== projectKey || !selectedEnvs.includes((t.arguments || {}).environmentKey));
-  if (bad) return result(false, `get-release-plans lookup outside ${projectKey} ${JSON.stringify(selectedEnvs)}: ${JSON.stringify(bad.arguments)}`);
+  if (bad) return result(false, `release-plans lookup outside ${projectKey} ${JSON.stringify(selectedEnvs)}: ${JSON.stringify(bad.arguments)}`);
   if (isForbidden(plans[0])) {
     const policies = steps.filter((t) => t.tool === "get-release-policies");
     const ok = policies.filter((t) => (t.arguments || {}).projectKey === projectKey);
@@ -473,4 +478,52 @@ module.exports.previewListsDeferredReleaseSetup = (output) => {
   const mapping = /map/.test(text) && /github/.test(text);
   const release = /environment/.test(text) && /release (polic|plan)/.test(text);
   return result(mapping && release, `lists mapping after GitHub: ${mapping}; lists environments and release policies/plans: ${release}`);
+};
+
+// Auto-cleanup is an MCP write after "Looks good": a cleanup object for the
+// project with a running schedule and acme/demo among the repositories.
+module.exports.cleanupWrittenAfterConfirm = (output) => {
+  const steps = traj(output);
+  const w = steps.findIndex((t) => t.tool === "update-automations" && (t.arguments || {}).cleanup);
+  if (w === -1) return result(false, "never wrote the cleanup settings");
+  const c = steps[w].arguments.cleanup;
+  const approved = approvedConfirmBefore(steps, w);
+  const ok = approved !== -1 && steps[w].arguments.projectKey === "default" && c.schedule && c.schedule !== "disabled" &&
+    Array.isArray(c.repositories) && c.repositories.includes("acme/demo");
+  return result(ok, `cleanup write at ${w} (approved at ${approved}): ${JSON.stringify(steps[w].arguments)}`);
+};
+
+module.exports.previewListsCleanup = (output) => {
+  const text = finalText(output).toLowerCase();
+  const cleanupWrites = traj(output).filter((t) => t.tool === "update-automations" && (t.arguments || {}).cleanup).length;
+  const listed = /cleanup/.test(text);
+  return result(listed && cleanupWrites === 0, `cleanup listed: ${listed}; cleanup writes: ${cleanupWrites}`);
+};
+
+// Starter plan for production: internal users by email domain first, created
+// before the repo write and set as the environment's default.
+module.exports.starterPlanInternalFirst = (output) => {
+  const steps = traj(output);
+  const ci = steps.findIndex((t) => t.tool === "create-environment-release-plan" && (t.arguments || {}).environmentKey === "production");
+  if (ci === -1) return result(false, "no production release plan created");
+  const pr = steps[ci].arguments.progressiveRelease || {};
+  const phases = pr.phases || [];
+  const email = phases.some((ph) => (ph.clauses || []).some((c) => c.attribute === "email" && JSON.stringify(c.values || []).includes("acme.example")));
+  const kindEverywhere = phases.length > 0 && phases.every((ph) => (ph.clauses || []).some((c) => c.attribute === "kind"));
+  const stepsOk = phases.every((ph) => (ph.steps || []).length && ph.steps.every((s) => s.allocation > 0 && s.allocation <= 99000 && s.durationMillis > 0));
+  const key = steps[ci].arguments.key;
+  const di = steps.findIndex((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).releasePlanKey === key && t.arguments.default === true);
+  const ri = steps.findIndex((t) => t.tool === "update-automations" && t.arguments && t.arguments.repo);
+  const pass = email && kindEverywhere && stepsOk && di > ci && (ri === -1 || ci < ri);
+  return result(pass, `email clause: ${email}; kind clause in every phase: ${kindEverywhere}; steps valid: ${stepsOk}; default set after create: ${di > ci}; plan before repo write: ${ri === -1 || ci < ri}`);
+};
+
+// Verification confirms GitHub works, names each configured repo, and offers
+// a test pull request.
+module.exports.verifyReportsSetup = (output) => {
+  const text = finalText(output);
+  const github = /github[^.\n]{0,40}\bconnected\b/i.test(text) && !/not connected/i.test(text);
+  const repo = text.includes("acme/demo");
+  const testPr = /test pull request|test PR/i.test(text);
+  return result(github && repo && testPr, `GitHub connected: ${github}; lists acme/demo: ${repo}; offers a test PR: ${testPr}`);
 };

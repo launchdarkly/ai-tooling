@@ -135,6 +135,9 @@ function createMockState() {
     raSettings: null, // Release Autopilot account settings written this run
     raRepos: {},      // owner/name -> Release Autopilot repo settings written this run
     raPlans: {},      // environmentKey -> release plans created this run
+    raDefaults: {},   // environmentKey -> default release plan key set this run
+    raCleanup: {},    // projectKey -> auto-cleanup settings written this run
+    raArchival: {},   // projectKey -> auto-archival settings written this run
   };
 }
 
@@ -299,6 +302,10 @@ function templateKey(toolName, input) {
       return safe.toolKey ? "get-ai-tools#toolKey" : toolName;
     case "get-projects":
       return safe.projectKey ? "get-projects#projectKey" : toolName;
+    case "get-automations":
+      if (safe.section === "cleanup") return "get-automations#cleanup";
+      if (safe.section === "archival") return "get-automations#archival";
+      return toolName;
     case "get-experiments":
       return safe.experimentKey ? "get-experiments#experimentKey" : toolName;
     case "create-agent-config":
@@ -338,6 +345,22 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
   const args = input || {};
   if (toolName === "update-automations") {
     const { accountWide, repo, githubRepoId, confirm, ...rest } = args;
+    // A project's auto-cleanup or auto-archival (projectKey with a cleanup or
+    // archival object, no repo). Archival cannot be turned on by an agent.
+    if (!repo && githubRepoId === undefined && args.projectKey && (args.cleanup || args.archival)) {
+      const key = args.projectKey;
+      if (args.cleanup) {
+        state.raCleanup[key] = mergeDeep(state.raCleanup[key], args.cleanup);
+        return { projectKey: key, changed: Object.keys(args.cleanup), settings: { ...state.raCleanup[key] } };
+      }
+      const current = state.raArchival[key] || {};
+      if (args.archival.enabled === true && !current.enabled) {
+        return { projectKey: key, changed: [], automationsPage: `/projects/${key}/settings/automations`,
+          note: "Automatic archival is off. Turning it on needs a person on the Automations page." };
+      }
+      state.raArchival[key] = mergeDeep(current, args.archival);
+      return { projectKey: key, changed: Object.keys(args.archival), settings: { ...state.raArchival[key] } };
+    }
     if (accountWide === true) {
       state.raSettings = mergeDeep(state.raSettings, rest);
       return { ...state.raSettings };
@@ -347,6 +370,12 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
       return { ...state.raRepos[repo] };
     }
     return undefined;
+  }
+  if (toolName === "get-automations" && (args.section === "cleanup" || args.section === "archival")) {
+    const base = walk(template, replacements);
+    if (!base || base.error) return base;
+    const written = (args.section === "cleanup" ? state.raCleanup : state.raArchival)[args.projectKey];
+    return written ? { ...base, settings: mergeDeep(base.settings, written) } : base;
   }
   if (toolName === "get-automations") {
     const base = walk(template, replacements);
@@ -364,14 +393,22 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
     if (typeof args.mapped === "boolean") repos = repos.filter((r) => r.mapped === args.mapped);
     return { ...base, account, repos, totalCount: repos.length, hasMore: false };
   }
-  if (toolName === "create-release-plan" && args.environmentKey) {
+  if ((toolName === "create-release-plan" || toolName === "create-environment-release-plan") && args.environmentKey) {
     const plan = { key: args.key, name: args.name, environmentKey: args.environmentKey, progressiveRelease: args.progressiveRelease };
     (state.raPlans[args.environmentKey] = state.raPlans[args.environmentKey] || []).push(plan);
     return plan;
   }
-  if (toolName === "get-release-plans" && state.raPlans[args.environmentKey]) {
-    const items = state.raPlans[args.environmentKey];
+  if ((toolName === "get-release-plans" || toolName === "get-environment-release-plans") && state.raPlans[args.environmentKey]) {
+    const def = state.raDefaults[args.environmentKey];
+    const items = state.raPlans[args.environmentKey].map((p) => ({ ...p, default: p.key === def }));
     return { items, totalCount: items.length };
+  }
+  if (toolName === "update-default-environment-release-plan" && args.environmentKey) {
+    const previous = state.raDefaults[args.environmentKey];
+    if (args.default === true) state.raDefaults[args.environmentKey] = args.releasePlanKey;
+    else if (previous === args.releasePlanKey) delete state.raDefaults[args.environmentKey];
+    return { changed: previous !== state.raDefaults[args.environmentKey], previousDefaultKey: previous || null,
+      plan: { key: args.releasePlanKey, environmentKey: args.environmentKey, default: args.default === true } };
   }
   return undefined;
 }

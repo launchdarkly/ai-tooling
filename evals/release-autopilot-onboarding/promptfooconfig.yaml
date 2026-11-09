@@ -79,6 +79,10 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:verifyReportsSetup
+        metric: verification_report
+        weight: 2
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
         metric: never_sends_approval
         weight: 3
@@ -125,7 +129,7 @@ tests:
 
   # ------------------------------------------------------------------
   # Account already on, both capabilities picked, policy mode with no
-  # release policy. get-release-plans is called once (the 403 is
+  # release policy. get-environment-release-plans is called once (the 403 is
   # account-wide), no plans are created, the repo keeps auto-releasing
   # off, and the account settings are not rewritten.
   # ------------------------------------------------------------------
@@ -135,7 +139,7 @@ tests:
       user_request: "Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        get-release-plans:
+        get-environment-release-plans:
           error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Plan does not allow this operation\"}"
         get-release-policies:
           policies: []
@@ -445,7 +449,7 @@ tests:
     vars:
       user_request: >
         Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default.
-        For production only, create a release plan: randomize by user, 1% then 10% then 50% then 100%
+        For production only, create a release plan: randomize by user, 1% then 10% then 50%
         with 4h holds, automatic advancement, no metrics, and leave rules in place.
       max_turns: 22
       mock_ask_question_match: true
@@ -454,6 +458,7 @@ tests:
         - ["Auto-flagging", "Auto-releasing"]
         - ["LaunchDarkly's"]
         - ["Production"]
+        - ["Custom"]
         - ["Automatic"]
         - ["Leave rules"]
         - ["Looks good"]
@@ -646,7 +651,7 @@ tests:
   # question, autoCleanup is never sent, and the repo write is confirmed.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Auto-cleanup: Automations settings link in the question, never sends autoCleanup"
+    description: "Auto-cleanup: cleanup settings written through the MCP after confirm, never sends account autoCleanup"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
@@ -666,12 +671,14 @@ tests:
       mock_ask_question_answers:
         - ["Auto-flagging", "Auto-cleanup"]
         - ["LaunchDarkly's"]
-        - ["Done"]
+        - ["Weekly"]
+        - ["acme/demo"]
+        - ["3"]
         - ["Looks good"]
     assert:
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:browserStepsAfterConfirm
-        metric: browser_after_confirm
+        value: file://../release-autopilot-onboarding/assertions.js:cleanupWrittenAfterConfirm
+        metric: cleanup_written_after_confirm
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noReleaseSetup
@@ -688,10 +695,6 @@ tests:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noAutoCleanup
         metric: no_auto_cleanup
-        weight: 3
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:cleanupQuestionHasAutomationsLink
-        metric: automations_link_in_question
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
@@ -962,8 +965,8 @@ tests:
         metric: no_writes
         weight: 4
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:previewListsBrowserSteps
-        metric: preview_lists_browser_steps
+        value: file://../release-autopilot-onboarding/assertions.js:previewListsCleanup
+        metric: preview_lists_cleanup
         weight: 4
 
   # ------------------------------------------------------------------
@@ -1078,3 +1081,38 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:previewListsDeferredReleaseSetup
         metric: deferred_release_setup
         weight: 4
+
+  # ------------------------------------------------------------------
+  # Production has no release plans: offer a starter. "Internal users
+  # first" targets the company email domain, then everyone progressively;
+  # it is created before the repo write and set as the default.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Starter plan: internal users first, created and set as production default"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 26
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Internal users first"]
+        - ["acme.example"]
+        - ["user"]
+        - ["Looks right"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:starterPlanInternalFirst
+        metric: starter_plan
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2

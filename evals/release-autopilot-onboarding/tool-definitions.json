@@ -10,7 +10,7 @@
   },
   {
     "name": "get-automations",
-    "description": "Get Release Autopilot settings: the account-wide auto-flagging and auto-releasing (the master gate a repository cannot exceed) and a page of repositories on the account's GitHub App install, each with mapped true or false and its project and effective settings when mapped. Mapped repositories not visible on the install are listed too, with visibleOnInstall false and no repo name. Pass repo (owner/name) or githubRepoId for one repository. Leave mapped unset to list connected and not-yet-connected repositories together; set it only when the user wants just one of the two groups. When hasMore is true, pass nextOffset as offset. When githubConnectUrl is present, GitHub is not connected: give that link to the user and retry after they finish. reposError means the install could not be read; retry later.",
+    "description": "Get Release Autopilot settings: the account-wide auto-flagging and auto-releasing (the master gate a repository cannot exceed) and a page of repositories on the account's GitHub App install, each with mapped true or false and its project and effective settings when mapped. Mapped repositories not visible on the install are listed too, with visibleOnInstall false and no repo name. Pass repo (owner/name) or githubRepoId for one repository. Leave mapped unset to list connected and not-yet-connected repositories together; set it only when the user wants just one of the two groups. When hasMore is true, pass nextOffset as offset. When githubConnectUrl is present, GitHub is not connected: give that link to the user and retry after they finish. reposError means the install could not be read; retry later. section cleanup or archival with projectKey returns that project's auto-cleanup or auto-archival settings; an error saying automatic archival is not available means the account does not have it yet.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -41,6 +41,15 @@
         "repo": {
           "description": "GitHub repository as owner/name, for example launchdarkly/gonfalon.",
           "type": "string"
+        },
+        "section": {
+          "type": "string",
+          "enum": [
+            "repos",
+            "cleanup",
+            "archival"
+          ],
+          "description": "repos (default): account auto-flagging and auto-releasing and the repositories. cleanup: one project's auto-cleanup settings and the flags its next run picks up. archival: one project's auto-archival settings. cleanup and archival require projectKey."
         }
       },
       "type": "object"
@@ -48,7 +57,7 @@
   },
   {
     "name": "update-automations",
-    "description": "Update Release Autopilot auto-flagging and auto-releasing. accountWide is required: true changes account settings; false maps or changes one repository (repo or githubRepoId), with projectKey required on the first map. Send only what changed; omitted fields keep their stored value or inherit the account. approvalRequired applies only to auto-flagging. When githubConnectUrl is present, give that link to the user and retry after they finish.",
+    "description": "Update Automations settings: Release Autopilot auto-flagging and auto-releasing, and a project's auto-cleanup and auto-archival. One change per call. Account auto-flagging and auto-releasing: accountWide true. One repository: accountWide false with repo, and projectKey on the first map. A project's auto-cleanup or auto-archival: projectKey with a cleanup or archival object, and no repo. Saving cleanup makes the calling member the one whose permissions cleanup jobs use, and any schedule other than disabled makes LaunchDarkly open pull requests in the listed repositories, so confirm the schedule, repositories, and maxJobsPerRun with the user first. archival enabled false turns auto-archival off; an agent cannot turn it on: when it is off and enabled true is sent, nothing changes and the result gives the Automations page link for the user.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -94,10 +103,68 @@
         "repo": {
           "description": "GitHub repository as owner/name, for example launchdarkly/gonfalon.",
           "type": "string"
+        },
+        "cleanup": {
+          "type": "object",
+          "properties": {
+            "schedule": {
+              "type": "string",
+              "enum": [
+                "disabled",
+                "daily",
+                "weekly",
+                "monthly"
+              ]
+            },
+            "repositories": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "maxJobsPerRun": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "flagStates": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "readyToArchive",
+                  "readyForCodeRemoval",
+                  "live"
+                ]
+              }
+            },
+            "customContext": {
+              "type": "string"
+            },
+            "retryAttempted": {
+              "type": "boolean"
+            }
+          }
+        },
+        "archival": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "graceSeconds": {
+              "type": "integer"
+            },
+            "requireApproval": {
+              "type": "boolean"
+            },
+            "maxArchivalsPerRun": {
+              "type": "integer"
+            }
+          }
         }
       },
       "required": [
-        "accountWide",
         "confirm"
       ],
       "type": "object"
@@ -134,8 +201,8 @@
     }
   },
   {
-    "name": "get-release-plans",
-    "description": "Get an environment's release plans, reusable progressive-release recipes. Beta API. Without releasePlanKey: a page ordered by creation time with totalCount; when hasMore is true, pass nextOffset as offset. With releasePlanKey: one plan with its phases (clauses and steps), metrics, randomizationUnit, advancementMode, and cleanupBehavior.",
+    "name": "get-environment-release-plans",
+    "description": "Get environment release plans, reusable progressive-release recipes. Without releasePlanKey: a page of plans, each marked default when it is the environment's default. With releasePlanKey: one plan.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -171,8 +238,8 @@
     }
   },
   {
-    "name": "create-release-plan",
-    "description": "Create an environment-scoped release plan, a reusable progressive-release recipe. Does not start a release on a flag. Check existing plans with get-release-plans first: an active key returns 409. Beta API.\n\nGATHERING CONFIG: ask the user about each setting as its own question, in its own step. Never bundle randomizationUnit, advancementMode and cleanupBehavior into one prompt or offer pre-mixed combinations. Ask (1) randomizationUnit: the context kind to randomize by (e.g. user, account); (2) advancementMode: manual or automatic; (3) cleanupBehavior: leave_rules_in_place or remove_rules_and_update_default_rule, stating each outcome. Then make one create call with the complete config.\n\nprogressiveRelease: randomizationUnit, optional advancementMode (manual or automatic, default manual) and cleanupBehavior, phases, and optional metrics. cleanupBehavior sets what happens when a release finishes: leave_rules_in_place keeps the rules, so the release stays limited to the audience in them; remove_rules_and_update_default_rule removes the rules and releases to everyone through the default rule (the API default).\n\nPHASES: 1-10, each with 1-10 clauses and 1-10 steps. Every phase's clauses must include the randomization unit clause {attribute: \"kind\", op: \"in\", values: [<randomizationUnit>], contextKind: <randomizationUnit>}; alone it releases to every context of that kind. Clauses use the flag targeting shape {attribute, op, values, contextKind?, negate?}; attribute may be empty only for segmentMatch.\n\nSTEPS: {allocation, durationMillis}. allocation is per-100k (5000 = 5%, 100000 = 100%); durationMillis is the hold before the next step (14400000 = 4h).\n\nMETRICS: object keyed by metric or metric group key, each {isGroup, autoRollback?}. Empty makes a progressive release; any keys make releases from the plan guarded. Max 10 metrics and 5 groups; keys must exist in the project.",
+    "name": "create-environment-release-plan",
+    "description": "Create an environment release plan, a reusable progressive-release recipe. Does not start a release. Check existing plans with get-environment-release-plans first: an active key returns 409. PHASES: 1-10, each with 1-10 clauses and 1-10 steps. Every phase's clauses must include the randomization unit clause {attribute: \"kind\", op: \"in\", values: [<randomizationUnit>], contextKind: <randomizationUnit>}. STEPS: {allocation, durationMillis}; allocation is per-100k, greater than 0, at most 99000, increasing. Do not add a 100% step.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -338,6 +405,37 @@
         "progressiveRelease"
       ],
       "type": "object"
+    }
+  },
+  {
+    "name": "update-default-environment-release-plan",
+    "description": "Set or clear an environment release plan as the environment's default, the plan suggested first when starting a release. default true makes this plan the default; default false clears it only when this plan is the default.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "projectKey": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "type": "string"
+        },
+        "releasePlanKey": {
+          "type": "string"
+        },
+        "default": {
+          "type": "boolean"
+        },
+        "confirm": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "releasePlanKey",
+        "default",
+        "confirm"
+      ]
     }
   }
 ]

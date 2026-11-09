@@ -418,7 +418,7 @@ class ClaudeSkillAgentSdk {
               if (override !== undefined) {
                 // Release Autopilot tools keep their recorded state under an
                 // override (an error override on a write is not recorded).
-                mock = /release-autopilot|release-plan/.test(def.name)
+                mock = /release-autopilot|release-plan|automations/.test(def.name)
                   ? renderMockResponse(override, args, def.name, mockState)
                   : renderOverride(override, args);
               } else if (template) {
