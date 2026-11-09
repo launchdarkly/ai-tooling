@@ -43,6 +43,9 @@
  *   tool_mocks             - Optional path, relative to evals/, of a JSON
  *                            object of mock templates for this suite only,
  *                            merged over mocks/tool-responses.json.
+ *   mcp_tool_allowlist     - Optional array of tool names. When set, expose ONLY
+ *                            these tools, e.g. read-only lookups for an advisory
+ *                            skill that must never write.
  *   exclude_mcp_tools      - Optional list of mock tool names to hide, e.g.
  *                            older duplicates the skill's real MCP server
  *                            doesn't have.
@@ -105,6 +108,7 @@ const {
   createMockState,
   resolveMockOverride,
   renderOverride,
+  templateKey,
 } = require("./_mock");
 const { inputSchemaToZodShape } = require("./_jsonschema-to-zod");
 
@@ -243,9 +247,9 @@ function resolveExposeMcpTools(configValue, varValue) {
 }
 
 // A test's override for this call, except that an override never hides a flag
-// the agent created or changed in this run: get-flag then reads the stored flag.
+// the agent created or changed in this run: get-flags then reads the stored flag.
 function overrideFor(overrides, toolName, callIndex, args, state) {
-  if (toolName === "get-flag" || toolName === "get-feature-flag") {
+  if (toolName === "get-flags" || toolName === "get-feature-flag") {
     const key = args && (args.flagKey || args.key);
     if (key && state && state.flags && state.flags[key]) return undefined;
   }
@@ -319,6 +323,12 @@ class ClaudeSkillAgentSdk {
       mergeToolDefs(toolDefs, readSuiteJson(config.tool_definitions, [])),
       config.exclude_mcp_tools,
     );
+    // When set, expose ONLY these LaunchDarkly tools (by name), e.g. read-only
+    // tools for an advisory/handoff skill that must never write.
+    if (Array.isArray(config.mcp_tool_allowlist)) {
+      const allowed = new Set(config.mcp_tool_allowlist);
+      this.toolDefs = this.toolDefs.filter((def) => allowed.has(def.name));
+    }
     this.mockTemplates = { ...mockTemplates, ...readSuiteJson(config.tool_mocks, {}) };
     this.inlineSkill = Boolean(config.inline_skill);
 
@@ -403,7 +413,7 @@ class ClaudeSkillAgentSdk {
               const callIndex = toolCallCounts[def.name] || 0;
               toolCallCounts[def.name] = callIndex + 1;
               const override = overrideFor(mockOverrides, def.name, callIndex, args, mockState);
-              const template = this.mockTemplates[def.name];
+              const template = this.mockTemplates[templateKey(def.name, args)];
               let mock;
               if (override !== undefined) {
                 // Release Autopilot tools keep their recorded state under an

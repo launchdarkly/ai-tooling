@@ -6,7 +6,7 @@ An Agent Skill for configuring Release Autopilot (GitHub App auto-flagging and a
 
 This skill teaches agents how to:
 
-- Diagnose "why didn't Release Autopilot classify my PR?" (account gate → mapped repo → repo override) before changing anything
+- Diagnose "why didn't Release Autopilot classify my PR?" (mapped repo → effective repo setting → account settings, on accounts that still use them) before changing anything
 - Read account-wide Release Autopilot defaults
 - Confirm every write (account, map, repo override, unmap) before calling MCP
 - List GitHub App install repos as `owner/name`
@@ -17,7 +17,7 @@ This skill teaches agents how to:
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot settings tools (`get-release-autopilot-settings`, `list-release-autopilot-github-repos`, `update-release-autopilot-repo-settings`, and siblings). If `list-release-autopilot-github-repos` returns `githubConnectUrl`, give the user that link. This skill does not complete GitHub OAuth itself.
+The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot settings tools (`get-automations`, `update-automations`, and `delete-automations-repo-settings`). If `get-automations` returns `githubConnectUrl`, give the user that link. This skill does not complete GitHub OAuth itself.
 
 The endpoints behind these tools require the Release Autopilot add-on, so accounts without it enabled get 404s.
 

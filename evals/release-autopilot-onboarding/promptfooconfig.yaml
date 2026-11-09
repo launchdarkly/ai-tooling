@@ -48,20 +48,28 @@ providers:
 tests:
   # ------------------------------------------------------------------
   # Fresh account, auto-flagging only. The repo mapping must turn
-  # auto-releasing off for the repo, the account write comes after the
+  # auto-flagging on and auto-releasing off for the repo (a repo that
+  # leaves a capability unset has it off on accounts that use project
+  # Automations settings), the account write comes after the
   # repo write, and no write happens before the confirm question.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Fresh account, auto-flagging only: confirm first, repo override off, account write last"
+    description: "Fresh account, auto-flagging only: confirm first, repo auto-flagging on and auto-releasing off, account write last"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 25
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -91,6 +99,10 @@ tests:
         metric: repo_override_unpicked
         weight: 4
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoFlaggingOn
+        metric: repo_turns_picked_on
+        weight: 4
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:accountWriteLast
         metric: account_write_last
         weight: 2
@@ -113,7 +125,7 @@ tests:
 
   # ------------------------------------------------------------------
   # Account already on, both capabilities picked, policy mode with no
-  # release policy. list-release-plans is called once (the 403 is
+  # release policy. get-release-plans is called once (the 403 is
   # account-wide), no plans are created, the repo keeps auto-releasing
   # off, and the account settings are not rewritten.
   # ------------------------------------------------------------------
@@ -123,9 +135,9 @@ tests:
       user_request: "Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        list-release-plans:
+        get-release-plans:
           error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Plan does not allow this operation\"}"
-        list-release-policies:
+        get-release-policies:
           policies: []
           count: 0
           warnings:
@@ -150,8 +162,8 @@ tests:
         metric: no_unpicked_archival
         weight: 3
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:releasePlansCalledAtMostOnce
-        metric: plans_403_account_wide
+        value: file://../release-autopilot-onboarding/assertions.js:releaseSetupLookupsTestProduction
+        metric: release_setup_lookups
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:skippedGithubNotReported
@@ -255,17 +267,16 @@ tests:
       user_request: "Set up Release Autopilot for my repos."
       max_turns: 15
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
-        list-release-autopilot-github-repos:
-          installed: false
-          userAuthorized: false
-          repositories: []
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos: []
           totalCount: 0
+          hasMore: false
           githubConnectUrl: "https://app.launchdarkly.com/integrations/github/connect?flow=install"
+          flow: install
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -295,11 +306,17 @@ tests:
       max_turns: 25
       mock_overrides:
         get-member-self: { id: "member-3", email: "writer@acme.example", role: "writer", teams: [] }
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -342,11 +359,17 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -436,6 +459,10 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:releaseSetupLookupsProduction
+        metric: release_setup_lookups
+        weight: 3
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noCleanupQuestion
         metric: no_unpicked_cleanup
         weight: 3
@@ -502,7 +529,7 @@ tests:
           latestMcp:
             deprecated: true
             installUrl: "https://mcp.launchdarkly.com/mcp/launchdarkly/install"
-            serverUrl: "https://mcp.launchdarkly.com/mcp/launchdarkly"
+            serverUrl: "https://mcp.launchdarkly.com/mcp"
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noWrites
@@ -530,11 +557,17 @@ tests:
         our GitHub org owner installed the App, and that is done now.
       max_turns: 20
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Looks good"]
@@ -571,13 +604,23 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
-        update-release-autopilot-settings:
-          error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Access to the requested resource was denied\"}"
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
+        update-automations:
+          by_arg: accountWide
+          cases:
+            "true":
+              error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Access to the requested resource was denied\"}"
+          default: {}
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -603,16 +646,22 @@ tests:
   # question, autoCleanup is never sent, and the repo write is confirmed.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Auto-cleanup: lifecycle settings link in the question, never sends autoCleanup"
+    description: "Auto-cleanup: Automations settings link in the question, never sends autoCleanup"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging", "Auto-cleanup"]
@@ -620,6 +669,10 @@ tests:
         - ["Done"]
         - ["Looks good"]
     assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:browserStepsAfterConfirm
+        metric: browser_after_confirm
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noReleaseSetup
         metric: no_release_setup
@@ -637,8 +690,8 @@ tests:
         metric: no_auto_cleanup
         weight: 3
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:cleanupQuestionHasLifecycleLink
-        metric: lifecycle_link_in_question
+        value: file://../release-autopilot-onboarding/assertions.js:cleanupQuestionHasAutomationsLink
+        metric: automations_link_in_question
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
@@ -665,17 +718,16 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for my repos."
       max_turns: 18
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
-        list-release-autopilot-github-repos:
-          installed: false
-          userAuthorized: false
-          repositories: []
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos: []
           totalCount: 0
+          hasMore: false
           githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=install"
+          flow: install
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -705,10 +757,7 @@ tests:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 10
       mock_overrides:
-        get-release-autopilot-settings: { error: "LaunchDarkly API error: 404 Not Found" }
-        list-release-autopilot-repo-settings: { error: "LaunchDarkly API error: 404 Not Found" }
-        list-release-autopilot-github-repos: { error: "LaunchDarkly API error: 404 Not Found" }
-        get-release-autopilot-repo-settings: { error: "LaunchDarkly API error: 404 Not Found" }
+        get-automations: { error: "LaunchDarkly API error: 404 Not Found" }
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noWrites
@@ -721,7 +770,7 @@ tests:
 
   # ------------------------------------------------------------------
   # "Why didn't my PR get classified?" on an account with nothing set up.
-  # The skill answers first (auto-flagging is off), then offers setup
+  # The skill answers first (acme/demo is not mapped), then offers setup
   # instead of starting the wizard. The harness answers the unscripted offer
   # with its first option, so any later writes must follow "Looks good".
   # ------------------------------------------------------------------
@@ -731,11 +780,17 @@ tests:
       user_request: "Why didn't Release Autopilot classify my pull request acme/demo#42?"
       max_turns: 12
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:diagnosesBeforeOffering
@@ -752,16 +807,22 @@ tests:
   # the only write is the confirmed repo mapping.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Auto-archival: lifecycle settings link in the question, confirmed repo write only"
+    description: "Auto-archival: Automations settings link in the question, confirmed repo write only"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: false }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: false }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging", "Auto-archival"]
@@ -769,6 +830,10 @@ tests:
         - ["Done"]
         - ["Looks good"]
     assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:browserStepsAfterConfirm
+        metric: browser_after_confirm
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noReleaseSetup
         metric: no_release_setup
@@ -782,8 +847,8 @@ tests:
         metric: no_unpicked_cleanup
         weight: 3
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:archivalQuestionHasLifecycleLink
-        metric: lifecycle_link_in_question
+        value: file://../release-autopilot-onboarding/assertions.js:archivalQuestionHasAutomationsLink
+        metric: automations_link_in_question
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
@@ -809,17 +874,16 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging for my repos."
       max_turns: 12
       mock_overrides:
-        get-release-autopilot-settings:
-          autoFlagging: { enabled: false, approvalRequired: true }
-          autoReleasing: { enabled: false }
-          version: 1
-        list-release-autopilot-repo-settings: { repos: [], totalCount: 0 }
-        list-release-autopilot-github-repos:
-          installed: true
-          userAuthorized: false
-          repositories: []
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: true }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos: []
           totalCount: 0
+          hasMore: false
           githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=authorize"
+          flow: authorize
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Auto-flagging"]
@@ -837,3 +901,180 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:noWrites
         metric: no_writes
         weight: 3
+
+  # ------------------------------------------------------------------
+  # Auto-archival only: project-level, no GitHub, no repo mapping. The
+  # Lifecycle settings step comes after "Looks good".
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Archival only: no GitHub or repo mapping, browser step after confirm"
+    vars:
+      user_request: "Set up Release Autopilot auto-archival for project default."
+      max_turns: 16
+      mock_overrides:
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: true }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos: []
+          totalCount: 0
+          hasMore: false
+          githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=install"
+          flow: install
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-archival"]
+        - ["default"]
+        - ["Looks good"]
+        - ["Done"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noGithubOrMapping
+        metric: no_github_or_mapping
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:browserStepsAfterConfirm
+        metric: browser_after_confirm
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:archivalQuestionHasAutomationsLink
+        metric: automations_link_in_question
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Preview with auto-cleanup picked: no writes, no browser changes asked
+  # for, and the cleanup step is listed with its link.
+  # ------------------------------------------------------------------
+  - providers: ["mcp-auto"]
+    description: "Preview with auto-cleanup: lists the browser step, asks for no browser change"
+    vars:
+      user_request: "Do a dry run: preview what you'd change to set up Release Autopilot auto-flagging and auto-cleanup for acme/demo in project default. Don't change anything."
+      max_turns: 20
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-cleanup"]
+        - ["LaunchDarkly's"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:previewListsBrowserSteps
+        metric: preview_lists_browser_steps
+        weight: 4
+
+  # ------------------------------------------------------------------
+  # acme/storefront is mapped with auto-flagging turned off by a repo
+  # override, and the account has it on. Picking auto-flagging must clear
+  # that override, not leave the repo opted out.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Picked capability off by a repo override: turns it on for the repo"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/storefront in project default. I don't want auto-releasing."
+      max_turns: 22
+      mock_overrides:
+        get-automations:
+          repos:
+            - repo: acme/storefront
+              githubRepoId: 101
+              mapped: true
+              visibleOnInstall: true
+              projectKey: default
+              autoFlagging: { enabled: false, approvalRequired: true, enabledOverride: false }
+              autoReleasing: { enabled: false, enabledOverride: false }
+          totalCount: 1
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+        - ["LaunchDarkly's"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:storefrontAutoFlaggingOn
+        metric: clears_repo_override
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Bring your own key is a browser change: it comes after "Looks good",
+  # with the project's Automations settings link in the question.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Bring your own key: Automations settings step comes after confirm"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default, using our own Anthropic key."
+      max_turns: 22
+      mock_overrides:
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: true }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos:
+            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
+            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
+            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
+          totalCount: 3
+          hasMore: false
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-flagging"]
+        - ["Bring your own key"]
+        - ["Looks good"]
+        - ["Done"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:browserStepsAfterConfirm
+        metric: browser_after_confirm
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:byokQuestionHasAutomationsLink
+        metric: automations_link_in_question
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
+        metric: repo_override_unpicked
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Preview, GitHub disconnected, auto-releasing picked: the checklist
+  # lists GitHub, the later repo mapping, and the later release setup
+  # (environments and release policies or plans). No writes.
+  # ------------------------------------------------------------------
+  - providers: ["mcp-auto"]
+    description: "Preview, GitHub disconnected, auto-releasing: lists deferred mapping and release setup"
+    vars:
+      user_request: "Do a dry run: preview what you'd change to set up Release Autopilot auto-flagging and auto-releasing for project default. Don't change anything."
+      max_turns: 18
+      mock_overrides:
+        get-automations:
+          account:
+            autoFlagging: { enabled: false, approvalRequired: true }
+            autoReleasing: { enabled: false }
+            version: 1
+          repos: []
+          totalCount: 0
+          hasMore: false
+          githubConnectUrl: "https://app.launchdarkly.com/github-connect?flow=install"
+          flow: install
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:previewListsDeferredReleaseSetup
+        metric: deferred_release_setup
+        weight: 4

@@ -1,0 +1,18 @@
+{
+  "name": "launchdarkly-automations-archival-settings",
+  "description": "Read and change a LaunchDarkly project's Automations auto-archival settings via MCP, or explain why a flag was or was not archived automatically",
+  "version": "0.1.0-experimental",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "automations",
+    "auto-archival",
+    "flag-archival",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}
