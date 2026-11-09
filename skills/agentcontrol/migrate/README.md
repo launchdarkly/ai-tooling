@@ -4,7 +4,7 @@ An Agent Skill for migrating an application with hardcoded LLM prompts to a full
 
 ## Overview
 
-This skill orchestrates the full migration journey from hardcoded `openai.chat.completions.create(model="gpt-4o", ...)` (or equivalent in any provider SDK) to a managed config with tools, metrics, and judges. It uses the current AI SDKs (`launchdarkly-ai-server` for Python, `@launchdarkly/ai-node` for Node.js), where `config().invoke()` runs the provider call through a handler and records metrics automatically. It also covers moving off the legacy LaunchDarkly AI SDK.
+This skill orchestrates the full migration journey from hardcoded `openai.chat.completions.create(model="gpt-4o", ...)` (or equivalent in any provider SDK) to a managed config with tools, metrics, and judges. It uses the current AI SDKs (`launchdarkly-ai-server` for Python, `@launchdarkly/ai-node` for Node.js), where `config().invoke()` runs the provider call through a handler and records metrics automatically. For apps already on the legacy LaunchDarkly AI SDK (`launchdarkly-server-sdk-ai` / `@launchdarkly/server-sdk-ai`), use [`legacy-sdk-migrate`](../legacy-sdk-migrate/) instead.
 
 The five stages:
 
@@ -34,10 +34,6 @@ Migrate our chat service from hardcoded OpenAI prompts to LaunchDarkly AgentCont
 Our LangGraph agent has its model and instructions baked in — walk me through wrapping it in a config
 ```
 
-```
-We're on the old ldai SDK with create_tracker everywhere — move us to the current SDK
-```
-
 ## Structure
 
 ```
@@ -61,6 +57,7 @@ migrate/
 - [Built-in Metrics](../built-in-metrics/): Per-provider handler details and the legacy-to-current mapping
 - [Online Evals](../online-evals/): Delegated to by Stage 5 (evals)
 - [Configs Variations](../configs-variations/): Next step after migration for A/B testing
+- [Legacy SDK Migrate](../legacy-sdk-migrate/): Upgrade an app already on the legacy LaunchDarkly AI SDKs to the current handler-based SDKs
 - [LaunchDarkly AgentControl Docs](https://launchdarkly.com/docs/home/agentcontrol)
 
 ## License

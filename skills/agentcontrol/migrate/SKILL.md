@@ -1,6 +1,6 @@
 ---
 name: migrate
-description: "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AgentControl implementation in five stages: audit the code, wrap the call, move the tools, verify metrics, attach evaluators. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini, Strands) to a managed config, migrate off the legacy LaunchDarkly AI SDK, or stage a full hardcoded-to-LaunchDarkly migration."
+description: "Migrate an application with hardcoded LLM prompts to a full LaunchDarkly AgentControl implementation on the current AI SDKs in five stages: audit the code, wrap the call, move the tools, verify metrics, attach evaluators. Use when the user wants to externalize model/prompt configuration, move from direct provider calls (OpenAI, Anthropic, Bedrock, Gemini, Strands) to a managed config, or stage a full hardcoded-to-LaunchDarkly migration. If the app already uses a legacy LaunchDarkly AI SDK (`launchdarkly-server-sdk-ai` / `ldai`, `@launchdarkly/server-sdk-ai`), use `legacy-sdk-migrate` instead."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server. Code examples use `launchdarkly-ai-server` 0.3.0+ (Python) or `@launchdarkly/ai-node` 0.3.0+ (Node.js).
 metadata:
@@ -38,7 +38,7 @@ The SDK now owns the provider call. You evaluate a config and invoke it in one s
 | Judges | Attached judges run inside `invoke()`; `skip_judges=True` + `run_judge()` for background work |
 | Multi-agent | `graph()`, or `resolve_graph()` + a native runner such as `to_lang_graph` |
 
-If the app already uses the legacy LaunchDarkly AI SDK (`ldai`, `@launchdarkly/server-sdk-ai`, `completion_config()`, `create_tracker()`), this skill also covers that move: treat the legacy calls as the "hardcoded" targets in Stage 1. The `built-in-metrics` skill has a legacy-to-current mapping table.
+If the app already uses the legacy LaunchDarkly AI SDK (`ldai`, `@launchdarkly/server-sdk-ai`, `completion_config()`, `create_tracker()`) and its configs already exist in LaunchDarkly, use the **`legacy-sdk-migrate`** skill instead — it upgrades between the LaunchDarkly AI SDKs without creating new configs.
 
 ## Coverage — which shapes are well-trodden vs require extrapolation
 
@@ -394,7 +394,7 @@ Delegate: **`online-evals`** (sub-step 3, optional — offline eval doesn't dele
 | Situation | Action |
 |-----------|--------|
 | App already initializes `LDClient` for feature flags | Reuse it — `init_client(client=ldclient.get())` / `initClient(ldClient)`. Do not create a second client |
-| App is on the legacy AI SDK (`ldai`, `@launchdarkly/server-sdk-ai`) | Treat `completion_config` / `agent_config` / `create_tracker` call sites as Stage 1 targets. Replace with `config().invoke()`, delete tracker code, and replace `*ConfigDefault` fallbacks with the original-call fallback |
+| App is on the legacy AI SDK (`ldai`, `@launchdarkly/server-sdk-ai`) | Route to `legacy-sdk-migrate` instead — the configs already exist in LaunchDarkly, and that skill handles the code-only SDK upgrade |
 | App uses LangChain `ChatOpenAI(model=...)` | Use the LangChain handler package. For providers it doesn't build itself (anything but OpenAI, Anthropic, Bedrock), pass a model factory: `create_langchain_messages_handler(lambda cfg: ChatX(model=cfg["model"]["name"], **{k: v for k, v in cfg["model"].get("parameters", {}).items() if k != "tools"}))`. The factory gets the raw config, so drop `tools` |
 | Retry wrapper around the provider call | Keep it inside a custom handler, around the provider call. The SDK records one generation per `invoke()`, however many retries happen inside |
 | App has no tools — Stage 3 skipped | Move directly from Stage 2 verification to Stage 4 |
@@ -454,6 +454,7 @@ Delegate: **`online-evals`** (sub-step 3, optional — offline eval doesn't dele
 - `online-evals` — called by Stage 5 to attach judges
 - `configs-variations` — add variations for A/B testing after migration is complete
 - `configs-update` — modify config properties as your app evolves
+- `legacy-sdk-migrate` — upgrade an app already on the legacy LaunchDarkly AI SDK (`ldai` / `@launchdarkly/server-sdk-ai`) to the current handler-based SDKs
 
 ## References
 
