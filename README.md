@@ -64,6 +64,16 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `metrics/launchdarkly-metric-create` | Create metrics and instrument tracking events |
 | `metrics/launchdarkly-metric-instrument` | Add tracking calls to code for existing metrics |
 
+### Observability
+
+| Skill | Description |
+|-------|-------------|
+| `observability/investigate` | Find the root cause of a production problem from logs, traces, errors, sessions, and metrics |
+| `observability/alert-investigation` | Investigate a firing or recently fired observability alert |
+| `observability/create-graph` | Build observability dashboards and graphs |
+| `observability/create-fix-pr` | Investigate a root cause and file a minimal fix PR |
+| `observability/observability-plugin-setup` | Turn on observability by adding the plugin to an app's existing LaunchDarkly client and opening a PR |
+
 ### AWS DevOps Agent
 
 | Skill | Description |
