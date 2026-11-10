@@ -398,10 +398,21 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
     (state.raPlans[args.environmentKey] = state.raPlans[args.environmentKey] || []).push(plan);
     return plan;
   }
-  if ((toolName === "get-release-plans" || toolName === "get-environment-release-plans") && state.raPlans[args.environmentKey]) {
+  // The list is the template's plans plus the plans created this run. A
+  // default set this run (on an existing or a new plan) replaces the
+  // template's default flags.
+  if ((toolName === "get-release-plans" || toolName === "get-environment-release-plans") &&
+      (state.raPlans[args.environmentKey] || state.raDefaults[args.environmentKey] !== undefined)) {
+    const base = walk(template, replacements);
+    if (base && base.error) return base;
+    const created = state.raPlans[args.environmentKey] || [];
+    const createdKeys = new Set(created.map((p) => p.key));
+    const existing = ((base && base.items) || []).filter((p) => !createdKeys.has(p.key));
     const def = state.raDefaults[args.environmentKey];
-    const items = state.raPlans[args.environmentKey].map((p) => ({ ...p, default: p.key === def }));
-    return { items, totalCount: items.length };
+    const items = [...existing, ...created.map((p) => ({ ...p, default: false }))].map((p) =>
+      def === undefined ? p : { ...p, default: p.key === def },
+    );
+    return { ...(base || {}), items, totalCount: items.length };
   }
   if (toolName === "update-default-environment-release-plan" && args.environmentKey) {
     const previous = state.raDefaults[args.environmentKey];
@@ -764,6 +775,25 @@ function resolveMockOverride(overrides, toolName, callIndex, args) {
 }
 
 /**
+ * The `mock_overrides` key that answers this call, or undefined. A mode key
+ * (`<tool>#<mode>`, see templateKey) wins. A plain tool-name key answers
+ * every mode, except the get-automations cleanup and archival sections: a
+ * test's repos/account payload for get-automations must not replace those
+ * section templates. A `by_arg: section` override still answers them.
+ */
+function overrideKey(overrides, toolName, args) {
+  if (!overrides || typeof overrides !== "object") return undefined;
+  const has = (k) => Object.prototype.hasOwnProperty.call(overrides, k);
+  const mode = templateKey(toolName, args);
+  if (mode !== toolName && has(mode)) return mode;
+  if (toolName === "get-automations" && mode !== toolName) {
+    const plain = overrides[toolName];
+    return plain && plain.by_arg === "section" ? toolName : undefined;
+  }
+  return has(toolName) ? toolName : undefined;
+}
+
+/**
  * Render an override with the same `{{placeholder}}` substitution as the
  * shared templates, but without the stateful overlay: an override is exactly
  * what the test wants the tool to return.
@@ -776,6 +806,7 @@ module.exports = {
   renderMockResponse,
   createMockState,
   resolveMockOverride,
+  overrideKey,
   renderOverride,
   templateKey,
 };

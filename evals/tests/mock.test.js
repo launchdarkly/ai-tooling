@@ -889,3 +889,24 @@ test("default environment release plan is reflected in the plan list", () => {
   const got = renderMockResponse({ items: [] }, { projectKey: "default", environmentKey: "production" }, "get-environment-release-plans", state);
   assert.equal(got.items[0].default, true);
 });
+
+test("setting an existing plan as default is reflected in the plan list", () => {
+  const state = createMockState();
+  const existing = { items: [{ key: "gradual", name: "Gradual", environmentKey: "production", default: false }], totalCount: 1 };
+  const args = { projectKey: "default", environmentKey: "production" };
+  renderMockResponse({}, { ...args, releasePlanKey: "gradual", default: true, confirm: true }, "update-default-environment-release-plan", state);
+  const got = renderMockResponse(existing, args, "get-environment-release-plans", state);
+  assert.equal(got.totalCount, 1);
+  assert.equal(got.items[0].key, "gradual");
+  assert.equal(got.items[0].default, true);
+});
+
+test("a created plan is listed beside the existing plans", () => {
+  const state = createMockState();
+  const existing = { items: [{ key: "gradual", name: "Gradual", environmentKey: "production", default: true }], totalCount: 1 };
+  const args = { projectKey: "default", environmentKey: "production" };
+  renderMockResponse({}, { ...args, key: "p", name: "P", progressiveRelease: { phases: [] } }, "create-environment-release-plan", state);
+  const got = renderMockResponse(existing, args, "get-environment-release-plans", state);
+  assert.deepEqual(got.items.map((p) => [p.key, p.default]), [["gradual", true], ["p", false]]);
+  assert.equal(got.totalCount, 2);
+});

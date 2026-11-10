@@ -107,6 +107,7 @@ const {
   renderMockResponse,
   createMockState,
   resolveMockOverride,
+  overrideKey,
   renderOverride,
   templateKey,
 } = require("./_mock");
@@ -253,7 +254,8 @@ function overrideFor(overrides, toolName, callIndex, args, state) {
     const key = args && (args.flagKey || args.key);
     if (key && state && state.flags && state.flags[key]) return undefined;
   }
-  return resolveMockOverride(overrides, toolName, callIndex, args);
+  const key = overrideKey(overrides, toolName, args);
+  return key === undefined ? undefined : resolveMockOverride(overrides, key, callIndex, args);
 }
 
 // The skill's SKILL.md body (frontmatter removed), wrapped for the agent's
@@ -410,8 +412,11 @@ class ClaudeSkillAgentSdk {
             def.description,
             inputSchemaToZodShape(def.input_schema),
             async (args) => {
-              const callIndex = toolCallCounts[def.name] || 0;
-              toolCallCounts[def.name] = callIndex + 1;
+              // Calls are counted per override key, so a section read does
+              // not advance a get-automations array override.
+              const countKey = overrideKey(mockOverrides, def.name, args) || def.name;
+              const callIndex = toolCallCounts[countKey] || 0;
+              toolCallCounts[countKey] = callIndex + 1;
               const override = overrideFor(mockOverrides, def.name, callIndex, args, mockState);
               const template = this.mockTemplates[templateKey(def.name, args)];
               let mock;
