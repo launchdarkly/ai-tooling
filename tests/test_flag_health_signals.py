@@ -91,8 +91,15 @@ class CleanupSkillTests(unittest.TestCase):
     def test_forward_value_stops_when_the_tool_cannot_name_one_value(self):
         body = self.CLEANUP.read_text(encoding="utf-8")
         row = next(l for l in body.splitlines() if l.startswith("| ") and "recommended_value_unknown" in l)
-        self.assertIn("NOT SAFE", row)
+        self.assertIn("Stop and inform the user", row)
+        self.assertIn("confirms in LaunchDarkly", row)
         self.assertIn("`recommendedValue`", body)
+        rows = [l for l in body.splitlines() if l.startswith("| All critical envs")]
+        self.assertLess(
+            next(i for i, l in enumerate(rows) if "OFF, same offVariation" in l),
+            next(i for i, l in enumerate(rows) if "recommended_value_unknown" in l),
+            "the OFF row must come first, so its confirmation applies to a flag that is off everywhere",
+        )
 
     def test_ready_to_archive_with_references_stops(self):
         archive = self.CLEANUP.read_text(encoding="utf-8")

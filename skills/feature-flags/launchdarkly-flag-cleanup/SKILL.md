@@ -105,13 +105,13 @@ If `details.lifecycle.readyForCodeRemoval` is `false`, or targeting is OFF in a 
 
 ### Step 3: Determine the Forward Value
 
-Use `get-flags` to fetch the flag configuration in each critical environment. The **forward value** is the variation that replaces the flag in code. `get-removal-readiness` returns it as `recommendedValue` when the environment you named and every critical environment serve one known value. If your forward value differs from `recommendedValue`, stop and inform the user.
+Use `get-flags` to fetch the flag configuration in each critical environment. The **forward value** is the variation that replaces the flag in code. `get-removal-readiness` returns it as `recommendedValue` when the environment you named and every critical environment serve one known value. If `recommendedValue` is set and your forward value differs from it, stop and inform the user.
 
 | Scenario | Forward Value |
 |----------|---------------|
 | All critical envs ON, same fallthrough, no rules/targets | Use `fallthrough.variation` |
-| A `recommended_value_unknown` warning, or rules, individual targets, or a percentage rollout in a critical env | **NOT SAFE**: stop and inform the user. The flag does not serve one value to every context |
 | All critical envs OFF, same offVariation | **NOT READY**: the flag is not `launched` (see Step 2). Stop and inform the user. Use `offVariation` only after the user explicitly confirms that the code behind the other variations is abandoned. |
+| All critical envs ON with a `recommended_value_unknown` warning (rules, individual targets, or a rollout, so the tool cannot name one value) | **Stop and inform the user.** Continue only after the user confirms in LaunchDarkly the one variation that every context gets, and use that variation |
 | Critical envs differ in ON/OFF state | **NOT SAFE**: stop and inform the user |
 | Critical envs serve different variations | **NOT SAFE**: stop and inform the user |
 
