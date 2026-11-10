@@ -56,9 +56,7 @@ Before touching LaunchDarkly or removing code, understand how this flag is used 
 ### Step 2: Run the Removal Readiness Check
 
 Use `get-removal-readiness` to get a detailed safety assessment. This single tool call orchestrates multiple checks in parallel:
-- Flag configuration and targeting state
-- Cross-environment status
-- Dependent flags (prerequisites)
+- Flag configuration and targeting state in the environment you name
 - Expiring targets
 - Code reference statistics
 - LaunchDarkly's code removal verdict from the project's flag lifecycle settings (`details.lifecycle`)
@@ -69,7 +67,7 @@ The tool returns a readiness verdict:
 
 **`caution`**: No hard blockers, but warnings exist (e.g., expiring targets scheduled, `code_already_removed`, or `code_removal_readiness_unavailable`). `caution` is not permission to remove code. Present each warning and ask the user to confirm before you continue. For `code_removal_readiness_unavailable`, the tool could not get LaunchDarkly's code removal verdict: ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment.
 
-**`blocked`**: LaunchDarkly does not consider the flag ready for code removal. The only blocker is `not_ready_for_code_removal`. Present it: the user must resolve it first. Do not remove code.
+**`blocked`**: LaunchDarkly does not consider the flag ready for code removal. The only blocker is `not_ready_for_code_removal`. Present it: the user must resolve it first. Do not remove code. The only exception is a flag that is OFF in every critical environment: see "Ready for cleanup" below.
 
 For a `not_ready_for_code_removal` blocker, tell the user why LaunchDarkly does not consider the flag ready for code removal. The blocker detail and `details.lifecycle.codeRemovalBlockers` give each reason: `prerequisite` (other flags use it as a prerequisite), `notTemporary`, `newerThanMinimumAge`, or `notLaunchedInEveryEnvironment`. `details.lifecycle.notLaunchedEnvironments` names the critical environments where the flag is not `launched`, and `details.lifecycle.environments` gives the lifecycle status in each one.
 
@@ -103,15 +101,16 @@ You cannot check evaluations or lifecycle status yourself: `get-flags` returns t
 
 **A flag that is OFF in a critical environment is not `launched`, so it is not ready for code removal.** This is true even when every critical environment is OFF and serves the same `offVariation`. A flag that is off everywhere often guards a feature that was never released. If you hardcode the `offVariation`, you delete the code for that feature. LaunchDarkly lists a flag that is off everywhere, has had no evaluations recently, and has no code references as **ready to archive**, not as ready for code removal.
 
-If `details.lifecycle.readyForCodeRemoval` is `false`, or targeting is OFF in a critical environment, stop and tell the user why, even when the verdict is `safe`. One exception: if `details.lifecycle.codeAlreadyRemoved` is `true` and you found references in Step 1, continue. LaunchDarkly passes every other check for this flag, and `readyForCodeRemoval` is `false` only because LaunchDarkly does not scan this repository. Do not offer to continue unless the user explicitly asks to remove the flag anyway. For a flag that is off everywhere, continue only if the user explicitly confirms that the code behind the other variations is abandoned and must be deleted. Record that confirmation in the PR description.
+If `details.lifecycle.readyForCodeRemoval` is `false`, or targeting is OFF in a critical environment, stop and tell the user why, even when the verdict is `safe`. Do not offer to continue unless the user explicitly asks to remove the flag anyway. One exception: if `details.lifecycle.codeAlreadyRemoved` is `true` and you found references in Step 1, continue. LaunchDarkly passes every other check for this flag, and `readyForCodeRemoval` is `false` only because LaunchDarkly does not scan this repository. For a flag that is off everywhere, continue only if the user explicitly confirms that the code behind the other variations is abandoned and must be deleted. Record that confirmation in the PR description.
 
 ### Step 3: Determine the Forward Value
 
-Use `get-flags` to fetch the flag configuration in each critical environment. The **forward value** is the variation that replaces the flag in code.
+Use `get-flags` to fetch the flag configuration in each critical environment. The **forward value** is the variation that replaces the flag in code. `get-removal-readiness` returns it as `recommendedValue` when the environment you named and every critical environment serve one known value. If your forward value differs from `recommendedValue`, stop and inform the user.
 
 | Scenario | Forward Value |
 |----------|---------------|
 | All critical envs ON, same fallthrough, no rules/targets | Use `fallthrough.variation` |
+| A `recommended_value_unknown` warning, or rules, individual targets, or a percentage rollout in a critical env | **NOT SAFE**: stop and inform the user. The flag does not serve one value to every context |
 | All critical envs OFF, same offVariation | **NOT READY**: the flag is not `launched` (see Step 2). Stop and inform the user. Use `offVariation` only after the user explicitly confirms that the code behind the other variations is abandoned. |
 | Critical envs differ in ON/OFF state | **NOT SAFE**: stop and inform the user |
 | Critical envs serve different variations | **NOT SAFE**: stop and inform the user |
@@ -207,7 +206,7 @@ Before considering the job done:
 ## After Cleanup
 
 Once the PR is merged and deployed:
-1. **Archive the flag in LaunchDarkly** using `archive-flag` (with `confirm: true`, after the user agrees). Archival is reversible; deletion is not. Always archive first.
+1. **Archive the flag in LaunchDarkly** using `archive-flag` (with `confirm: true`, after the user agrees). First run `get-removal-readiness` again. Archive only if `details.lifecycle.codeAlreadyRemoved` or `details.lifecycle.readyToArchive` is `true`, and only after the user confirms that the cleanup is deployed everywhere the flag is evaluated. If code references remain in other repositories, do not archive: an archived flag is absent, so that code gets its fallback value. Archival is reversible; deletion is not. Always archive first.
 2. **Notify other teams** if `get-removal-readiness` reported code references in other repositories.
 3. **If the flag had targeting changes pending,** they can be ignored: the flag is being removed.
 

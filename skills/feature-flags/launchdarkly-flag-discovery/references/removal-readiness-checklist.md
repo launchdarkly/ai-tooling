@@ -12,7 +12,7 @@ A systematic safety check to determine whether a feature flag can be safely remo
 - Flag is `launched` in ALL critical environments (production, staging, etc.): targeting ON, one variation served to every context, evaluated in the last 7 days, and targeting not changed in the last 7 days. This is the rule the LaunchDarkly **Ready for cleanup** view uses.
 
 **Pass criteria (archive only):**
-- Flag is `inactive` in ALL critical environments and has no code references. There is no code to remove.
+- Flag is `inactive` in ALL critical environments, LaunchDarkly finds no code references, and a search of this repository for the flag key finds none. There is no code to remove.
 
 **Fail criteria:**
 - Flag is `active` in any critical environment
@@ -101,7 +101,7 @@ No hard blockers, but warnings exist. `caution` is not permission to remove code
 The only blocker is `not_ready_for_code_removal`: LaunchDarkly does not consider the flag ready for code removal. Do not recommend code removal.
 - Present each reason from the blocker detail or `details.lifecycle.codeRemovalBlockers`
 - Name the critical environments where the flag is not `launched` (from `details.lifecycle.notLaunchedEnvironments`)
-- If `details.lifecycle.readyToArchive` is `true`: the flag is inactive everywhere and has no code references. Recommend archiving the flag in LaunchDarkly, not code removal
+- If `details.lifecycle.readyToArchive` is `true`: the flag is inactive everywhere and LaunchDarkly finds no code references. Search this repository for the flag key first. If you find references, do not recommend archiving (an archived flag is absent, so that code gets its fallback value). If you find none, recommend archiving the flag in LaunchDarkly, not code removal
 - For `prerequisite`: user must update dependent flags first
 - For `notLaunchedInEveryEnvironment`: the user should finish the rollout (targeting ON, one variation served to everyone) and wait 7 days without changes. Do not tell the user to turn the flag off: a flag that is off everywhere is not ready for code removal
 

@@ -55,10 +55,10 @@ Combine signals to reach a recommendation:
 | Yes | Inactive 30+ days, no code references | Any | None | **Ready to archive** |
 | Yes | Inactive 30+ days, has code references | Any | None | **Needs investigation**: not ready for code removal |
 | Yes | OFF in every critical environment | Any | None | **Not ready for code removal**: confirm with the user that the feature is abandoned |
-| Yes | Launched | Any | None | **Ready to hardcode and remove** |
+| Yes | Launched in every critical environment | 30+ days | None | **Ready to hardcode and remove** |
 | Yes | Never requested, 7+ days old | Any | None | **Not ready for code removal**: not `launched`. Possibly abandoned: ask the user |
 | Yes | Active | Any | Any | **Leave alone: actively used** |
 | No | Inactive 30+ days | Any | None | **Ask the user**: permanent flags may be intentionally dormant |
-| No | Launched | Any | None | **Ask the user**: may want to keep as permanent config |
+| No | Launched | Any | None | **Not ready for code removal**: `get-removal-readiness` returns `blocked` (`notTemporary`) unless the project turns off the temporary check. Ask the user: it may be kept as permanent config |
 | Any | Any | Any | Has dependents | **Cannot remove**: update dependents first |
 | Any | Active in some envs | Any | Any | **Needs investigation**: understand why states differ |
