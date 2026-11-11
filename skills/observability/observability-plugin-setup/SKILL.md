@@ -26,7 +26,7 @@ You're using a skill that will guide you through turning on LaunchDarkly observa
 1. **Ask before changing anything.** The user usually came for something else (often flag work). Explain the change in a few lines and edit only after they agree. If they decline, drop it for the rest of the session.
 2. **One plugin on the client that already exists.** Add the plugin to the LaunchDarkly client's `plugins` option in the init code the app already has. No second client, no second key, no new environment variable.
 3. **Smallest diff.** One dependency and one `plugins` entry per client. No custom spans, log forwarding, network body recording, sampling, or service names unless the user asks.
-4. **Strict privacy for session replay.** Unless the user names a level, use the strictest replay setting.
+4. **Strict privacy for session replay.** Unless the user names a level, use the strictest replay setting: `privacySetting: 'strict'` in the browser, every mask option turned on for mobile (see [Plugin wiring](references/plugin-wiring.md)).
 5. **A pull request, not a push.** Put the change on a new branch and open a pull request for review. Never commit to the default branch.
 
 ## Workflow
@@ -49,8 +49,8 @@ Tell the user what you found and what the change is, in their terms. For example
 LaunchDarkly hasn't received any observability data for this project, so there's nothing to search yet.
 Observability turns on by adding the LaunchDarkly observability plugin to the LaunchDarkly client this app
 already sets up (src/lib/launchdarkly.ts). It's one dependency and one line in that client's options, using
-the same key, and it adds error monitoring, logs, and traces (plus session replay for the browser, with the
-strictest privacy setting). Want me to make that change and open a pull request?
+the same key, and it adds error monitoring, logs, and traces (plus session replay for browser and mobile apps,
+with the strictest privacy setting). Want me to make that change and open a pull request?
 ```
 
 - If the codebase has more than one LaunchDarkly client (for example a web app and an API), list them and ask which to set up. Default to the one the current task is about.
@@ -58,8 +58,8 @@ strictest privacy setting). Want me to make that change and open a pull request?
 
 ### Step 3: Find the client and the stack
 
-1. Find the LaunchDarkly SDK dependency in the manifest (`package.json`, `requirements.txt` / `pyproject.toml`, `go.mod`, `Gemfile`, `*.csproj`, `Podfile` / `Package.swift`, `build.gradle(.kts)`).
-2. Find the client initialization: for example `asyncWithLDProvider`, `withLDProvider`, `createLDReactProvider`, `createClient`, `initialize(`, `init(` from `@launchdarkly/node-server-sdk`, `ldclient.set_config(Config(`, `ld.MakeClient` / `ld.MakeCustomClient`, `LaunchDarkly::LDClient.new`, `new LdClient(` / `Configuration.Builder(`, `LDClient.start(`, `LDClient.init(`, `new ReactNativeLDClient(`.
+1. Find the LaunchDarkly SDK dependency in the manifest (`package.json`, `requirements.txt` / `pyproject.toml`, `go.mod`, `Gemfile`, `*.csproj`, `Podfile` / `Package.swift`, `build.gradle(.kts)` / `pom.xml`, `pubspec.yaml`).
+2. Find the client initialization: for example `asyncWithLDProvider`, `withLDProvider`, `createLDReactProvider`, `createClient`, `initialize(`, `init(` from `@launchdarkly/node-server-sdk`, `ldclient.set_config(Config(`, `ld.MakeClient` / `ld.MakeCustomClient`, `LaunchDarkly::LDClient.new`, `new LdClient(` / `LdClient.Init(` / `Configuration.Builder(`, `new LDClient(` / `new LDConfig.Builder()`, `LDClient(LDConfig(`, `LDClient.start(`, `LDClient.init(`, `new ReactNativeLDClient(`.
 3. If the app wraps LaunchDarkly behind its own module, edit the init inside that module.
 4. Match the stack to a row in [Plugin wiring](references/plugin-wiring.md). If the stack has no plugin, stop (see Edge Cases).
 5. Check the installed SDK version against the minimum in that table.
@@ -69,7 +69,7 @@ strictest privacy setting). Want me to make that change and open a pull request?
 Follow [Plugin wiring](references/plugin-wiring.md) for the package and where `plugins` goes:
 
 1. Install the package with the project's package manager (from the lockfile). Do not pin a version except where the ecosystem requires one (Gradle, CocoaPods).
-2. Construct the plugin and add it to the existing client's `plugins` option. Keep everything else in the init unchanged.
+2. Construct the plugin and add it to the existing client's `plugins` option (Flutter instead registers it on the existing client with `LDObserve.init(client, ...)`). Keep everything else in the init unchanged.
 3. Reuse the client's credential. Where a plugin constructor takes the key (Android), pass the same variable the client reads.
 4. Browser and mobile apps: add session replay only if the user wants it, after the observability plugin in `plugins`, with the strictest privacy setting unless they named one.
 5. Build or type-check the project, and run its existing tests if they are quick. Fix what you broke; do not change unrelated code.
@@ -106,7 +106,7 @@ If nothing appears within a few minutes of the app running, check: the init chan
 | Situation | Action |
 |-----------|--------|
 | No LaunchDarkly SDK in the codebase | Say observability needs the LaunchDarkly SDK first and stop. Do not install the SDK as part of this skill. |
-| Stack has no observability plugin (for example Java, PHP, Flutter, edge SDKs) | Say in one line the plugin is not available for this stack yet, with the docs link, and stop. Do not substitute OpenTelemetry. |
+| Stack has no observability plugin (for example PHP, Rust, edge SDKs) | Say in one line the plugin is not available for this stack yet, with the docs link, and stop. Do not substitute OpenTelemetry. |
 | SDK too old for plugins, fix is a major upgrade | Ask first, naming the version problem in one line. Keep the existing SDK if the user declines. |
 | Several LaunchDarkly clients (web, API, mobile) | List them, set up only the ones the user picks, one pull request. |
 | Observability data already exists | Not this skill. Use the observability tools to answer the question. |
