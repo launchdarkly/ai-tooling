@@ -919,3 +919,11 @@ test("every release-autopilot-onboarding tool has a mock template", () => {
     .filter((name) => !(name in RA_TEMPLATES) && !(name in shared));
   assert.deepEqual(missing, []);
 });
+
+test("search-contexts with an attribute filter finds no context by default", () => {
+  const args = { projectKey: "default", environmentKey: "production", kind: "user", filter: "user.email exists", limit: 1 };
+  const got = renderMockResponse(RA_TEMPLATES["search-contexts"], args, "search-contexts", createMockState());
+  assert.equal(got.totalCount, 0);
+  const users = renderMockResponse(RA_TEMPLATES["search-contexts"], { kind: "user", limit: 1 }, "search-contexts", createMockState());
+  assert.equal(users.totalCount, 1);
+});

@@ -199,7 +199,14 @@ function isUnfilteredContextSearch(input) {
   return kindBlank && filterBlank;
 }
 
+// A filter on a context attribute (for example `user.email exists`) finds no
+// stored context: the stored contexts have no attributes.
+function hasAttributeFilter(input) {
+  return typeof input.filter === "string" && /\b[a-z][\w-]*\.[a-z][\w.-]*/i.test(input.filter);
+}
+
 function searchContextsResponse(input) {
+  if (hasAttributeFilter(input)) return { items: [], totalCount: 0 };
   const mixed = input.projectKey === "mixed-contexts";
   if (isNotEqualsUser(input)) {
     if (mixed) {
