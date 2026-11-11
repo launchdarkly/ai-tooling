@@ -5,7 +5,7 @@ description: "Package, install command, and where the plugins option goes for ea
 
 # Observability plugin wiring
 
-Add the plugin to the `plugins` option of the LaunchDarkly client the app already initializes. Keep the rest of the init unchanged and reuse its credential. Most rows mirror `skills/onboarding/references/sdk/observability-plugin.md`; keep the shared rows in sync.
+Add the plugin to the `plugins` option of the LaunchDarkly client the app already initializes, or use the stack's own registration where the SDK has no `plugins` option (Flutter registers it with `LDObserve.init`). Keep the rest of the init unchanged and reuse its credential. Most rows mirror `skills/onboarding/references/sdk/observability-plugin.md`; keep the shared rows in sync.
 
 Read the package README before writing init code. The per-package READMEs in [launchdarkly/observability-sdk](https://github.com/launchdarkly/observability-sdk) (under `sdk/@launchdarkly/<package>/`) and the [observability SDK docs](https://launchdarkly.com/docs/sdk/observability) are authoritative for plugin options. README examples can lag the SDKs, so take the client initializer from the app's existing code, not from a plugin README.
 
@@ -27,7 +27,7 @@ const plugins = [
 ];
 ```
 
-Add session replay only if the user wants it. It goes after `Observability`, with `privacySetting: 'strict'` unless the user named another level.
+Add session replay only if the user wants it. It goes after `Observability`, with `privacySetting: 'strict'` unless the user named another level. In Flutter and .NET MAUI, replay is part of the existing registration instead of a second plugin; see those rows.
 
 | SDK in the project | Where `plugins` goes |
 |---|---|

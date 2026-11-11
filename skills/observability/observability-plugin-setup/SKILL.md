@@ -24,8 +24,8 @@ You're using a skill that will guide you through turning on LaunchDarkly observa
 ## Core Principles
 
 1. **Ask before changing anything.** The user usually came for something else (often flag work). Explain the change in a few lines and edit only after they agree. If they decline, drop it for the rest of the session.
-2. **One plugin on the client that already exists.** Add the plugin to the LaunchDarkly client's `plugins` option in the init code the app already has. No second client, no second key, no new environment variable.
-3. **Smallest diff.** One dependency and one `plugins` entry per client. No custom spans, log forwarding, network body recording, sampling, or service names unless the user asks.
+2. **One plugin on the client that already exists.** Add the plugin to the LaunchDarkly client's `plugins` option in the init code the app already has, or use the stack's equivalent registration (Flutter's `LDObserve.init`, .NET MAUI's `ObservabilityPlugin`). No second client, no second key, no new environment variable.
+3. **Smallest diff.** One dependency and one plugin registration per client. No custom spans, log forwarding, network body recording, sampling, or service names unless the user asks.
 4. **Strict privacy for session replay.** Unless the user names a level, use the strictest replay setting: `privacySetting: 'strict'` in the browser, every mask option turned on for mobile (see [Plugin wiring](references/plugin-wiring.md)).
 5. **A pull request, not a push.** Put the change on a new branch and open a pull request for review. Never commit to the default branch.
 
@@ -71,7 +71,10 @@ Follow [Plugin wiring](references/plugin-wiring.md) for the package and where `p
 1. Install the package with the project's package manager (from the lockfile). Do not pin a version except where the ecosystem requires one (Gradle, CocoaPods).
 2. Construct the plugin and add it to the existing client's `plugins` option (Flutter instead registers it on the existing client with `LDObserve.init(client, ...)`). Keep everything else in the init unchanged.
 3. Reuse the client's credential. Where a plugin constructor takes the key (Android), pass the same variable the client reads.
-4. Browser and mobile apps: add session replay only if the user wants it, after the observability plugin in `plugins`, with the strictest privacy setting unless they named one.
+4. Add session replay only if the user wants it, with the strictest privacy setting unless they named one. How depends on the stack:
+   - Browser, React Native, iOS, Android: add the replay plugin after the observability plugin in `plugins`.
+   - Flutter: pass `replay: const SessionReplayOptions(...)` to the existing `LDObserve.init` call and wrap the app in `SessionReplayCapture`. Replay is not a second plugin, so do not add one.
+   - .NET MAUI: pass `SessionReplayOptions` as the second `ObservabilityPlugin` constructor argument. Replay is not a second plugin, so do not add one.
 5. Build or type-check the project, and run its existing tests if they are quick. Fix what you broke; do not change unrelated code.
 
 If the installed SDK is below the plugin's minimum: a bump within the same major version is fine. A major-version upgrade or a different package needs the user's approval first.
