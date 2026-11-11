@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # Investigate
@@ -22,7 +22,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server. Tools it uses:
 - Evidence: `get-trace`, `search-traces`, `search-logs`, `search-log-patterns`, `search-error-groups`, `get-error-group`, `search-sessions`, `get-session-details`, `search-timeline-events`
 - Alerts: `get-alerts`, `get-alert-firing-history`, `get-investigation` (see [alert-investigation](../alert-investigation/SKILL.md))
 
-If a tool is missing, the MCP server may not be connected or may be older; say so rather than working around it. Some response fields named below (`low_sample`, `ingest`, `self_ms`, `summary` on firing history, `alert_episode`, error-group `include`) arrived in a recent server release. If a response lacks one, the server predates it: use the manual fallback given next to it, and do not report the field as empty.
+If a tool is missing, the MCP server may not be connected or may be older; say so rather than working around it. Some response fields named below (`low_sample`, `ingest`, `self_ms`, `summary` on firing history, `alert_episode`, error-group `include`, `error_span_rate` on `get-changes` versions, `bucket_starts`) arrived in a recent server release. If a response lacks one, the server predates it: use the manual fallback given next to it, and do not report the field as empty.
 
 ## The first five minutes
 
@@ -35,7 +35,8 @@ Pin down the project, the service and the time the problem started.
 - **Project.** If the user did not name one, call `find-o11y-project` with the service name. Ask if there is no single clear match.
 - **Service family.** One system often reports under several names (`production-api`, `staging-api`, `production-api-worker`). Call `get-keys` with `key: "service_name"` and `search: "<name>"` and pick the exact values. Filter with `services: [...]` or `service_name=(a OR b)`, not `service_name=*api*`: a `*` is a contains match and pulls in siblings.
 - **Incident.** If the report names an incident (INC-123), call `get-incidents` with `incidentId`. Its `created_at` is when someone noticed, not when it began; start your window at least 2 hours earlier.
-- **Onset.** Run `search-aggregations` on the failing signal (error logs, 5xx spans, error groups) over a window wider than the report, for example 6 to 24 hours, with `bucketCount` 24 to 48. Find the first bucket that departs from the line. That is your **anomaly window**; the same-length window just before it, or the same time a day or week earlier, is your **baseline**.
+- **Onset.** Run `search-aggregations` on the failing signal (error logs, 5xx spans, error groups) over a window wider than the report, for example 6 to 24 hours, with `bucketCount` 24 to 48. Find the first bucket that departs from the line. That is your **anomaly window**; the same-length window just before it, or the same time a day or week earlier, is your **baseline**. Each series' `values` line up with `bucket_starts`, one ISO 8601 UTC time per position; an older server returns `buckets` with `bucket_min` and `bucket_max` in Unix seconds instead.
+- **Spread.** Before you narrow to the busiest service, see how far the failure reaches. Group the failing signal by `service_name` over the whole family (`bucketCount: 1`, `groupByLimit` 20, `includeOther: true`), and run one `search-log-patterns` with `level=error` and the same family filter, not only the top service. The same message on many services points to something they share (a build, a base image, a certificate, a dependency), not to one service's code, and the patterns name every dependency that is failing. Report the services you did not check as unchecked, not as unaffected.
 - **Data completeness.** Before you conclude that data is missing or that a count fell, check what ingest drops. `get-keys` adds an `ingest` block when a non-default setting applies to the product (sampling rate, rate limit, exclusion query, filter rules, quota), and `search-aggregations` adds it with `includeIngest: true`. Its `completeness_note`, when present, names in one line what is reducing the data. A drop in errors right after a quota was exceeded is not a recovery.
 - **Shape.** One spike, a step up, a slow drift, or the same pattern every day? A daily pattern points to traffic or batch jobs, not a regression.
 
@@ -50,10 +51,10 @@ Before hunting for a cause, check that something actually changed.
 
 ### 3. What changed?
 
-Call `get-changes` with `serviceName` (one exact `service_name` value), `startDate` 1 to 2 hours before the onset, and `endDate` just after it. Set `environmentKey` (for example `production`) and keep the window short: it merges build versions, flag changes and alert episodes, and a long window on a busy project gets truncated (the newest rows are kept; `truncation_note` says how to get the rest).
+Call `get-changes` with `serviceName` (one exact `service_name` value), `startDate` 1 to 2 hours before the onset, and `endDate` just after it. Set `environmentKey` (for example `production`) and keep the window short: it merges build versions, flag changes and alert episodes, and a long window on a busy project gets truncated. Version and alert rows are kept first, then flag changes, and `truncation_note` says how to get the rest; an older server keeps only the newest rows, so there a deploy near the start of the window can be cut. When the error names a dependency, call it for the dependency in the same turn: an unchanged version there rules that side out.
 
-- A **version** whose `first_seen` is just before the onset is the first suspect. Note the `versionKey` it detected (`service_version`, `tags.version` or `version`); use that same key in step 4. Services differ, so do not guess it.
-- A **flag change** with `evaluated_by_service: true` is the strongest flag link: the service's own spans evaluated that flag in the window. By default only those are returned (or, when the service recorded no evaluations at all, the changes in `environmentKey`); `sources.flags.omitted` counts what was left out. Set `allFlagChanges: true` only when you need every flag change in the project. On an older server every change is returned and you must filter on `evaluated_by_service` yourself.
+- A **version** whose `first_seen` is just before the onset is the first suspect. `versions` lists each build with `first_seen`, `last_seen`, `errors_first_seen` and, from traces, `error_spans` and `error_span_rate`: a build whose rate jumps from the build before it, with errors starting seconds after its `first_seen`, is strong evidence, and you can quote those numbers as they are. They count every span of the service; for one route or status code, or on a server without `error_span_rate`, run the per-version breakdown in step 4. Note the `versionKey` it detected (`service_version`, `tags.version` or `version`) in `sources.versions.version_keys`; use that same key in step 4. Services differ, so do not guess it.
+- A **flag change** with `evaluated_by_service: true` is the strongest flag link: the service's own spans evaluated that flag in the window. By default only those are returned (or, when the service recorded no evaluations at all, the changes in `environmentKey`); `sources.flags.omitted` counts what was left out. Changes to one flag in one environment less than 10 minutes apart are one row with `changes` and `last_changed_at`, describing the last of them. Set `allFlagChanges: true` only when you need every flag change in the project. On an older server every change is returned and you must filter on `evaluated_by_service` yourself.
 - The audit log is sampled across the window up to `maxFlagChanges`; `sources.flags.sampling` and `slices_with_more` say whether some slices had more. When `covered_from` is present, only the newest page was read: if it is after your onset, narrow the window rather than trusting the gap.
 - **Alert episodes:** `alert_episode` rows merge firings less than 2 hours apart, with `firings`, `last_fired_at` and `group_by_key`. An episode that started before your onset is background, not the trigger.
 - No change near the onset is a finding too: look at traffic, a dependency, or one bad host next.
@@ -105,7 +106,8 @@ Quantify who and what was affected, over what window.
 
 - `search-service-map` with `service: "<service>"` and `include: ["health"]` gives requests, errors, error rate and p50/p95/p99 for the service and per `http.route`. Run it for the anomaly window and for the baseline window to compare. Use `include: ["dependencies"]` to see callers that inherited the failure.
 - Users and sessions: `search-error-groups` with `sort: "sessions"`, or `search-aggregations` with `CountDistinct` of a user key such as `identifier` (sessions) and `exact: true`.
-- Time: first and last bad bucket, using `Min` and `Max` of `timestamp` with `bucketCount: 1` (values are Unix seconds; convert them).
+- Time: first and last bad record, using `Min` and `Max` of `timestamp` with `bucketCount: 1` (values are ISO 8601 UTC times; an older server returns Unix seconds, which you must convert).
+- Reach: the services and dependencies from the spread check in step 1, each with its count, and whether the suspect build reached other environments (group by `environment` with the version filter).
 
 ## Sampling and percentiles
 
@@ -130,7 +132,7 @@ Trace and log aggregations read a sample unless you set `exact`. When the result
 - **Plan, then let each result inform the next.** State a short plan before the first call. Re-plan after each step; do not run calls you already know the answer to.
 - **Aggregate before you read rows.** `search-aggregations` and `search-log-patterns` answer "how many", "which ones" and "since when" in one call. `search-logs`, `search-traces`, `search-sessions` and `search-error-groups` return pages (at most 50 rows per call; follow `page.next_cursor` or `page` for more), which is for evidence once you know where to look, not for counting.
 - **Check that a filter filtered.** An invalid clause or an unknown key is dropped, not rejected, and the result gets wider. If a "filtered" count equals the unfiltered one, the filter did nothing. See `observability/querying-patterns` for the grammar.
-- **Convert units.** Trace `duration` is in nanoseconds; timestamps from `Min`/`Max` are Unix seconds.
+- **Convert units.** Trace `duration` is in nanoseconds. Timestamps from `Min`/`Max` and `bucket_starts` are ISO 8601 UTC; convert to the user's timezone only when you report, and say which one you used. An older server returns Unix seconds for both.
 - **Cross-reference.** Trace IDs in logs, sessions on error occurrences, versions on spans: where two products agree, you have evidence.
 - **Large outputs.** When a result is saved to a file because it was too large, extract the slice you need with `jq` or `python3` instead of reading the whole file, and next time narrow the window or lower `maxTokens`.
 - **Do not trust a summary over the data.** An incident summary, an earlier investigation or a responder's theory is a hypothesis. Check it with step 4; if the data disagrees, say so and show the numbers.
