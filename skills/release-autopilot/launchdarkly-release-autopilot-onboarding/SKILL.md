@@ -26,9 +26,9 @@ This skill requires the remotely hosted LaunchDarkly MCP server. Installing the 
 
 On a server that has not picked up the Automations rename yet, the same tools are named `get-release-autopilot`, `update-release-autopilot`, and `delete-release-autopilot-repo-settings`; use those names with the same arguments. If a call fails with "this tool has been removed from the server", ask the user to reconnect the LaunchDarkly MCP server so it loads the new tool names, then retry.
 
-**Required for auto-releasing:**
+**Required for auto-releasing (one of):**
 - `get-environment-release-plans` / `create-environment-release-plan` / `update-default-environment-release-plan`: environment release plans (see [Release setup](#release-setup))
-- `get-release-policies`: only for accounts that do not have environment release plans yet
+- `get-release-policies`: for accounts that do not have environment release plans yet. When `get-environment-release-plans` is not available, use this path (see [Release policies](#release-policies)) and do not stop
 
 **Used when available:**
 - `get-metrics`: rollback metrics for guarded release plans

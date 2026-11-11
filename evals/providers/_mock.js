@@ -794,6 +794,15 @@ function overrideKey(overrides, toolName, args) {
 }
 
 /**
+ * The key a call is counted under for array overrides: the override key that
+ * answers it, else its template key. A get-automations section read then has
+ * its own counter and does not advance a tool-name array override.
+ */
+function callCountKey(overrides, toolName, args) {
+  return overrideKey(overrides, toolName, args) || templateKey(toolName, args);
+}
+
+/**
  * Render an override with the same `{{placeholder}}` substitution as the
  * shared templates, but without the stateful overlay: an override is exactly
  * what the test wants the tool to return.
@@ -807,6 +816,7 @@ module.exports = {
   createMockState,
   resolveMockOverride,
   overrideKey,
+  callCountKey,
   renderOverride,
   templateKey,
 };

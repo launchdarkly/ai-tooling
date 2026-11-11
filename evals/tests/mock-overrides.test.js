@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 // A test-level `mock_overrides` var replaces a tool's shared template for that
 // one test, so a suite can exercise branches like `requiresApproval`.
-const { resolveMockOverride, renderOverride, overrideKey } = require("../providers/_mock");
+const { resolveMockOverride, renderOverride, overrideKey, callCountKey } = require("../providers/_mock");
 
 test("no overrides returns undefined", () => {
   assert.equal(resolveMockOverride(undefined, "toggle-flag", 0), undefined);
@@ -88,4 +88,12 @@ test("a by_arg section override for get-automations still answers the section re
   assert.equal(overrideKey(overrides, "get-automations", { section: "cleanup" }), "get-automations");
   const key = overrideKey(overrides, "get-automations", { section: "cleanup" });
   assert.deepEqual(resolveMockOverride(overrides, key, 0, { section: "cleanup" }), { settings: { schedule: "weekly" } });
+});
+
+test("a section read does not share the get-automations call counter", () => {
+  const overrides = { "get-automations": [{ page: 1 }, { page: 2 }] };
+  assert.equal(callCountKey(overrides, "get-automations", {}), "get-automations");
+  assert.equal(callCountKey(overrides, "get-automations", { section: "cleanup" }), "get-automations#cleanup");
+  assert.equal(callCountKey(overrides, "get-flags", { flagKey: "f" }), "get-flags#flagKey");
+  assert.equal(callCountKey({ "get-flags": [{}] }, "get-flags", { flagKey: "f" }), "get-flags");
 });

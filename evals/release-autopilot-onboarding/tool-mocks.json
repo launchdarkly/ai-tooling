@@ -121,5 +121,9 @@
       "maxArchivalsPerRun": 10
     },
     "automationsPage": "/projects/{{projectKey}}/settings/automations"
+  },
+  "search-contexts": {
+    "items": [],
+    "totalCount": 0
   }
 }

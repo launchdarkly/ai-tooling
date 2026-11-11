@@ -108,6 +108,7 @@ const {
   createMockState,
   resolveMockOverride,
   overrideKey,
+  callCountKey,
   renderOverride,
   templateKey,
 } = require("./_mock");
@@ -414,7 +415,7 @@ class ClaudeSkillAgentSdk {
             async (args) => {
               // Calls are counted per override key, so a section read does
               // not advance a get-automations array override.
-              const countKey = overrideKey(mockOverrides, def.name, args) || def.name;
+              const countKey = callCountKey(mockOverrides, def.name, args);
               const callIndex = toolCallCounts[countKey] || 0;
               toolCallCounts[countKey] = callIndex + 1;
               const override = overrideFor(mockOverrides, def.name, callIndex, args, mockState);

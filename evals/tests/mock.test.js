@@ -910,3 +910,12 @@ test("a created plan is listed beside the existing plans", () => {
   assert.deepEqual(got.items.map((p) => [p.key, p.default]), [["gradual", true], ["p", false]]);
   assert.equal(got.totalCount, 2);
 });
+
+test("every release-autopilot-onboarding tool has a mock template", () => {
+  const defs = require("../release-autopilot-onboarding/tool-definitions.json");
+  const shared = require("../mocks/tool-responses.json");
+  const missing = (Array.isArray(defs) ? defs : defs.tools)
+    .map((d) => d.name)
+    .filter((name) => !(name in RA_TEMPLATES) && !(name in shared));
+  assert.deepEqual(missing, []);
+});
