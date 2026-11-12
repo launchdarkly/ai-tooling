@@ -504,7 +504,7 @@
     },
     {
       "name": "launchdarkly-release-plans",
-      "description": "List, create, edit, make default, and delete LaunchDarkly release plans of both kinds: environment release plans (one environment's phases, rollout steps, and rollback metrics, with starter plans) and flag release plans (a project's environments in release order, each with its environment release plan, which auto-releasing proposes releases from). Also starts a flag's release from a flag release plan. Use when the user wants to see, build, change, or remove a release plan, set an environment's or a project's default plan, or when another skill such as Release Autopilot onboarding needs release plans planned or created. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding, which follows this skill.",
+      "description": "List, create, edit, make default, and delete LaunchDarkly release plans of both kinds: environment release plans (one environment's phases, rollout steps, and rollback metrics, with starter plans) and flag release plans (a project's environments in release order, each with its environment release plan, which Release Autopilot proposes releases from on pull requests). Also starts a flag's release from a flag release plan. Use when the user wants to see, build, change, or remove a release plan, set an environment's or a project's default plan, or when another skill such as Release Autopilot onboarding needs release plans planned or created. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding, which follows this skill.",
       "path": "skills/release-autopilot/launchdarkly-release-plans",
       "version": "1.0.0",
       "license": "Apache-2.0",

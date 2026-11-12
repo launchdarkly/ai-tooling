@@ -59,7 +59,7 @@ The underlying endpoints require the Release Autopilot add-on. If every Release 
 
 > Auto-flagging approvalRequired is ON. Turn it OFF? Auto-flagging PRs would no longer require that approval gate.
 
-Same pattern for auto-releasing, and say that auto-releasing can ship. Auto-releasing proposes releases only from the project's flag release plans. Say so, and point to [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md) to set them up.
+Same pattern for auto-releasing, and say that auto-releasing can ship. When Release Autopilot proposes a release on a pull request, it uses only the project's flag release plans. Say so, and point to [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md) to set them up.
 
 **Map or change one repo** (`update-automations` with `accountWide: false`):
 

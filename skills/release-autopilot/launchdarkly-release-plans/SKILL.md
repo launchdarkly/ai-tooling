@@ -1,6 +1,6 @@
 ---
 name: launchdarkly-release-plans
-description: "List, create, edit, make default, and delete LaunchDarkly release plans of both kinds: environment release plans (one environment's phases, rollout steps, and rollback metrics, with starter plans) and flag release plans (a project's environments in release order, each with its environment release plan, which auto-releasing proposes releases from). Also starts a flag's release from a flag release plan. Use when the user wants to see, build, change, or remove a release plan, set an environment's or a project's default plan, or when another skill such as Release Autopilot onboarding needs release plans planned or created. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding, which follows this skill."
+description: "List, create, edit, make default, and delete LaunchDarkly release plans of both kinds: environment release plans (one environment's phases, rollout steps, and rollback metrics, with starter plans) and flag release plans (a project's environments in release order, each with its environment release plan, which Release Autopilot proposes releases from on pull requests). Also starts a flag's release from a flag release plan. Use when the user wants to see, build, change, or remove a release plan, set an environment's or a project's default plan, or when another skill such as Release Autopilot onboarding needs release plans planned or created. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding, which follows this skill."
 license: Apache-2.0
 compatibility: "Environment release plans use the hosted LaunchDarkly MCP server. For flag release plans, and for deleting an environment release plan, the user runs the REST API (beta) commands that the skill shows in their own terminal."
 metadata:
@@ -13,7 +13,7 @@ metadata:
 You're using a skill that reads and changes LaunchDarkly release plans. There are two kinds:
 
 - An **environment release plan** releases a flag in one environment: its phases, rollout steps, holds, and rollback metrics. A plan with metrics is guarded, so a regression can roll the release back. A plan without metrics is progressive. Each environment can have one default plan.
-- A **flag release plan** is project-level. It lists the project's environments in release order, and names the environment release plan each one releases with (or says the environment releases immediately). Auto-releasing proposes each new release from the project's flag release plans, and proposes none when the project has none. A project can have one default flag release plan.
+- A **flag release plan** is project-level. It lists the project's environments in release order, and names the environment release plan each one releases with (or says the environment releases immediately). When Release Autopilot proposes a release on a pull request, it uses the project's flag release plans, and it proposes none when the project has none. A rollout recorded for a flag (the `flag-release` skill, `create-automated-rollout-config` with `policy`) uses each environment's default release plan and does not need a flag release plan. A project can have one default flag release plan.
 
 Releases can ship code to users, so treat every write as production automation with a blast radius.
 
