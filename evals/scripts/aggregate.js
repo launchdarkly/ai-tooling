@@ -120,6 +120,25 @@ function summarize(suite, results, commit) {
   };
 }
 
+// In GitHub Actions, emit one warning annotation per failed test with the
+// failed assertions' reasons. Check run annotations can be read where the
+// job log cannot (for example through a proxy that does not follow log
+// redirects).
+function annotateFailures(suite, results) {
+  if (!process.env.GITHUB_ACTIONS) return;
+  const tests = results?.results?.results || results?.results || [];
+  const esc = (v) => String(v).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  for (const t of Array.isArray(tests) ? tests : []) {
+    if (t.success) continue;
+    const parts = (t.gradingResult?.componentResults || [])
+      .filter((c) => !c.pass)
+      .map((c) => `${c.assertion?.metric || c.assertion?.value || "assert"}: ${c.reason || ""}`);
+    if (t.error) parts.unshift(`error: ${t.error}`);
+    const name = t.description || t.testCase?.description || t.vars?.user_request?.slice(0, 80) || "test";
+    console.log(`::warning title=${esc(`${suite.suite}: ${name}`).slice(0, 200)}::${esc(parts.join(" | ")).slice(0, 1500)}`);
+  }
+}
+
 function main() {
   const args = parseArgs(process.argv);
   const suites = selectSuites(args.only);
@@ -152,6 +171,7 @@ function main() {
     const results = readResults(suite);
     if (!results) { anyError = true; continue; }
     skills[suite.skillKey] = summarize(suite, results, commit);
+    annotateFailures(suite, results);
     const s = skills[suite.skillKey];
     const icon = s.status === "passing" ? "✓" : "✗";
     console.log(`${icon} ${suite.skillKey}: ${s.passed}/${s.total} passed (${s.score}%)`);
@@ -170,4 +190,6 @@ function main() {
   if (anyError || belowThreshold.length > 0) process.exit(1);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { annotateFailures };

@@ -637,6 +637,12 @@ class ClaudeSkillAgentSdk {
     if (!this.allowBuiltins) {
       queryOptions.tools = [];
     }
+    // With builtins on, the structured question must go through the
+    // harness's ask-question tool, which returns the scripted answers. The
+    // built-in AskUserQuestion has no one to answer it in a headless run.
+    if (this.allowBuiltins && this.exposeAskQuestion) {
+      queryOptions.disallowedTools = ["AskUserQuestion"];
+    }
 
     let finalText = "";
     let firstAssistantText = "";
