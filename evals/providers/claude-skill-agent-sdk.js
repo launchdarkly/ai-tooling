@@ -177,12 +177,14 @@ function lastShownCommand(texts) {
   return last;
 }
 
-function pickAnswer(answers, idx, options, matchMode, used, command) {
+function pickAnswer(answers, idx, options, matchMode, used, command, prompt) {
   // A pasted answer, { command: "<regex on METHOD /path>", text: "..." },
   // stands for output the user pasted after running a command the agent
   // showed. In match mode, scripted option answers win; a paste answers a
-  // question only when no option answer fits it, and only when the last
-  // command shown matches its regex. In order mode, it answers its turn.
+  // question only when no option answer fits it, the question is the
+  // "Run this command" step (its prompt says so, or an option asks for the
+  // output), and the last command shown matches its regex. In order mode,
+  // it answers its turn.
   const isPaste = (ans) => ans && !Array.isArray(ans) && typeof ans === "object" && typeof ans.text === "string";
   const resolves = (ans) =>
     Array.isArray(ans) &&
@@ -196,7 +198,9 @@ function pickAnswer(answers, idx, options, matchMode, used, command) {
       chosen = answers[hit];
       return chosen.map((want) => matchOption(want, options));
     }
-    const paste = command
+    const runStep = /run this command/i.test(String(prompt || "")) ||
+      (options || []).some((o) => /output/i.test(String(o.label || "")));
+    const paste = command && runStep
       ? answers.findIndex((ans, i) => !used.has(i) && isPaste(ans) && typeof ans.command === "string" && new RegExp(ans.command).test(command))
       : -1;
     if (paste === -1) return undefined;
@@ -536,7 +540,7 @@ class ClaudeSkillAgentSdk {
             async (args) => {
               const idx = askQuestionCallCount++;
               const command = lastShownCommand([...assistantTurns.map((t) => t.text), args.prompt]);
-              const picked = pickAnswer(askQuestionAnswers, idx, args.options, matchAnswers, usedAnswers, command);
+              const picked = pickAnswer(askQuestionAnswers, idx, args.options, matchAnswers, usedAnswers, command, args.prompt);
               const scripted = picked !== undefined;
               let selected;
               if (scripted) {

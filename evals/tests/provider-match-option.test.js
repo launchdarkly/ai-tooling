@@ -61,6 +61,11 @@ test("a pasted { command, text } answer needs a matching shown command, and opti
   // No shown command: no paste.
   assert.equal(pickAnswer(answers, 2, run, true, used, ""), undefined);
   assert.deepEqual(pickAnswer(answers, 2, run, true, used, "POST /api/v2/projects/default/flag-release-plans"), [create.text]);
+  // A question that is not the run step (such as a retry confirmation after
+  // a 409) never takes a paste, even when the last command matches.
+  const retry = [{ id: "yes", label: "Make this change" }, { id: "no", label: "Cancel" }];
+  assert.equal(pickAnswer([create], 0, retry, true, new Set(), "POST /api/v2/projects/default/flag-release-plans", "Retry with default-release-2?"), undefined);
+  assert.deepEqual(pickAnswer([create], 0, [{ id: "a", label: "Done" }, { id: "b", label: "Skip" }], true, new Set(), "POST /api/v2/projects/default/flag-release-plans", "Run this command"), [create.text]);
   // An option answer that fits a run question wins over a paste.
   assert.deepEqual(pickAnswer([list, ["Skip"]], 0, run, true, new Set(), "GET /api/v2/projects/default/flag-release-plans"), ["skip"]);
   assert.deepEqual(pickAnswer([{ text: "pasted" }], 0, run, false, new Set(), ""), ["pasted"]);

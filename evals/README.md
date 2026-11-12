@@ -128,7 +128,7 @@ evals/
      "terminated": null
    }
    ```
-   With `scrub_ld_credentials: true`, the provider removes LaunchDarkly credential variables (`LD_ACCESS_TOKEN`, `LD_BASE_URI`, `LD_API_KEY`, `LAUNCHDARKLY_*`) from the agent's environment, so a suite with builtins on can check that the agent never uses a token. A scripted answer can also be `{ command: "<regex on METHOD /api/v2/...>", text: "..." }`, which stands for output the user pasted after running a command the agent showed. In match mode it answers a question only when no option answer fits and the last command shown matches.
+   With `scrub_ld_credentials: true`, the provider removes LaunchDarkly credential variables (`LD_ACCESS_TOKEN`, `LD_BASE_URI`, `LD_API_KEY`, `LAUNCHDARKLY_*`) from the agent's environment, so a suite with builtins on can check that the agent never uses a token. A scripted answer can also be `{ command: "<regex on METHOD /api/v2/...>", text: "..." }`, which stands for output the user pasted after running a command the agent showed. In match mode it answers only the "Run this command" step, only when no option answer fits, and only when the last command shown matches.
 5. `shared/transform.js` parses the JSON before assertions run. Every assertion receives `output` as an object — **do not call `JSON.parse(output)` inside assertions**.
 
 ### Shared defaults (`shared/defaults.yaml`)
