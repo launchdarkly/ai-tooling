@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.5.0-experimental"
+  version: "1.0.0"
 ---
 
 # LaunchDarkly Release Autopilot Onboarding
@@ -28,7 +28,7 @@ On a server that has not picked up the Automations rename yet, the same tools ar
 
 **Required for auto-releasing (one of):**
 - `get-environment-release-plans` / `create-environment-release-plan` / `update-default-environment-release-plan`: environment release plans (see [Release setup](#release-setup))
-- `get-release-policies`: for accounts that do not have environment release plans yet. When `get-environment-release-plans` is not available, use this path (see [Release policies](#release-policies)) and do not stop
+- `get-release-policies`: for accounts whose LaunchDarkly plan does not include environment release plans. When `get-environment-release-plans` is not available, use this path (see [Release policies](#release-policies)) and do not stop
 
 **Used when available:**
 - `get-metrics`: rollback metrics for guarded release plans
@@ -192,26 +192,30 @@ Run each part of this step only for a capability the user picked in Step 2, and 
 
 Only if the user picked auto-releasing. Otherwise skip to [Auto-cleanup](#auto-cleanup) or [Auto-archival](#auto-archival), and do not ask about environments or look up release plans or policies.
 
-For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-projects` with `projectKey`, or ask). Then call `get-environment-release-plans` for the first chosen environment only, and wait for its result before calling it for any other environment. This check happens once per account:
+For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-projects` with `projectKey`, or ask). An environment is production when `get-projects` marks it `critical: true`. If no chosen environment has `critical: true`, or the read does not show `critical`, ask header "Production", `multiSelect: true`, which chosen environments serve production traffic, with "None" as an option. Then call `get-environment-release-plans` for the first chosen environment only, and wait for its result before calling it for any other environment. This check happens once per account:
 
 - It succeeds: the account uses **environment release plans**. Follow [Release plans](#release-plans).
-- It returns 403 `Plan does not allow this operation`, or the tool is not available: the account does not have environment release plans yet. The 403 is account-wide, so do not call it for other environments. Follow [Release policies](#release-policies).
+- It returns 403 `Plan does not allow this operation`, or the tool is not available: the account's LaunchDarkly plan does not include environment release plans. The 403 is account-wide, so do not call it for other environments. Follow [Release policies](#release-policies).
+- It returns any other error, such as a different 403, a 404, or a 500: stop release setup for this project. Tell the user what failed, keep auto-releasing off for each repo in the project, and list "set up releases for this project" as a follow-up. Do not use release policies instead, and do not create plans.
 
 ##### Release plans
 
 For each chosen environment, call `get-environment-release-plans`. Auto-releasing uses the environment's default plan.
 
-- **The environment has plans.** Show the default plan (or, if none is the default, each complete plan) with its phases, rollout steps, and metrics. Ask header "Plan": "Use this plan" ("Keep it as this environment's default"), or "Choose another" (offer the other plans, or a starter plan below). If the plan the user keeps is not the default yet, record setting it as the default.
+- **The environment has complete plans.** Show the default plan (or, if none is the default, each complete plan) with its phases, rollout steps, and metrics. Ask header "Plan": "Use this plan" ("Keep it as this environment's default"), or "Choose another" (offer the other complete plans, or a starter plan below). If the plan the user keeps is not the default yet, record setting it as the default. If another plan is the default now, record that the new one replaces it.
+- **The environment has only incomplete plans.** An incomplete plan cannot start a release or become the default. Name them, say that, and offer a starter plan as for an environment with no plans.
 - **The environment has no plans.** Offer a starter plan so the user does not build one from scratch. Each starter is a normal plan they can change later. Before offering, check the project with reads, not questions:
   1. **Randomization unit:** `search-contexts` with `kind: "user"`, `limit: 1` in that environment. If it finds contexts, use `user`. If not, call `search-contexts` with no kind to see which kinds the project stores, and ask header "Roll out by" with those kinds. A plan whose unit is not a context kind in the project cannot be created.
-  2. **Email attribute:** `search-contexts` with that kind and `filter: "<unit>.email exists"`, `limit: 1`. Offer "Internal users first" only if it finds a context.
-  3. **Rollback metrics:** `get-metrics` with `metricUsedIn: "guarded_rollouts"`, then without it if that finds none. Keep metrics whose `randomizationUnits` include the unit. If any remain, ask header "Rollback metrics", `multiSelect: true`, with up to three of them plus "No metrics" ("Release step by step without automatic rollback"). Picked metrics make the starter guarded: a regression on one rolls the release back. They go in the plan as `{ "<metric key>": { "isGroup": false, "autoRollback": true } }`.
+  2. **Email addresses:** `search-contexts` with that kind and `filter: "<unit>.email exists"`, `limit: 20`. Offer "Internal users first" only if it finds a context. Keep the email domains it returns for the "Email domain" question.
+  3. **Rollback metrics:** a guarded plan needs the unit to be available for guarded rollouts, and no read shows that. LaunchDarkly turns this on for `user` by default. For any other unit, skip this check, use no metrics, and list "make <unit> available for guarded rollouts, then add rollback metrics to the plan" as a follow-up. For `user`, call `get-metrics` with `metricUsedIn: "guarded_rollouts"`, then without it if that finds none. Keep metrics whose `analysisUnits` include the unit. If any remain, ask header "Rollback metrics", `multiSelect: true`, with up to three of them plus "No metrics" ("Release step by step without automatic rollback"). Picked metrics make the starter guarded: a regression on one rolls the release back. They go in the plan as `{ "<metric key>": { "isGroup": false, "autoRollback": true } }`.
 
   Then ask header "Starter plan" with options that fit the environment, marking the first that applies "(Recommended)":
-  - Production: label "Internal users first", description "Releases to nearly all people with your company email domain first, then 10% → 25% → 50% of everyone, with 4-hour holds" (only when step 2 found an email); label "Progressive", description "10% → 25% → 50% of everyone, with 4-hour holds"; label "Custom", description "Build the plan step by step".
+  - Production: label "Internal users first", description "Releases to 99% of people with your company email domain for 4 hours, then 10% → 25% → 50% of everyone, with 4-hour holds" (only when step 2 found an email); label "Progressive", description "10% → 25% → 50% of everyone, with 4-hour holds"; label "Custom", description "Build the plan step by step".
   - Any other environment: label "Progressive", description "10% → 50% of everyone, with 4-hour holds"; label "Custom", description "Build the plan step by step".
 
-  If the user picked rollback metrics, add "rolls back automatically if <metric names> regress" to the starters' descriptions. For "Internal users first", confirm the email domain with `AskUserQuestion`, header "Email domain": offer the domain of the member's email from Step 1 (`admin@acme.example` → `acme.example`) as the first option, and say they can type another in Other. Every step's allocation is at most 99000 (99%), and there is no 100% step: completing the release reaches everyone, so the internal-users phase is one 99000 step for 4 hours. Then show the full starter plan and ask "Looks right" or "Adjust it". For "Custom", follow [references/release-plans.md](references/release-plans.md). The exact starter configurations are in that reference.
+  If the user picked rollback metrics, add "rolls back automatically if <metric names> regress" to the starters' descriptions. A guarded plan allows at most 50000 (50%) per step, so with rollback metrics "Internal users first" starts with 50% of people with your company email domain, and its description says "50%" instead of "99%". This keeps the internal phase, which is where a regression is cheapest to catch.
+
+  For "Internal users first", confirm the email domains with `AskUserQuestion`, header "Email domain", `multiSelect: true`. Offer the domain of the member's email from Step 1 (`admin@acme.example` → `acme.example`) first, then other domains from the step 2 contexts, up to four, and say they can type others in Other. Any domain works, including a personal one such as `gmail.com` for a trial account. If no step 2 context has an email at a confirmed domain, say in the plan summary that no stored context with that domain was found. Every step's allocation is at most 99000 (99%), and there is no 100% step: completing the release reaches everyone, so the internal-users phase is one step for 4 hours, at 99000, or 50000 with rollback metrics. Then show the full starter plan and ask "Looks right" or "Adjust it". The summary says that the email match is exact and case-sensitive: `dev@Acme.example` does not match `acme.example`. For "Custom", follow [references/release-plans.md](references/release-plans.md). The exact starter configurations and keys are in that reference.
 
 Record each plan to create, and record it as the environment's default. Do not call `create-environment-release-plan` or `update-default-environment-release-plan` yet.
 
@@ -234,7 +238,7 @@ Cleanup picks up flags that are ready to archive, and its jobs run with the perm
 
 #### Auto-archival
 
-Only if the user picked auto-archival. For each project, call `get-automations` with `section: "archival"` and `projectKey`. If automatic archival is already on, say so and record no change. If it is off, turning it on needs a person on the Automations page (the MCP can only turn it off or adjust it once it is on), so record a browser step for after "Looks good". If the call says automatic archival is not available, the account does not have it yet: list it as a follow-up.
+Only if the user picked auto-archival. For each project, call `get-automations` with `section: "archival"` and `projectKey`. If automatic archival is already on, say so and record no change. If it is off, turning it on needs a person on the Automations page (the MCP can only turn it off or adjust it once it is on), so record a browser step for after "Looks good". If the call says automatic archival is not available, the account does not include it: list it as a follow-up.
 
 ### Step 7: Confirm the plan
 
@@ -242,7 +246,7 @@ Only if the user picked auto-archival. For each project, call `get-automations` 
 
 List every write in the order you will make it. For each write, state the current and the proposed state and the blast radius, using the wording rules from the settings skill's [Confirm before write](../launchdarkly-release-autopilot-settings/SKILL.md#confirm-before-write):
 
-1. **Metrics and release plans** (release plans only): one line per metric to create and per environment, with the plan name, rollout steps, advancement, metrics, and that it becomes the environment's default.
+1. **Metrics and release plans** (release plans only): one line per metric to create and per environment, with the plan name, rollout steps, advancement, metrics, and that it becomes the environment's default. When the environment already has a default, say that the plan "replaces <current default> as the default".
 2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; this project has no release policy yet)." For a picked capability that a repo override kept off, say the write turns it back on: "Auto-flagging: off → on for this repository (it was turned off for this repository only)."
 3. **Account settings**: only fields that change, for a picked capability the account has off (see Core Principle 7). If auto-releasing turns on, say it can ship code.
    For a member who is not an admin or owner, list account writes under "Needs an admin" instead, and say an admin can make them with the settings skill. Do not name a settings page; there is none to point to.
@@ -270,7 +274,7 @@ Only "Looks good" approves the plan. On "Change something", ask what to change, 
 
 ### Step 8: Apply
 
-Make only the writes in the confirmed plan, in this order. Stop at the first failure, report it, and do not continue.
+Make only the writes in the confirmed plan, in this order. Stop at the first failure, report it, and do not continue. If `create-environment-release-plan` fails because the randomization unit is not available for guarded rollouts, nothing else was written: offer the same starter with "No metrics" and confirm the plan again.
 
 1. Release plans only: metrics recorded in Step 6, created in LaunchDarkly with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md). Skip its instrumentation steps.
 2. Release plans only: `create-environment-release-plan` for each new plan, then `update-default-environment-release-plan` with `default: true` for each plan recorded as an environment's default.
@@ -293,11 +297,11 @@ Record each answer as reported by the user. Never do these in Preview mode.
 
 ### Step 9: Verify
 
-1. **GitHub:** `get-automations` returns no `githubConnectUrl`. Say "GitHub is connected" only then.
+1. **GitHub:** `get-automations` returns neither `githubConnectUrl` nor `reposError`. Say "GitHub is connected" only then. With `reposError`, say the GitHub App install could not be read, and do not call the setup complete.
 2. **Repos:** `get-automations` with `repo` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan. If a picked capability is still effectively off for a repo, say which and do not call the setup complete.
 3. **Account:** `get-automations`: `account` matches the plan.
 4. **Release plans:** `get-environment-release-plans` for each environment lists the new plans and the right default. With release policies: report the policy state from Step 6.
-5. **Cleanup and archival:** `get-automations` with `section: "cleanup"` (schedule, repositories, and the flags the next run picks up) and `section: "archival"` for each project.
+5. **Cleanup and archival:** `get-automations` with `section: "cleanup"` (schedule, repositories, and the flags the next run picks up) and `section: "archival"` for each project. Archival that this read shows on is verified, including after the user turned it on in the browser.
 
 If any change was left for an admin or failed, lead with "Partly set up: waiting on an admin" and the admin checklist, and never call the setup complete. Then report:
 
@@ -317,7 +321,8 @@ Then offer the next steps, each in one line. If a change is waiting on an admin,
 |-----------|--------|
 | Every settings tool returns 404 | The account does not have the Release Autopilot add-on enabled. Tell the user and stop |
 | Member role is `reader` or `no_access` | Preview mode. End with a checklist for an admin |
-| Environment release plans return 403 | The account does not have them yet. Use release policies. Create no plans |
+| Environment release plans return 403 `Plan does not allow this operation` | The account's plan does not include them. Use release policies. Create no plans |
+| Environment release plans return any other error | Stop release setup for that project, report the error, keep auto-releasing off there. Do not use release policies |
 | Repo not on the install list | Explain the GitHub fix by owner, then list again |
 | GitHub still not connected after "Done" | Likely a different browser account. Follow [references/github-troubleshooting.md](references/github-troubleshooting.md) |
 
@@ -328,7 +333,7 @@ More cases: [references/edge-cases.md](references/edge-cases.md).
 - Don't write before Step 7's "Looks good", or at all in Preview mode.
 - Don't turn on auto-releasing unless the user picked it, and never send `approvalRequired`.
 - Don't map unpicked repos, iterate over the install list, or remap a repo to another project.
-- Don't act in the user's browser, change release policies, or report a browser step as verified. Don't open a test pull request without the user's approval. Don't ask for a browser change before "Looks good" or in Preview mode.
+- Don't act in the user's browser, change release policies, or report a browser step as verified (a read that confirms it, such as the archival section, is verified). Don't open a test pull request without the user's approval. Don't ask for a browser change before "Looks good" or in Preview mode.
 
 ## References
 

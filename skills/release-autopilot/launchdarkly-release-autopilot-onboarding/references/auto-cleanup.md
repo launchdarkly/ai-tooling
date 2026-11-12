@@ -1,6 +1,6 @@
 # Auto-cleanup
 
-Auto-cleanup runs Vega on a schedule to find flags that are ready for code removal and open pull requests that remove their code. It is set per project. Onboarding sets it through the MCP with `update-automations` (`projectKey` plus a `cleanup` object); [`launchdarkly-automations-cleanup-settings`](../../launchdarkly-automations-cleanup-settings/SKILL.md) changes it later.
+Auto-cleanup runs the Release Autopilot agents on a schedule to find flags that are ready for code removal and open pull requests that remove their code. It is set per project. Onboarding sets it through the MCP with `update-automations` (`projectKey` plus a `cleanup` object); [`launchdarkly-automations-cleanup-settings`](../../launchdarkly-automations-cleanup-settings/SKILL.md) changes it later.
 
 Read the current settings first with `get-automations` (`section: "cleanup"`, `projectKey`). `settings.schedule` of `disabled` means it is off; `upcoming.flagKeys` and `nextRunAt` preview the next run.
 

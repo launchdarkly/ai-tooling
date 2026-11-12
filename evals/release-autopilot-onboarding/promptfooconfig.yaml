@@ -1126,6 +1126,10 @@ tests:
         metric: starter_plan
         weight: 4
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:saysEmailMatchIsExact
+        metric: email_match_exact
+        weight: 2
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
@@ -1245,9 +1249,10 @@ tests:
         weight: 2
 
   # ------------------------------------------------------------------
-  # Guarded starter: contexts carry no email, so no internal-users option;
-  # a user-unit metric exists, so the starter offers it for automatic
-  # rollback. The plan includes it with autoRollback.
+  # Guarded starter: the default contexts mock finds user contexts but none
+  # with an email, so the starter question must not offer internal users
+  # first; a user-unit metric exists, so the starter offers it for
+  # automatic rollback. The plan includes it with autoRollback.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
     description: "Guarded starter: rollback metric with matching unit, no email phase"
@@ -1255,24 +1260,18 @@ tests:
       user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
       max_turns: 26
       mock_overrides:
-        search-contexts:
-          by_arg: filter
-          cases: {}
-          default:
-            items: [{ kind: user, key: "user-1", attributes: { name: "Dev" } }]
-            totalCount: 1
         get-metrics:
           metrics:
             - key: user-error-rate
               name: User error rate
               measureType: occurrence
               successCriteria: LowerThanBaseline
-              randomizationUnits: ["user"]
+              analysisUnits: ["user"]
             - key: account-revenue
               name: Account revenue
               measureType: value
               successCriteria: HigherThanBaseline
-              randomizationUnits: ["account"]
+              analysisUnits: ["account"]
           totalCount: 2
       mock_ask_question_match: true
       mock_ask_question_answers:
@@ -1290,9 +1289,146 @@ tests:
         metric: guarded_starter
         weight: 4
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noInternalFirstOffered
+        metric: no_internal_first
+        weight: 3
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:checksContextsBeforeStarter
         metric: checks_contexts
         weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Internal users first with a rollback metric. A plan with metrics allows
+  # at most 50000 per step (the create mock rejects more), so the internal
+  # phase is one 50000 step, not 99000.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Guarded internal users first: internal phase capped at 50%"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 28
+      mock_overrides:
+        search-contexts:
+          items: [{ kind: user, key: "user-1", attributes: { email: "dev@acme.example", name: "Dev" } }]
+          totalCount: 1
+        get-metrics:
+          metrics:
+            - key: user-error-rate
+              name: User error rate
+              measureType: occurrence
+              successCriteria: LowerThanBaseline
+              analysisUnits: ["user"]
+          totalCount: 1
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["User error rate"]
+        - ["Internal users first"]
+        - ["acme.example"]
+        - ["Looks right"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:starterPlanInternalFirstGuarded
+        metric: starter_plan_guarded
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # The first release plans read fails with a server error, not the plan
+  # 403. Release setup stops for the project: no release policies, no
+  # plan, and auto-releasing stays off for the repo.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Release plans read fails: stop release setup, no policy fallback"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 22
+      mock_overrides:
+        get-environment-release-plans:
+          error: "LaunchDarkly API error: 500: {\"code\":\"internal_server_error\",\"message\":\"Internal server error\"}"
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:stopsReleaseSetupOnPlanError
+        metric: stops_on_plan_error
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Production's default is Fast; the user picks Gradual instead. The
+  # confirmation says Gradual replaces Fast as the default.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Another plan as default: says it replaces the current default"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 24
+      mock_overrides:
+        get-environment-release-plans:
+          items:
+            - key: fast
+              name: Fast
+              environmentKey: production
+              default: true
+              progressiveRelease:
+                randomizationUnit: user
+                advancementMode: automatic
+                cleanupBehavior: remove_rules_and_update_default_rule
+                phases:
+                  - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
+                    steps: [{ allocation: 50000, durationMillis: 3600000 }]
+                metrics: {}
+            - key: gradual
+              name: Gradual
+              environmentKey: production
+              default: false
+              progressiveRelease:
+                randomizationUnit: user
+                advancementMode: automatic
+                cleanupBehavior: remove_rules_and_update_default_rule
+                phases:
+                  - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
+                    steps: [{ allocation: 10000, durationMillis: 14400000 }, { allocation: 50000, durationMillis: 14400000 }]
+                metrics: {}
+          totalCount: 2
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Choose another"]
+        - ["Gradual"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:existingPlanSetAsDefault
+        metric: existing_plan_default
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:saysReplacesDefault
+        metric: says_replaces_default
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing

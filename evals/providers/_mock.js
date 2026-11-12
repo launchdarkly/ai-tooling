@@ -199,10 +199,13 @@ function isUnfilteredContextSearch(input) {
   return kindBlank && filterBlank;
 }
 
-// A filter on a context attribute (for example `user.email exists`) finds no
-// stored context: the stored contexts have no attributes.
+// A clause on a context attribute (for example `user.email exists`) finds no
+// stored context: the stored contexts have no attributes. Only a
+// `<kind>.<attribute> <operator>` clause counts, not a dotted value such as
+// `key equals "user.1"` or `applicationId equals "GoSDK/1.2"`.
+const ATTRIBUTE_CLAUSE = /(?:^|[,|(])\s*[A-Za-z][\w-]*\.[A-Za-z_][\w.-]*\s+(?:equals|notEquals|anyOf|startsWith|exists|before|after)\b/;
 function hasAttributeFilter(input) {
-  return typeof input.filter === "string" && /\b[a-z][\w-]*\.[a-z][\w.-]*/i.test(input.filter);
+  return typeof input.filter === "string" && ATTRIBUTE_CLAUSE.test(input.filter);
 }
 
 function searchContextsResponse(input) {
@@ -348,6 +351,23 @@ function mergeDeep(base, patch) {
 
 // Release Autopilot settings and release plans: writes are recorded so that
 // later reads (the skill's verify step) reflect them instead of the template.
+// The API's step limits: every allocation is at most 99000 (99%), and a plan
+// with metrics (a guarded plan) caps every step at 50000 (50%).
+function releasePlanStepError(progressiveRelease) {
+  const pr = progressiveRelease || {};
+  const guarded = Object.keys(pr.metrics || {}).length > 0;
+  const max = guarded ? 50000 : 99000;
+  for (const phase of pr.phases || []) {
+    for (const step of phase.steps || []) {
+      if (!(step.allocation > 0) || step.allocation > max) {
+        return `LaunchDarkly API error: 400: {"code":"invalid_request","message":"step allocation ${step.allocation} is out of range: ` +
+          `${guarded ? "a release plan with metrics allows at most 50000 per step" : "at most 99000 per step"}"}`;
+      }
+    }
+  }
+  return null;
+}
+
 function renderReleaseAutopilot(template, input, toolName, state, replacements) {
   const args = input || {};
   if (toolName === "update-automations") {
@@ -401,6 +421,8 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
     return { ...base, account, repos, totalCount: repos.length, hasMore: false };
   }
   if ((toolName === "create-release-plan" || toolName === "create-environment-release-plan") && args.environmentKey) {
+    const invalid = releasePlanStepError(args.progressiveRelease);
+    if (invalid) return { error: invalid };
     const plan = { key: args.key, name: args.name, environmentKey: args.environmentKey, progressiveRelease: args.progressiveRelease };
     (state.raPlans[args.environmentKey] = state.raPlans[args.environmentKey] || []).push(plan);
     return plan;

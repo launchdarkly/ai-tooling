@@ -1,6 +1,6 @@
 # LaunchDarkly Release Autopilot Onboarding Skill
 
-An Agent Skill that walks a user through setting up Release Autopilot: pick capabilities, connect the GitHub App, map repositories, choose Vega inference, set up environment release plans (with starter plans), set auto-cleanup, and guide turning on auto-archival.
+An Agent Skill that walks a user through setting up Release Autopilot: pick capabilities, connect the GitHub App, map repositories, choose which AI model account runs the agents, set up environment release plans (with starter plans), set auto-cleanup, and guide turning on auto-archival.
 
 ## Overview
 

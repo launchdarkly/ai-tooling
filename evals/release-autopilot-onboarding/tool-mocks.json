@@ -125,5 +125,39 @@
   "search-contexts": {
     "items": [],
     "totalCount": 0
+  },
+  "get-projects#projectKey": {
+    "key": "{{projectKey}}",
+    "name": "{{projectKey}}",
+    "environments": [
+      {
+        "key": "test",
+        "name": "Test",
+        "clientSideId": "5f0000000000000000000001",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000001",
+        "critical": false
+      },
+      {
+        "key": "dev",
+        "name": "Dev",
+        "clientSideId": "5f0000000000000000000003",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000003",
+        "critical": false
+      },
+      {
+        "key": "staging",
+        "name": "Staging",
+        "clientSideId": "5f0000000000000000000004",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000004",
+        "critical": false
+      },
+      {
+        "key": "production",
+        "name": "Production",
+        "clientSideId": "5f0000000000000000000002",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000002",
+        "critical": true
+      }
+    ]
   }
 }
