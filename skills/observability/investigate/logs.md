@@ -30,7 +30,7 @@ Logs are the best verbatim evidence and the worst overview. For "how many" and "
 
 - `startDate` is required; ISO 8601 with a timezone.
 - `query` takes bare words for message text (`connection reset` matches messages with both words, index-assisted) plus attribute filters. `*x*` and quoted phrases scan every message and are slow over long windows.
-- `limit` defaults to 20, at most 50 per page; follow `page.next_cursor` for more, but if you need more than a page or two, aggregate instead.
+- `limit` defaults to 20, at most 50 per page; pass `nextCursor` (`page.next_cursor` on older servers) as `cursor` for more, but if you need more than a page or two, aggregate instead.
 - `fields` keeps only the attributes you need; `fullAttributes: ["code.stacktrace"]` reads a long value whole.
 - `services` and `environments` restrict to exact values.
 

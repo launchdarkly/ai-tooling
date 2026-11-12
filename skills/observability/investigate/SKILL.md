@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # Investigate
@@ -130,7 +130,7 @@ Trace and log aggregations read a sample unless you set `exact`. When the result
 ## Universal guidance
 
 - **Plan, then let each result inform the next.** State a short plan before the first call. Re-plan after each step; do not run calls you already know the answer to.
-- **Aggregate before you read rows.** `search-aggregations` and `search-log-patterns` answer "how many", "which ones" and "since when" in one call. `search-logs`, `search-traces`, `search-sessions` and `search-error-groups` return pages (at most 50 rows per call; follow `page.next_cursor` or `page` for more), which is for evidence once you know where to look, not for counting.
+- **Aggregate before you read rows.** `search-aggregations` and `search-log-patterns` answer "how many", "which ones" and "since when" in one call. `search-logs`, `search-traces`, `search-sessions` and `search-error-groups` return pages (at most 50 rows per call; when `hasMore` is true, pass `nextCursor` as `cursor` or `nextPage` as `page`; older servers put these in `page.next_cursor` and `page.next_page`), which is for evidence once you know where to look, not for counting.
 - **Check that a filter filtered.** An invalid clause or an unknown key is dropped, not rejected, and the result gets wider. If a "filtered" count equals the unfiltered one, the filter did nothing. See `observability/querying-patterns` for the grammar.
 - **Convert units.** Trace `duration` is in nanoseconds. Timestamps from `Min`/`Max` and `bucket_starts` are ISO 8601 UTC; convert to the user's timezone only when you report, and say which one you used. An older server returns Unix seconds for both.
 - **Cross-reference.** Trace IDs in logs, sessions on error occurrences, versions on spans: where two products agree, you have evidence.
