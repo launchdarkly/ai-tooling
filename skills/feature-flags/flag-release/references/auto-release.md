@@ -8,7 +8,7 @@ the way the team has decided changes should roll out in each environment — no 
 
 - **Flag** — the boolean gate you created (OFF everywhere). Nothing happens to users until a release turns it on.
 - **Environment release plan** — a reusable recipe for one environment: phases, rollout steps, and metrics. Each environment has at most one **default** release plan, and auto-release uses it. A plan with metrics is guarded, so a regression on a metric can roll the release back. A plan without metrics is progressive.
-- **Flag release plan** — an optional project-level recipe that says, per environment, whether a flag releases immediately or with a named environment release plan. A project can have one default flag release plan. Read and manage these with the [`launchdarkly-flag-release-plans`](../../../release-autopilot/launchdarkly-flag-release-plans/SKILL.md) skill.
+- **Flag release plan** — an optional project-level recipe that says, per environment, whether a flag releases immediately or with a named environment release plan. A project can have one default flag release plan. Read and manage these with the [`launchdarkly-release-plans`](../../../release-autopilot/launchdarkly-release-plans/SKILL.md) skill.
 - **Automated rollout config** — the per-flag, per-PR record (created by `create-automated-rollout-config`) that ties the flag to the merge and says, per environment, whether to release immediately or with the environment's release plan (`releaseType: "policy"`).
 
 ## Immediate vs `policy`
@@ -35,14 +35,14 @@ Always call `get-environment-release-plans` (with `projectKey` and `environmentK
 - The plan with `default: true` is the plan `policy` starts. Show its name, rollout steps (`progressiveRelease.phases[].steps`, allocations per 100,000), advancement mode, and metrics.
 - `progressiveRelease.metrics` keyed by metric key makes the plan **guarded**. Empty metrics make it **progressive**: say so, because nothing rolls it back automatically.
 - Auto-release starts the plan on the flag's default rule. That needs a plan with one phase for everyone (only the randomization unit clause). A default plan with several phases, or with a phase that targets an audience, fails to start. Tell the user before you record it.
-- If a flag release plan applies (the user names one, or the project has a default), read it with `launchdarkly-flag-release-plans`. For each environment it lists, it says either `isImmediate` or an `environmentReleasePlanKey`. Use that choice for the environment, below the human's intent.
+- If a flag release plan applies (the user names one, or the project has a default), read it with `launchdarkly-release-plans`. For each environment it lists, it says either `isImmediate` or an `environmentReleasePlanKey`. Use that choice for the environment, below the human's intent.
 
 ### No default release plan
 
 If no plan in an environment is marked default, auto-release cannot run there. There is no fallback. Do not record that environment as `policy`. Instead:
 
 1. Tell the user that the environment has no default release plan, so auto-release can't run there until one exists.
-2. Point them to [`launchdarkly-release-autopilot-onboarding`](../../../release-autopilot/launchdarkly-release-autopilot-onboarding/SKILL.md), which offers starter plans, or to the environment's release plan settings in LaunchDarkly.
+2. Point them to [`launchdarkly-release-plans`](../../../release-autopilot/launchdarkly-release-plans/SKILL.md) to create a default plan, to [`launchdarkly-release-autopilot-onboarding`](../../../release-autopilot/launchdarkly-release-autopilot-onboarding/SKILL.md), which offers starter plans, or to the environment's release plan settings in LaunchDarkly.
 3. Hold the environment (leave it out of the call), or record it as immediate if the user asks for that.
 
 An environment that has only incomplete plans has no usable default either: an incomplete plan can't start a release or become the default.

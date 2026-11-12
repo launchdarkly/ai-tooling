@@ -10,7 +10,7 @@
 # the rollout with create-automated-rollout-config — honoring a "hold" / notBefore
 # by NOT recording a releasing plan for the held environments, and holding any
 # environment with no default release plan. It never creates flags or edits code,
-# and never calls the retired release policy tools.
+# and the suite hides the retired release policy tools.
 #
 # Single MCP-only provider (no builtins). The mocks return the guarding flag as
 # existing and OFF, and a guarded default release plan for every environment
@@ -32,6 +32,10 @@ providers:
       # that checks environments first finds them without a stray test env.
       tool_mocks: flag-release/tool-mocks.json
       tool_definitions: flag-release/tool-definitions.json
+      # Release policies are replaced by environment release plans at GA, and
+      # these skills no longer use them, so the suites run on a server
+      # without the release policy tools.
+      exclude_mcp_tools: ["match-release-policies", "get-release-policies"]
 
 tests:
   # ==================================================================
@@ -65,15 +69,6 @@ tests:
           const pass = tools.includes('get-environment-release-plans');
           return { pass, score: pass ? 1 : 0, reason: pass ? 'previewed the default release plans' : 'did not call get-environment-release-plans' };
         metric: previewed_release_plan
-        weight: 2
-
-      - type: javascript
-        value: |
-          const tools = output.tools_called || [];
-          const called = ['match-release-policies','get-release-policies'].filter(f => tools.includes(f));
-          const pass = called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: pass ? 'no release policy tools' : 'called: ' + called.join(', ') };
-        metric: no_policy_tools
         weight: 2
 
       - type: javascript
@@ -153,15 +148,6 @@ tests:
 
       - type: javascript
         value: |
-          const tools = output.tools_called || [];
-          const called = ['match-release-policies','get-release-policies'].filter(f => tools.includes(f));
-          const pass = called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: pass ? 'no release policy tools' : 'called: ' + called.join(', ') };
-        metric: no_policy_tools
-        weight: 2
-
-      - type: javascript
-        value: |
           const traj = output.trajectory || [];
           const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
           if (!rec) return { pass: false, score: 0, reason: 'never recorded the rollout' };
@@ -193,8 +179,7 @@ tests:
              (immediate or the default release plan) for each?
           2. Does it explain what happens on merge for each environment, grounded in
              the default release plan it read (e.g. production starts the guarded
-             plan with those steps and metrics)? It must not describe the release in
-             terms of release policies.
+             plan with those steps and metrics)?
           3. Did it avoid turning the flag on by hand?
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
@@ -208,7 +193,7 @@ tests:
   # and points to onboarding or the release plan settings. There is no
   # fallback to release policies.
   # ==================================================================
-  - description: "No default plan: records staging, holds production until it has a default release plan, no policy fallback"
+  - description: "No default plan: records staging, holds production until it has a default release plan"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -262,15 +247,6 @@ tests:
 
       - type: javascript
         value: |
-          const tools = output.tools_called || [];
-          const called = ['match-release-policies','get-release-policies'].filter(f => tools.includes(f));
-          const pass = called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: pass ? 'no release policy fallback' : 'fell back to: ' + called.join(', ') };
-        metric: no_policy_tools
-        weight: 3
-
-      - type: javascript
-        value: |
           const traj = output.trajectory || [];
           const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
           const envs = rec ? ((rec.arguments && rec.arguments.environments) || []) : [];
@@ -301,11 +277,11 @@ tests:
           1. Does it record or plan staging to release on merge?
           2. Does it say that auto-release can't run in production until production
              has a default release plan, and leave production unreleased, rather than
-             releasing it with the non-default plan, with release policies, or
-             silently?
-          3. Does it point the user to where to set a default release plan (the
-             Release Autopilot onboarding skill or the environment's release plan
-             settings), without creating or changing a release plan itself?
+             releasing it with the non-default plan or silently?
+          3. Does it point the user to where to set a default release plan (for
+             example the release plans skill, the Release Autopilot onboarding skill,
+             or the environment's release plan settings), without creating or
+             changing a release plan itself?
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
         weight: 3

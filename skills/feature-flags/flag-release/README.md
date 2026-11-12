@@ -47,7 +47,7 @@ flag-release/
 - [LaunchDarkly Flag Create](../launchdarkly-flag-create/): Create + wire the flag
 - [Flag & Release a PR Change](../flag-and-release-change/): The end-to-end orchestrator that composes this skill
 - [LaunchDarkly Guarded Rollout](../launchdarkly-guarded-rollout/): Drive a bespoke rollout by hand
-- [LaunchDarkly Flag Release Plans](../../release-autopilot/launchdarkly-flag-release-plans/): Read and manage flag release plans
+- [LaunchDarkly Release Plans](../../release-autopilot/launchdarkly-release-plans/): Read and manage environment and flag release plans
 - [Release Autopilot Onboarding](../../release-autopilot/launchdarkly-release-autopilot-onboarding/): Set up each environment's default release plan
 - [LaunchDarkly Docs](https://docs.launchdarkly.com)
 
