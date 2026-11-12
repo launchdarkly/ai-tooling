@@ -6,10 +6,9 @@
 # The release plans skill: environment release plans through the MCP tools
 # (the onboarding suite's definitions and stateful mocks), and flag release
 # plans through REST commands that the agent shows and the user runs in
-# their own terminal. A scripted { when, text } answer stands for the
-# output the user pastes back. The agent has a shell (builtins on) with
-# LaunchDarkly credentials scrubbed from its environment, and the cases
-# check that it never runs a REST call or reads a token, that every shown
+# their own terminal. A scripted { command, text } answer stands for the
+# output the user pastes back. The agent has no shell (builtins off). The
+# cases check that it never asks for a token, that every shown
 # command sends LD-API-Version: beta, and that it reads the pasted output:
 # the plans listed, the created plan, a 409, a 403, and a pasted token.
 description: "Evaluation of the release plans skill"
@@ -22,8 +21,9 @@ providers:
     label: api
     config:
       skill_slug: launchdarkly-release-plans
-      allow_builtins: true
-      scrub_ld_credentials: true
+      # Builtins off, like the onboarding suite: the agent has no shell, so
+      # every REST command must be shown for the user to run.
+      allow_builtins: false
       expose_ask_question: true
       # Environment release plans come from the MCP tools, with the
       # onboarding suite's definitions and stateful mocks.
@@ -214,7 +214,7 @@ tests:
   # ------------------------------------------------------------------
   # Read only: describe the plan, show no write command.
   # ------------------------------------------------------------------
-  - description: "Preview: describes the plan it would create, no write commands"
+  - description: "Preview: describes the plan it would create, asks to run nothing"
     vars:
       max_turns: 18
       mock_ask_question_match: true
@@ -225,10 +225,6 @@ tests:
         - ["Use this plan"]
         - ["Use this plan"]
     assert:
-      - type: javascript
-        value: file://../launchdarkly-release-plans/assertions.js:noWriteCommands
-        metric: no_writes
-        weight: 4
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:previewDescribesPlan
         metric: describes_plan

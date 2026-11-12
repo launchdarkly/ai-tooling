@@ -134,6 +134,14 @@ function annotateFailures(suite, results) {
       .filter((c) => !c.pass)
       .map((c) => `${c.assertion?.metric || c.assertion?.value || "assert"}: ${c.reason || ""}`);
     if (t.error) parts.unshift(`error: ${t.error}`);
+    // What the agent did: its tool calls and the start of its final reply.
+    let out = t.response?.output;
+    try { out = typeof out === "string" ? JSON.parse(out) : out; } catch { out = null; }
+    if (out && typeof out === "object") {
+      if (Array.isArray(out.tools_called)) parts.push(`tools: ${out.tools_called.join(",").slice(0, 400)}`);
+      if (out.terminated) parts.push(`terminated: ${out.terminated}`);
+      if (out.response) parts.push(`reply: ${String(out.response).slice(0, 400)}`);
+    }
     const name = t.description || t.testCase?.description || t.vars?.user_request?.slice(0, 80) || "test";
     console.log(`::warning title=${esc(`${suite.suite}: ${name}`).slice(0, 200)}::${esc(parts.join(" | ")).slice(0, 1500)}`);
   }

@@ -19,6 +19,7 @@ test("annotateFailures emits a warning per failed test, escaped, only in GitHub 
     { success: true, description: "ok" },
     { success: false, description: "Create:\nplan", gradingResult: { componentResults: [{ pass: false, reason: "no create\ncommand", assertion: { metric: "plan_shape" } }, { pass: true, reason: "fine" }] } },
     { success: false, vars: { user_request: "list plans" }, error: "provider failed" },
+    { success: false, description: "with output", response: { output: JSON.stringify({ tools_called: ["get-x", "ask-question"], terminated: "max_turns", response: "Done." }) } },
   ] } };
   const prev = process.env.GITHUB_ACTIONS;
   try {
@@ -29,6 +30,7 @@ test("annotateFailures emits a warning per failed test, escaped, only in GitHub 
     assert.deepEqual(lines, [
       "::warning title=demo: Create:%0Aplan::plan_shape: no create%0Acommand",
       "::warning title=demo: list plans::error: provider failed",
+      "::warning title=demo: with output::tools: get-x,ask-question | terminated: max_turns | reply: Done.",
     ]);
   } finally {
     if (prev === undefined) delete process.env.GITHUB_ACTIONS; else process.env.GITHUB_ACTIONS = prev;
