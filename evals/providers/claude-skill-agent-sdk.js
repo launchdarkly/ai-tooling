@@ -35,6 +35,9 @@
  *                            interrupts MCP calls when the agent's first
  *                            action is one (seen 2026-10-28). Use for skills a
  *                            host loads up front, like an agent's system prompt.
+ *   inline_references      - Default false. With inline_skill, also put the
+ *                            skill's references/*.md files into the
+ *                            instructions, for an agent with builtins off.
  *   tool_definitions       - Optional path, relative to evals/, of a JSON
  *                            array of tool definitions for this suite only.
  *                            Each replaces the shared definition of the same
@@ -312,9 +315,21 @@ function overrideFor(overrides, toolName, callIndex, args, state) {
 
 // The skill's SKILL.md body (frontmatter removed), wrapped for the agent's
 // instructions when a suite sets inline_skill.
-function skillInstructions(markdown) {
+function skillInstructions(markdown, references = []) {
   const body = markdown.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/, "").trim();
-  return `Follow the skill below. It is your procedure for this run.\n\n<skill>\n${body}\n</skill>`;
+  const refs = references
+    .map((r) => `\n\n<reference path="${r.path}">\n${r.text.trim()}\n</reference>`)
+    .join("");
+  return `Follow the skill below. It is your procedure for this run.\n\n<skill>\n${body}\n</skill>${refs}`;
+}
+
+// The skill's references/*.md files, for inline_references, so an agent
+// with builtins off can still follow links into them.
+function readReferences(skillSource) {
+  const dir = path.join(skillSource, "references");
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith(".md")).sort()
+    .map((f) => ({ path: `references/${f}`, text: fs.readFileSync(path.join(dir, f), "utf-8") }));
 }
 
 // The agent's environment with LaunchDarkly credentials removed
@@ -394,6 +409,7 @@ class ClaudeSkillAgentSdk {
     }
     this.mockTemplates = { ...mockTemplates, ...readSuiteJson(config.tool_mocks, {}) };
     this.inlineSkill = Boolean(config.inline_skill);
+    this.inlineReferences = Boolean(config.inline_references);
     this.scrubLdCredentials = Boolean(config.scrub_ld_credentials);
 
     const source = resolveSkillSource(this.skillSlug);
@@ -594,7 +610,10 @@ class ClaudeSkillAgentSdk {
         ? "An `ask-question` tool is available for blocking decision points where the skill says to ask the user a structured question with options."
         : null,
       this.inlineSkill
-        ? skillInstructions(fs.readFileSync(path.join(this.skillSource, "SKILL.md"), "utf-8"))
+        ? skillInstructions(
+            fs.readFileSync(path.join(this.skillSource, "SKILL.md"), "utf-8"),
+            this.inlineReferences ? readReferences(this.skillSource) : [],
+          )
         : null,
       "If the user message includes a <codebase_context> block, treat it as the authoritative description of the project. If you can also read files directly (Read/Glob/Bash), you may do so — the scaffolded files will match what the context describes.",
       "Do not run package manager install commands (`npm install`, `npm ci`, `yarn add`, `pnpm add`, `pnpm install`). Simulate them as having completed successfully.",
@@ -832,6 +851,7 @@ module.exports.resolveExposeMcpTools = resolveExposeMcpTools;
 module.exports.filterToolDefs = filterToolDefs;
 module.exports.mergeToolDefs = mergeToolDefs;
 module.exports.skillInstructions = skillInstructions;
+module.exports.readReferences = readReferences;
 module.exports.overrideFor = overrideFor;
 module.exports.matchOption = matchOption;
 module.exports.pickAnswer = pickAnswer;

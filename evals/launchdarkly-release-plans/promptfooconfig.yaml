@@ -35,7 +35,11 @@ providers:
         - update-default-environment-release-plan
         - search-contexts
         - get-metrics
-      force_skill_invocation: true
+      # force_skill_invocation interrupted every MCP call in CI (the agent
+      # reported the MCP server as unreachable), so the skill and its
+      # references go into the instructions instead.
+      inline_skill: true
+      inline_references: true
 
 tests:
   # ------------------------------------------------------------------

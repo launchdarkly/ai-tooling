@@ -43,7 +43,7 @@ Releases can ship code to users, so treat every write as production automation w
 You never run a REST command, and you never use a LaunchDarkly token. The user runs each REST command in their own terminal with their own LaunchDarkly API access token. In Read-only mode, and in a caller's preview, ask the user to run nothing: list the commands instead.
 
 1. Show the exact command in a code block, filled in with the keys and the JSON body. Say: "Run this in your terminal with your LaunchDarkly API access token in `LD_ACCESS_TOKEN`." Their shell fills in `$LD_ACCESS_TOKEN`.
-2. Ask header "Run this command": "Done, here's the output" ("Paste the output below, with any secrets removed") or "Skip" ("Do this later"). Ask for the output only.
+2. In the same message, ask header "Run this command" with your question tool (such as `AskUserQuestion`): "Done, here's the output" ("Paste the output below, with any secrets removed") or "Skip" ("Do this later"). The user pastes the output as their answer. Ask for the output only, and do not end your turn with only the command.
 3. Read the pasted output. The last line is `HTTP <status>`, and the JSON before it is the response body. Continue from it: report a read, check a write against what was confirmed, or follow [Errors](#errors). If the output is not there or cannot be read, ask the user to run the command again and paste all of it.
 4. "Skip" leaves the change undone: list the command as a follow-up.
 
