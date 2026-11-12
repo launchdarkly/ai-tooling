@@ -26,7 +26,7 @@ Size the problem with `search-aggregations` (`productType: "traces"`) or `search
 - **Failing:** `has_errors=true` plus the slice filter.
 - **One row per trace:** `view: "traces"` (takes only `query`, the window, `limit` and `cursor`).
 - `fields` picks attributes and keeps rows small; `fullAttributes` reads long values whole.
-- Pages are at most 50 rows; follow `page.next_cursor` (not available with `sortColumn`).
+- Pages are at most 50 rows; pass `nextCursor` (`page.next_cursor` on older servers) as `cursor` (not available with `sortColumn`).
 - **Within one trace:** `span(A) THEN span(B)` and `span(A) THEN no_span(B)` match order and absence; `parent_span(...)`, `child_span(...)`, `root_span(...)` and `any_span(...)` match other spans in the same trace. `parent_span_id NOT EXISTS` selects root spans.
 
 ## Read one trace (`get-trace`)
