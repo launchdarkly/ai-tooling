@@ -91,3 +91,11 @@ test("saysContactSupport wants support and no release policies", () => {
   assert.equal(ra.saysContactSupport({ trajectory: [], response: "Release plans are not available on your account. Contact LaunchDarkly support." }).pass, true);
   assert.equal(ra.saysContactSupport({ trajectory: [], response: "Your account uses release policies instead." }).pass, false);
 });
+
+test("missingPlanToolsSkipsRelease: reconnect message, auto-flagging on, no support wording", () => {
+  const rw = repoWrite({ autoFlagging: { enabled: true }, autoReleasing: { enabled: false } });
+  const ok = { trajectory: [rw], response: "Your LaunchDarkly MCP server does not have the release plan tools yet. Update or reconnect it." };
+  assert.equal(ra.missingPlanToolsSkipsRelease(ok).pass, true);
+  assert.equal(ra.missingPlanToolsSkipsRelease({ ...ok, response: "Release plans are not available on your account. Contact LaunchDarkly support." }).pass, false);
+  assert.equal(ra.missingPlanToolsSkipsRelease({ ...ok, trajectory: [repoWrite({ autoReleasing: { enabled: false } })] }).pass, false);
+});

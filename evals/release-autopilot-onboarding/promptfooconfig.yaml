@@ -1473,3 +1473,31 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:starterPlanProgressive
         metric: starter_plan
         weight: 3
+
+  # ------------------------------------------------------------------
+  # The MCP server has get-environment-release-plans but not the plan write
+  # tools. The server is out of date, not the account: release setup is
+  # skipped with an update-or-reconnect message, auto-releasing stays off,
+  # and auto-flagging is still set up.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Release plan tools missing: update the MCP server, auto-flagging still set up"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 22
+      exclude_mcp_tools: ["create-environment-release-plan", "update-default-environment-release-plan"]
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:missingPlanToolsSkipsRelease
+        metric: missing_plan_tools
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3

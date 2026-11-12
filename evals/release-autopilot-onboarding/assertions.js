@@ -642,3 +642,19 @@ module.exports.saysContactSupport = (output) => {
   const policy = /release polic/i.test(text);
   return result(support && !policy, `contact support: ${support}; mentions release policies: ${policy}`);
 };
+
+// A release plan tool is missing from the server: release setup is skipped
+// with an update-or-reconnect message (not contact support), no plan
+// writes, auto-releasing off, and auto-flagging still turned on for the repo.
+module.exports.missingPlanToolsSkipsRelease = (output) => {
+  const steps = traj(output);
+  const text = [allText(output), ...askPrompts(output)].join("\n");
+  const support = /contact (launchdarkly )?support|launchdarkly support|not available on your account/i.test(text);
+  const reconnect = /\b(update|reconnect)\b/i.test(text) && /mcp server/i.test(text);
+  const planWrites = steps.filter((t) => /release-plan/.test(t.tool) && t.tool !== "get-environment-release-plans").length;
+  const repo = steps.filter(isRepoUpdate);
+  const flagging = repo.some((t) => t.arguments.autoFlagging && t.arguments.autoFlagging.enabled === true);
+  const releasingOn = repo.some((t) => t.arguments.autoReleasing && t.arguments.autoReleasing.enabled === true);
+  const pass = !support && reconnect && planWrites === 0 && flagging && !releasingOn;
+  return result(pass, `contact support: ${support}; update or reconnect: ${reconnect}; plan writes: ${planWrites}; auto-flagging on: ${flagging}; auto-releasing on: ${releasingOn}`);
+};

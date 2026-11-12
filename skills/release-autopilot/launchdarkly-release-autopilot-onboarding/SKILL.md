@@ -27,14 +27,14 @@ This skill requires the remotely hosted LaunchDarkly MCP server. Installing the 
 On a server that has not picked up the Automations rename yet, the same tools are named `get-release-autopilot`, `update-release-autopilot`, and `delete-release-autopilot-repo-settings`; use those names with the same arguments. If a call fails with "this tool has been removed from the server", ask the user to reconnect the LaunchDarkly MCP server so it loads the new tool names, then retry.
 
 **Required for auto-releasing:**
-- `get-environment-release-plans` / `create-environment-release-plan` / `update-default-environment-release-plan`: environment release plans (see [Release setup](#release-setup)). When `get-environment-release-plans` is not available, stop release setup as [Release setup](#release-setup) says, and continue with the rest
+- `get-environment-release-plans` / `create-environment-release-plan` / `update-default-environment-release-plan`: environment release plans (see [Release setup](#release-setup)). These are required only for auto-releasing. If any of them is missing, skip release setup as [Release setup](#release-setup) says, and continue the wizard with the other capabilities
 
 **Used when available:**
 - `get-metrics`: rollback metrics for guarded release plans
 - `search-contexts`: checks the randomization unit before offering a starter plan
 - `get-projects` (with `projectKey` for one project and its environments): offer project and environment keys as options instead of asking for free text
 
-If a required tool is missing, stop and tell the user which one. If no LaunchDarkly tool is available, tell the user to install or update the LaunchDarkly plugin as described above, sign in, and say "continue Release Autopilot setup". Do not invent REST calls. If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
+If a required tool is missing, stop and tell the user which one. The exception is the release plan tools: a missing one skips only release setup, and the wizard continues. If no LaunchDarkly tool is available, tell the user to install or update the LaunchDarkly plugin as described above, sign in, and say "continue Release Autopilot setup". Do not invent REST calls. If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
 
 If every Release Autopilot tool returns 404, the account does not have the Release Autopilot add-on enabled. Tell the user "Your account does not have the Release Autopilot add-on enabled," and stop.
 
@@ -196,7 +196,9 @@ Only if the user picked auto-releasing. Otherwise skip to [Auto-cleanup](#auto-c
 For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-projects` with `projectKey`, or ask). An environment is production when `get-projects` marks it `critical: true`. If no chosen environment has `critical: true`, or the read does not show `critical`, ask header "Production", `multiSelect: true`, which chosen environments serve production traffic, with "None" as an option. Then call `get-environment-release-plans` for the first chosen environment only, and wait for its result before calling it for any other environment:
 
 - It succeeds: follow [Release plans](#release-plans).
-- It fails, or the tool is not available: stop release setup for this project, and create no plans. Keep auto-releasing off for each repo in the project, and list "set up release plans for this project" as a follow-up. For 403 `Plan does not allow this operation` or a missing tool, tell the user that release plans are not available on their account and to contact LaunchDarkly support. The 403 is account-wide, so do not call it for other projects. For any other error, tell the user what failed.
+- It fails: stop release setup for this project, and create no plans. Keep auto-releasing off for each repo in the project, and list "set up release plans for this project" as a follow-up. For 403 `Plan does not allow this operation`, tell the user that release plans are not available on their account and to contact LaunchDarkly support. The 403 is account-wide, so do not call it for other projects. For any other error, tell the user what failed.
+
+If `get-environment-release-plans`, `create-environment-release-plan`, or `update-default-environment-release-plan` is not on the server, the server is older than the account, not the account's plan. Check this before the environments question, and skip release setup for every project: ask no environment questions, and create no plans. Keep auto-releasing off for each repo, and list "update or reconnect the LaunchDarkly MCP server, then set up auto-releasing" as a follow-up. Tell the user that the connected LaunchDarkly MCP server does not have the release plan tools yet, and to update or reconnect it. Do not say that the account lacks release plans, and do not send them to support. Continue with the other picked capabilities.
 
 ##### Release plans
 
@@ -311,7 +313,8 @@ Then offer the next steps, each in one line. If a change is waiting on an admin,
 |-----------|--------|
 | Every settings tool returns 404 | The account does not have the Release Autopilot add-on enabled. Tell the user and stop |
 | Member role is `reader` or `no_access` | Preview mode. End with a checklist for an admin |
-| Environment release plans return an error, or the tool is missing | Stop release setup for that project, create no plans, keep auto-releasing off there. For the 403 `Plan does not allow this operation`, tell the user to contact LaunchDarkly support |
+| Environment release plans return an error | Stop release setup for that project, create no plans, keep auto-releasing off there. For the 403 `Plan does not allow this operation`, tell the user to contact LaunchDarkly support |
+| A release plan tool is missing from the server | Skip release setup, keep auto-releasing off, and tell the user to update or reconnect the LaunchDarkly MCP server. Continue with the other capabilities |
 | Repo not on the install list | Explain the GitHub fix by owner, then list again |
 | GitHub still not connected after "Done" | Likely a different browser account. Follow [references/github-troubleshooting.md](references/github-troubleshooting.md) |
 

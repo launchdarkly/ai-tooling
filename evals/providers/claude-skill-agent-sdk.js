@@ -66,6 +66,10 @@
  *   expose_mcp_tools            - per-test override of the provider config option
  *                                 (true/false), e.g. to run one test with no
  *                                 LaunchDarkly tools
+ *   exclude_mcp_tools           - optional array of tool names hidden for this
+ *                                 test only, on top of the suite's
+ *                                 exclude_mcp_tools, e.g. to run one test on a
+ *                                 server that lacks some tools
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
  *                                 successive `ask-question` calls; an empty
  *                                 array is a dismissed question (no selection).
@@ -374,6 +378,7 @@ class ClaudeSkillAgentSdk {
       this.exposeMcpTools,
       context?.vars?.expose_mcp_tools,
     );
+    const toolDefsForTest = filterToolDefs(this.toolDefs, context?.vars?.exclude_mcp_tools);
     const askQuestionAnswers = Array.isArray(
       context?.vars?.mock_ask_question_answers,
     )
@@ -407,7 +412,7 @@ class ClaudeSkillAgentSdk {
     const toolCallCounts = {};
 
     const mcpTools = exposeMcpTools
-      ? this.toolDefs.map((def) =>
+      ? toolDefsForTest.map((def) =>
           tool(
             def.name,
             def.description,
@@ -511,7 +516,7 @@ class ClaudeSkillAgentSdk {
 
     const allowedMcpToolNames = [];
     if (exposeMcpTools) {
-      for (const def of this.toolDefs) {
+      for (const def of toolDefsForTest) {
         allowedMcpToolNames.push(`mcp__launchdarkly-mocks__${def.name}`);
       }
     }
