@@ -86,3 +86,8 @@ test("previewReposErrorNoConnect fails on a Connect GitHub item", () => {
   assert.equal(ra.previewReposErrorNoConnect(ok).pass, true);
   assert.equal(ra.previewReposErrorNoConnect({ trajectory: [], response: ok.response + "\n- [ ] Connect GitHub" }).pass, false);
 });
+
+test("saysContactSupport wants support and no release policies", () => {
+  assert.equal(ra.saysContactSupport({ trajectory: [], response: "Release plans are not available on your account. Contact LaunchDarkly support." }).pass, true);
+  assert.equal(ra.saysContactSupport({ trajectory: [], response: "Your account uses release policies instead." }).pass, false);
+});

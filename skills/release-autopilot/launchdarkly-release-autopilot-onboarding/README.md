@@ -11,7 +11,7 @@ This skill teaches agents how to:
 - Map chosen `owner/name` repos to LaunchDarkly projects
 - Set auto-cleanup through the MCP, and guide turning on auto-archival on the project's Automations page
 - Explain whose AI model account runs the agents (LaunchDarkly's by default, or the user's own Anthropic or OpenAI key) and guide bring-your-own-key setup
-- Use or create environment release plans for auto-releasing, offering starter plans and setting each environment's default; show release policies only on accounts without release plans
+- Use or create environment release plans for auto-releasing, offering starter plans and setting each environment's default
 - Confirm GitHub works, list exactly which repos were set up, and offer a test pull request and next steps
 - Confirm one plan that lists every write before making any change, then verify
 
@@ -28,7 +28,7 @@ The skill is in Claude Code plugin 1.0.3 and Cursor plugin 1.0.4 and later. With
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot tools (`get-automations`, `update-automations`), and `get-environment-release-plans`, `create-environment-release-plan`, `update-default-environment-release-plan`, and `get-metrics` for auto-releasing (`get-release-policies` on accounts without release plans). Accounts without the Release Autopilot add-on enabled get 404s.
+The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot tools (`get-automations`, `update-automations`), and `get-environment-release-plans`, `create-environment-release-plan`, `update-default-environment-release-plan`, and `get-metrics` for auto-releasing. Accounts without the Release Autopilot add-on enabled get 404s.
 
 ## Usage
 

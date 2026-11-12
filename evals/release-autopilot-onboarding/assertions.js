@@ -395,11 +395,10 @@ module.exports.pausesBeforeMapping = (output) => {
 };
 
 // Release setup lookups for one project and the environments the case
-// selects, valid for both modes. Every release-plans call names the project
-// and a selected environment. If the first call is the account-wide 403,
-// there is exactly one plans call and a release-policies lookup for the
-// project (release policies, today). If it succeeds, every selected
-// environment has a successful plans lookup (environment release plans, GA).
+// selects. Every release-plans call names the project and a selected
+// environment. If the first call is the account-wide 403, there is exactly
+// one plans call and no release policy read. If it succeeds, every selected
+// environment has a successful plans lookup.
 const isForbidden = (t) => /403|not allow/i.test(String(t.mock_response_preview || ""));
 const releaseSetupLookups = (projectKey, selectedEnvs) => (output) => {
   const steps = traj(output);
@@ -408,16 +407,14 @@ const releaseSetupLookups = (projectKey, selectedEnvs) => (output) => {
   const bad = plans.find((t) => (t.arguments || {}).projectKey !== projectKey || !selectedEnvs.includes((t.arguments || {}).environmentKey));
   if (bad) return result(false, `release-plans lookup outside ${projectKey} ${JSON.stringify(selectedEnvs)}: ${JSON.stringify(bad.arguments)}`);
   if (isForbidden(plans[0])) {
-    const policies = steps.filter((t) => t.tool === "get-release-policies");
-    const ok = policies.filter((t) => (t.arguments || {}).projectKey === projectKey);
-    const pass = plans.length === 1 && ok.length >= 1 && ok.length === policies.length;
-    return result(pass, `release policies path: plans lookups ${plans.length}; policy lookups for ${projectKey}: ${ok.length} of ${policies.length}`);
+    const policies = steps.filter((t) => t.tool === "get-release-policies").length;
+    return result(plans.length === 1 && policies === 0, `403 path: plans lookups ${plans.length}; policy reads: ${policies}`);
   }
   const looked = new Set(plans.filter((t) => !isForbidden(t)).map((t) => t.arguments.environmentKey));
   const missing = selectedEnvs.filter((e) => !looked.has(e));
   return result(missing.length === 0, missing.length ? `release plans path: no successful lookup for ${missing.join(", ")}` : `release plans path: looked up ${[...looked].join(", ")}`);
 };
-// Policy-mode case selects Test and Production; plan-mode case selects Production.
+// The 403 case selects Test and Production; the other case selects Production.
 module.exports.releaseSetupLookupsTestProduction = releaseSetupLookups("default", ["test", "production"]);
 module.exports.releaseSetupLookupsProduction = releaseSetupLookups("default", ["production"]);
 
@@ -475,8 +472,8 @@ module.exports.byokQuestionHasAutomationsLink = (output) => {
 module.exports.previewListsDeferredReleaseSetup = (output) => {
   const text = finalText(output).toLowerCase();
   const mapping = /map/.test(text) && /github/.test(text);
-  const release = /environment/.test(text) && /release (polic|plan)/.test(text);
-  return result(mapping && release, `lists mapping after GitHub: ${mapping}; lists environments and release policies/plans: ${release}`);
+  const release = /environment/.test(text) && /release plan/.test(text);
+  return result(mapping && release, `lists mapping after GitHub: ${mapping}; lists environments and release plans: ${release}`);
 };
 
 // Auto-cleanup is an MCP write after "Looks good": a cleanup object for the
@@ -521,7 +518,7 @@ module.exports.starterPlanProgressive = (output) => {
 };
 
 // A release plans read that fails with anything but the plan 403 stops
-// release setup for the project: no policy fallback, no plan, and the repo
+// release setup for the project: no policy read, no plan, and the repo
 // keeps auto-releasing off.
 module.exports.stopsReleaseSetupOnPlanError = (output) => {
   const steps = traj(output);
@@ -635,4 +632,13 @@ module.exports.previewReposErrorNoConnect = (output) => {
   const connect = /connect github|install the (launchdarkly )?github app|github\/connect|authorize github/i.test(text);
   const w = writes(output).length;
   return result(mapping && !connect && w === 0, `lists mapping for later: ${mapping}; Connect GitHub item: ${connect}; writes: ${w}`);
+};
+
+// Release plans not available on the account: tell the user to contact
+// LaunchDarkly support, and never mention release policies.
+module.exports.saysContactSupport = (output) => {
+  const text = [allText(output), ...askPrompts(output)].join("\n");
+  const support = /contact (launchdarkly )?support|launchdarkly support/i.test(text);
+  const policy = /release polic/i.test(text);
+  return result(support && !policy, `contact support: ${support}; mentions release policies: ${policy}`);
 };

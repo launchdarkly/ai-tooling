@@ -6,15 +6,15 @@
 # The onboarding wizard for Release Autopilot. These cases lock in the write
 # rules found in dry runs against catamorphic: nothing is written before the
 # user approves, Preview and reader runs never write, a repo never inherits a
-# capability the user did not pick, the release-plans 403 is treated as
-# account-wide policy mode, and account settings stay untouched when they
-# already match.
+# capability the user did not pick, the release-plans 403 stops release
+# setup with auto-releasing off, and account settings stay untouched when
+# they already match.
 #
 # Tool definitions and default mocks live in this folder (tool_definitions,
 # tool_mocks). Default mocks match a catamorphic-like account with both capabilities on,
-# the GitHub App installed, and release plans available but empty (the GA
-# shape). The policy-mode case overrides release plans to the 403 accounts
-# return today. Mocks record Release Autopilot writes, so verification reads
+# the GitHub App installed, and release plans available but empty. The
+# 403 case overrides release plans to "Plan does not allow this operation".
+# Mocks record Release Autopilot writes, so verification reads
 # reflect them. Tests change state with mock_overrides, and scripted
 # answers are matched to each question by option label
 # (mock_ask_question_match), so a skipped question cannot shift them.
@@ -128,25 +128,21 @@ tests:
         weight: 2
 
   # ------------------------------------------------------------------
-  # Account already on, both capabilities picked, policy mode with no
-  # release policy. get-environment-release-plans is called once (the 403 is
-  # account-wide), no plans are created, the repo keeps auto-releasing
-  # off, and the account settings are not rewritten.
+  # Account already on, both capabilities picked, release plans return 403
+  # "Plan does not allow this operation". get-environment-release-plans is
+  # called once (the 403 is account-wide), release setup stops with a
+  # contact-support message, no plans are created, no release policies are
+  # read, the repo keeps auto-releasing off, and the account settings are
+  # not rewritten.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Policy mode, missing policy: one plans call, no plans, auto-releasing off for the repo, no account write"
+    description: "Release plans 403: one plans call, contact support, no plans, auto-releasing off for the repo, no account write"
     vars:
       user_request: "Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default."
       max_turns: 20
       mock_overrides:
         get-environment-release-plans:
           error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Plan does not allow this operation\"}"
-        get-release-policies:
-          policies: []
-          count: 0
-          warnings:
-            - code: missing_policy
-              message: "No release policy matches."
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Add more"]
@@ -183,8 +179,16 @@ tests:
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
-        metric: auto_releasing_off_without_policy
+        metric: auto_releasing_off_without_plans
         weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:stopsReleaseSetupOnPlanError
+        metric: stops_on_plan_403
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:saysContactSupport
+        metric: says_contact_support
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noAccountWrite
         metric: no_redundant_account_write
@@ -1054,7 +1058,7 @@ tests:
   # ------------------------------------------------------------------
   # Preview, GitHub disconnected, auto-releasing picked: the checklist
   # lists GitHub, the later repo mapping, and the later release setup
-  # (environments and release policies or plans). No writes.
+  # (environments and release plans). No writes.
   # ------------------------------------------------------------------
   - providers: ["mcp-auto"]
     description: "Preview, GitHub disconnected, auto-releasing: lists deferred mapping and release setup"
@@ -1289,11 +1293,11 @@ tests:
 
   # ------------------------------------------------------------------
   # The first release plans read fails with a server error, not the plan
-  # 403. Release setup stops for the project: no release policies, no
+  # 403. Release setup stops for the project: no release policy reads, no
   # plan, and auto-releasing stays off for the repo.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Release plans read fails: stop release setup, no policy fallback"
+    description: "Release plans read fails: stop release setup, no plans"
     vars:
       user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
       max_turns: 22
