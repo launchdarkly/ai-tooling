@@ -1498,6 +1498,10 @@ tests:
         metric: missing_plan_tools
         weight: 4
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
+        metric: auto_releasing_off_without_plan_tools
+        weight: 4
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3

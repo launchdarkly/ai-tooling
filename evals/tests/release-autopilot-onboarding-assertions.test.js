@@ -98,4 +98,6 @@ test("missingPlanToolsSkipsRelease: reconnect message, auto-flagging on, no supp
   assert.equal(ra.missingPlanToolsSkipsRelease(ok).pass, true);
   assert.equal(ra.missingPlanToolsSkipsRelease({ ...ok, response: "Release plans are not available on your account. Contact LaunchDarkly support." }).pass, false);
   assert.equal(ra.missingPlanToolsSkipsRelease({ ...ok, trajectory: [repoWrite({ autoReleasing: { enabled: false } })] }).pass, false);
+  // A mapping that omits autoReleasing inherits the account's setting.
+  assert.equal(ra.missingPlanToolsSkipsRelease({ ...ok, trajectory: [repoWrite({ autoFlagging: { enabled: true } })] }).pass, false);
 });
