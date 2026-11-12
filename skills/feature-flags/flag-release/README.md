@@ -6,7 +6,8 @@ An Agent Skill that records an automated rollout for an **existing** LaunchDarkl
 
 This skill teaches agents how to:
 - Confirm the guarding flag exists and is OFF
-- Preview each environment's release policy with `match-release-policies` (immediate / progressive / guarded)
+- Preview each environment's default release plan with `get-environment-release-plans` (progressive or guarded), and the flag release plan where one applies
+- Hold an environment that has no default release plan, and point to where to set one up
 - Capture the human's **release intent** (release on merge / hold / `notBefore` / segment / prerequisite) and honor it — recording only the environments the intent clears, holding the rest
 - Record the rollout with `create-automated-rollout-config`
 
@@ -46,6 +47,8 @@ flag-release/
 - [LaunchDarkly Flag Create](../launchdarkly-flag-create/): Create + wire the flag
 - [Flag & Release a PR Change](../flag-and-release-change/): The end-to-end orchestrator that composes this skill
 - [LaunchDarkly Guarded Rollout](../launchdarkly-guarded-rollout/): Drive a bespoke rollout by hand
+- [LaunchDarkly Flag Release Plans](../../release-autopilot/launchdarkly-flag-release-plans/): Read and manage flag release plans
+- [Release Autopilot Onboarding](../../release-autopilot/launchdarkly-release-autopilot-onboarding/): Set up each environment's default release plan
 - [LaunchDarkly Docs](https://docs.launchdarkly.com)
 
 ## License
