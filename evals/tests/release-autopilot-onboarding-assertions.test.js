@@ -75,12 +75,6 @@ test("pausesOnReposError wants a second read, the resume phrase, and no writes",
   assert.equal(ra.pausesOnReposError({ ...paused, trajectory: [read, read, ask("Which repos?", ["acme/demo", "acme/api"])] }).pass, false);
 });
 
-test("starterUnitIsUser checks the created plan's randomization unit", () => {
-  const plan = (unit) => ({ trajectory: [{ tool: "create-environment-release-plan", arguments: { progressiveRelease: { randomizationUnit: unit } } }] });
-  assert.equal(ra.starterUnitIsUser(plan("user")).pass, true);
-  assert.equal(ra.starterUnitIsUser(plan("account")).pass, false);
-});
-
 test("previewReposErrorNoConnect fails on a Connect GitHub item", () => {
   const ok = { trajectory: [], response: "- [ ] Map acme/demo to project default once the GitHub App install can be read" };
   assert.equal(ra.previewReposErrorNoConnect(ok).pass, true);
@@ -167,4 +161,29 @@ test("previewListsFlagReleasePlan wants it listed and no API write", () => {
   assert.equal(ra.previewListsFlagReleasePlan({ trajectory: [apiCall("GET", PLANS)], response: "- [ ] Create the flag release plan Default release" }).pass, true);
   assert.equal(ra.previewListsFlagReleasePlan({ trajectory: [apiCall("POST", PLANS, { body: frpBody() })], response: "- [ ] Create the flag release plan" }).pass, false);
   assert.equal(ra.previewListsFlagReleasePlan({ trajectory: [], response: "- [ ] Map acme/demo" }).pass, false);
+});
+
+test("flagReleasePlanUpdatedInPlace wants a PUT on the existing key, still default, and no POST", () => {
+  const put = (b, extra = {}) => apiCall("PUT", `${PLANS}/staged-rollout`, { body: b, ...extra });
+  const good = { name: "Staged rollout", version: 2, isDefault: true, environments: [{ environmentKey: "production", environmentReleasePlanKey: "gradual", triggerType: "flag_eval" }] };
+  assert.equal(ra.flagReleasePlanUpdatedInPlace({ trajectory: [looksGood(5), put(good)] }).pass, true);
+  assert.equal(ra.flagReleasePlanUpdatedInPlace({ trajectory: [looksGood(5), put(good), apiCall("POST", PLANS, { body: frpBody() })] }).pass, false);
+  assert.equal(ra.flagReleasePlanUpdatedInPlace({ trajectory: [looksGood(5), put({ ...good, isDefault: undefined })] }).pass, false);
+  assert.equal(ra.flagReleasePlanUpdatedInPlace({ trajectory: [put(good)] }).pass, false);
+  assert.equal(ra.flagReleasePlanUpdatedInPlace({ trajectory: [looksGood(5), apiCall("POST", PLANS, { body: frpBody() })] }).pass, false);
+});
+
+test("autoReleasingOnWithFollowUp wants auto-releasing on for the repo and no off write", () => {
+  assert.equal(ra.autoReleasingOnWithFollowUp({ trajectory: [repoWrite({ autoFlagging: { enabled: true }, autoReleasing: { enabled: true } })] }).pass, true);
+  assert.equal(ra.autoReleasingOnWithFollowUp({ trajectory: [repoWrite({ autoFlagging: { enabled: true }, autoReleasing: { enabled: false } })] }).pass, false);
+  assert.equal(ra.autoReleasingOnWithFollowUp({ trajectory: [repoWrite({ autoFlagging: { enabled: true } })] }).pass, false);
+});
+
+test("notesNoReleaseUntilPlan wants the note in the confirmation and the report", () => {
+  const note = "Auto-releasing is on, but it proposes no release until the flag release plan exists.";
+  const out = (summary, report) => ({ trajectory: [looksGood(3)], assistant_turns: [{ turn: 2, text: summary }], response: report });
+  assert.equal(ra.notesNoReleaseUntilPlan(out(note, note)).pass, true);
+  assert.equal(ra.notesNoReleaseUntilPlan(out("Map acme/demo.", note)).pass, false);
+  assert.equal(ra.notesNoReleaseUntilPlan(out(note, "All set.")).pass, false);
+  assert.equal(ra.notesNoReleaseUntilPlan(out("Auto-releasing won't propose a release until you create the flag release plan.", note)).pass, true);
 });

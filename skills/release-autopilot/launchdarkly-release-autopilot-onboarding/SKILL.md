@@ -28,15 +28,13 @@ On a server that has not picked up the Automations rename yet, the same tools ar
 
 **Required for auto-releasing:**
 - `get-environment-release-plans` / `create-environment-release-plan` / `update-default-environment-release-plan`: environment release plans (see [Release setup](#release-setup)). These are required only for auto-releasing. If any of them is missing, skip release setup as [Release setup](#release-setup) says, and continue the wizard with the other capabilities
-
-**For auto-releasing, outside the MCP:** the project's flag release plan has no MCP tool. Build it with [`launchdarkly-flag-release-plans`](../launchdarkly-flag-release-plans/SKILL.md), which needs curl and the user's API access token in `LD_ACCESS_TOKEN`. Without them, the plan becomes a follow-up with the exact commands, and the wizard continues.
+- [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md): how to read, choose, create, and set the default for environment release plans and the project's flag release plan. The flag release plan has no MCP tool: that skill uses curl and the user's API access token in `LD_ACCESS_TOKEN`. Without them, the plan becomes a follow-up with the exact commands, and the wizard continues.
 
 **Used when available:**
-- `get-metrics`: rollback metrics for guarded release plans
-- `search-contexts`: checks the randomization unit before offering a starter plan
+- `get-metrics` and `search-contexts`: the release plans skill uses them before it offers a starter plan
 - `get-projects` (with `projectKey` for one project and its environments): offer project and environment keys as options instead of asking for free text
 
-If a required tool is missing, stop and tell the user which one. The exception is the release plan tools: a missing one skips only release setup, and the wizard continues. If no LaunchDarkly tool is available, tell the user to install or update the LaunchDarkly plugin as described above, sign in, and say "continue Release Autopilot setup". Do not invent REST calls: the only ones are the flag release plan commands from [`launchdarkly-flag-release-plans`](../launchdarkly-flag-release-plans/SKILL.md). If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
+If a required tool is missing, stop and tell the user which one. The exception is the release plan tools: a missing one skips only release setup, and the wizard continues. If no LaunchDarkly tool is available, tell the user to install or update the LaunchDarkly plugin as described above, sign in, and say "continue Release Autopilot setup". Do not invent REST calls: the only ones are the commands from [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md). If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
 
 If every Release Autopilot tool returns 404, the account does not have the Release Autopilot add-on enabled. Tell the user "Your account does not have the Release Autopilot add-on enabled," and stop.
 
@@ -205,33 +203,11 @@ If `get-environment-release-plans`, `create-environment-release-plan`, or `updat
 
 ##### Release plans
 
-For each chosen environment, call `get-environment-release-plans`. Auto-releasing uses the environment's default plan.
+Follow [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md) in its **Record only** mode: it runs the reads and asks the questions, and you record its decisions for Step 7. Write nothing here.
 
-- **The environment has complete plans.** Show the default plan (or, if none is the default, each complete plan) with its phases, rollout steps, and metrics. Ask header "Plan": "Use this plan" ("Keep it as this environment's default"), or "Choose another" (offer the other complete plans, or a starter plan below). If the plan the user keeps is not the default yet, record setting it as the default. If another plan is the default now, record that the new one replaces it.
-- **The environment has only incomplete plans.** An incomplete plan cannot start a release or become the default. Name them, say that, and offer a starter plan as for an environment with no plans.
-- **The environment has no plans.** Offer a starter plan so the user does not build one from scratch. Each starter is a normal plan they can change later. Before offering, check the project with reads, not questions:
-  1. **Randomization unit:** `search-contexts` with `kind: "user"`, `limit: 1` in that environment. If it finds contexts, use `user`. If not, call `search-contexts` with no kind to see which kinds the project stores. If it finds other kinds, ask header "Roll out by" with those kinds and `user`. If it finds none, the app has not sent contexts yet: use `user`, the kind every project has by default, and say so. A plan whose unit is not a context kind in the project cannot be created.
-  2. **Rollback metrics:** a guarded plan needs the unit to be available for guarded rollouts, and no read shows that. LaunchDarkly turns this on for `user` by default. For any other unit, skip this check, use no metrics, and list "make <unit> available for guarded rollouts, then add rollback metrics to the plan" as a follow-up. For `user`, call `get-metrics` with `metricUsedIn: "guarded_rollouts"`, then without it if that finds none. Keep metrics whose `analysisUnits` include the unit. If any remain, ask header "Rollback metrics", `multiSelect: true`, with up to three of them plus "No metrics" ("Release step by step without automatic rollback"). Picked metrics make the starter guarded: a regression on one rolls the release back. They go in the plan as `{ "<metric key>": { "isGroup": false, "autoRollback": true } }`.
-
-  Then ask header "Starter plan" with options that fit the environment, marking the first that applies "(Recommended)":
-  - Production: label "Progressive", description "10% → 25% → 50% of everyone, with 4-hour holds"; label "Custom", description "Build the plan step by step".
-  - Any other environment: label "Progressive", description "10% → 50% of everyone, with 4-hour holds"; label "Custom", description "Build the plan step by step".
-
-  If the user picked rollback metrics, add "rolls back automatically if <metric names> regress" to the starters' descriptions. A plan with metrics allows at most 50000 (50%) per step, and every starter step fits. There is no 100% step: completing the release reaches everyone. Then show the full starter plan and ask "Looks right" or "Adjust it". For "Custom", follow [references/release-plans.md](references/release-plans.md). The exact starter configurations and keys are in that reference.
-
-Record each plan to create, and record it as the environment's default. Do not call `create-environment-release-plan` or `update-default-environment-release-plan` yet.
-
-##### Flag release plan
-
-Auto-releasing proposes each release from the project's flag release plan: the chosen environments in release order, each with its release plan. Without one, it proposes no release. After the environments' plans are chosen, follow [`launchdarkly-flag-release-plans`](../launchdarkly-flag-release-plans/SKILL.md) and its token handling for each project:
-
-1. **Check access.** If you can run shell commands and `LD_ACCESS_TOKEN` is set (check without printing it), list the project's flag release plans. Otherwise do not read them: record the plan below as a follow-up with that skill's exact list and create commands, filled in, and go on. Never ask for the token in the chat.
-2. **Decide.**
-   - **No plans:** record a new plan named "Default release" (key `default-release`, or the next free key) with the chosen environments in order, non-production first and production last. Each environment uses the default release plan recorded above and releases when the flag evaluates there. It becomes the project's default.
-   - **The default plan already has these environments in this order, with these release plans:** reuse it, and record no change.
-   - **Otherwise:** show the default plan (or, with no default, each plan) in words: its environments in order and the release plan for each. Ask header "Flag release plan": "Keep <name>" ("Auto-releasing keeps using this plan"), or "Replace it" ("Create a plan with these environments and make it the project's default"). With no default, the second option is "Add a default" ("Create a plan with these environments as the project's default"). For "Replace it", record that the new plan replaces the current default.
-   - **The list fails** with 403 `Plan does not allow this operation`: flag release plans are not available on the account. Tell the user to contact LaunchDarkly support, and list the plan as a follow-up. For any other error, say what failed and list the plan as a follow-up.
-3. Record the plan. Do not create it yet.
+1. **Environment release plans.** For each chosen environment, follow that skill's "Choose an environment's release plan". It proposes the environment's default plan, or offers a starter plan (Progressive, Custom, or Not now) when the environment has no complete plan. Record each plan to create and each new default. For "Not now", list "set up a release plan for <environment>" as a follow-up. If no chosen environment of the project ends with a release plan, record no flag release plan, and record a repo override that turns auto-releasing off (`{ "enabled": false }`) for each repo in the project, as when release setup stops.
+2. **Flag release plan.** Auto-releasing proposes each release from the project's flag release plan, and proposes none without one. Follow that skill's "Build or update the project's plan" for the environments that have a release plan, in order, non-production first. It needs a shell and the user's token: check for them as its token handling says, and never ask for the token in the chat. Then record what it decides: a new "Default release" plan, no change (the default already matches), or an update of the current default in place ("Update <name>", recommended, or "Keep <name>").
+   - **No shell, no token, or the list fails:** record the plan as a follow-up with the exact commands from that skill, filled in. Keep auto-releasing on as the user picked: do not turn it off for this reason. For 403 `Plan does not allow this operation`, also tell the user to contact LaunchDarkly support.
 
 #### Auto-cleanup
 
@@ -254,7 +230,7 @@ Only if the user picked auto-archival. For each project, call `get-automations` 
 List every write in the order you will make it. For each write, state the current and the proposed state and the blast radius, using the wording rules from the settings skill's [Confirm before write](../launchdarkly-release-autopilot-settings/SKILL.md#confirm-before-write):
 
 1. **Metrics and release plans** (release plans only): one line per metric to create and per environment, with the plan name, rollout steps, advancement, metrics, and that it becomes the environment's default. When the environment already has a default, say that the plan "replaces <current default> as the default".
-   Then one line per project for its **flag release plan**: the plan name, the environments in release order with each one's release plan, and that it becomes the project's default (or "replaces <current default> as the project's default"). A reused plan is "already set up". A plan the user must create is listed under follow-ups instead.
+   Then one line per project for its **flag release plan**: the plan name, the environments in release order with each one's release plan, and that it becomes the project's default. For an update of the current default, show what changes: its current environments and release plans, then the new ones. A reused or kept plan is "already set up". Add this note: "The flag release plan keeps these release plans even if an environment's default release plan changes later." A plan the user must create is listed under follow-ups instead, with this line: "Auto-releasing is on, but it proposes no release until the flag release plan exists."
 2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; release plans are not set up for this project)." For a picked capability that a repo override kept off, say the write turns it back on: "Auto-flagging: off → on for this repository (it was turned off for this repository only)."
 3. **Account settings**: only fields that change, for a picked capability the account has off (see Core Principle 7). If auto-releasing turns on, say it can ship code.
    For a member who is not an admin or owner, list account writes under "Needs an admin" instead, and say an admin can make them with the settings skill. Do not name a settings page; there is none to point to.
@@ -283,11 +259,11 @@ Only "Looks good" approves the plan. On "Change something", ask what to change, 
 
 ### Step 8: Apply
 
-Make only the writes in the confirmed plan, in this order. Stop at the first failure, report it, and do not continue. The exception is the flag release plan (item 3), which becomes a follow-up instead. If `create-environment-release-plan` fails because the randomization unit is not available for guarded rollouts, nothing else was written: offer the same starter with "No metrics" and confirm the plan again.
+Make only the writes in the confirmed plan, in this order. Stop at the first failure, report it, and do not continue. The exception is the flag release plan (item 3), which becomes a follow-up instead. Make each release plan write as [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md) says, without its "Confirm" question: "Looks good" already confirmed it. If `create-environment-release-plan` fails because the randomization unit is not available for guarded rollouts, nothing else was written: offer the same starter with "No metrics" and confirm the plan again.
 
 1. Release plans only: metrics recorded in Step 6, created in LaunchDarkly with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md). Skip its instrumentation steps.
 2. Release plans only: `create-environment-release-plan` for each new plan, then `update-default-environment-release-plan` with `default: true` for each plan recorded as an environment's default.
-3. Flag release plan only: create the plan recorded in Step 6 with [`launchdarkly-flag-release-plans`](../launchdarkly-flag-release-plans/SKILL.md), after the release plans it names exist. To replace a default, create it, then make it the default as that skill says. If the key is taken, use the next free key. If the token or shell is missing now, or the request fails, tell the user in words, add the exact commands to the follow-ups, and continue with the next write. Do not stop the flow for it.
+3. Flag release plan only: after the release plans it names exist, create the plan recorded in Step 6, or update the current default in place (same key, still the default, its `version`, the new environments). If the key is taken, use the next free key. If the token or shell is missing now, or the request fails, tell the user in words, add the exact commands to the follow-ups, and continue with the next write. Do not stop the flow for it, and keep auto-releasing on as confirmed.
 4. `update-automations` with `accountWide: false` for each repo, with `repo: "owner/name"` and `projectKey`. For each picked capability that can work, send `{ "enabled": true }`, because on accounts that use project Automations settings, a capability the repo does not turn on is off. For each capability the user did not pick, or that cannot work yet, send `{ "enabled": false }`, so the repo does not get it from the account settings.
 5. `update-automations` with `accountWide: true` and only the confirmed fields. Never send `autoCleanup`.
 6. Auto-cleanup only: `update-automations` with `projectKey` and a `cleanup` object (`schedule`, `repositories`, `maxJobsPerRun`) for each project.
@@ -311,7 +287,7 @@ Record each answer as reported by the user. Never do these in Preview mode.
 2. **Repos:** `get-automations` with `repo` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan. If a picked capability is still effectively off for a repo, say which and do not call the setup complete.
 3. **Account:** `get-automations`: `account` matches the plan.
 4. **Release plans:** `get-environment-release-plans` for each environment lists the new plans and the right default.
-5. **Flag release plan:** get the project's plan by key with [`launchdarkly-flag-release-plans`](../launchdarkly-flag-release-plans/SKILL.md): its environments, release plans, and default match the plan. A plan left as a follow-up is not verified: say so, and do not call the setup complete.
+5. **Flag release plan:** get the project's plan by key: its environments, release plans, and default match the plan. A plan left as a follow-up is not verified. Say "Auto-releasing is on, but it proposes no release until the flag release plan exists", give the command, and do not call the setup complete.
 6. **Cleanup and archival:** `get-automations` with `section: "cleanup"` (schedule, repositories, and the flags the next run picks up) and `section: "archival"` for each project. Archival that this read shows on is verified, including after the user turned it on in the browser.
 
 If any change was left for an admin or failed, lead with "Partly set up: waiting on an admin" and the admin checklist, and never call the setup complete. Then report:
@@ -334,8 +310,8 @@ Then offer the next steps, each in one line. If a change is waiting on an admin,
 | Member role is `reader` or `no_access` | Preview mode. End with a checklist for an admin |
 | Environment release plans return an error | Stop release setup for that project, create no plans, keep auto-releasing off there. For the 403 `Plan does not allow this operation`, tell the user to contact LaunchDarkly support |
 | A release plan tool is missing from the server | Skip release setup, keep auto-releasing off, and tell the user to update or reconnect the LaunchDarkly MCP server. Continue with the other capabilities |
-| No shell, or no API access token, for the flag release plan | Give the exact commands from [`launchdarkly-flag-release-plans`](../launchdarkly-flag-release-plans/SKILL.md) as a follow-up, and continue. Never ask for the token in the chat |
-| The project already has a flag release plan | Reuse a default that matches. Otherwise ask to keep it or replace it as the default |
+| No shell, or no API access token, for the flag release plan | Give the exact commands from [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md) as a follow-up, keep auto-releasing on, and continue. Never ask for the token in the chat |
+| The project already has a default flag release plan | Reuse it if it matches. Otherwise offer to update it in place (recommended) or keep it. Never create a second plan |
 | A flag release plan request fails | Say what failed in words, list the commands as a follow-up, and continue. For `Plan does not allow this operation`, tell the user to contact LaunchDarkly support |
 | Repo not on the install list | Explain the GitHub fix by owner, then list again |
 | GitHub still not connected after "Done" | Likely a different browser account. Follow [references/github-troubleshooting.md](references/github-troubleshooting.md) |
@@ -352,8 +328,7 @@ More cases: [references/edge-cases.md](references/edge-cases.md).
 
 ## References
 
-- [references/release-plans.md](references/release-plans.md): creating environment release plans
-- [`launchdarkly-flag-release-plans`](../launchdarkly-flag-release-plans/SKILL.md): reading and creating the project's flag release plan through the REST API
+- [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md): reading, choosing, and creating environment release plans (starter plans included) and the project's flag release plan
 - [references/modes.md](references/modes.md): Preview and Resume details
 - [references/byok.md](references/byok.md): bring-your-own-key setup
 - [references/auto-cleanup.md](references/auto-cleanup.md) / [references/auto-archival.md](references/auto-archival.md): cleanup settings, and turning on archival

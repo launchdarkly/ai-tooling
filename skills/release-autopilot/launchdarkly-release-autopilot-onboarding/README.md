@@ -11,8 +11,7 @@ This skill teaches agents how to:
 - Map chosen `owner/name` repos to LaunchDarkly projects
 - Set auto-cleanup through the MCP, and guide turning on auto-archival on the project's Automations page
 - Explain whose AI model account runs the agents (LaunchDarkly's by default, or the user's own Anthropic or OpenAI key) and guide bring-your-own-key setup
-- Use or create environment release plans for auto-releasing, offering starter plans and setting each environment's default
-- Build the project's flag release plan from those plans with the `launchdarkly-flag-release-plans` skill, or give the commands as a follow-up
+- Set up environment release plans (with starter plans) and the project's flag release plan for auto-releasing, with the `launchdarkly-release-plans` skill, or give the flag release plan commands as a follow-up
 - Confirm GitHub works, list exactly which repos were set up, and offer a test pull request and next steps
 - Confirm one plan that lists every write before making any change, then verify
 
@@ -44,7 +43,7 @@ Onboard us to Release Autopilot with auto-flagging and auto-releasing
 ## Related
 
 - [LaunchDarkly Release Autopilot Settings](../launchdarkly-release-autopilot-settings/): single settings changes and "why didn't my PR get classified?"
-- [LaunchDarkly Flag Release Plans](../launchdarkly-flag-release-plans/): read and build the project's flag release plan
+- [LaunchDarkly Release Plans](../launchdarkly-release-plans/): read, create, and edit environment and flag release plans
 - [LaunchDarkly Metric Choose](../../metrics/launchdarkly-metric-choose/): pick metrics for guarded release plans
 - [LaunchDarkly MCP Server](https://github.com/launchdarkly/mcp-server)
 

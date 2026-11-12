@@ -86,10 +86,10 @@ const SUITES = [
     readme: "skills/release-autopilot/launchdarkly-release-autopilot-onboarding/README.md",
   },
   {
-    suite: "launchdarkly-flag-release-plans",
-    skillKey: "release-autopilot/launchdarkly-flag-release-plans",
-    skillDir: "skills/release-autopilot/launchdarkly-flag-release-plans",
-    readme: "skills/release-autopilot/launchdarkly-flag-release-plans/README.md",
+    suite: "launchdarkly-release-plans",
+    skillKey: "release-autopilot/launchdarkly-release-plans",
+    skillDir: "skills/release-autopilot/launchdarkly-release-plans",
+    readme: "skills/release-autopilot/launchdarkly-release-plans/README.md",
   },
   {
     suite: "experiment-guide",

@@ -417,21 +417,6 @@
       ]
     },
     {
-      "name": "launchdarkly-flag-release-plans",
-      "description": "List, create, change, make default, and delete a LaunchDarkly project's flag release plans through the REST API (beta), and start a flag's release from one. A flag release plan sets the order of a project's environments and the environment release plan each one releases with. Auto-releasing proposes releases from these plans. Use when the user wants to see or build a project's flag release plan, point it at environment release plans, change the project's default plan, or start a release from a plan. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding.",
-      "path": "skills/release-autopilot/launchdarkly-flag-release-plans",
-      "version": "0.1.0-experimental",
-      "license": "Apache-2.0",
-      "compatibility": "Requires curl and a LaunchDarkly API access token in LD_ACCESS_TOKEN. The hosted MCP server has no flag release plan tools, and ldcli has no command for them.",
-      "tags": [
-        "launchdarkly",
-        "release-autopilot",
-        "auto-releasing",
-        "release-plans",
-        "rest-api"
-      ]
-    },
-    {
       "name": "launchdarkly-flag-targeting",
       "description": "Control LaunchDarkly feature flag targeting including toggling flags on/off, percentage rollouts, targeting rules, individual targets, and copying flag configurations between environments. Use when the user wants to change who sees a flag, roll out to a percentage, add targeting rules, or promote config between environments.",
       "path": "skills/feature-flags/launchdarkly-flag-targeting",
@@ -505,7 +490,7 @@
       "name": "launchdarkly-release-autopilot-settings",
       "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, review release policies), use launchdarkly-release-autopilot-onboarding instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-settings",
-      "version": "1.5.0-experimental",
+      "version": "1.6.0-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -515,6 +500,23 @@
         "auto-flagging",
         "auto-releasing",
         "mcp"
+      ]
+    },
+    {
+      "name": "launchdarkly-release-plans",
+      "description": "List, create, edit, make default, and delete LaunchDarkly release plans of both kinds: environment release plans (one environment's phases, rollout steps, and rollback metrics, with starter plans) and flag release plans (a project's environments in release order, each with its environment release plan, which auto-releasing proposes releases from). Also starts a flag's release from a flag release plan. Use when the user wants to see, build, change, or remove a release plan, set an environment's or a project's default plan, or when another skill such as Release Autopilot onboarding needs release plans planned or created. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding, which follows this skill.",
+      "path": "skills/release-autopilot/launchdarkly-release-plans",
+      "version": "1.0.0",
+      "license": "Apache-2.0",
+      "compatibility": "Environment release plans use the hosted LaunchDarkly MCP server. Flag release plans, and deleting an environment release plan, use curl and a LaunchDarkly API access token in LD_ACCESS_TOKEN (REST API, beta).",
+      "tags": [
+        "launchdarkly",
+        "release-autopilot",
+        "auto-releasing",
+        "release-plans",
+        "guarded-rollouts",
+        "mcp",
+        "rest-api"
       ]
     },
     {

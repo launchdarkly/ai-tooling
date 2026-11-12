@@ -1,0 +1,516 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# Run with shared defaults:
+#   promptfoo eval -c shared/defaults.yaml -c launchdarkly-release-plans/promptfooconfig.yaml
+#
+# The release plans skill: environment release plans through the MCP tools
+# (the onboarding suite's definitions and stateful mocks), and flag release
+# plans through the LaunchDarkly REST API with curl.
+# The provider's ld_api_mock starts a local API mock for each test and points
+# the agent's shell at it (LD_BASE_URI, and a fake LD_ACCESS_TOKEN), so no
+# request reaches a real account. Each request is an "ld-api" trajectory
+# entry with its method, path, LD-API-Version header, and body. The cases
+# check the beta header on every request, a confirmation before every write,
+# the plan's environments and default, read-back, the 409 retry, a full
+# replace to change the default, the no-token path, read-only requests, and
+# the plan-access 403.
+description: "Evaluation of the release plans skill"
+
+prompts:
+  - file://../../skills/release-autopilot/launchdarkly-release-plans/SKILL.md
+
+providers:
+  - id: file://../providers/claude-skill-agent-sdk.js
+    label: api
+    config:
+      skill_slug: launchdarkly-release-plans
+      allow_builtins: true
+      expose_ask_question: true
+      # Environment release plans come from the MCP tools, with the
+      # onboarding suite's definitions and stateful mocks; the API mock
+      # accepts the plans these create this run.
+      tool_definitions: release-autopilot-onboarding/tool-definitions.json
+      tool_mocks: release-autopilot-onboarding/tool-mocks.json
+      mcp_tool_allowlist:
+        - get-environment-release-plans
+        - create-environment-release-plan
+        - update-default-environment-release-plan
+        - search-contexts
+        - get-metrics
+      force_skill_invocation: true
+      ld_api_mock: true
+
+tests:
+  # ------------------------------------------------------------------
+  # Read only: list the project's plans and report them in words.
+  # ------------------------------------------------------------------
+  - description: "List: reports each plan and the default, beta header, no writes"
+    vars:
+      max_turns: 18
+      mock_ask_question_match: true
+      user_request: "Which flag release plans does LaunchDarkly project default have?"
+      ld_api_state:
+        flagReleasePlans:
+          - key: staged-rollout
+            name: Staged rollout
+            isDefault: true
+            environments:
+              - { environmentKey: test, environmentReleasePlanKey: progressive, triggerType: flag_eval }
+              - { environmentKey: production, environmentReleasePlanKey: progressive-2, triggerType: flag_eval }
+          - key: production-only
+            name: Production only
+            environments:
+              - { environmentKey: production, isImmediate: true, triggerType: flag_eval }
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:listReportsPlans
+        metric: lists_plans
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:everyRequestBeta
+        metric: beta_header
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:noApiWrites
+        metric: no_writes
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:tokenStaysSecret
+        metric: token_secret
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Create a plan that points at each environment's default release plan,
+  # as the project's default: confirm first, then read it back.
+  # ------------------------------------------------------------------
+  - description: "Create, every environment has a default release plan: reused, none created, confirmed and read back"
+    vars:
+      max_turns: 18
+      mock_ask_question_match: true
+      user_request: "Create a flag release plan named Default release in LaunchDarkly project default: test first, then production, each with its environment's default release plan. Make it the project's default."
+      ld_api_state:
+        environmentReleasePlans:
+          test: ["progressive"]
+          production: ["progressive-2"]
+      mock_overrides:
+        get-environment-release-plans: &both_envs
+          by_arg: environmentKey
+          cases:
+            test:
+              items:
+                - key: progressive
+                  name: Progressive
+                  environmentKey: test
+                  default: true
+                  progressiveRelease: &progressive
+                    randomizationUnit: user
+                    advancementMode: automatic
+                    cleanupBehavior: remove_rules_and_update_default_rule
+                    phases:
+                      - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
+                        steps: [{ allocation: 10000, durationMillis: 14400000 }, { allocation: 50000, durationMillis: 14400000 }]
+                    metrics: {}
+              totalCount: 1
+            production:
+              items:
+                - key: progressive-2
+                  name: Progressive (production)
+                  environmentKey: production
+                  default: true
+                  progressiveRelease: *progressive
+              totalCount: 1
+          default: { items: [], totalCount: 0 }
+      mock_ask_question_answers:
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:createsTestThenProduction
+        metric: plan_shape
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:reusesExistingEnvPlans
+        metric: reuses_environment_plans
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
+        metric: confirms_before_write
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:readsBackAfterWrite
+        metric: reads_back
+        weight: 2
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:everyRequestBeta
+        metric: beta_header
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:tokenStaysSecret
+        metric: token_secret
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # The first create returns 409 (the key was taken between the list and
+  # the create). The retry uses another key and is confirmed again.
+  # ------------------------------------------------------------------
+  - description: "Key taken: 409, then a new key after a new confirmation"
+    vars:
+      max_turns: 18
+      mock_ask_question_match: true
+      user_request: "Create a flag release plan named Default release in LaunchDarkly project default: test, then production, each with its environment's default release plan. Make it the project's default."
+      ld_api_state:
+        environmentReleasePlans:
+          test: ["progressive"]
+          production: ["progressive-2"]
+      mock_overrides:
+        get-environment-release-plans: *both_envs
+      ld_api_overrides:
+        "POST flag-release-plans":
+          - status: 409
+            body: { code: conflict, message: "a flag release plan with this key already exists in this project" }
+          - null
+      mock_ask_question_answers:
+        - ["Make this change"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:retriesWithNewKey
+        metric: retries_new_key
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
+        metric: confirms_before_write
+        weight: 4
+
+  # ------------------------------------------------------------------
+  # Make an existing plan the default: a full replace from a fresh read,
+  # with its version, and no new plan.
+  # ------------------------------------------------------------------
+  - description: "Change the default: full replace with the version, isDefault set, no create"
+    vars:
+      max_turns: 18
+      mock_ask_question_match: true
+      user_request: "Make Staged rollout the default flag release plan in LaunchDarkly project default."
+      ld_api_state:
+        environmentReleasePlans:
+          test: ["progressive"]
+          production: ["progressive-2"]
+      mock_overrides:
+        get-environment-release-plans: *both_envs
+        flagReleasePlans:
+          - key: fast
+            name: Fast
+            isDefault: true
+            environments:
+              - { environmentKey: production, isImmediate: true, triggerType: flag_eval }
+          - key: staged-rollout
+            name: Staged rollout
+            version: 3
+            environments:
+              - { environmentKey: test, environmentReleasePlanKey: progressive, triggerType: flag_eval }
+              - { environmentKey: production, environmentReleasePlanKey: progressive-2, triggerType: flag_eval }
+      mock_ask_question_answers:
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:promotesWithFullBody
+        metric: full_replace
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
+        metric: confirms_before_write
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:readsBackAfterWrite
+        metric: reads_back
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # No LD_ACCESS_TOKEN: say how to set it in the user's own terminal, never
+  # ask for it in the chat, write nothing.
+  # ------------------------------------------------------------------
+  - description: "No token: export guidance, never asks for the token, no writes"
+    vars:
+      max_turns: 18
+      mock_ask_question_match: true
+      user_request: "Create a flag release plan named Default release in LaunchDarkly project default: test, then production, each with its environment's default release plan."
+      ld_access_token: false
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:noTokenGuidance
+        metric: no_token_guidance
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:tokenStaysSecret
+        metric: token_secret
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:noApiWrites
+        metric: no_writes
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Read only: describe the plan, send only GET requests.
+  # ------------------------------------------------------------------
+  - description: "Preview: describes the plan it would create, no writes"
+    vars:
+      max_turns: 18
+      mock_ask_question_match: true
+      user_request: "Show me the flag release plan you would create for LaunchDarkly project default with test first, then production, as the default. Don't change anything."
+      ld_api_state:
+        environmentReleasePlans:
+          test: ["progressive"]
+          production: ["progressive-2"]
+      mock_overrides:
+        get-environment-release-plans: *both_envs
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:noApiWrites
+        metric: no_writes
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:previewDescribesPlan
+        metric: describes_plan
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # The account does not have flag release plans: contact support.
+  # ------------------------------------------------------------------
+  - description: "Plan access 403: contact support, no writes"
+    vars:
+      max_turns: 18
+      mock_ask_question_match: true
+      user_request: "Create a flag release plan for LaunchDarkly project default with production only, using its default release plan."
+      ld_api_state:
+        environmentReleasePlans:
+          production: ["progressive"]
+      ld_api_overrides:
+        "GET flag-release-plans":
+          status: 403
+          body: { code: forbidden, message: "Plan does not allow this operation" }
+        "POST flag-release-plans":
+          status: 403
+          body: { code: forbidden, message: "Plan does not allow this operation" }
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:saysContactSupport
+        metric: contact_support
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:noApiWrites
+        metric: no_writes
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Production has no release plan. The user is asked to create one first;
+  # the flag release plan is written only after it exists, and names it.
+  # ------------------------------------------------------------------
+  - description: "Environment without a release plan: created first, then the flag release plan names it"
+    vars:
+      max_turns: 26
+      mock_ask_question_match: true
+      user_request: "Create a flag release plan named Default release in LaunchDarkly project default: test first, then production, each with its environment's default release plan. Make it the project's default."
+      mock_overrides:
+        get-environment-release-plans:
+          by_arg: environmentKey
+          cases:
+            test:
+              items:
+                - key: progressive
+                  name: Progressive
+                  environmentKey: test
+                  default: true
+                  progressiveRelease: *progressive
+              totalCount: 1
+          default: { items: [], totalCount: 0 }
+      ld_api_state:
+        environmentReleasePlans:
+          test: ["progressive"]
+      mock_ask_question_answers:
+        - ["Use this plan"]
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Make this change"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:envPlanCreatedBeforeFlagPlan
+        metric: environment_plan_first
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:everyRequestBeta
+        metric: beta_header
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Production has no release plan, and the user declines to create one:
+  # production is left out of the flag release plan, and the reply says so.
+  # ------------------------------------------------------------------
+  - description: "Environment without a release plan, user declines: left out, and the reply says so"
+    vars:
+      max_turns: 20
+      mock_ask_question_match: true
+      user_request: "Create a flag release plan named Default release in LaunchDarkly project default: test first, then production, each with its environment's default release plan. Make it the project's default."
+      mock_overrides:
+        get-environment-release-plans:
+          by_arg: environmentKey
+          cases:
+            test:
+              items:
+                - key: progressive
+                  name: Progressive
+                  environmentKey: test
+                  default: true
+                  progressiveRelease: *progressive
+              totalCount: 1
+          default: { items: [], totalCount: 0 }
+      ld_api_state:
+        environmentReleasePlans:
+          test: ["progressive"]
+      mock_ask_question_answers:
+        - ["Use this plan"]
+        - ["Not now"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:leavesEnvironmentOut
+        metric: leaves_environment_out
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
+        metric: confirms_before_write
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Environment release plans (moved from the onboarding suite).
+  # ------------------------------------------------------------------
+  # Production has no plans: the progressive starter (10/25/50, 4h holds),
+  # after the randomization unit check, confirmed, then set as the default.
+  - description: "Starter plan: production progressive after the unit check, confirmed, then the default"
+    vars:
+      max_turns: 22
+      mock_ask_question_match: true
+      user_request: "Create a release plan for production in LaunchDarkly project default and make it the environment's default."
+      mock_overrides:
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_answers:
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:productionStarterProgressive
+        metric: starter_plan
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:checksContextsBeforeStarter
+        metric: checks_contexts
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
+        metric: confirms_before_write
+        weight: 3
+
+  # A user rollback metric (matching analysisUnits) makes the starter
+  # guarded: the metric with automatic rollback, every step at most 50%.
+  - description: "Guarded starter: rollback metric with a matching unit, steps at most 50%"
+    vars:
+      max_turns: 22
+      mock_ask_question_match: true
+      user_request: "Create a release plan for production in LaunchDarkly project default and make it the environment's default."
+      mock_overrides:
+        get-metrics:
+          metrics:
+            - { key: user-error-rate, name: User error rate, measureType: occurrence, successCriteria: LowerThanBaseline, analysisUnits: ["user"] }
+            - { key: account-revenue, name: Account revenue, measureType: value, successCriteria: HigherThanBaseline, analysisUnits: ["account"] }
+          totalCount: 2
+      mock_ask_question_answers:
+        - ["User error rate"]
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:guardedStarterMetrics
+        metric: guarded_starter
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:checksContextsBeforeStarter
+        metric: checks_contexts
+        weight: 2
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
+        metric: confirms_before_write
+        weight: 3
+
+  # No stored contexts: the starter still uses the default user kind.
+  - description: "No stored contexts: progressive starter by user"
+    vars:
+      max_turns: 22
+      mock_ask_question_match: true
+      user_request: "Create a release plan for production in LaunchDarkly project default and make it the environment's default."
+      mock_overrides:
+        search-contexts: { items: [], totalCount: 0 }
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_answers:
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:starterUnitIsUser
+        metric: starter_unit_user
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:productionStarterProgressive
+        metric: starter_plan
+        weight: 3
+
+  # Custom plan from a detailed request: every phase has valid clauses and
+  # steps, and it is created after a confirmation.
+  - description: "Custom plan: valid phases, confirmed"
+    vars:
+      max_turns: 22
+      mock_ask_question_match: true
+      user_request: >
+        Create a release plan for production in LaunchDarkly project default: randomize by user,
+        1% then 10% then 50% with 4h holds, automatic advancement, no metrics, and leave rules in place.
+      mock_overrides:
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_answers:
+        - ["Custom"]
+        - ["Automatic"]
+        - ["Leave rules"]
+        - ["No metrics"]
+        - ["Looks right"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:plansHaveClauses
+        metric: plan_phases_have_clauses
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
+        metric: confirms_before_write
+        weight: 3
+
+  # Starters in test and production: keys are unique in the project, so the
+  # second starter is progressive-2.
+  - description: "Key collision: the second starter gets progressive-2"
+    vars:
+      max_turns: 26
+      mock_ask_question_match: true
+      user_request: "Create starter release plans for test and production in LaunchDarkly project default, and make each the environment's default."
+      mock_overrides:
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_answers:
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Make this change"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:starterKeysDoNotCollide
+        metric: starter_keys
+        weight: 4

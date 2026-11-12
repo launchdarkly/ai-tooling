@@ -40,6 +40,6 @@
     "./skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
     "./skills/release-autopilot/launchdarkly-automations-cleanup-settings",
     "./skills/release-autopilot/launchdarkly-automations-archival-settings",
-    "./skills/release-autopilot/launchdarkly-flag-release-plans"
+    "./skills/release-autopilot/launchdarkly-release-plans"
   ]
 }

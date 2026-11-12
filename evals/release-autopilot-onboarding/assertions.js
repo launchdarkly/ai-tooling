@@ -18,7 +18,7 @@ const isRepoUpdate = (t) => t.tool === "update-automations" && (t.arguments || {
   Boolean((t.arguments || {}).repo || (t.arguments || {}).githubRepoId) && !(t.arguments || {}).cleanup && !(t.arguments || {}).archival;
 const isRepoWrite = (t) => isRepoUpdate(t) || t.tool === "delete-automations-repo-settings";
 
-const checks = require("../launchdarkly-flag-release-plans/ld-api-checks");
+const checks = require("../launchdarkly-release-plans/ld-api-checks");
 
 // A write is an MCP write tool or a REST API request other than GET (the
 // flag release plan, through the provider's ld_api_mock).
@@ -130,23 +130,6 @@ module.exports.planBeforeRepoWrite = (output) => {
   return result(pass, `plan at ${plan}, repo write at ${repo} (${args.repo}@${args.projectKey})`);
 };
 
-module.exports.plansHaveClauses = (output) => {
-  const plans = traj(output).filter((t) => t.tool === "create-environment-release-plan");
-  if (!plans.length) return result(false, "no release plan created");
-  const okClause = (c) => c && typeof c.attribute === "string" && typeof c.op === "string" && Array.isArray(c.values);
-  const okStep = (s) => s && typeof s.allocation === "number" && typeof s.durationMillis === "number";
-  for (const p of plans) {
-    const phases = (((p.arguments || {}).progressiveRelease || {}).phases) || [];
-    if (!phases.length) return result(false, "plan has no phases");
-    for (const ph of phases) {
-      if (!Array.isArray(ph.clauses) || !ph.clauses.length || !ph.clauses.every(okClause))
-        return result(false, `bad clauses: ${JSON.stringify(ph.clauses).slice(0, 120)}`);
-      if (!Array.isArray(ph.steps) || !ph.steps.length || !ph.steps.every(okStep))
-        return result(false, `bad steps: ${JSON.stringify(ph.steps).slice(0, 120)}`);
-    }
-  }
-  return result(true, "every phase has valid clauses and steps");
-};
 module.exports.noReleasePlanCreated = noneOf(["create-environment-release-plan"]);
 module.exports.noAccountWrite = (output) => {
   const hit = traj(output).filter(isAccountWrite);
@@ -589,26 +572,7 @@ module.exports.reportListsCleanup = (output) => {
   return result(pass, pass ? "report lists the cleanup schedule and repository" : "report does not list the cleanup schedule and repository");
 };
 
-// Before creating a starter plan, the unit is checked against stored contexts.
-module.exports.checksContextsBeforeStarter = (output) => {
-  const steps = traj(output);
-  const create = steps.findIndex((t) => t.tool === "create-environment-release-plan");
-  if (create === -1) return result(false, "no release plan created");
-  const unit = steps.slice(0, create).some((t) => t.tool === "search-contexts" && (t.arguments || {}).kind);
-  return result(unit, `context kind checked before create: ${unit}`);
-};
 
-// Guarded starter: the plan carries the picked rollback metric with
-// automatic rollback, and every step is at most 50000.
-module.exports.guardedStarterMetrics = (output) => {
-  const p = traj(output).find((t) => t.tool === "create-environment-release-plan");
-  if (!p) return result(false, "no release plan created");
-  const pr = p.arguments.progressiveRelease || {};
-  const m = (pr.metrics || {})["user-error-rate"];
-  const capped = (pr.phases || []).every((ph) => (ph.steps || []).every((s) => s.allocation > 0 && s.allocation <= 50000));
-  const pass = Boolean(m && m.autoRollback === true && m.isGroup === false) && capped;
-  return result(pass, `metrics: ${JSON.stringify(pr.metrics || {})}; every step at most 50000: ${capped}`);
-};
 
 // The GitHub App install cannot be read: read it once more, then pause with
 // the resume phrase. No writes and no repo question.
@@ -622,13 +586,6 @@ module.exports.pausesOnReposError = (output) => {
   return result(reads >= 2 && repoQ === 0 && resume && w === 0, `install reads: ${reads}; repo questions: ${repoQ}; resume phrase: ${resume}; writes: ${w}`);
 };
 
-// A project with no stored contexts still gets a starter, randomized by user.
-module.exports.starterUnitIsUser = (output) => {
-  const p = traj(output).find((t) => t.tool === "create-environment-release-plan");
-  if (!p) return result(false, "no release plan created");
-  const unit = ((p.arguments || {}).progressiveRelease || {}).randomizationUnit;
-  return result(unit === "user", `randomization unit: ${unit}`);
-};
 
 // Preview with an unreadable install lists the mapping for later and no
 // GitHub connect step (there is no connect link; GitHub is connected).
@@ -666,7 +623,7 @@ module.exports.missingPlanToolsSkipsRelease = (output) => {
 };
 
 // ---------------------------------------------------------------------------
-// Flag release plan (through launchdarkly-flag-release-plans and the REST
+// Flag release plan (through launchdarkly-release-plans and the REST
 // API). Runs with the provider's ld_api_mock record "ld-api" entries.
 
 module.exports.everyRequestBeta = checks.everyRequestBeta;
@@ -740,4 +697,40 @@ module.exports.previewListsFlagReleasePlan = (output) => {
   const listed = /flag release plan/i.test(finalText(output));
   const w = traj(output).filter(checks.isApiWrite).length;
   return result(listed && w === 0, `lists the flag release plan: ${listed}; API writes: ${w}`);
+};
+
+// The project's default flag release plan does not match: it is updated in
+// place (a PUT on its key, still the default, with its version and the new
+// production release plan) after "Looks good", and no plan is created.
+module.exports.flagReleasePlanUpdatedInPlace = (output) => {
+  const steps = traj(output);
+  const pi = steps.findIndex((t) => t.tool === "ld-api" && t.arguments && t.arguments.method === "PUT" &&
+    /\/flag-release-plans\/staged-rollout$/.test(t.arguments.path || ""));
+  const posts = planCreates(output).length;
+  if (pi === -1) return result(false, `no update of staged-rollout; plans created: ${posts}`);
+  const b = steps[pi].arguments.body || {};
+  const envs = (b.environments || []).map((e) => `${e.environmentKey}:${e.environmentReleasePlanKey || "immediate"}`);
+  const approved = approvedConfirmBefore(steps, pi) !== -1;
+  const pass = b.isDefault === true && b.version === 2 && JSON.stringify(envs) === JSON.stringify(["production:gradual"]) &&
+    checks.succeeded(steps[pi]) && approved && posts === 0;
+  return result(pass, `isDefault ${b.isDefault}; version ${b.version}; environments ${JSON.stringify(envs)}; status ${steps[pi].arguments.status}; after "Looks good": ${approved}; plans created: ${posts}`);
+};
+
+// The flag release plan is a follow-up, and auto-releasing stays on as the
+// user picked: the repo write turns it on, and no write turns it off.
+module.exports.autoReleasingOnWithFollowUp = (output) => {
+  const repo = traj(output).filter((t) => isRepoUpdate(t) && t.arguments.repo === "acme/demo");
+  const on = repo.some((t) => t.arguments.autoReleasing && t.arguments.autoReleasing.enabled === true);
+  const off = repo.some((t) => t.arguments.autoReleasing && t.arguments.autoReleasing.enabled === false);
+  return result(on && !off, `auto-releasing turned on for acme/demo: ${on}; turned off: ${off}`);
+};
+
+// The summary and the final report say auto-releasing proposes no release
+// until the flag release plan exists.
+const NO_RELEASE_UNTIL = /(proposes? no release|won'?t propose (a |any )?releases?|will not propose (a |any )?releases?|doesn'?t propose (a |any )?releases?)[^.\n]{0,60}until[^.\n]{0,40}flag release plan/i;
+module.exports.notesNoReleaseUntilPlan = (output) => {
+  const confirm = textThroughConfirm(output) || "";
+  const inSummary = NO_RELEASE_UNTIL.test(confirm);
+  const inReport = NO_RELEASE_UNTIL.test(finalText(output));
+  return result(inSummary && inReport, `in the confirmation: ${inSummary}; in the final report: ${inReport}`);
 };
