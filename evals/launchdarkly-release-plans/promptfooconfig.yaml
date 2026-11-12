@@ -514,3 +514,63 @@ tests:
         value: file://../launchdarkly-release-plans/assertions.js:starterKeysDoNotCollide
         metric: starter_keys
         weight: 4
+
+  # ------------------------------------------------------------------
+  # A create request when a default exists: name the default first, ask
+  # the default question, and create nothing when the user keeps it.
+  # ------------------------------------------------------------------
+  - description: "Create when the environment has a default: names it first, nothing created when kept"
+    vars:
+      max_turns: 16
+      mock_ask_question_match: true
+      user_request: "Create a release plan for production in LaunchDarkly project default."
+      mock_overrides:
+        get-metrics: { metrics: [], totalCount: 0 }
+        get-environment-release-plans:
+          by_arg: environmentKey
+          cases:
+            production:
+              items:
+                - key: gradual
+                  name: Gradual
+                  environmentKey: production
+                  default: true
+                  progressiveRelease: *progressive
+              totalCount: 1
+          default: { items: [], totalCount: 0 }
+      mock_ask_question_answers:
+        - ["Use Gradual"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:envDefaultNamedFirst
+        metric: env_default_named_first
+        weight: 4
+
+  - description: "Create a flag release plan when the project has a default: names it first, nothing written when kept"
+    vars:
+      max_turns: 18
+      mock_ask_question_match: true
+      user_request: "Create a flag release plan named Release train in LaunchDarkly project default: test, then production, each with its environment's default release plan."
+      mock_overrides:
+        get-environment-release-plans: *both_envs
+      ld_api_state:
+        environmentReleasePlans:
+          test: ["progressive"]
+          production: ["progressive-2"]
+        flagReleasePlans:
+          - key: staged-rollout
+            name: Staged rollout
+            isDefault: true
+            environments:
+              - { environmentKey: production, environmentReleasePlanKey: progressive-2, triggerType: flag_eval }
+      mock_ask_question_answers:
+        - ["Keep Staged rollout"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:flagDefaultNamedFirst
+        metric: flag_default_named_first
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:everyRequestBeta
+        metric: beta_header
+        weight: 2

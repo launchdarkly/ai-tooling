@@ -51,6 +51,22 @@ Releases can ship code to users, so treat every write as production automation w
 3. **If it is not set**, tell the user to create a token in **Organization settings > Authorization** and export it in their own terminal, not in the chat: `export LD_ACCESS_TOKEN=<token>`. A user who signed in with `ldcli login` exports the same token. The agent's shell gets the variable only when the agent starts after the export. So offer two options: restart the agent from that terminal, or run the commands from [references/rest-api.md](references/rest-api.md) themselves.
 4. **If you cannot run shell commands**, give the user the exact commands to run, filled in with their keys.
 
+## Check for a default before every create
+
+This rule applies to every create path: a direct "create a release plan" request, [Create](#create), [Build or update the project's plan](#build-or-update-the-projects-plan), and Record only mode.
+
+- **Environment release plan:** read the environment's plans before you create one. If the environment has a default, tell the user first: its name, and a short summary of its phases, rollout steps, and metrics. Then ask header "Default plan":
+  - "Use <name>" ("Keep the current default. Create nothing")
+  - "Create a new plan and make it the default" ("It replaces <name> as the default")
+  - "Create a new plan, keep <name> as the default"
+- **Flag release plan:** list the project's plans before you create one. If the project has a default, tell the user first: its name, and its environments in order with the release plan for each. Then ask header "Flag release plan":
+  - "Update <name> (Recommended)" ("Change its environments and release plans. It stays the default")
+  - "Keep <name>" ("Create nothing")
+  - "Create another plan" ("A new plan that is not the default")
+- **Incomplete plans:** also name any incomplete plans, and say that they cannot start a release or be the default.
+
+Ask this before any other create question, and create nothing until the user answers.
+
 ## Core Principles
 
 1. **Read before you write.** Read the existing plans first, and reuse a plan that already does what the user wants.
@@ -78,13 +94,13 @@ Never invent a release plan key, and never point at an incomplete plan.
 
 ### Create
 
-Offer a starter plan so the user does not build one from scratch, or a custom plan. The starter definitions, the checks to run before you offer them, and the custom questions are in [references/environment-release-plans.md](references/environment-release-plans.md):
+First apply [Check for a default before every create](#check-for-a-default-before-every-create). Continue only when the user chose to create a plan, or the environment has no default. Then offer a starter plan so the user does not build one from scratch, or a custom plan. The starter definitions, the checks to run before you offer them, and the custom questions are in [references/environment-release-plans.md](references/environment-release-plans.md):
 
 1. **Randomization unit:** check stored contexts with `search-contexts`. Do not ask the user what reads can answer.
 2. **Rollback metrics:** `get-metrics`, keeping metrics whose `analysisUnits` include the unit. Metrics make the plan guarded, and a guarded plan allows at most 50% per step.
 3. **Starter:** ask header "Starter plan": "Progressive", "Custom", or "Not now". Show the full plan, and ask "Looks right" or "Adjust it".
-4. **Key:** read the environment's plans first. Keys are unique in the project, so if a starter's key is taken anywhere in the project (another environment, or an active plan here), add `-2`, then `-3`, until it is free.
-5. Confirm, then `create-environment-release-plan`, then `update-default-environment-release-plan` with `default: true` when it becomes the default.
+4. **Key:** keys are unique in the project, so if a starter's key is taken anywhere in the project (another environment, or an active plan here), add `-2`, then `-3`, until it is free.
+5. Confirm, then `create-environment-release-plan`, then `update-default-environment-release-plan` with `default: true` when it becomes the default. A new default replaces the current one: say so in the confirmation.
 
 If the create fails because the randomization unit is not available for guarded rollouts, nothing was written. Offer the same plan with no metrics, and confirm again.
 
@@ -129,8 +145,7 @@ List the project's plans (page while more remain). For each, report its name, wh
 2. For each environment the user wants, in release order, choose its environment release plan as in [Choose an environment's release plan](#choose-an-environments-release-plan).
 3. Decide:
    - **No default plan:** a new plan "Default release" (key `default-release`, or the next free key), as the project's default.
-   - **The default already has these environments, in this order, with these release plans:** reuse it. Nothing to write.
-   - **The default does not match:** ask header "Flag release plan": "Update <name> (Recommended)" ("Change its environments and release plans to these. It stays the default") or "Keep <name>" ("Keep using it as it is"). An update keeps the plan's key and its default setting.
+   - **The project has a default:** name it and its environments, and ask the "Flag release plan" question in [Check for a default before every create](#check-for-a-default-before-every-create). If it already has these environments, in this order, with these release plans, say so and recommend "Keep <name>". An update keeps the plan's key and its default setting. "Create another plan" creates a plan that is not the default.
 4. Confirm, showing the current and the new environments and release plans. Then create, or replace the plan with its `version`.
 5. Get the plan by key, and check that its environments, release plans, and default match what was confirmed.
 

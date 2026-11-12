@@ -182,3 +182,19 @@ test("starterKeysDoNotCollide wants progressive and progressive-2 across test an
   assert.equal(frp.starterKeysDoNotCollide({ trajectory: [envCreate("test", "progressive"), envCreate("production", "progressive-2")] }).pass, true);
   assert.equal(frp.starterKeysDoNotCollide({ trajectory: [envCreate("test", "progressive"), envCreate("production", "progressive")] }).pass, false);
 });
+
+test("envDefaultNamedFirst: names the default and asks before any write, then writes nothing", () => {
+  const ask = { tool: "ask-question", turn: 2, arguments: { prompt: "Production's default is Gradual (10% -> 50%). What now?", options: [{ id: "u", label: "Use Gradual" }, { id: "n", label: "Create a new plan and make it the default" }] }, selected: ["u"] };
+  assert.equal(frp.envDefaultNamedFirst({ trajectory: [ask], assistant_turns: [{ turn: 1, text: "Production already has a default release plan, Gradual." }] }).pass, true);
+  assert.equal(frp.envDefaultNamedFirst({ trajectory: [envCreate("production", "progressive")], assistant_turns: [] }).pass, false);
+  assert.equal(frp.envDefaultNamedFirst({ trajectory: [ask, envCreate("production", "progressive")], assistant_turns: [] }).pass, false);
+  const noAsk = { trajectory: [], assistant_turns: [{ turn: 1, text: "Production's default is Gradual." }] };
+  assert.equal(frp.envDefaultNamedFirst(noAsk).pass, false);
+});
+
+test("flagDefaultNamedFirst: names the default flag release plan, asks, and writes nothing", () => {
+  const ask = { tool: "ask-question", turn: 2, arguments: { prompt: "The project's default flag release plan is Staged rollout: production.", options: [{ id: "u", label: "Update Staged rollout (Recommended)" }, { id: "k", label: "Keep Staged rollout" }, { id: "c", label: "Create another plan" }] }, selected: ["k"] };
+  assert.equal(frp.flagDefaultNamedFirst({ trajectory: [api("GET", PLANS), ask] }).pass, true);
+  assert.equal(frp.flagDefaultNamedFirst({ trajectory: [api("GET", PLANS), ask, api("POST", PLANS, { body: body() })] }).pass, false);
+  assert.equal(frp.flagDefaultNamedFirst({ trajectory: [api("GET", PLANS), api("POST", PLANS, { body: body() })] }).pass, false);
+});

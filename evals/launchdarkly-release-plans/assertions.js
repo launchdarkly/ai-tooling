@@ -247,3 +247,25 @@ module.exports.starterKeysDoNotCollide = (output) => {
   const pass = envs.has("test") && envs.has("production") && new Set(keys).size === keys.length && keys.includes("progressive") && keys.includes("progressive-2");
   return result(pass, `keys ${JSON.stringify(keys)} for ${JSON.stringify([...envs])}`);
 };
+
+// Before any create, the existing default is named to the user, and the
+// default question is asked. With the "keep" answer, nothing is written.
+const shownBefore = (steps, limit, output) => {
+  const turns = ((output && output.assistant_turns) || []).map((x) => (typeof x === "string" ? { text: x } : x));
+  const lastTurn = limit < steps.length ? steps[limit].turn : Infinity;
+  const text = turns.filter((x) => x.turn === undefined || lastTurn === undefined || x.turn <= lastTurn).map((x) => String(x.text || ""));
+  const asks = steps.slice(0, limit).filter((t) => t.tool === "ask-question").map((t) => JSON.stringify(t.arguments || {}));
+  return [...text, ...asks].join("\n");
+};
+const namesDefaultFirst = (name, keepLabel, writeTest) => (output) => {
+  const steps = traj(output);
+  const first = steps.findIndex(writeTest);
+  const limit = first === -1 ? steps.length : first;
+  const before = shownBefore(steps, limit, output);
+  const named = new RegExp(name, "i").test(before) && /default/i.test(before);
+  const asked = steps.slice(0, limit).some((t) => t.tool === "ask-question" &&
+    ((t.arguments && t.arguments.options) || []).some((o) => keepLabel.test(String(o.label || ""))));
+  return result(named && asked && first === -1, `names ${name} as the default first: ${named}; asks the default question: ${asked}; writes after keeping it: ${first === -1 ? 0 : "yes"}`);
+};
+module.exports.envDefaultNamedFirst = namesDefaultFirst("gradual", /^use gradual/i, isWrite);
+module.exports.flagDefaultNamedFirst = namesDefaultFirst("staged rollout", /^keep staged rollout/i, (t) => isApiWrite(t) && /flag-release-plans/.test(t.arguments.path));
