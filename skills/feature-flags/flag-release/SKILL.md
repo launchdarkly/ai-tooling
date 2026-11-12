@@ -58,9 +58,11 @@ Full release model — immediate vs `policy`, precedence, previewing, a missing 
 
    Wait for confirmation; revise on feedback.
 
+   If the user or harness already asked you to record the release and gave the intent for the environments, that request is the confirmation. Show the plan and go on to the implement phase in the same turn. Any environment whose intent is unclear goes in the HOLD bucket; it does not stop the others. Stop for an answer only when no environment can be released without one.
+
 ## Implement Phase
 
-Only after confirmation:
+Only after confirmation (or a request to record that already states the intent):
 
 1. **Sort every target environment into exactly one bucket — RELEASE or HOLD.** Do this *before* you build the call. There is no third bucket, and no entry shape creates one.
 
