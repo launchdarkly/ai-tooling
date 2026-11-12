@@ -34,6 +34,9 @@ providers:
     config:
       skill_slug: flag-and-release-change
       allow_builtins: false
+      # With builtins off, listing the skill does not load its text, so put
+      # SKILL.md in the agent's instructions.
+      inline_skill: true
       tool_mocks: flag-release/tool-mocks.json
       tool_definitions: flag-release/tool-definitions.json
       # Release policies are replaced by environment release plans at GA, and

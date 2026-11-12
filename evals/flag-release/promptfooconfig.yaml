@@ -27,6 +27,9 @@ providers:
     config:
       skill_slug: flag-release
       allow_builtins: false
+      # With builtins off, listing the skill does not load its text, so put
+      # SKILL.md in the agent's instructions.
+      inline_skill: true
       # The cases name dev, staging, and production; this suite's
       # get-projects (with projectKey) mock returns exactly those, so an agent
       # that checks environments first finds them without a stray test env.
