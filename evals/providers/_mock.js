@@ -135,6 +135,9 @@ function createMockState() {
     raSettings: null, // Release Autopilot account settings written this run
     raRepos: {},      // owner/name -> Release Autopilot repo settings written this run
     raPlans: {},      // environmentKey -> release plans created this run
+    raDefaults: {},   // environmentKey -> default release plan key set this run
+    raCleanup: {},    // projectKey -> auto-cleanup settings written this run
+    raArchival: {},   // projectKey -> auto-archival settings written this run
   };
 }
 
@@ -299,6 +302,10 @@ function templateKey(toolName, input) {
       return safe.toolKey ? "get-ai-tools#toolKey" : toolName;
     case "get-projects":
       return safe.projectKey ? "get-projects#projectKey" : toolName;
+    case "get-automations":
+      if (safe.section === "cleanup") return "get-automations#cleanup";
+      if (safe.section === "archival") return "get-automations#archival";
+      return toolName;
     case "get-experiments":
       return safe.experimentKey ? "get-experiments#experimentKey" : toolName;
     case "create-agent-config":
@@ -334,10 +341,43 @@ function mergeDeep(base, patch) {
 
 // Release Autopilot settings and release plans: writes are recorded so that
 // later reads (the skill's verify step) reflect them instead of the template.
+// The API's step limits: every allocation is at most 99000 (99%), and a plan
+// with metrics (a guarded plan) caps every step at 50000 (50%).
+function releasePlanStepError(progressiveRelease) {
+  const pr = progressiveRelease || {};
+  const guarded = Object.keys(pr.metrics || {}).length > 0;
+  const max = guarded ? 50000 : 99000;
+  for (const phase of pr.phases || []) {
+    for (const step of phase.steps || []) {
+      if (!(step.allocation > 0) || step.allocation > max) {
+        return `LaunchDarkly API error: 400: {"code":"invalid_request","message":"step allocation ${step.allocation} is out of range: ` +
+          `${guarded ? "a release plan with metrics allows at most 50000 per step" : "at most 99000 per step"}"}`;
+      }
+    }
+  }
+  return null;
+}
+
 function renderReleaseAutopilot(template, input, toolName, state, replacements) {
   const args = input || {};
   if (toolName === "update-automations") {
     const { accountWide, repo, githubRepoId, confirm, ...rest } = args;
+    // A project's auto-cleanup or auto-archival (projectKey with a cleanup or
+    // archival object, no repo). Archival cannot be turned on by an agent.
+    if (!repo && githubRepoId === undefined && args.projectKey && (args.cleanup || args.archival)) {
+      const key = args.projectKey;
+      if (args.cleanup) {
+        state.raCleanup[key] = mergeDeep(state.raCleanup[key], args.cleanup);
+        return { projectKey: key, changed: Object.keys(args.cleanup), settings: { ...state.raCleanup[key] } };
+      }
+      const current = state.raArchival[key] || {};
+      if (args.archival.enabled === true && !current.enabled) {
+        return { projectKey: key, changed: [], automationsPage: `/projects/${key}/settings/automations`,
+          note: "Automatic archival is off. Turning it on needs a person on the Automations page." };
+      }
+      state.raArchival[key] = mergeDeep(current, args.archival);
+      return { projectKey: key, changed: Object.keys(args.archival), settings: { ...state.raArchival[key] } };
+    }
     if (accountWide === true) {
       state.raSettings = mergeDeep(state.raSettings, rest);
       return { ...state.raSettings };
@@ -347,6 +387,12 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
       return { ...state.raRepos[repo] };
     }
     return undefined;
+  }
+  if (toolName === "get-automations" && (args.section === "cleanup" || args.section === "archival")) {
+    const base = walk(template, replacements);
+    if (!base || base.error) return base;
+    const written = (args.section === "cleanup" ? state.raCleanup : state.raArchival)[args.projectKey];
+    return written ? { ...base, settings: mergeDeep(base.settings, written) } : base;
   }
   if (toolName === "get-automations") {
     const base = walk(template, replacements);
@@ -364,14 +410,35 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
     if (typeof args.mapped === "boolean") repos = repos.filter((r) => r.mapped === args.mapped);
     return { ...base, account, repos, totalCount: repos.length, hasMore: false };
   }
-  if (toolName === "create-release-plan" && args.environmentKey) {
+  if ((toolName === "create-release-plan" || toolName === "create-environment-release-plan") && args.environmentKey) {
+    const invalid = releasePlanStepError(args.progressiveRelease);
+    if (invalid) return { error: invalid };
     const plan = { key: args.key, name: args.name, environmentKey: args.environmentKey, progressiveRelease: args.progressiveRelease };
     (state.raPlans[args.environmentKey] = state.raPlans[args.environmentKey] || []).push(plan);
     return plan;
   }
-  if (toolName === "get-release-plans" && state.raPlans[args.environmentKey]) {
-    const items = state.raPlans[args.environmentKey];
-    return { items, totalCount: items.length };
+  // The list is the template's plans plus the plans created this run. A
+  // default set this run (on an existing or a new plan) replaces the
+  // template's default flags.
+  if ((toolName === "get-release-plans" || toolName === "get-environment-release-plans") &&
+      (state.raPlans[args.environmentKey] || state.raDefaults[args.environmentKey] !== undefined)) {
+    const base = walk(template, replacements);
+    if (base && base.error) return base;
+    const created = state.raPlans[args.environmentKey] || [];
+    const createdKeys = new Set(created.map((p) => p.key));
+    const existing = ((base && base.items) || []).filter((p) => !createdKeys.has(p.key));
+    const def = state.raDefaults[args.environmentKey];
+    const items = [...existing, ...created.map((p) => ({ ...p, default: false }))].map((p) =>
+      def === undefined ? p : { ...p, default: p.key === def },
+    );
+    return { ...(base || {}), items, totalCount: items.length };
+  }
+  if (toolName === "update-default-environment-release-plan" && args.environmentKey) {
+    const previous = state.raDefaults[args.environmentKey];
+    if (args.default === true) state.raDefaults[args.environmentKey] = args.releasePlanKey;
+    else if (previous === args.releasePlanKey) delete state.raDefaults[args.environmentKey];
+    return { changed: previous !== state.raDefaults[args.environmentKey], previousDefaultKey: previous || null,
+      plan: { key: args.releasePlanKey, environmentKey: args.environmentKey, default: args.default === true } };
   }
   return undefined;
 }
@@ -727,6 +794,34 @@ function resolveMockOverride(overrides, toolName, callIndex, args) {
 }
 
 /**
+ * The `mock_overrides` key that answers this call, or undefined. A mode key
+ * (`<tool>#<mode>`, see templateKey) wins. A plain tool-name key answers
+ * every mode, except the get-automations cleanup and archival sections: a
+ * test's repos/account payload for get-automations must not replace those
+ * section templates. A `by_arg: section` override still answers them.
+ */
+function overrideKey(overrides, toolName, args) {
+  if (!overrides || typeof overrides !== "object") return undefined;
+  const has = (k) => Object.prototype.hasOwnProperty.call(overrides, k);
+  const mode = templateKey(toolName, args);
+  if (mode !== toolName && has(mode)) return mode;
+  if (toolName === "get-automations" && mode !== toolName) {
+    const plain = overrides[toolName];
+    return plain && plain.by_arg === "section" ? toolName : undefined;
+  }
+  return has(toolName) ? toolName : undefined;
+}
+
+/**
+ * The key a call is counted under for array overrides: the override key that
+ * answers it, else its template key. A get-automations section read then has
+ * its own counter and does not advance a tool-name array override.
+ */
+function callCountKey(overrides, toolName, args) {
+  return overrideKey(overrides, toolName, args) || templateKey(toolName, args);
+}
+
+/**
  * Render an override with the same `{{placeholder}}` substitution as the
  * shared templates, but without the stateful overlay: an override is exactly
  * what the test wants the tool to return.
@@ -739,6 +834,8 @@ module.exports = {
   renderMockResponse,
   createMockState,
   resolveMockOverride,
+  overrideKey,
+  callCountKey,
   renderOverride,
   templateKey,
 };

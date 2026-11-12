@@ -66,6 +66,10 @@
  *   expose_mcp_tools            - per-test override of the provider config option
  *                                 (true/false), e.g. to run one test with no
  *                                 LaunchDarkly tools
+ *   exclude_mcp_tools           - optional array of tool names hidden for this
+ *                                 test only, on top of the suite's
+ *                                 exclude_mcp_tools, e.g. to run one test on a
+ *                                 server that lacks some tools
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
  *                                 successive `ask-question` calls; an empty
  *                                 array is a dismissed question (no selection).
@@ -107,6 +111,8 @@ const {
   renderMockResponse,
   createMockState,
   resolveMockOverride,
+  overrideKey,
+  callCountKey,
   renderOverride,
   templateKey,
 } = require("./_mock");
@@ -253,7 +259,8 @@ function overrideFor(overrides, toolName, callIndex, args, state) {
     const key = args && (args.flagKey || args.key);
     if (key && state && state.flags && state.flags[key]) return undefined;
   }
-  return resolveMockOverride(overrides, toolName, callIndex, args);
+  const key = overrideKey(overrides, toolName, args);
+  return key === undefined ? undefined : resolveMockOverride(overrides, key, callIndex, args);
 }
 
 // The skill's SKILL.md body (frontmatter removed), wrapped for the agent's
@@ -371,6 +378,7 @@ class ClaudeSkillAgentSdk {
       this.exposeMcpTools,
       context?.vars?.expose_mcp_tools,
     );
+    const toolDefsForTest = filterToolDefs(this.toolDefs, context?.vars?.exclude_mcp_tools);
     const askQuestionAnswers = Array.isArray(
       context?.vars?.mock_ask_question_answers,
     )
@@ -404,21 +412,24 @@ class ClaudeSkillAgentSdk {
     const toolCallCounts = {};
 
     const mcpTools = exposeMcpTools
-      ? this.toolDefs.map((def) =>
+      ? toolDefsForTest.map((def) =>
           tool(
             def.name,
             def.description,
             inputSchemaToZodShape(def.input_schema),
             async (args) => {
-              const callIndex = toolCallCounts[def.name] || 0;
-              toolCallCounts[def.name] = callIndex + 1;
+              // Calls are counted per override key, so a section read does
+              // not advance a get-automations array override.
+              const countKey = callCountKey(mockOverrides, def.name, args);
+              const callIndex = toolCallCounts[countKey] || 0;
+              toolCallCounts[countKey] = callIndex + 1;
               const override = overrideFor(mockOverrides, def.name, callIndex, args, mockState);
               const template = this.mockTemplates[templateKey(def.name, args)];
               let mock;
               if (override !== undefined) {
                 // Release Autopilot tools keep their recorded state under an
                 // override (an error override on a write is not recorded).
-                mock = /release-autopilot|release-plan/.test(def.name)
+                mock = /release-autopilot|release-plan|automations/.test(def.name)
                   ? renderMockResponse(override, args, def.name, mockState)
                   : renderOverride(override, args);
               } else if (template) {
@@ -505,7 +516,7 @@ class ClaudeSkillAgentSdk {
 
     const allowedMcpToolNames = [];
     if (exposeMcpTools) {
-      for (const def of this.toolDefs) {
+      for (const def of toolDefsForTest) {
         allowedMcpToolNames.push(`mcp__launchdarkly-mocks__${def.name}`);
       }
     }
