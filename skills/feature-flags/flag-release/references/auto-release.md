@@ -101,11 +101,11 @@ The MCP tool can't name an environment release plan, so a `policy` entry always 
 - Hold the environment.
 - Record the whole config through the REST API, which takes `environmentReleasePlanKey` on a `policy` environment.
 
-For the REST API, give the user this command to run in their own terminal. They set `LD_API_TOKEN` in their shell first. Never ask for the token in the chat, and never read or print it yourself.
+For the REST API, do not run the command yourself. Show it to the user in a code block and say: "Run this in your terminal with your LaunchDarkly API access token in place of `<your-api-access-token>`, then paste the response here with any secrets removed." Do not ask for the token, and do not look for a token on the machine.
 
 ```bash
 curl -sS -X POST "https://app.launchdarkly.com/api/v2/projects/default/automated-rollout-configs" \
-  -H "Authorization: $LD_API_TOKEN" \
+  -H "Authorization: <your-api-access-token>" \
   -H "LD-API-Version: beta" \
   -H "Content-Type: application/json" \
   -d '{
@@ -119,7 +119,7 @@ curl -sS -X POST "https://app.launchdarkly.com/api/v2/projects/default/automated
   }'
 ```
 
-The REST field is `desiredReleaseType`, not `releaseType`. The same RELEASE/HOLD rule applies: a held environment is left out of the body. The response has the config `id`; ask the user for it so you can report it.
+The REST field is `desiredReleaseType`, not `releaseType`. The same RELEASE/HOLD rule applies: a held environment is left out of the body. The response has the config `id`. Report the `id` from the response the user pastes.
 
 ## Coupling to a parent flag (prerequisites)
 

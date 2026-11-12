@@ -113,7 +113,7 @@ Only after confirmation:
 - **Don't record `policy` for an environment with no default release plan.** Say that auto-release can't run there yet.
 - **Don't silently release against a stated hold/`notBefore`.** Honor intent or hold — never drop it.
 - **Don't create, change, or delete release plans** — environment and flag release plans are managed by `launchdarkly-release-plans` (and environment plans also by `launchdarkly-release-autopilot-onboarding`).
-- **Don't handle or print credentials.** Use the MCP server's OAuth and the user's existing git access; never read tokens from the machine.
+- **Don't handle or print credentials.** Use the MCP server's OAuth and the user's existing git access; never read tokens from the machine. When a step needs the REST API, show the command and ask the user to run it in their own terminal; never run it yourself.
 
 ## References
 
