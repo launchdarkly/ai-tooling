@@ -28,10 +28,24 @@ test("annotateFailures emits a warning per failed test, escaped, only in GitHub 
     process.env.GITHUB_ACTIONS = "true";
     const lines = capture(() => annotateFailures({ suite: "demo" }, results));
     assert.deepEqual(lines, [
-      "::warning title=demo: Create:%0Aplan::plan_shape: no create%0Acommand",
-      "::warning title=demo: list plans::error: provider failed",
-      "::warning title=demo: with output::tools: get-x,ask-question | terminated: max_turns | reply: Done.",
+      "::warning title=demo%3A Create%3A%0Aplan::plan_shape: no create%0Acommand",
+      "::warning title=demo%3A list plans::error: provider failed",
+      "::warning title=demo%3A with output::tools: get-x,ask-question | terminated: max_turns | reply: Done.",
     ]);
+  } finally {
+    if (prev === undefined) delete process.env.GITHUB_ACTIONS; else process.env.GITHUB_ACTIONS = prev;
+  }
+});
+
+test("annotateFailures escapes commas and colons in the title, not in the message", () => {
+  const results = { results: { results: [
+    { success: false, description: "Create, then verify: 100% done", gradingResult: { componentResults: [{ pass: false, reason: "a, b: c", assertion: { metric: "m" } }] } },
+  ] } };
+  const prev = process.env.GITHUB_ACTIONS;
+  try {
+    process.env.GITHUB_ACTIONS = "true";
+    const lines = capture(() => annotateFailures({ suite: "demo" }, results));
+    assert.deepEqual(lines, ["::warning title=demo%3A Create%2C then verify%3A 100%25 done::m: a, b: c"]);
   } finally {
     if (prev === undefined) delete process.env.GITHUB_ACTIONS; else process.env.GITHUB_ACTIONS = prev;
   }

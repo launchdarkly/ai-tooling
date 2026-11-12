@@ -127,7 +127,10 @@ function summarize(suite, results, commit) {
 function annotateFailures(suite, results) {
   if (!process.env.GITHUB_ACTIONS) return;
   const tests = results?.results?.results || results?.results || [];
-  const esc = (v) => String(v).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  // GitHub workflow command escaping: escapeData for the message, and
+  // escapeProperty (which also encodes ":" and ",") for the title.
+  const escData = (v) => String(v).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  const escProp = (v) => escData(v).replace(/:/g, "%3A").replace(/,/g, "%2C");
   for (const t of Array.isArray(tests) ? tests : []) {
     if (t.success) continue;
     const parts = (t.gradingResult?.componentResults || [])
@@ -143,7 +146,7 @@ function annotateFailures(suite, results) {
       if (out.response) parts.push(`reply: ${String(out.response).slice(0, 400)}`);
     }
     const name = t.description || t.testCase?.description || t.vars?.user_request?.slice(0, 80) || "test";
-    console.log(`::warning title=${esc(`${suite.suite}: ${name}`).slice(0, 200)}::${esc(parts.join(" | ")).slice(0, 1500)}`);
+    console.log(`::warning title=${escProp(`${suite.suite}: ${String(name).slice(0, 160)}`)}::${escData(parts.join(" | ").slice(0, 1500))}`);
   }
 }
 
