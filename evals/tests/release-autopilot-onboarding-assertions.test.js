@@ -80,3 +80,9 @@ test("starterUnitIsUser checks the created plan's randomization unit", () => {
   assert.equal(ra.starterUnitIsUser(plan("user")).pass, true);
   assert.equal(ra.starterUnitIsUser(plan("account")).pass, false);
 });
+
+test("previewReposErrorNoConnect fails on a Connect GitHub item", () => {
+  const ok = { trajectory: [], response: "- [ ] Map acme/demo to project default once the GitHub App install can be read" };
+  assert.equal(ra.previewReposErrorNoConnect(ok).pass, true);
+  assert.equal(ra.previewReposErrorNoConnect({ trajectory: [], response: ok.response + "\n- [ ] Connect GitHub" }).pass, false);
+});

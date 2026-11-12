@@ -1409,6 +1409,37 @@ tests:
         weight: 3
 
   # ------------------------------------------------------------------
+  # Preview with the same unreadable install: the checklist lists repo
+  # mapping for later and has no "Connect GitHub" item or link.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Preview, install unreadable: mapping listed for later, no Connect GitHub"
+    vars:
+      user_request: "Preview what you would change to set up Release Autopilot auto-flagging for acme/demo in project default. Don't change anything."
+      max_turns: 14
+      mock_overrides:
+        get-automations:
+          account: { autoFlagging: { enabled: true, approvalRequired: true }, autoReleasing: { enabled: true }, version: 9 }
+          repos:
+            - { githubRepoId: 101, mapped: true, projectKey: default, autoFlagging: { enabled: true, approvalRequired: true, enabledOverride: false }, autoReleasing: { enabled: true, enabledOverride: false } }
+          totalCount: 1
+          hasMore: false
+          reposError: "The GitHub App install could not be read, so repos lists only mapped repositories, without names. Retry later."
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:previewReposErrorNoConnect
+        metric: preview_repos_error
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 3
+
+  # ------------------------------------------------------------------
   # A new project has no stored contexts of any kind. The starter still
   # uses user, the default kind, instead of blocking on a kind question.
   # ------------------------------------------------------------------

@@ -626,3 +626,13 @@ module.exports.starterUnitIsUser = (output) => {
   const unit = ((p.arguments || {}).progressiveRelease || {}).randomizationUnit;
   return result(unit === "user", `randomization unit: ${unit}`);
 };
+
+// Preview with an unreadable install lists the mapping for later and no
+// GitHub connect step (there is no connect link; GitHub is connected).
+module.exports.previewReposErrorNoConnect = (output) => {
+  const text = finalText(output);
+  const mapping = /map/i.test(text) && /can be read|could not be read|cannot be read/i.test(text);
+  const connect = /connect github|install the (launchdarkly )?github app|github\/connect|authorize github/i.test(text);
+  const w = writes(output).length;
+  return result(mapping && !connect && w === 0, `lists mapping for later: ${mapping}; Connect GitHub item: ${connect}; writes: ${w}`);
+};
