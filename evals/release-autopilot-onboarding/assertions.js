@@ -606,3 +606,23 @@ module.exports.guardedStarterMetrics = (output) => {
   const pass = Boolean(m && m.autoRollback === true && m.isGroup === false) && capped;
   return result(pass, `metrics: ${JSON.stringify(pr.metrics || {})}; every step at most 50000: ${capped}`);
 };
+
+// The GitHub App install cannot be read: read it once more, then pause with
+// the resume phrase. No writes and no repo question.
+module.exports.pausesOnReposError = (output) => {
+  const steps = traj(output);
+  const reads = steps.filter((t) => t.tool === "get-automations" && !(t.arguments || {}).section).length;
+  const repoQ = steps.filter((t) => t.tool === "ask-question" &&
+    ((t.arguments && t.arguments.options) || []).some((o) => /^[\w.-]+\/[\w.-]+$/.test(String(o.label || "")))).length;
+  const resume = /continue Release Autopilot setup/i.test(finalText(output));
+  const w = writes(output).length;
+  return result(reads >= 2 && repoQ === 0 && resume && w === 0, `install reads: ${reads}; repo questions: ${repoQ}; resume phrase: ${resume}; writes: ${w}`);
+};
+
+// A project with no stored contexts still gets a starter, randomized by user.
+module.exports.starterUnitIsUser = (output) => {
+  const p = traj(output).find((t) => t.tool === "create-environment-release-plan");
+  if (!p) return result(false, "no release plan created");
+  const unit = ((p.arguments || {}).progressiveRelease || {}).randomizationUnit;
+  return result(unit === "user", `randomization unit: ${unit}`);
+};

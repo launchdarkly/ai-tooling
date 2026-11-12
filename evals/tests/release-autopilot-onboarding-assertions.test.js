@@ -66,3 +66,17 @@ test("saysReplacesDefault looks for the replaced default by name", () => {
   assert.equal(ra.saysReplacesDefault({ trajectory: [], response: "Gradual replaces Fast as the default for production." }).pass, true);
   assert.equal(ra.saysReplacesDefault({ trajectory: [], response: "Gradual becomes the default for production." }).pass, false);
 });
+
+test("pausesOnReposError wants a second read, the resume phrase, and no writes", () => {
+  const read = { tool: "get-automations", arguments: {} };
+  const paused = { trajectory: [read, read], response: "Say \"continue Release Autopilot setup\" once it can be read." };
+  assert.equal(ra.pausesOnReposError(paused).pass, true);
+  assert.equal(ra.pausesOnReposError({ ...paused, trajectory: [read] }).pass, false);
+  assert.equal(ra.pausesOnReposError({ ...paused, trajectory: [read, read, ask("Which repos?", ["acme/demo", "acme/api"])] }).pass, false);
+});
+
+test("starterUnitIsUser checks the created plan's randomization unit", () => {
+  const plan = (unit) => ({ trajectory: [{ tool: "create-environment-release-plan", arguments: { progressiveRelease: { randomizationUnit: unit } } }] });
+  assert.equal(ra.starterUnitIsUser(plan("user")).pass, true);
+  assert.equal(ra.starterUnitIsUser(plan("account")).pass, false);
+});

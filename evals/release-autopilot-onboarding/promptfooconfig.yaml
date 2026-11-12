@@ -1376,3 +1376,65 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+
+  # ------------------------------------------------------------------
+  # The GitHub App install cannot be read (reposError) on every read. The
+  # wizard reads once more, then pauses before repo mapping: no writes.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Install unreadable: pause before mapping, no writes"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
+      max_turns: 14
+      mock_overrides:
+        get-automations:
+          account: { autoFlagging: { enabled: true, approvalRequired: true }, autoReleasing: { enabled: true }, version: 9 }
+          repos:
+            - { githubRepoId: 101, mapped: true, projectKey: default, autoFlagging: { enabled: true, approvalRequired: true, enabledOverride: false }, autoReleasing: { enabled: true, enabledOverride: false } }
+          totalCount: 1
+          hasMore: false
+          reposError: "The GitHub App install could not be read, so repos lists only mapped repositories, without names. Retry later."
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:pausesOnReposError
+        metric: pauses_on_repos_error
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # A new project has no stored contexts of any kind. The starter still
+  # uses user, the default kind, instead of blocking on a kind question.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "No stored contexts: progressive starter by user"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 26
+      mock_overrides:
+        search-contexts: { items: [], totalCount: 0 }
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:starterUnitIsUser
+        metric: starter_unit_user
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:starterPlanProgressive
+        metric: starter_plan
+        weight: 3
