@@ -49,13 +49,12 @@
  *   exclude_mcp_tools      - Optional list of mock tool names to hide, e.g.
  *                            older duplicates the skill's real MCP server
  *                            doesn't have.
- *   ld_api_mock            - Default false. When true (with allow_builtins),
- *                            start a local LaunchDarkly REST API mock
- *                            (_ld_api_mock.js) and point the agent's shell
- *                            at it: LD_BASE_URI is the mock and
- *                            LD_ACCESS_TOKEN a fake token, so curl calls never
- *                            reach a real account. Each request is recorded
- *                            as an "ld-api" trajectory entry.
+ *   scrub_ld_credentials   - Default false. When true, remove LaunchDarkly
+ *                            credential variables (LD_ACCESS_TOKEN,
+ *                            LD_BASE_URI, LD_API_KEY, LAUNCHDARKLY_*) from the
+ *                            agent's environment, so a suite with builtins
+ *                            on can check that the agent never uses a token
+ *                            without any real account in reach.
  *   expose_ask_question    - Default false. When true, expose a second in-process
  *                            MCP server with an `ask-question` tool that records
  *                            calls into the trajectory and returns a canned answer.
@@ -80,6 +79,10 @@
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
  *                                 successive `ask-question` calls; an empty
  *                                 array is a dismissed question (no selection).
+ *                                 An entry { when: "<regex>", text: "..." } is text
+ *                                 the user pasted (such as command output): in match
+ *                                 mode it answers the first question whose prompt
+ *                                 matches.
  *                                 Calls past the end get the first option.
  *   mock_ask_question_match     - when true, each `ask-question` call takes the first
  *                                 unused scripted answer whose entries all match its
@@ -93,14 +96,6 @@
  *   mock_files                  - optional object mapping relative file paths to
  *                                 string content, written into the isolated cwd
  *                                 before the agent runs
- *   ld_api_state                - with ld_api_mock: seed state, e.g.
- *                                 { flagReleasePlans: [...],
- *                                   environmentReleasePlans: { production: ["gradual"] } }
- *   ld_api_overrides            - with ld_api_mock: { "<METHOD> <route>": { status, body } }
- *                                 (or an array for successive calls) to force a
- *                                 response, e.g. a 403
- *   ld_access_token             - with ld_api_mock: false runs with no
- *                                 LD_ACCESS_TOKEN in the agent's environment
  *   mock_overrides              - optional object mapping a tool name to the
  *                                 response this test wants instead of the shared
  *                                 template: an object for every call, or an
@@ -132,7 +127,6 @@ const {
   templateKey,
 } = require("./_mock");
 const { inputSchemaToZodShape } = require("./_jsonschema-to-zod");
-const { createLdApiState, startLdApiMock } = require("./_ld_api_mock");
 
 const DEFAULT_MAX_TURNS = 15;
 const MODEL = process.env.AGENT_MODEL || "claude-sonnet-4-6";
@@ -164,7 +158,20 @@ function matchOption(want, options) {
  * mark it used, and return the matched ids. Returns undefined when no
  * scripted answer applies.
  */
-function pickAnswer(answers, idx, options, matchMode, used) {
+function pickAnswer(answers, idx, options, matchMode, used, prompt) {
+  // A pasted answer, { when: "<regex on the prompt>", text: "..." }, stands
+  // for text the user typed (such as command output). In match mode it
+  // answers the first question whose prompt matches; in order mode, its turn.
+  const isPaste = (ans) => ans && !Array.isArray(ans) && typeof ans === "object" && typeof ans.text === "string";
+  if (matchMode) {
+    const paste = answers.findIndex((ans, i) => !used.has(i) && isPaste(ans) && new RegExp(ans.when || ".", "i").test(String(prompt || "")));
+    if (paste !== -1) {
+      used.add(paste);
+      return [answers[paste].text];
+    }
+  } else if (isPaste(answers[idx])) {
+    return [answers[idx].text];
+  }
   const resolves = (ans) =>
     Array.isArray(ans) &&
     ans.length > 0 &&
@@ -286,15 +293,12 @@ function skillInstructions(markdown) {
   return `Follow the skill below. It is your procedure for this run.\n\n<skill>\n${body}\n</skill>`;
 }
 
-// The agent's environment for an ld_api_mock run: drop any real LaunchDarkly
-// credentials or instance from the runner's environment, then point at the
-// local mock. A null token leaves LD_ACCESS_TOKEN unset (the no-token case).
+// The agent's environment with LaunchDarkly credentials removed
+// (scrub_ld_credentials).
 const LD_CREDENTIAL_VARS = ["LD_ACCESS_TOKEN", "LD_BASE_URI", "LD_API_KEY", "LAUNCHDARKLY_ACCESS_TOKEN", "LAUNCHDARKLY_API_KEY"];
-function ldApiEnvironment(baseEnv, baseUri, token) {
+function scrubLdCredentials(baseEnv) {
   const env = { ...baseEnv };
   for (const name of LD_CREDENTIAL_VARS) delete env[name];
-  env.LD_BASE_URI = baseUri;
-  if (token) env.LD_ACCESS_TOKEN = token;
   return env;
 }
 
@@ -366,7 +370,7 @@ class ClaudeSkillAgentSdk {
     }
     this.mockTemplates = { ...mockTemplates, ...readSuiteJson(config.tool_mocks, {}) };
     this.inlineSkill = Boolean(config.inline_skill);
-    this.ldApiMock = Boolean(config.ld_api_mock);
+    this.scrubLdCredentials = Boolean(config.scrub_ld_credentials);
 
     const source = resolveSkillSource(this.skillSlug);
     if (!source) {
@@ -439,28 +443,6 @@ class ClaudeSkillAgentSdk {
     let currentTurn = 0;
     const mockState = createMockState();
 
-    // The local REST API mock: environment release plans exist when the test
-    // seeds them or the MCP mocks created them this run.
-    let ldApi = null;
-    let ldApiEnv = {};
-    if (this.ldApiMock) {
-      const token = `eval-token-${Date.now()}`;
-      const apiState = createLdApiState(context?.vars?.ld_api_state || {}, (env, key) =>
-        (mockState.raPlans[env] || []).some((p) => p.key === key));
-      ldApi = await startLdApiMock({
-        state: apiState,
-        token,
-        overrides: context?.vars?.ld_api_overrides || {},
-        record: (entry) =>
-          trajectory.push({
-            tool: "ld-api",
-            arguments: entry,
-            turn: currentTurn,
-            mock_response_preview: previewMock({ status: entry.status, body: entry.response }),
-          }),
-      });
-      ldApiEnv = ldApiEnvironment(process.env, ldApi.baseUri, context?.vars?.ld_access_token === false ? null : token);
-    }
     const toolCallCounts = {};
 
     const mcpTools = exposeMcpTools
@@ -533,7 +515,7 @@ class ClaudeSkillAgentSdk {
             },
             async (args) => {
               const idx = askQuestionCallCount++;
-              const picked = pickAnswer(askQuestionAnswers, idx, args.options, matchAnswers, usedAnswers);
+              const picked = pickAnswer(askQuestionAnswers, idx, args.options, matchAnswers, usedAnswers, args.prompt);
               const scripted = picked !== undefined;
               let selected;
               if (scripted) {
@@ -610,7 +592,7 @@ class ClaudeSkillAgentSdk {
       allowDangerouslySkipPermissions: true,
       persistSession: false,
       env: {
-        ...(this.ldApiMock ? ldApiEnv : process.env),
+        ...(this.scrubLdCredentials ? scrubLdCredentials(process.env) : process.env),
         CLAUDE_CONFIG_DIR: isolatedConfig,
       },
       agent: "eval-agent",
@@ -741,7 +723,6 @@ class ClaudeSkillAgentSdk {
       } catch {
         // ignore cleanup errors
       }
-      if (ldApi) await ldApi.close();
     }
 
     if (!finalText && lastAssistantText) {
@@ -823,4 +804,4 @@ module.exports.skillInstructions = skillInstructions;
 module.exports.overrideFor = overrideFor;
 module.exports.matchOption = matchOption;
 module.exports.pickAnswer = pickAnswer;
-module.exports.ldApiEnvironment = ldApiEnvironment;
+module.exports.scrubLdCredentials = scrubLdCredentials;

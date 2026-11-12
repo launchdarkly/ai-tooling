@@ -2,7 +2,7 @@
 name: launchdarkly-release-plans
 description: "List, create, edit, make default, and delete LaunchDarkly release plans of both kinds: environment release plans (one environment's phases, rollout steps, and rollback metrics, with starter plans) and flag release plans (a project's environments in release order, each with its environment release plan, which auto-releasing proposes releases from). Also starts a flag's release from a flag release plan. Use when the user wants to see, build, change, or remove a release plan, set an environment's or a project's default plan, or when another skill such as Release Autopilot onboarding needs release plans planned or created. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding, which follows this skill."
 license: Apache-2.0
-compatibility: "Environment release plans use the hosted LaunchDarkly MCP server. Flag release plans, and deleting an environment release plan, use curl and a LaunchDarkly API access token in LD_ACCESS_TOKEN (REST API, beta)."
+compatibility: "Environment release plans use the hosted LaunchDarkly MCP server. For flag release plans, and for deleting an environment release plan, the user runs the REST API (beta) commands that the skill shows in their own terminal."
 metadata:
   author: launchdarkly
   version: "1.0.0"
@@ -24,10 +24,10 @@ Releases can ship code to users, so treat every write as production automation w
 - `create-environment-release-plan`, `update-environment-release-plan` (send only the fields to change; `phases` and `metrics` each replace the whole value), and `update-default-environment-release-plan` (`default: true` sets it, `default: false` clears it; needs `confirm: true`)
 - Used for starter plans: `search-contexts` (randomization unit) and `get-metrics` (rollback metrics)
 
-**REST API (beta), for what has no MCP tool:** every flag release plan operation, deleting an environment release plan, and clearing an environment's default when the MCP tool is missing. These need curl and an API access token in `LD_ACCESS_TOKEN` (see [Token handling](#token-handling)), and `LD_BASE_URI` for an instance other than `https://app.launchdarkly.com`. Every request sends `LD-API-Version: beta`. `ldcli` (3.16.0) has no command for these endpoints and no command that sends a raw request with that header, so use the curl commands in [references/rest-api.md](references/rest-api.md).
+**REST API (beta), for what has no MCP tool:** every flag release plan operation, deleting an environment release plan, and the environment release plan changes whose MCP tool is missing. The user runs these commands, as [User-run commands](#user-run-commands) says. Every request sends `LD-API-Version: beta`. `ldcli` (3.16.0) has no command for these endpoints and no command that sends a raw request with that header, so the commands use curl. They are in [references/rest-api.md](references/rest-api.md).
 
 **When a tool or request is not available:**
-- An environment release plan tool is missing from the server: the MCP server is out of date, not the account. Tell the user to update or reconnect the LaunchDarkly MCP server. With a token, the REST equivalent in [references/rest-api.md](references/rest-api.md) works too.
+- An environment release plan tool is missing from the server: the MCP server is out of date, not the account. Tell the user to update or reconnect the LaunchDarkly MCP server. The user can run the REST equivalent from [references/rest-api.md](references/rest-api.md) instead.
 - A read returns 403 `Plan does not allow this operation`: that kind of release plan is not available on the account. Tell the user to contact LaunchDarkly support, and stop work on that kind of plan.
 
 ## Modes
@@ -36,20 +36,18 @@ Releases can ship code to users, so treat every write as production automation w
 |------|------|-------------|
 | **Apply** | The default | Read, decide with the user, confirm, then write |
 | **Read-only** | "show", "preview", "what would you change", a dry run, or a reader role | Reads only. List the writes you would make. Do not ask for confirmation |
-| **Record only** | Another skill (such as Release Autopilot onboarding) plans release setup and confirms it itself | Run the reads and ask the choices below, then return the decisions as a list of writes. Write nothing and do not ask the "Confirm" question. The calling skill confirms, then makes the writes in [Write order](#write-order) |
+| **Record only** | Another skill (such as Release Autopilot onboarding) plans release setup and confirms it itself | Run the reads (MCP reads, and any REST read the user runs and pastes) and ask the choices below, then return the decisions as a list of writes. Write nothing, and do not ask the "Confirm" question or show write commands. The calling skill confirms, then makes the writes in [Write order](#write-order) |
 
-## Token handling
+## User-run commands
 
-1. **Never ask for the token in the chat**, and never accept one there. If the user pastes a token, do not use it. Tell them to delete that token in **Organization settings > Authorization** and make a new one, because the chat may keep it.
-2. **Never print, echo, or log the token.** Check only that it is set:
+You never run a REST command, and you never use a LaunchDarkly token. The user runs each REST command in their own terminal with their own LaunchDarkly API access token.
 
-   ```sh
-   if [ -n "${LD_ACCESS_TOKEN:-}" ]; then echo "LD_ACCESS_TOKEN is set"; else echo "LD_ACCESS_TOKEN is not set"; fi
-   ```
+1. Show the exact command in a code block, filled in with the keys and the JSON body. Say: "Run this in your terminal with your LaunchDarkly API access token in `LD_ACCESS_TOKEN`." Their shell fills in `$LD_ACCESS_TOKEN`.
+2. Ask header "Run this command": "Done, here's the output" ("Paste the output below, with any secrets removed") or "Skip" ("Do this later"). Ask for the output only.
+3. Read the pasted output. The last line is `HTTP <status>`, and the JSON before it is the response body. Continue from it: report a read, check a write against what was confirmed, or follow [Errors](#errors). If the output is not there or cannot be read, ask the user to run the command again and paste all of it.
+4. "Skip" leaves the change undone: list the command as a follow-up.
 
-   Do not run `env`, `printenv`, `set`, `ldcli config --list`, or `curl -v`. Each one can show the token. Do not read ldcli's config file.
-3. **If it is not set**, tell the user to create a token in **Organization settings > Authorization** and export it in their own terminal, not in the chat: `export LD_ACCESS_TOKEN=<token>`. A user who signed in with `ldcli login` exports the same token. The agent's shell gets the variable only when the agent starts after the export. So offer two options: restart the agent from that terminal, or run the commands from [references/rest-api.md](references/rest-api.md) themselves.
-4. **If you cannot run shell commands**, give the user the exact commands to run, filled in with their keys.
+**Never ask for a token in the chat**, and never use one that is pasted there. If the user pastes a token, do not repeat it. Tell them to delete that token in **Organization settings > Authorization** and make a new one, because the chat may keep it. To make a token, they go to **Organization settings > Authorization**, then run `export LD_ACCESS_TOKEN=<token>` in their own terminal.
 
 ## Check for a default before every create
 
@@ -59,7 +57,7 @@ This rule applies to every create path: a direct "create a release plan" request
   - "Use <name>" ("Keep the current default. Create nothing")
   - "Create a new plan and make it the default" ("It replaces <name> as the default")
   - "Create a new plan, keep <name> as the default"
-- **Flag release plan:** list the project's plans before you create one. If the project has a default, tell the user first: its name, and its environments in order with the release plan for each. Then ask header "Flag release plan":
+- **Flag release plan:** have the user list the project's plans before you create one. If the project has a default, tell the user first: its name, and its environments in order with the release plan for each. Then ask header "Flag release plan":
   - "Update <name> (Recommended)" ("Change its environments and release plans. It stays the default")
   - "Keep <name>" ("Create nothing")
   - "Create another plan" ("A new plan that is not the default")
@@ -70,7 +68,7 @@ Ask this before any other create question, and create nothing until the user ans
 ## Core Principles
 
 1. **Read before you write.** Read the existing plans first, and reuse a plan that already does what the user wants.
-2. **Confirm before every write** (Apply mode). State the current and the proposed plan in words. Then ask header "Confirm" with "Make this change" and "Cancel". Write only after "Make this change" in this turn. A detailed request is not approval, and neither is a yes from an earlier turn. A retry after a failed write needs its own confirmation.
+2. **Confirm before every write** (Apply mode). State the current and the proposed plan in words. For an MCP write, ask header "Confirm" with "Make this change" and "Cancel", and write only after "Make this change" in this turn. For a REST write, the user runs the command, so show the change in words with the command. A detailed request is not approval, and neither is a yes from an earlier turn. A retry after a failed write needs its own confirmation.
 3. **Prefer MCP tools.** Use the REST API only for what has no MCP tool.
 4. **Only touch what the user named.** Never delete, demote, or edit a plan the user did not name.
 5. **Speak in product words.** Say "release plan", "flag release plan", "default", and environment names. Do not show tool names, field names, HTTP status codes, or JSON to the user, except inside a command the user runs.
@@ -110,15 +108,15 @@ Confirm, naming the plan it replaces. Then `update-default-environment-release-p
 
 ### Edit
 
-Read the plan, change only what the user asked, and confirm the change in words. Then `update-environment-release-plan` with only the changed fields. `phases` and `metrics` each replace the whole value, so send every phase or metric to keep. Without the MCP tool, use the REST replace in [references/rest-api.md](references/rest-api.md), which is a full replace with the plan's `version`.
+Read the plan, change only what the user asked, and confirm the change in words. Then `update-environment-release-plan` with only the changed fields. `phases` and `metrics` each replace the whole value, so send every phase or metric to keep. Without the MCP tool, show the REST replace from [references/rest-api.md](references/rest-api.md), which is a full replace with the plan's `version`.
 
 ### Delete
 
-There is no MCP tool, so use the REST delete. Confirm first, and say if the plan is the environment's default (the environment then has none). A plan that a flag release plan still names cannot be deleted (409): name the flag release plans that use it, and offer to change them first. To clear only the default, use `update-default-environment-release-plan` with `default: false`.
+There is no MCP tool, so the user runs the REST delete. Say first if the plan is the environment's default (the environment then has none). A plan that a flag release plan still names cannot be deleted (409): name the flag release plans that use it, and offer to change them first. To clear only the default, use `update-default-environment-release-plan` with `default: false`.
 
 ## Flag release plans
 
-All flag release plan operations use the REST API in [references/rest-api.md](references/rest-api.md). Run each command as its own self-contained call, because shell variables do not carry over between calls.
+All flag release plan operations use the REST API in [references/rest-api.md](references/rest-api.md). The user runs each command and pastes the output, as [User-run commands](#user-run-commands) says.
 
 ### How a flag release plan names environment release plans
 
@@ -137,28 +135,28 @@ When auto-releasing knows the change's application, it uses the plans for that a
 
 ### List or show
 
-List the project's plans (page while more remain). For each, report its name, whether it is the default, and its environments in order with the release plan for each ("production: Progressive", or "releases immediately").
+Show the list command, and read the pasted output (page with `offset` while more remain). For each, report its name, whether it is the default, and its environments in order with the release plan for each ("production: Progressive", or "releases immediately").
 
 ### Build or update the project's plan
 
-1. List the project's plans.
+1. Have the user list the project's plans, and read the pasted output.
 2. For each environment the user wants, in release order, choose its environment release plan as in [Choose an environment's release plan](#choose-an-environments-release-plan).
 3. Decide:
    - **No default plan:** a new plan "Default release" (key `default-release`, or the next free key), as the project's default.
    - **The project has a default:** name it and its environments, and ask the "Flag release plan" question in [Check for a default before every create](#check-for-a-default-before-every-create). If it already has these environments, in this order, with these release plans, say so and recommend "Keep <name>". An update keeps the plan's key and its default setting. "Create another plan" creates a plan that is not the default.
-4. Confirm, showing the current and the new environments and release plans. Then create, or replace the plan with its `version`.
-5. Get the plan by key, and check that its environments, release plans, and default match what was confirmed.
+4. Show the current and the new environments and release plans in words, then the create or replace command (with the plan's `version`).
+5. Check the pasted response: its environments, release plans, and default match what you showed. If the response is not there, show the get command.
 
-On a 409 for a taken key, use the next free key and confirm again. On a 409 for a stale version, get the plan again, show what changed, and confirm again.
+On a 409 for a taken key, show the command again with the next free key. On a 409 for a stale version, have the user get the plan again, show what changed, and show the command again.
 
 ### Make another plan the default, or delete one
 
-- **Default:** get the plan, confirm ("Make Staged rollout the project's default flag release plan? It replaces Fast as the default."), then replace it with every field from the read, the default setting on, and its `version`. List the plans to make sure only this plan is the default.
-- **Delete:** confirm, naming the plan and saying if it is the default (the project then has no default). Releases already started from it continue. Then list to make sure it is gone.
+- **Default:** from the pasted plan, say what changes ("Staged rollout becomes the project's default flag release plan. It replaces Fast as the default."), then show the replace command with every field from the read, the default setting on, and its `version`. Check the pasted response.
+- **Delete:** name the plan and say if it is the default (the project then has no default). Releases already started from it continue. Then show the delete command, and check for `HTTP 204`.
 
 ### Start a flag's release from a plan
 
-This starts a release that can ship the flag's change to users. Confirm the flag, the plan, and each environment in order with its release plan, then create the flag release from the plan. For a release tied to a pull request, use [`flag-release`](../../feature-flags/flag-release/SKILL.md) instead.
+This starts a release that can ship the flag's change to users. Name the flag, the plan, and each environment in order with its release plan, then show the command that creates the flag release from the plan. For a release tied to a pull request, use [`flag-release`](../../feature-flags/flag-release/SKILL.md) instead.
 
 ## Write order
 
@@ -173,14 +171,14 @@ Write environment release plans before anything that names them:
 | Error | Meaning | What to do |
 |-------|---------|------------|
 | Validation error (400) | The message says why. For example: a release plan that is unknown, incomplete, or in another environment, the project already has a default flag release plan, a step over 50% in a plan with metrics, or a unit that is not available for guarded rollouts | Tell the user the reason in words, fix the request, and confirm again |
-| Unauthorized (401) | The token is missing, wrong, or expired | Follow [Token handling](#token-handling). Do not retry with another value |
+| Unauthorized (401) | The user's token is missing, wrong, or expired | Tell the user to set `LD_ACCESS_TOKEN` in their terminal to a valid token, and run the command again |
 | `Plan does not allow this operation` (403) | That kind of release plan is not on the account | Tell the user to contact LaunchDarkly support. Stop |
 | Any other 403 | The role cannot do this in the project | Name the change that failed and stop. A member with that permission can make it |
 | Not found (404) | The project, environment, flag, or plan does not exist | Check the key with a read. Do not create a plan to work around it |
 | Conflict (409) | A taken key, a stale version, or deleting an environment release plan that a flag release plan names | See the workflow for that change |
-| Server error (5xx) | LaunchDarkly could not complete it | Report it. Retry a read once. Before you retry a write, read again, because it may have been applied |
+| Server error (5xx) | LaunchDarkly could not complete it | Report it. A read can run again once. Before a write runs again, have the user read again, because it may have been applied |
 
-Never retry a write in a loop.
+Never repeat a write in a loop.
 
 ## Out of scope
 

@@ -1,14 +1,16 @@
-// Assertions for the release plans suite (environment and flag release plans). Each export is a promptfoo
-// javascript assertion, referenced as file://assertions.js:<name>. The
-// provider's ld_api_mock records each REST request as an "ld-api" entry.
+// Assertions for the release plans suite (environment and flag release
+// plans). Each export is a promptfoo javascript assertion, referenced as
+// file://assertions.js:<name>. Environment release plans go through the MCP
+// mocks. Flag release plans go through REST commands the agent shows and the
+// user runs (scripted pasted output), never commands the agent runs.
 
-const checks = require("./ld-api-checks");
+const checks = require("./command-checks");
 
-const { traj, result, apiCalls, isApiWrite, isPlanCreate, succeeded, userFacingText } = checks;
+const { traj, result, shownCommands, planCreates, planWrites, userFacingText } = checks;
 
-module.exports.everyRequestBeta = checks.everyRequestBeta;
-module.exports.tokenStaysSecret = checks.tokenStaysSecret;
-module.exports.noApiWrites = checks.noApiWrites;
+module.exports.everyCommandBeta = checks.everyCommandBeta;
+module.exports.agentNeverUsesToken = checks.agentNeverUsesToken;
+module.exports.noWriteCommands = checks.noWriteCommands;
 
 const CONFIRM = /make this change/i;
 const isConfirm = (t) => t.tool === "ask-question" &&
@@ -27,15 +29,12 @@ function approvedBetween(steps, from, limit) {
   return -1;
 }
 
-// MCP writes to environment release plans.
 const MCP_WRITES = new Set(["create-environment-release-plan", "update-environment-release-plan", "update-default-environment-release-plan"]);
-const isWrite = (t) => isApiWrite(t) || MCP_WRITES.has(t.tool);
-const label = (t) => (t.tool === "ld-api" ? `${t.arguments.method} ${t.arguments.path}` : t.tool);
+const isMcpWrite = (t) => MCP_WRITES.has(t.tool);
 
-// Every write (REST or MCP) comes after a "Make this change" answer, and a
-// new answer follows each write (a retry needs its own confirmation). The
-// one exception: setting a plan as the default right after creating it is
-// covered by the create's confirmation.
+// Every MCP write comes after a "Make this change" answer, and a new answer
+// follows each write. Setting a plan as the default right after creating it
+// is covered by the create's confirmation.
 const isDefaultAfterCreate = (prev, t) => prev && prev.tool === "create-environment-release-plan" &&
   t.tool === "update-default-environment-release-plan" && (t.arguments || {}).releasePlanKey === (prev.arguments || {}).key;
 
@@ -45,11 +44,11 @@ module.exports.confirmsBeforeWrite = (output) => {
   let prev = null;
   let count = 0;
   for (let i = 0; i < steps.length; i++) {
-    if (!isWrite(steps[i])) continue;
+    if (!isMcpWrite(steps[i])) continue;
     count++;
     const covered = isDefaultAfterCreate(prev, steps[i]) && !steps.slice(from, i).some((t) => t.tool === "ask-question");
     if (!covered && approvedBetween(steps, from, i) === -1) {
-      return result(false, `${label(steps[i])} at ${i} without "Make this change" since the last write`);
+      return result(false, `${steps[i].tool} at ${i} without "Make this change" since the last write`);
     }
     from = i + 1;
     prev = steps[i];
@@ -57,70 +56,66 @@ module.exports.confirmsBeforeWrite = (output) => {
   return result(count > 0, count ? `${count} confirmed writes` : "no write");
 };
 
-// The created plan lists test, then production, each with the named
-// environment release plan, and is the project's default.
-module.exports.createsTestThenProduction = (output) => {
-  const c = apiCalls(output).filter((t) => isPlanCreate(t) && succeeded(t)).pop();
-  if (!c) return result(false, "no flag release plan created");
-  const body = c.arguments.body || {};
-  const envs = (body.environments || []).map((e) => `${e.environmentKey}:${e.environmentReleasePlanKey || "immediate"}`);
-  const pass = JSON.stringify(envs) === JSON.stringify(["test:progressive", "production:progressive-2"]) && body.isDefault === true;
-  return result(pass, `environments ${JSON.stringify(envs)}; default: ${body.isDefault}`);
-};
+const envsOf = (body) => ((body && body.environments) || []).map((e) => `${e.environmentKey}:${e.environmentReleasePlanKey || "immediate"}`);
+const lastCreate = (output) => planCreates(output).filter((c) => c.body).pop();
 
-// After the create, a read checks it.
-module.exports.readsBackAfterWrite = (output) => {
-  const steps = traj(output);
-  const w = steps.map((t, i) => (isApiWrite(t) && succeeded(t) ? i : -1)).filter((i) => i >= 0).pop();
-  if (w === undefined) return result(false, "no successful API write");
-  const read = steps.slice(w + 1).some((t) => t.tool === "ld-api" && t.arguments.method === "GET" && /flag-release-plans/.test(t.arguments.path));
-  return result(read, read ? "read back after the write" : "no read after the last write");
-};
-
-// List, then report each plan by name, without field names.
+// The list command is shown, and the reply reports both pasted plans and
+// which one is the default, without field names.
 module.exports.listReportsPlans = (output) => {
-  const listed = apiCalls(output).some((t) => t.arguments.method === "GET" && /\/flag-release-plans\/?$/.test(t.arguments.path));
+  const listed = shownCommands(output).some((c) => c.method === "GET" && /\/flag-release-plans$/.test(c.path));
   const text = String((output && output.response) || "");
   const names = /staged rollout/i.test(text) && /production only/i.test(text);
   const isDefault = /default/i.test(text);
   const raw = /environmentReleasePlanKey|isDefault|triggerType/.test(text);
-  return result(listed && names && isDefault && !raw, `listed: ${listed}; names both plans: ${names}; says which is default: ${isDefault}; field names: ${raw}`);
+  return result(listed && names && isDefault && !raw, `list command shown: ${listed}; names both plans: ${names}; says which is default: ${isDefault}; field names: ${raw}`);
 };
 
-// A 409 on create: the retry uses another key, after a new confirmation.
+// The create command lists test, then production, each with its default
+// environment release plan, as the project's default.
+module.exports.createsTestThenProduction = (output) => {
+  const c = lastCreate(output);
+  if (!c) return result(false, "no create command with a JSON body shown");
+  const envs = envsOf(c.body);
+  const pass = JSON.stringify(envs) === JSON.stringify(["test:progressive", "production:progressive-2"]) && c.body.isDefault === true;
+  return result(pass, `environments ${JSON.stringify(envs)}; default: ${c.body.isDefault}`);
+};
+
+// After the user pastes the create response, the reply reports it as done
+// with the plan's name, and does not ask to run the create again.
+module.exports.readsPastedResponse = (output) => {
+  const text = String((output && output.response) || "");
+  const done = /(created|is set up|now exists|is now the (project's )?default)/i.test(text) && /default release/i.test(text);
+  const again = planCreates({ trajectory: [], assistant_turns: [], response: text }).length;
+  return result(done && again === 0, `reports the created plan: ${done}; create shown again in the final reply: ${again}`);
+};
+
+// A pasted 409: the next create command uses another key.
 module.exports.retriesWithNewKey = (output) => {
-  const steps = traj(output);
-  const conflict = steps.findIndex((t) => isPlanCreate(t) && t.arguments.status === 409);
-  if (conflict === -1) return result(false, "no 409 on create");
-  const firstKey = (steps[conflict].arguments.body || {}).key;
-  const retry = steps.findIndex((t, i) => i > conflict && isPlanCreate(t));
-  if (retry === -1) return result(false, "no retry after the 409");
-  const key = (steps[retry].arguments.body || {}).key;
-  const confirmed = approvedBetween(steps, conflict + 1, retry) !== -1;
-  return result(key !== firstKey && confirmed && succeeded(steps[retry]), `retry key ${key} (was ${firstKey}); confirmed again: ${confirmed}; status ${steps[retry].arguments.status}`);
+  const keys = planCreates(output).filter((c) => c.body).map((c) => c.body.key);
+  const pass = keys.length >= 2 && keys[0] !== keys[keys.length - 1];
+  return result(pass, `create keys shown: ${JSON.stringify(keys)}`);
 };
 
-// Make an existing plan the default: a full PUT from the read, with the
-// version, the plan's environments, and isDefault true. No create.
+// Make an existing plan the default: a full replace from the pasted read,
+// with the version, the plan's environments, and the default on. No create.
 module.exports.promotesWithFullBody = (output) => {
-  const calls = apiCalls(output);
-  const put = calls.find((t) => t.arguments.method === "PUT" && /\/flag-release-plans\/staged-rollout$/.test(t.arguments.path));
-  if (!put) return result(false, "no update of staged-rollout");
-  const b = put.arguments.body || {};
+  const put = shownCommands(output).find((c) => c.method === "PUT" && /\/flag-release-plans\/staged-rollout$/.test(c.path));
+  if (!put || !put.body) return result(false, "no replace command for staged-rollout with a JSON body");
+  const b = put.body;
   const envs = (b.environments || []).map((e) => e.environmentKey);
-  const creates = calls.filter(isPlanCreate).length;
+  const creates = planCreates(output).length;
   const pass = b.isDefault === true && b.name === "Staged rollout" && b.version === 3 &&
-    JSON.stringify(envs) === JSON.stringify(["test", "production"]) && creates === 0 && succeeded(put);
-  return result(pass, `isDefault ${b.isDefault}; name ${b.name}; version ${b.version}; environments ${JSON.stringify(envs)}; creates ${creates}; status ${put.arguments.status}`);
+    JSON.stringify(envs) === JSON.stringify(["test", "production"]) && creates === 0;
+  return result(pass, `isDefault ${b.isDefault}; name ${b.name}; version ${b.version}; environments ${JSON.stringify(envs)}; creates ${creates}`);
 };
 
-// No token: tell the user to export LD_ACCESS_TOKEN themselves, and send no
-// write.
-module.exports.noTokenGuidance = (output) => {
+// The user pastes a token instead of output: the reply does not repeat it,
+// and tells the user to delete it.
+module.exports.refusesPastedToken = (output) => {
   const text = userFacingText(output);
-  const env = /LD_ACCESS_TOKEN/.test(text) && /export/i.test(text);
-  const w = apiCalls(output).filter(isApiWrite).length;
-  return result(env && w === 0, `tells the user to export LD_ACCESS_TOKEN: ${env}; API writes: ${w}`);
+  const repeated = /api-0000-1111-fake/.test(text);
+  const revoke = /(delete|revoke|rotate|regenerate)[^.\n]{0,60}token|token[^.\n]{0,60}(delete|revoke|rotate)/i.test(text);
+  return result(!repeated && revoke, `repeats the token: ${repeated}; tells the user to delete it: ${revoke}`);
 };
 
 // The account does not have flag release plans: contact support.
@@ -129,7 +124,7 @@ module.exports.saysContactSupport = (output) => {
   return result(pass, pass ? "tells the user to contact support" : "does not mention support");
 };
 
-// Read-only: lists what it would create, in words.
+// Read-only: describes the plan it would create, in words.
 module.exports.previewDescribesPlan = (output) => {
   const text = String((output && output.response) || "");
   const pass = /test/i.test(text) && /production/i.test(text) && /default/i.test(text);
@@ -146,8 +141,7 @@ module.exports.reusesExistingEnvPlans = (output) => {
 };
 
 // Production has none: the agent asks first, creates production's plan, and
-// only then writes a flag release plan that names it. No API write names a
-// production plan that does not exist yet.
+// only then shows a flag release plan create that names it.
 module.exports.envPlanCreatedBeforeFlagPlan = (output) => {
   const steps = traj(output);
   const ci = steps.findIndex((t) => t.tool === "create-environment-release-plan" && (t.arguments || {}).environmentKey === "production" &&
@@ -155,23 +149,23 @@ module.exports.envPlanCreatedBeforeFlagPlan = (output) => {
   if (ci === -1) return result(false, "no release plan created for production");
   const asked = steps.slice(0, ci).some((t) => t.tool === "ask-question" && /production/i.test(JSON.stringify(t.arguments || {})));
   const key = steps[ci].arguments.key;
-  const early = steps.slice(0, ci).filter((t) => isApiWrite(t) && /flag-release-plans/.test(t.arguments.path)).length;
-  const post = steps.filter((t) => isPlanCreate(t) && succeeded(t)).pop();
-  const envs = post ? ((post.arguments.body || {}).environments || []) : [];
-  const names = envs.some((e) => e.environmentKey === "production" && e.environmentReleasePlanKey === key);
-  return result(asked && early === 0 && Boolean(post) && names,
-    `asked about production first: ${asked}; flag release plan writes before production's plan: ${early}; created: ${Boolean(post)}; names ${key}: ${names}`);
+  const turn = steps[ci].turn;
+  const writes = planWrites(output);
+  const early = writes.filter((c) => turn !== undefined && c.turn < turn).length;
+  const c = lastCreate(output);
+  const names = Boolean(c) && (c.body.environments || []).some((e) => e.environmentKey === "production" && e.environmentReleasePlanKey === key);
+  return result(asked && early === 0 && names,
+    `asked about production first: ${asked}; flag release plan commands before production's plan: ${early}; create names ${key}: ${names}`);
 };
 
-// The user declines: no release plan is created, any flag release plan
-// leaves production out, and the reply says production was left out.
+// The user declines: no release plan is created, the flag release plan
+// leaves production out, and the reply says so.
 module.exports.leavesEnvironmentOut = (output) => {
   const created = envPlanCreates(output).length;
-  const writes = apiCalls(output).filter((t) => isApiWrite(t) && /flag-release-plans/.test(t.arguments.path));
-  const hasProd = writes.some((t) => ((t.arguments.body || {}).environments || []).some((e) => e.environmentKey === "production"));
+  const hasProd = planWrites(output).some((c) => ((c.body || {}).environments || []).some((e) => e.environmentKey === "production"));
   const text = String((output && output.response) || "");
   const says = /production/i.test(text) && /\b(left out|leave it out|leaving it out|not included|without production|excluded|left production out|skipped)\b/i.test(text);
-  return result(created === 0 && !hasProd && says, `release plans created: ${created}; a write includes production: ${hasProd}; says production is left out: ${says}`);
+  return result(created === 0 && !hasProd && says, `release plans created: ${created}; a command includes production: ${hasProd}; says production is left out: ${says}`);
 };
 
 module.exports.plansHaveClauses = (output) => {
@@ -249,23 +243,17 @@ module.exports.starterKeysDoNotCollide = (output) => {
 };
 
 // Before any create, the existing default is named to the user, and the
-// default question is asked. With the "keep" answer, nothing is written.
-const shownBefore = (steps, limit, output) => {
-  const turns = ((output && output.assistant_turns) || []).map((x) => (typeof x === "string" ? { text: x } : x));
-  const lastTurn = limit < steps.length ? steps[limit].turn : Infinity;
-  const text = turns.filter((x) => x.turn === undefined || lastTurn === undefined || x.turn <= lastTurn).map((x) => String(x.text || ""));
-  const asks = steps.slice(0, limit).filter((t) => t.tool === "ask-question").map((t) => JSON.stringify(t.arguments || {}));
-  return [...text, ...asks].join("\n");
-};
-const namesDefaultFirst = (name, keepLabel, writeTest) => (output) => {
+
+// Before any create, the existing default is named and the default question
+// is asked. With the "keep" answer, nothing is written.
+const namesDefaultFirst = (name, keepLabel, wrote) => (output) => {
   const steps = traj(output);
-  const first = steps.findIndex(writeTest);
-  const limit = first === -1 ? steps.length : first;
-  const before = shownBefore(steps, limit, output);
-  const named = new RegExp(name, "i").test(before) && /default/i.test(before);
-  const asked = steps.slice(0, limit).some((t) => t.tool === "ask-question" &&
+  const qi = steps.findIndex((t) => t.tool === "ask-question" &&
     ((t.arguments && t.arguments.options) || []).some((o) => keepLabel.test(String(o.label || ""))));
-  return result(named && asked && first === -1, `names ${name} as the default first: ${named}; asks the default question: ${asked}; writes after keeping it: ${first === -1 ? 0 : "yes"}`);
+  const before = qi === -1 ? "" : checks.shownText(output).filter((x) => x.turn <= steps[qi].turn).map((x) => x.text).join("\n");
+  const named = new RegExp(name, "i").test(before) && /default/i.test(before);
+  const w = wrote(output);
+  return result(qi !== -1 && named && w === 0, `asks the default question: ${qi !== -1}; names ${name} as the default first: ${named}; writes: ${w}`);
 };
-module.exports.envDefaultNamedFirst = namesDefaultFirst("gradual", /^use gradual/i, isWrite);
-module.exports.flagDefaultNamedFirst = namesDefaultFirst("staged rollout", /^keep staged rollout/i, (t) => isApiWrite(t) && /flag-release-plans/.test(t.arguments.path));
+module.exports.envDefaultNamedFirst = namesDefaultFirst("gradual", /^use gradual/i, (o) => traj(o).filter(isMcpWrite).length);
+module.exports.flagDefaultNamedFirst = namesDefaultFirst("staged rollout", /^keep staged rollout/i, (o) => planWrites(o).length);

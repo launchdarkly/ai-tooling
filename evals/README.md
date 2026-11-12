@@ -95,7 +95,6 @@ evals/
     claude-skill-agent-sdk.js        # The agent loop: loads skill via SDK, mocks LD tools
     _mock.js                         # Template renderer + stateful write/read overlay
     _jsonschema-to-zod.js            # JSON Schema -> Zod shape converter
-    _ld_api_mock.js                  # Local LaunchDarkly REST API mock for curl-based skills (ld_api_mock)
   tools/
     definitions.json                 # Anthropic-format definitions for the LD MCP tools the evals use
   mocks/
@@ -129,7 +128,7 @@ evals/
      "terminated": null
    }
    ```
-   With `ld_api_mock: true` (and `allow_builtins: true`), the provider also starts a local LaunchDarkly REST API mock for the test and points the agent's shell at it: `LD_BASE_URI` is the mock, `LD_ACCESS_TOKEN` is a fake token, and any real LaunchDarkly credentials in the runner's environment are removed. Each request becomes an `ld-api` trajectory entry with its method, path, `LD-API-Version` header, whether the token matched, the JSON body, and the status. The token itself is never recorded. Tests seed it with `ld_api_state`, force responses with `ld_api_overrides`, and run without a token with `ld_access_token: false`.
+   With `scrub_ld_credentials: true`, the provider removes LaunchDarkly credential variables (`LD_ACCESS_TOKEN`, `LD_BASE_URI`, `LD_API_KEY`, `LAUNCHDARKLY_*`) from the agent's environment, so a suite with builtins on can check that the agent never uses a token. A scripted answer can also be `{ when: "<regex on the question>", text: "..." }`, which stands for text the user pasted, such as the output of a command they ran.
 5. `shared/transform.js` parses the JSON before assertions run. Every assertion receives `output` as an object — **do not call `JSON.parse(output)` inside assertions**.
 
 ### Shared defaults (`shared/defaults.yaml`)

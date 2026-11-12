@@ -4,7 +4,7 @@
 
 - Run Steps 1–7 with live reads, and make no writes. Never ask the user to install GitHub or change a setting in the browser; list those steps in the checklist.
 - In Step 1, leave out the "Change one setting" option, because that hand-off writes.
-- For the flag release plan, list the project's plans if the token check passes, and send no other request. List the plan to create in the checklist.
+- For the flag release plan, ask the user to run nothing. List the plan to create in the checklist, with its list and create commands.
 - In Step 7, show the plan as a checklist under "Changes an admin would make", one line per change, and stop without asking for confirmation.
 - A member whose role is `reader` or `no_access` is always in Preview.
 

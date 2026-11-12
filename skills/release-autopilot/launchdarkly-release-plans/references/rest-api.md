@@ -1,10 +1,8 @@
 # Release plan REST API
 
-Every endpoint is in beta and needs the `LD-API-Version: beta` header on every request. Each command below is self-contained: it reads the token from `LD_ACCESS_TOKEN` and the instance from `LD_BASE_URI` (default `https://app.launchdarkly.com`), and prints the response body followed by `HTTP <status>`. Replace `PROJECT_KEY`, `PLAN_KEY`, `ENV_KEY`, `RELEASE_PLAN_KEY`, and `FLAG_KEY`.
+The user runs these commands in their own terminal with their LaunchDarkly API access token in `LD_ACCESS_TOKEN`, and pastes the output back. The agent shows them, filled in, and never runs them. Every endpoint is in beta, so every command sends `LD-API-Version: beta`. Each command prints the response body, then `HTTP <status>` on the last line. Replace `PROJECT_KEY`, `PLAN_KEY`, `ENV_KEY`, `RELEASE_PLAN_KEY`, and `FLAG_KEY`. For an instance other than `https://app.launchdarkly.com`, use that instance's URL.
 
-Prefer the MCP tools for environment release plans. Use these commands for flag release plans, for deleting an environment release plan, and when an MCP tool is missing.
-
-Do not add `-v` or `--trace`: they print the `Authorization` header.
+Prefer the MCP tools for environment release plans. Use these commands for flag release plans, for deleting an environment release plan, and when an MCP tool is missing. Do not add `-v` or `--trace`: they print the `Authorization` header.
 
 ## Endpoints
 
@@ -44,7 +42,7 @@ The list returns `items`, `totalCount`, and `_links`, in creation order. `limit`
 curl -sS -w '\nHTTP %{http_code}\n' \
   -H "Authorization: $LD_ACCESS_TOKEN" \
   -H "LD-API-Version: beta" \
-  "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/PROJECT_KEY/flag-release-plans?limit=50&offset=0"
+  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/flag-release-plans?limit=50&offset=0"
 ```
 
 ### Get a flag release plan
@@ -53,7 +51,7 @@ curl -sS -w '\nHTTP %{http_code}\n' \
 curl -sS -w '\nHTTP %{http_code}\n' \
   -H "Authorization: $LD_ACCESS_TOKEN" \
   -H "LD-API-Version: beta" \
-  "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/PROJECT_KEY/flag-release-plans/PLAN_KEY"
+  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/flag-release-plans/PLAN_KEY"
 ```
 
 ### Create a flag release plan
@@ -63,7 +61,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST \
   -H "Authorization: $LD_ACCESS_TOKEN" \
   -H "LD-API-Version: beta" \
   -H "Content-Type: application/json" \
-  "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/PROJECT_KEY/flag-release-plans" \
+  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/flag-release-plans" \
   --data @- <<'JSON'
 {
   "key": "default-release",
@@ -88,7 +86,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X PUT \
   -H "Authorization: $LD_ACCESS_TOKEN" \
   -H "LD-API-Version: beta" \
   -H "Content-Type: application/json" \
-  "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/PROJECT_KEY/flag-release-plans/PLAN_KEY" \
+  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/flag-release-plans/PLAN_KEY" \
   --data @- <<'JSON'
 {
   "version": 1,
@@ -111,7 +109,7 @@ Copy `description`, `maintainer` (as `{ "kind": "member", "memberId": ... }` or 
 curl -sS -w '\nHTTP %{http_code}\n' -X DELETE \
   -H "Authorization: $LD_ACCESS_TOKEN" \
   -H "LD-API-Version: beta" \
-  "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/PROJECT_KEY/flag-release-plans/PLAN_KEY"
+  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/flag-release-plans/PLAN_KEY"
 ```
 
 ### Start a flag's release from a plan
@@ -121,7 +119,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST \
   -H "Authorization: $LD_ACCESS_TOKEN" \
   -H "LD-API-Version: beta" \
   -H "Content-Type: application/json" \
-  "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/PROJECT_KEY/flags/FLAG_KEY/flag-releases" \
+  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/flags/FLAG_KEY/flag-releases" \
   --data @- <<'JSON'
 { "kind": "plan", "planKey": "default-release" }
 JSON
@@ -135,7 +133,7 @@ Optional: `startingVariationId` and `endingVariationId` (for a boolean flag, fal
 curl -sS -w '\nHTTP %{http_code}\n' \
   -H "Authorization: $LD_ACCESS_TOKEN" \
   -H "LD-API-Version: beta" \
-  "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/PROJECT_KEY/environments/ENV_KEY/release-plans"
+  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/environments/ENV_KEY/release-plans"
 ```
 
 Each item has `key`, `name`, `version`, `progressiveRelease`, and `default` (true for the environment's default plan). The list leaves out incomplete plans.
@@ -149,7 +147,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X PUT \
   -H "Authorization: $LD_ACCESS_TOKEN" \
   -H "LD-API-Version: beta" \
   -H "Content-Type: application/json" \
-  "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/PROJECT_KEY/environments/ENV_KEY/release-plans/RELEASE_PLAN_KEY" \
+  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/environments/ENV_KEY/release-plans/RELEASE_PLAN_KEY" \
   --data @- <<'JSON'
 {
   "version": 2,
@@ -178,7 +176,7 @@ A version mismatch returns 409 and changes nothing.
 curl -sS -w '\nHTTP %{http_code}\n' -X DELETE \
   -H "Authorization: $LD_ACCESS_TOKEN" \
   -H "LD-API-Version: beta" \
-  "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/PROJECT_KEY/environments/ENV_KEY/release-plans/RELEASE_PLAN_KEY"
+  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/environments/ENV_KEY/release-plans/RELEASE_PLAN_KEY"
 ```
 
 It returns 409 while a flag release plan still names the plan. Remove it from those flag release plans first. Its key can be used again after the delete.
@@ -190,7 +188,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X PUT \
   -H "Authorization: $LD_ACCESS_TOKEN" \
   -H "LD-API-Version: beta" \
   -H "Content-Type: application/json" \
-  "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/PROJECT_KEY/environments/ENV_KEY/default-release-plan" \
+  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/environments/ENV_KEY/default-release-plan" \
   --data '{ "key": "RELEASE_PLAN_KEY" }'
 ```
 

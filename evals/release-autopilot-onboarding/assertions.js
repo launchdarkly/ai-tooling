@@ -18,11 +18,11 @@ const isRepoUpdate = (t) => t.tool === "update-automations" && (t.arguments || {
   Boolean((t.arguments || {}).repo || (t.arguments || {}).githubRepoId) && !(t.arguments || {}).cleanup && !(t.arguments || {}).archival;
 const isRepoWrite = (t) => isRepoUpdate(t) || t.tool === "delete-automations-repo-settings";
 
-const checks = require("../launchdarkly-release-plans/ld-api-checks");
+const checks = require("../launchdarkly-release-plans/command-checks");
 
-// A write is an MCP write tool or a REST API request other than GET (the
-// flag release plan, through the provider's ld_api_mock).
-const isWriteStep = (t) => WRITE_TOOLS.has(t.tool) || checks.isApiWrite(t);
+// A write is an MCP write tool. The flag release plan is a REST command the
+// user runs, so it is checked from the text the agent shows.
+const isWriteStep = (t) => WRITE_TOOLS.has(t.tool);
 
 const traj = (output) => (output && output.trajectory) || [];
 const writes = (output) => traj(output).filter(isWriteStep);
@@ -623,41 +623,44 @@ module.exports.missingPlanToolsSkipsRelease = (output) => {
 };
 
 // ---------------------------------------------------------------------------
-// Flag release plan (through launchdarkly-release-plans and the REST
-// API). Runs with the provider's ld_api_mock record "ld-api" entries.
+// Flag release plan (through launchdarkly-release-plans). Its REST commands
+// are shown to the user, who runs them and pastes the output (a scripted
+// { when, text } answer); the agent never runs them.
 
-module.exports.everyRequestBeta = checks.everyRequestBeta;
-module.exports.tokenStaysSecret = checks.tokenStaysSecret;
+module.exports.everyCommandBeta = checks.everyCommandBeta;
+module.exports.agentNeverUsesToken = checks.agentNeverUsesToken;
 
-const planCreates = (output) => traj(output).filter((t) => checks.isPlanCreate(t));
-
-// The flag release plan is created after "Looks good", after the production
-// release plan and its default, before the repo write. It names the plan
-// created this run for production and is the project's default.
-module.exports.flagReleasePlanAfterEnvPlans = (output) => {
-  const steps = traj(output);
-  const fi = steps.findIndex((t) => checks.isPlanCreate(t) && checks.succeeded(t));
-  if (fi === -1) return result(false, `no flag release plan created (attempts: ${planCreates(output).map((t) => t.arguments.status).join(", ") || "none"})`);
-  const create = steps.findIndex((t) => t.tool === "create-environment-release-plan" && (t.arguments || {}).environmentKey === "production");
-  const def = steps.findIndex((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).environmentKey === "production" && t.arguments.default === true);
-  const repo = steps.findIndex(isRepoUpdate);
-  const envKey = create === -1 ? null : steps[create].arguments.key;
-  const body = steps[fi].arguments.body || {};
-  const envs = body.environments || [];
-  const points = envs.length === 1 && envs[0].environmentKey === "production" && envs[0].environmentReleasePlanKey === envKey;
-  const order = create !== -1 && def !== -1 && fi > def && fi > create && (repo === -1 || fi < repo);
-  const approved = approvedConfirmBefore(steps, fi) !== -1;
-  const pass = points && order && approved && body.isDefault === true;
-  return result(pass, `points at production's new plan ${envKey}: ${points}; after the plan and its default, before the repo write: ${order}; after "Looks good": ${approved}; default: ${body.isDefault}`);
+const lastPlanCreate = (output) => checks.planCreates(output).filter((c) => c.body).pop();
+const turnOf = (steps, test) => {
+  const i = steps.findIndex(test);
+  return i === -1 ? undefined : steps[i].turn;
 };
 
-// Verification reads the flag release plan back after creating it.
-module.exports.flagReleasePlanVerified = (output) => {
+// The create command for the flag release plan is shown after "Looks good"
+// and after production's new release plan and its default. It names that
+// plan and makes it the project's default.
+module.exports.flagReleasePlanAfterEnvPlans = (output) => {
   const steps = traj(output);
-  const fi = steps.findIndex((t) => checks.isPlanCreate(t) && checks.succeeded(t));
-  if (fi === -1) return result(false, "no flag release plan created");
-  const read = steps.slice(fi + 1).some((t) => t.tool === "ld-api" && t.arguments.method === "GET" && /flag-release-plans/.test(t.arguments.path));
-  return result(read, read ? "read back after the create" : "never read the flag release plan back");
+  const c = lastPlanCreate(output);
+  if (!c) return result(false, "no flag release plan create command with a JSON body shown");
+  const create = steps.findIndex((t) => t.tool === "create-environment-release-plan" && (t.arguments || {}).environmentKey === "production");
+  const envKey = create === -1 ? null : steps[create].arguments.key;
+  const defTurn = turnOf(steps, (t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).environmentKey === "production" && t.arguments.default === true);
+  const ci = steps.findIndex(isConfirmQuestion);
+  const approved = ci !== -1 && approvedConfirmBefore(steps, ci + 1) !== -1;
+  const confirmTurn = ci === -1 ? undefined : steps[ci].turn;
+  const envs = c.body.environments || [];
+  const points = envs.length === 1 && envs[0].environmentKey === "production" && envs[0].environmentReleasePlanKey === envKey;
+  const order = defTurn !== undefined && confirmTurn !== undefined && c.turn >= defTurn && c.turn > confirmTurn;
+  const pass = points && order && approved && c.body.isDefault === true;
+  return result(pass, `names production's new plan ${envKey}: ${points}; shown after "Looks good" and the default: ${order}; approved: ${approved}; default: ${c.body.isDefault}`);
+};
+
+// The pasted create response is read: the report names the plan as set up.
+module.exports.flagReleasePlanVerified = (output) => {
+  const text = finalText(output);
+  const pass = /flag release plan/i.test(text) && /default release/i.test(text) && !/not verified|could not verify/i.test(text);
+  return result(pass, pass ? "the report names the flag release plan from the pasted response" : "the report does not name the flag release plan as set up");
 };
 
 // Text the user saw up to and including the Step 7 confirmation.
@@ -680,40 +683,39 @@ module.exports.confirmListsFlagReleasePlan = (output) => {
   return result(pass, pass ? "the confirmation lists the flag release plan" : "the confirmation does not mention the flag release plan");
 };
 
-// Without a shell, the flag release plan is a follow-up with the exact
-// command: the endpoint, the beta header, and the token from the
-// environment. The user is never asked for the token.
+// The user skips the flag release plan step: the report lists it as a
+// follow-up with the exact command (the endpoint and the beta header).
 module.exports.followUpHasFlagReleasePlanCommand = (output) => {
-  const text = finalText(output);
-  const endpoint = /\/api\/v2\/projects\/default\/flag-release-plans/.test(text);
-  const beta = /LD-API-Version: beta/.test(text);
-  const token = /\$\{?LD_ACCESS_TOKEN/.test(text);
+  const finalOnly = { trajectory: [], assistant_turns: [], response: finalText(output) };
+  const cmds = checks.shownCommands(finalOnly).filter((c) => /\/api\/v2\/projects\/default\/flag-release-plans/.test(c.path));
+  const beta = cmds.length > 0 && cmds.every((c) => c.beta);
   const asked = checks.asksForToken(checks.userFacingText(output));
-  return result(endpoint && beta && token && !asked, `endpoint: ${endpoint}; beta header: ${beta}; token from LD_ACCESS_TOKEN: ${token}; asks for the token: ${asked}`);
+  return result(beta && !asked, `flag release plan commands in the report: ${cmds.length}; all with the beta header: ${beta}; asks for the token: ${asked}`);
 };
 
-// Preview lists the flag release plan and sends no API write.
+// Preview lists the flag release plan, writes nothing, and asks the user to
+// run nothing.
 module.exports.previewListsFlagReleasePlan = (output) => {
   const listed = /flag release plan/i.test(finalText(output));
-  const w = traj(output).filter(checks.isApiWrite).length;
-  return result(listed && w === 0, `lists the flag release plan: ${listed}; API writes: ${w}`);
+  const asked = traj(output).filter((t) => t.tool === "ask-question" && /run this command/i.test(JSON.stringify(t.arguments || {}))).length;
+  const w = writes(output).length;
+  return result(listed && asked === 0 && w === 0, `lists the flag release plan: ${listed}; asks to run a command: ${asked}; writes: ${w}`);
 };
 
-// The project's default flag release plan does not match: it is updated in
-// place (a PUT on its key, still the default, with its version and the new
-// production release plan) after "Looks good", and no plan is created.
+// The project's default flag release plan does not match: after "Looks
+// good", the replace command keeps its key, the default on, its version, and
+// production's release plan. No create command.
 module.exports.flagReleasePlanUpdatedInPlace = (output) => {
   const steps = traj(output);
-  const pi = steps.findIndex((t) => t.tool === "ld-api" && t.arguments && t.arguments.method === "PUT" &&
-    /\/flag-release-plans\/staged-rollout$/.test(t.arguments.path || ""));
-  const posts = planCreates(output).length;
-  if (pi === -1) return result(false, `no update of staged-rollout; plans created: ${posts}`);
-  const b = steps[pi].arguments.body || {};
+  const put = checks.shownCommands(output).find((c) => c.method === "PUT" && /\/flag-release-plans\/staged-rollout$/.test(c.path));
+  const posts = checks.planCreates(output).length;
+  if (!put || !put.body) return result(false, `no replace command for staged-rollout; create commands: ${posts}`);
+  const b = put.body;
   const envs = (b.environments || []).map((e) => `${e.environmentKey}:${e.environmentReleasePlanKey || "immediate"}`);
-  const approved = approvedConfirmBefore(steps, pi) !== -1;
-  const pass = b.isDefault === true && b.version === 2 && JSON.stringify(envs) === JSON.stringify(["production:gradual"]) &&
-    checks.succeeded(steps[pi]) && approved && posts === 0;
-  return result(pass, `isDefault ${b.isDefault}; version ${b.version}; environments ${JSON.stringify(envs)}; status ${steps[pi].arguments.status}; after "Looks good": ${approved}; plans created: ${posts}`);
+  const ci = steps.findIndex(isConfirmQuestion);
+  const after = ci !== -1 && put.turn > steps[ci].turn && approvedConfirmBefore(steps, ci + 1) !== -1;
+  const pass = b.isDefault === true && b.version === 2 && JSON.stringify(envs) === JSON.stringify(["production:gradual"]) && after && posts === 0;
+  return result(pass, `isDefault ${b.isDefault}; version ${b.version}; environments ${JSON.stringify(envs)}; after "Looks good": ${after}; create commands: ${posts}`);
 };
 
 // The flag release plan is a follow-up, and auto-releasing stays on as the

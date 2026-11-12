@@ -28,7 +28,7 @@ The skill is in Claude Code plugin 1.0.3 and Cursor plugin 1.0.4 and later. With
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot tools (`get-automations`, `update-automations`), and `get-environment-release-plans`, `create-environment-release-plan`, `update-default-environment-release-plan`, and `get-metrics` for auto-releasing. The flag release plan has no MCP tool: the agent creates it with curl and your API access token in `LD_ACCESS_TOKEN` (export it in your terminal before you start the agent; never paste it into the chat), or gives you the commands to run. Accounts without the Release Autopilot add-on enabled get 404s.
+The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot tools (`get-automations`, `update-automations`), and `get-environment-release-plans`, `create-environment-release-plan`, `update-default-environment-release-plan`, and `get-metrics` for auto-releasing. The flag release plan has no MCP tool: the agent shows its REST commands, you run them in your own terminal with your LaunchDarkly API access token, and you paste the output back. Never paste a token into the chat. Accounts without the Release Autopilot add-on enabled get 404s.
 
 ## Usage
 

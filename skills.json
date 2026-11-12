@@ -508,7 +508,7 @@
       "path": "skills/release-autopilot/launchdarkly-release-plans",
       "version": "1.0.0",
       "license": "Apache-2.0",
-      "compatibility": "Environment release plans use the hosted LaunchDarkly MCP server. Flag release plans, and deleting an environment release plan, use curl and a LaunchDarkly API access token in LD_ACCESS_TOKEN (REST API, beta).",
+      "compatibility": "Environment release plans use the hosted LaunchDarkly MCP server. For flag release plans, and for deleting an environment release plan, the user runs the REST API (beta) commands that the skill shows in their own terminal.",
       "tags": [
         "launchdarkly",
         "release-autopilot",
