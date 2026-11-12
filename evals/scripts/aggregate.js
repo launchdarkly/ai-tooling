@@ -97,6 +97,22 @@ function readResults(suite) {
   }
 }
 
+// GitHub Actions log downloads are not always available (for example through
+// a proxy), but annotations are. Emit one warning per failing test, naming the
+// failed assertions and their reasons, so the cause shows on the check run.
+function annotateFailures(suite, tests) {
+  const clean = (text) => String(text || "").replace(/\r?\n/g, " ").replace(/::/g, ": :").slice(0, 300);
+  for (const t of tests) {
+    if (t.success) continue;
+    const name = t.testCase?.description || t.description || t.vars?.user_request?.slice(0, 80) || "";
+    const failed = (t.gradingResult?.componentResults || [])
+      .filter((c) => !c.pass)
+      .map((c) => `${c.assertion?.metric || c.assertion?.type || "assert"}: ${clean(c.reason)}`);
+    const detail = failed.length ? failed.join(" | ") : clean(t.error || t.gradingResult?.reason);
+    console.log(`::warning title=${clean(suite.suite)} eval failed::${clean(name)} (score ${t.score ?? 0}) -- ${detail}`);
+  }
+}
+
 function summarize(suite, results, commit) {
   const tests = results?.results?.results || results?.results || [];
   const arr = Array.isArray(tests) ? tests : [];
@@ -108,6 +124,8 @@ function summarize(suite, results, commit) {
     pass: t.success,
     score: t.score ?? (t.success ? 1.0 : 0.0),
   }));
+
+  if (process.env.GITHUB_ACTIONS === "true") annotateFailures(suite, arr);
 
   return {
     score,
