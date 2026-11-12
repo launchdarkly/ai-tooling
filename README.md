@@ -31,6 +31,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `release-autopilot/launchdarkly-release-autopilot-onboarding` | Step-by-step setup: pick capabilities, connect the GitHub App, map repos, choose inference, review release setup |
 | `release-autopilot/launchdarkly-release-autopilot-settings` | Turn on GitHub App auto-flagging / auto-releasing, map `owner/name` repos, or diagnose why a PR was not classified (confirm before every write) |
 | `release-autopilot/launchdarkly-automations-cleanup-settings` | Read or change a project's auto-cleanup schedule, repositories, and limits, or explain why cleanup did not open a PR (confirm before every write) |
+| `release-autopilot/launchdarkly-flag-release-plans` | List, create, change, make default, or delete a project's flag release plans through the REST API (beta), and start a flag's release from one (confirm before every write) |
 | `release-autopilot/launchdarkly-automations-archival-settings` | Read or change a project's auto-archival grace period, approvals, and limits, or turn it off; a person turns it on (confirm before every write) |
 
 ### AgentControl

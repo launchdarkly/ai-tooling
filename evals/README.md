@@ -37,6 +37,7 @@ npm run eval:onboarding              # onboarding
 npm run eval:experiment-setup        # experiments/launchdarkly-experiment-setup
 npm run eval:experiment-orchestration # aws-devops-agent/experiment-orchestration
 npm run eval:release-autopilot-onboarding  # release-autopilot/launchdarkly-release-autopilot-onboarding
+npm run eval:flag-release-plans       # release-autopilot/launchdarkly-flag-release-plans
 
 # Quick smoke check — first test case only (~15-20s, ~$0.05)
 npm run eval:configs-create:single
@@ -48,6 +49,7 @@ npm run eval:onboarding:single
 npm run eval:experiment-setup:single
 npm run eval:experiment-orchestration:single
 npm run eval:release-autopilot-onboarding:single
+npm run eval:flag-release-plans:single
 
 # Aggregate and CI operations
 npm run eval:all                     # Run every suite and rebuild ../eval-scores.json
@@ -93,6 +95,7 @@ evals/
     claude-skill-agent-sdk.js        # The agent loop: loads skill via SDK, mocks LD tools
     _mock.js                         # Template renderer + stateful write/read overlay
     _jsonschema-to-zod.js            # JSON Schema -> Zod shape converter
+    _ld_api_mock.js                  # Local LaunchDarkly REST API mock for curl-based skills (ld_api_mock)
   tools/
     definitions.json                 # Anthropic-format definitions for the LD MCP tools the evals use
   mocks/
@@ -126,6 +129,7 @@ evals/
      "terminated": null
    }
    ```
+   With `ld_api_mock: true` (and `allow_builtins: true`), the provider also starts a local LaunchDarkly REST API mock for the test and points the agent's shell at it: `LD_BASE_URI` is the mock, `LD_ACCESS_TOKEN` is a fake token, and any real LaunchDarkly credentials in the runner's environment are removed. Each request becomes an `ld-api` trajectory entry with its method, path, `LD-API-Version` header, whether the token matched, the JSON body, and the status. The token itself is never recorded. Tests seed it with `ld_api_state`, force responses with `ld_api_overrides`, and run without a token with `ld_access_token: false`.
 5. `shared/transform.js` parses the JSON before assertions run. Every assertion receives `output` as an object — **do not call `JSON.parse(output)` inside assertions**.
 
 ### Shared defaults (`shared/defaults.yaml`)

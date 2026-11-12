@@ -29,6 +29,8 @@
     "eval:onboarding:single": "promptfoo eval -c shared/defaults.yaml -c onboarding/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:release-autopilot-onboarding": "promptfoo eval -c shared/defaults.yaml -c release-autopilot-onboarding/promptfooconfig.yaml --env-file .env --no-cache -o release-autopilot-onboarding/results.json",
     "eval:release-autopilot-onboarding:single": "promptfoo eval -c shared/defaults.yaml -c release-autopilot-onboarding/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
+    "eval:flag-release-plans": "promptfoo eval -c shared/defaults.yaml -c launchdarkly-flag-release-plans/promptfooconfig.yaml --env-file .env --no-cache -o launchdarkly-flag-release-plans/results.json",
+    "eval:flag-release-plans:single": "promptfoo eval -c shared/defaults.yaml -c launchdarkly-flag-release-plans/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:experiment-guide": "promptfoo eval -c shared/defaults.yaml -c experiment-guide/promptfooconfig.yaml --env-file .env --no-cache -o experiment-guide/results.json",
     "eval:experiment-guide:single": "promptfoo eval -c shared/defaults.yaml -c experiment-guide/promptfooconfig.yaml --env-file .env --no-cache --filter-first-n 1",
     "eval:experiment-setup": "promptfoo eval -c shared/defaults.yaml -c experiment-setup/promptfooconfig.yaml --env-file .env --no-cache -o experiment-setup/results.json",

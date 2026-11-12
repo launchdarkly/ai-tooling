@@ -18,8 +18,14 @@ const isRepoUpdate = (t) => t.tool === "update-automations" && (t.arguments || {
   Boolean((t.arguments || {}).repo || (t.arguments || {}).githubRepoId) && !(t.arguments || {}).cleanup && !(t.arguments || {}).archival;
 const isRepoWrite = (t) => isRepoUpdate(t) || t.tool === "delete-automations-repo-settings";
 
+const checks = require("../launchdarkly-flag-release-plans/ld-api-checks");
+
+// A write is an MCP write tool or a REST API request other than GET (the
+// flag release plan, through the provider's ld_api_mock).
+const isWriteStep = (t) => WRITE_TOOLS.has(t.tool) || checks.isApiWrite(t);
+
 const traj = (output) => (output && output.trajectory) || [];
-const writes = (output) => traj(output).filter((t) => WRITE_TOOLS.has(t.tool));
+const writes = (output) => traj(output).filter(isWriteStep);
 const result = (pass, reason) => ({ pass, score: pass ? 1 : 0, reason });
 
 function isConfirmQuestion(step) {
@@ -53,7 +59,7 @@ module.exports.noWrites = (output) => {
 
 module.exports.confirmsBeforeWriting = (output) => {
   const steps = traj(output);
-  const firstWrite = steps.findIndex((t) => WRITE_TOOLS.has(t.tool));
+  const firstWrite = steps.findIndex(isWriteStep);
   if (firstWrite === -1) return result(false, "never wrote, so the confirmed plan was not applied");
   const approved = approvedConfirmBefore(steps, firstWrite);
   return result(approved !== -1, approved !== -1 ? `approved at ${approved}, first write at ${firstWrite}` : `first write at ${firstWrite} without "Looks good" as the latest confirmation answer`);
@@ -73,7 +79,7 @@ module.exports.accountWriteLast = (output) => {
   const steps = traj(output);
   const acct = steps.findIndex(isAccountWrite);
   if (acct === -1) return result(false, "no account write");
-  const laterWrite = steps.slice(acct + 1).some((t) => WRITE_TOOLS.has(t.tool));
+  const laterWrite = steps.slice(acct + 1).some(isWriteStep);
   return result(!laterWrite, laterWrite ? "a write came after the account write" : "account write was last");
 };
 
@@ -234,7 +240,7 @@ module.exports.stopsAfterFailedWrite = (output) => {
   const acct = steps.findIndex(isAccountWrite);
   const repo = steps.findIndex(isRepoUpdate);
   if (acct === -1) return result(false, "never attempted the account write");
-  const after = steps.slice(acct + 1).filter((t) => WRITE_TOOLS.has(t.tool));
+  const after = steps.slice(acct + 1).filter(isWriteStep);
   const pass = repo !== -1 && repo < acct && after.length === 0;
   return result(pass, `repo write at ${repo}, account write at ${acct}, ${after.length} write(s) after`);
 };
@@ -657,4 +663,81 @@ module.exports.missingPlanToolsSkipsRelease = (output) => {
   const releasingOff = module.exports.repoTurnsAutoReleasingOff(output);
   const pass = !support && reconnect && planWrites === 0 && flagging && releasingOff.pass;
   return result(pass, `contact support: ${support}; update or reconnect: ${reconnect}; plan writes: ${planWrites}; auto-flagging on: ${flagging}; auto-releasing off override: ${releasingOff.reason}`);
+};
+
+// ---------------------------------------------------------------------------
+// Flag release plan (through launchdarkly-flag-release-plans and the REST
+// API). Runs with the provider's ld_api_mock record "ld-api" entries.
+
+module.exports.everyRequestBeta = checks.everyRequestBeta;
+module.exports.tokenStaysSecret = checks.tokenStaysSecret;
+
+const planCreates = (output) => traj(output).filter((t) => checks.isPlanCreate(t));
+
+// The flag release plan is created after "Looks good", after the production
+// release plan and its default, before the repo write. It names the plan
+// created this run for production and is the project's default.
+module.exports.flagReleasePlanAfterEnvPlans = (output) => {
+  const steps = traj(output);
+  const fi = steps.findIndex((t) => checks.isPlanCreate(t) && checks.succeeded(t));
+  if (fi === -1) return result(false, `no flag release plan created (attempts: ${planCreates(output).map((t) => t.arguments.status).join(", ") || "none"})`);
+  const create = steps.findIndex((t) => t.tool === "create-environment-release-plan" && (t.arguments || {}).environmentKey === "production");
+  const def = steps.findIndex((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).environmentKey === "production" && t.arguments.default === true);
+  const repo = steps.findIndex(isRepoUpdate);
+  const envKey = create === -1 ? null : steps[create].arguments.key;
+  const body = steps[fi].arguments.body || {};
+  const envs = body.environments || [];
+  const points = envs.length === 1 && envs[0].environmentKey === "production" && envs[0].environmentReleasePlanKey === envKey;
+  const order = create !== -1 && def !== -1 && fi > def && fi > create && (repo === -1 || fi < repo);
+  const approved = approvedConfirmBefore(steps, fi) !== -1;
+  const pass = points && order && approved && body.isDefault === true;
+  return result(pass, `points at production's new plan ${envKey}: ${points}; after the plan and its default, before the repo write: ${order}; after "Looks good": ${approved}; default: ${body.isDefault}`);
+};
+
+// Verification reads the flag release plan back after creating it.
+module.exports.flagReleasePlanVerified = (output) => {
+  const steps = traj(output);
+  const fi = steps.findIndex((t) => checks.isPlanCreate(t) && checks.succeeded(t));
+  if (fi === -1) return result(false, "no flag release plan created");
+  const read = steps.slice(fi + 1).some((t) => t.tool === "ld-api" && t.arguments.method === "GET" && /flag-release-plans/.test(t.arguments.path));
+  return result(read, read ? "read back after the create" : "never read the flag release plan back");
+};
+
+// Text the user saw up to and including the Step 7 confirmation.
+function textThroughConfirm(output) {
+  const steps = traj(output);
+  const ci = steps.findIndex(isConfirmQuestion);
+  if (ci === -1) return null;
+  const turn = steps[ci].turn;
+  const turns = ((output && output.assistant_turns) || [])
+    .filter((x) => typeof x !== "object" || x.turn === undefined || turn === undefined || x.turn <= turn)
+    .map((x) => (typeof x === "string" ? x : String(x.text || "")));
+  return [...turns, String((steps[ci].arguments && steps[ci].arguments.prompt) || "")].join("\n");
+}
+
+// The confirmation lists the flag release plan.
+module.exports.confirmListsFlagReleasePlan = (output) => {
+  const text = textThroughConfirm(output);
+  if (text === null) return result(false, "no confirmation question");
+  const pass = /flag release plan/i.test(text);
+  return result(pass, pass ? "the confirmation lists the flag release plan" : "the confirmation does not mention the flag release plan");
+};
+
+// Without a shell, the flag release plan is a follow-up with the exact
+// command: the endpoint, the beta header, and the token from the
+// environment. The user is never asked for the token.
+module.exports.followUpHasFlagReleasePlanCommand = (output) => {
+  const text = finalText(output);
+  const endpoint = /\/api\/v2\/projects\/default\/flag-release-plans/.test(text);
+  const beta = /LD-API-Version: beta/.test(text);
+  const token = /\$\{?LD_ACCESS_TOKEN/.test(text);
+  const asked = checks.asksForToken(checks.userFacingText(output));
+  return result(endpoint && beta && token && !asked, `endpoint: ${endpoint}; beta header: ${beta}; token from LD_ACCESS_TOKEN: ${token}; asks for the token: ${asked}`);
+};
+
+// Preview lists the flag release plan and sends no API write.
+module.exports.previewListsFlagReleasePlan = (output) => {
+  const listed = /flag release plan/i.test(finalText(output));
+  const w = traj(output).filter(checks.isApiWrite).length;
+  return result(listed && w === 0, `lists the flag release plan: ${listed}; API writes: ${w}`);
 };

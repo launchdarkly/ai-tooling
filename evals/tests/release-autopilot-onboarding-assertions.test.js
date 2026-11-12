@@ -101,3 +101,70 @@ test("missingPlanToolsSkipsRelease: reconnect message, auto-flagging on, no supp
   // A mapping that omits autoReleasing inherits the account's setting.
   assert.equal(ra.missingPlanToolsSkipsRelease({ ...ok, trajectory: [repoWrite({ autoFlagging: { enabled: true } })] }).pass, false);
 });
+
+// Flag release plan step (REST API requests recorded as "ld-api").
+const PLANS = "/api/v2/projects/default/flag-release-plans";
+const apiCall = (method, path, extra = {}) => ({
+  tool: "ld-api",
+  arguments: { method, path, query: {}, apiVersion: "beta", authorized: true, status: method === "POST" ? 201 : 200, ...extra },
+});
+const looksGood = (turn) => ({
+  tool: "ask-question",
+  turn,
+  arguments: { prompt: "Make these changes?", options: [{ id: "ok", label: "Looks good" }, { id: "change", label: "Change something" }] },
+  selected: ["ok"],
+});
+const frpBody = (extra = {}) => ({
+  key: "default-release",
+  name: "Default release",
+  isDefault: true,
+  environments: [{ environmentKey: "production", environmentReleasePlanKey: "progressive", triggerType: "flag_eval" }],
+  ...extra,
+});
+const envPlan = { tool: "create-environment-release-plan", arguments: { environmentKey: "production", key: "progressive" } };
+const envDefault = { tool: "update-default-environment-release-plan", arguments: { environmentKey: "production", releasePlanKey: "progressive", default: true } };
+
+test("flagReleasePlanAfterEnvPlans: after the plan and its default, before the repo write, after Looks good", () => {
+  const good = [looksGood(5), envPlan, envDefault, apiCall("POST", PLANS, { body: frpBody() }), repoWrite({ autoFlagging: { enabled: true } })];
+  assert.equal(ra.flagReleasePlanAfterEnvPlans({ trajectory: good }).pass, true);
+  const early = [looksGood(5), apiCall("POST", PLANS, { body: frpBody() }), envPlan, envDefault];
+  assert.equal(ra.flagReleasePlanAfterEnvPlans({ trajectory: early }).pass, false);
+  const unconfirmed = [envPlan, envDefault, apiCall("POST", PLANS, { body: frpBody() })];
+  assert.equal(ra.flagReleasePlanAfterEnvPlans({ trajectory: unconfirmed }).pass, false);
+  const wrongPlan = [looksGood(5), envPlan, envDefault, apiCall("POST", PLANS, { body: frpBody({ environments: [{ environmentKey: "production", environmentReleasePlanKey: "other", triggerType: "flag_eval" }] }) })];
+  assert.equal(ra.flagReleasePlanAfterEnvPlans({ trajectory: wrongPlan }).pass, false);
+  const notDefault = [looksGood(5), envPlan, envDefault, apiCall("POST", PLANS, { body: frpBody({ isDefault: undefined }) })];
+  assert.equal(ra.flagReleasePlanAfterEnvPlans({ trajectory: notDefault }).pass, false);
+});
+
+test("an API write counts as a write for noWrites and confirmsBeforeWriting", () => {
+  assert.equal(ra.noWrites({ trajectory: [apiCall("GET", PLANS)] }).pass, true);
+  assert.equal(ra.noWrites({ trajectory: [apiCall("POST", PLANS, { body: frpBody() })] }).pass, false);
+  assert.equal(ra.confirmsBeforeWriting({ trajectory: [apiCall("POST", PLANS, { body: frpBody() }), looksGood(5), envPlan] }).pass, false);
+});
+
+test("flagReleasePlanVerified wants a read after the create", () => {
+  assert.equal(ra.flagReleasePlanVerified({ trajectory: [apiCall("POST", PLANS, { body: frpBody() }), apiCall("GET", `${PLANS}/default-release`)] }).pass, true);
+  assert.equal(ra.flagReleasePlanVerified({ trajectory: [apiCall("GET", PLANS), apiCall("POST", PLANS, { body: frpBody() })] }).pass, false);
+});
+
+test("confirmListsFlagReleasePlan reads text up to the confirmation only", () => {
+  const listed = { trajectory: [looksGood(3)], assistant_turns: [{ turn: 2, text: "1. Create the flag release plan Default release for project default" }] };
+  assert.equal(ra.confirmListsFlagReleasePlan(listed).pass, true);
+  const later = { trajectory: [looksGood(3)], assistant_turns: [{ turn: 2, text: "1. Create the production release plan" }, { turn: 6, text: "Flag release plan created" }] };
+  assert.equal(ra.confirmListsFlagReleasePlan(later).pass, false);
+  assert.equal(ra.confirmListsFlagReleasePlan({ trajectory: [] }).pass, false);
+});
+
+test("followUpHasFlagReleasePlanCommand wants the endpoint, the beta header, and the env token", () => {
+  const cmd = 'curl -sS -X POST -H "Authorization: $LD_ACCESS_TOKEN" -H "LD-API-Version: beta" "${LD_BASE_URI:-https://app.launchdarkly.com}/api/v2/projects/default/flag-release-plans" --data @- <<\'JSON\'';
+  assert.equal(ra.followUpHasFlagReleasePlanCommand({ trajectory: [], response: "Follow-ups:\n```sh\n" + cmd + "\n```" }).pass, true);
+  assert.equal(ra.followUpHasFlagReleasePlanCommand({ trajectory: [], response: cmd.replace("-H \"LD-API-Version: beta\" ", "") }).pass, false);
+  assert.equal(ra.followUpHasFlagReleasePlanCommand({ trajectory: [], response: cmd + "\nOr paste your access token here and I'll run it." }).pass, false);
+});
+
+test("previewListsFlagReleasePlan wants it listed and no API write", () => {
+  assert.equal(ra.previewListsFlagReleasePlan({ trajectory: [apiCall("GET", PLANS)], response: "- [ ] Create the flag release plan Default release" }).pass, true);
+  assert.equal(ra.previewListsFlagReleasePlan({ trajectory: [apiCall("POST", PLANS, { body: frpBody() })], response: "- [ ] Create the flag release plan" }).pass, false);
+  assert.equal(ra.previewListsFlagReleasePlan({ trajectory: [], response: "- [ ] Map acme/demo" }).pass, false);
+});

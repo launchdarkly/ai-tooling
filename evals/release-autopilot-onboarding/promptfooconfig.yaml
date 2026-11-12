@@ -14,6 +14,9 @@
 # tool_mocks). Default mocks match a catamorphic-like account with both capabilities on,
 # the GitHub App installed, and release plans available but empty. The
 # 403 case overrides release plans to "Plan does not allow this operation".
+# The flag release plan goes through the REST API: the mcp-shell provider
+# gives the agent a shell and a local API mock that records each request,
+# and the mcp provider has no shell, so the plan becomes a follow-up command.
 # Mocks record Release Autopilot writes, so verification reads
 # reflect them. Tests change state with mock_overrides, and scripted
 # answers are matched to each question by option label
@@ -44,6 +47,21 @@ providers:
       tool_mocks: release-autopilot-onboarding/tool-mocks.json
       allow_builtins: true
       expose_ask_question: true
+      # The shell reaches only the local API mock, never a real account.
+      ld_api_mock: true
+  # Shell access with the local LaunchDarkly REST API mock, for the flag
+  # release plan step (launchdarkly-flag-release-plans calls the API with
+  # curl). LD_BASE_URI points at the mock and LD_ACCESS_TOKEN is fake.
+  - id: file://../providers/claude-skill-agent-sdk.js
+    label: mcp-shell
+    config:
+      skill_slug: launchdarkly-release-autopilot-onboarding
+      tool_definitions: release-autopilot-onboarding/tool-definitions.json
+      tool_mocks: release-autopilot-onboarding/tool-mocks.json
+      allow_builtins: true
+      expose_ask_question: true
+      force_skill_invocation: true
+      ld_api_mock: true
 
 tests:
   # ------------------------------------------------------------------
@@ -1505,3 +1523,124 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+
+  # ------------------------------------------------------------------
+  # Flag release plan with a shell: after "Looks good", the production
+  # starter plan and its default come first, then the flag release plan
+  # that names it (the project's default, beta header), then the repo
+  # write. Verification reads the flag release plan back, and the
+  # confirmation lists it. The token is never printed or asked for.
+  # ------------------------------------------------------------------
+  - providers: ["mcp-shell"]
+    description: "Flag release plan: created after the release plan and its default, names it, project default, read back"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 30
+      mock_overrides:
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:flagReleasePlanAfterEnvPlans
+        metric: flag_release_plan
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:flagReleasePlanVerified
+        metric: flag_release_plan_verified
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmListsFlagReleasePlan
+        metric: confirm_lists_flag_release_plan
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:everyRequestBeta
+        metric: beta_header
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:tokenStaysSecret
+        metric: token_secret
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # No shell: the flag release plan cannot be created here, so it is a
+  # follow-up with the exact command, and the wizard still finishes the
+  # rest (starter plan, repo mapping). The confirmation lists it.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Flag release plan without a shell: exact command as a follow-up, the rest still set up"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 26
+      mock_overrides:
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:followUpHasFlagReleasePlanCommand
+        metric: flag_release_plan_follow_up
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmListsFlagReleasePlan
+        metric: confirm_lists_flag_release_plan
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:starterPlanProgressive
+        metric: starter_plan
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoFlaggingOn
+        metric: repo_turns_picked_on
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Preview with a shell: the flag release plan is listed, and only GET
+  # requests are sent.
+  # ------------------------------------------------------------------
+  - providers: ["mcp-shell"]
+    description: "Preview with auto-releasing: lists the flag release plan, no API writes"
+    vars:
+      user_request: "Preview what you'd change to set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only. Don't change anything."
+      max_turns: 24
+      mock_overrides:
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Progressive"]
+        - ["Looks right"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:previewListsFlagReleasePlan
+        metric: preview_flag_release_plan
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 4

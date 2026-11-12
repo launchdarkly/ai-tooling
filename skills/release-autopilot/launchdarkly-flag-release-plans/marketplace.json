@@ -1,0 +1,15 @@
+{
+  "name": "launchdarkly-flag-release-plans",
+  "description": "List, create, change, make default, and delete a LaunchDarkly project's flag release plans through the REST API (beta), and start a flag's release from one",
+  "version": "0.1.0-experimental",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "release-autopilot",
+    "auto-releasing",
+    "release-plans",
+    "rest-api"
+  ]
+}
