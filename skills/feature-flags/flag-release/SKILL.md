@@ -33,7 +33,7 @@ By the time this skill runs, the flag exists (OFF) and the guarding code is wire
 - A pull-request reference (`repoFullName` + `prNumber`, or `prUrl`) so the rollout binds to the right merge.
 
 **MCP tools this skill uses:**
-- `create-automated-rollout-config` — record the rollout for the flag against the PR *(the deliverable)*. It has no field for holding, scheduling, or a `notBefore` date: every environment in its `environments` array releases on merge, and a held environment is left out.
+- `create-automated-rollout-config` — record the rollout for the flag against the PR *(the deliverable)*. It has no field for holding, scheduling, or a `notBefore` date: every environment in its `environments` array releases on merge, and a held environment is left out. The tool's description of `releaseType: "policy"` is older than release plans. A `policy` entry starts the environment's default release plan.
 - `get-environment-release-plans` — list an environment's release plans. The plan marked `default: true` is the plan a `policy` environment releases with. Call it for each target environment before you propose the plan.
 - `get-flags` — confirm the flag exists and is OFF before recording.
 - `get-projects` (with `projectKey`) — list the project's environments when none are named.
@@ -87,7 +87,7 @@ Only after confirmation:
 
    `production` appears nowhere in the call. You report it held until 2026-09-01, with the reason (legal sign-off). Fail closed: if an environment's intent is unclear, it's HOLD, not RELEASE.
 
-3. **Record the rollout.** Call `create-automated-rollout-config` with `projectKey`, `flagKey`, the RELEASE-only `environments` array, and the PR reference. If a flag release plan names an environment release plan that is not the environment's default, follow [references/auto-release.md](references/auto-release.md#releasing-with-a-plan-that-is-not-the-default). If a **prerequisite** parent flag was agreed, wire it if the MCP surface supports it; otherwise report it as a manual step.
+3. **Record the rollout.** Call `create-automated-rollout-config` with `projectKey`, `flagKey`, the RELEASE-only `environments` array, and the PR reference. Use `releaseType: "policy"` for each environment that releases with its default release plan. Do not copy the plan's steps or metrics into an `override`: the plan must stay the source. If a flag release plan names an environment release plan that is not the environment's default, follow [references/auto-release.md](references/auto-release.md#releasing-with-a-plan-that-is-not-the-default). If a **prerequisite** parent flag was agreed, wire it if the MCP surface supports it; otherwise report it as a manual step.
 4. **Verify.** The call returns `created`, `config_id`, and the normalized per-environment plan — record `config_id`. Report only what you verified; flag anything you couldn't confirm rather than asserting it. If the call returns warnings, show them to the user as they are.
 5. **Report** the per-environment release plan + `config_id`; what was **held** (and why) versus what releases on merge; and what happens on merge (e.g. "production starts its default release plan `guarded-prod` on merge, 10% → 25% → 50% and rolls back if `error-rate` regresses; staging serves true immediately; eu-production held until it has a default release plan").
 
