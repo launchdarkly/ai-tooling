@@ -920,25 +920,8 @@ test("every release-autopilot-onboarding tool has a mock template", () => {
   assert.deepEqual(missing, []);
 });
 
-test("search-contexts with an attribute filter finds no context by default", () => {
-  const args = { projectKey: "default", environmentKey: "production", kind: "user", filter: "user.email exists", limit: 1 };
-  const got = renderMockResponse(RA_TEMPLATES["search-contexts"], args, "search-contexts", createMockState());
-  assert.equal(got.totalCount, 0);
-  const users = renderMockResponse(RA_TEMPLATES["search-contexts"], { kind: "user", limit: 1 }, "search-contexts", createMockState());
-  assert.equal(users.totalCount, 1);
-});
-
-test("search-contexts attribute filter: only a <kind>.<attribute> clause counts", () => {
-  const read = (filter) => renderMockResponse(RA_TEMPLATES["search-contexts"], { projectKey: "default", environmentKey: "production", kind: "user", filter }, "search-contexts", createMockState());
-  assert.equal(read("user.email exists").totalCount, 0);
-  assert.equal(read('kind equals "user", user.email exists').totalCount, 0);
-  assert.equal(read('kind equals "user", key equals "user.1"').totalCount, 1);
-  assert.equal(read('kind equals "user", key equals "org.acme"').totalCount, 1);
-  assert.equal(read('kind equals "user", applicationId equals "GoSDK/1.2"').totalCount, 1);
-});
-
 const planArgs = (allocations, metrics) => ({
-  projectKey: "default", environmentKey: "production", key: "internal-first", name: "Internal users first",
+  projectKey: "default", environmentKey: "production", key: "progressive", name: "Progressive",
   progressiveRelease: {
     randomizationUnit: "user",
     phases: [{ clauses: [{ attribute: "kind", op: "in", values: ["user"], contextKind: "user" }], steps: allocations.map((allocation) => ({ allocation, durationMillis: 14400000 })) }],

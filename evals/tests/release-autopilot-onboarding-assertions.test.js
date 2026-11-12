@@ -34,37 +34,26 @@ test("previewListsBrowserSteps wants the Automations link in the checklist", () 
 });
 
 const kind = { attribute: "kind", op: "in", values: ["user"], contextKind: "user" };
-const email = { attribute: "email", op: "endsWith", values: ["@acme.example"], contextKind: "user" };
 const hold = (allocation) => ({ allocation, durationMillis: 14400000 });
-const internalFirst = (internalAllocation, metrics) => ({
+const starter = (allocations) => ({
   trajectory: [
-    { tool: "create-environment-release-plan", arguments: { projectKey: "default", environmentKey: "production", key: "internal-first", progressiveRelease: {
-      randomizationUnit: "user", metrics,
-      phases: [{ clauses: [kind, email], steps: [hold(internalAllocation)] }, { clauses: [kind], steps: [hold(10000), hold(25000), hold(50000)] }],
-    } }, mock_response_preview: "{\"key\":\"internal-first\"}" },
-    { tool: "update-default-environment-release-plan", arguments: { environmentKey: "production", releasePlanKey: "internal-first", default: true } },
+    { tool: "create-environment-release-plan", arguments: { projectKey: "default", environmentKey: "production", key: "progressive", progressiveRelease: {
+      randomizationUnit: "user", metrics: {}, phases: [{ clauses: [kind], steps: allocations.map(hold) }],
+    } }, mock_response_preview: "{\"key\":\"progressive\"}" },
+    { tool: "update-default-environment-release-plan", arguments: { environmentKey: "production", releasePlanKey: "progressive", default: true } },
   ],
 });
-const rollback = { "user-error-rate": { isGroup: false, autoRollback: true } };
 
-test("internal users first: one 99000 internal step without metrics, 50000 with metrics", () => {
-  assert.equal(ra.starterPlanInternalFirst(internalFirst(99000, {})).pass, true);
-  assert.equal(ra.starterPlanInternalFirst(internalFirst(50000, {})).pass, false);
-  assert.equal(ra.starterPlanInternalFirstGuarded(internalFirst(50000, rollback)).pass, true);
-  assert.equal(ra.starterPlanInternalFirstGuarded(internalFirst(99000, rollback)).pass, false);
+test("starterPlanProgressive wants 10/25/50 in one phase, set as default", () => {
+  assert.equal(ra.starterPlanProgressive(starter([10000, 25000, 50000])).pass, true);
+  assert.equal(ra.starterPlanProgressive(starter([10000, 50000])).pass, false);
+  assert.equal(ra.starterPlanProgressive({ trajectory: starter([10000, 25000, 50000]).trajectory.slice(0, 1) }).pass, false);
 });
 
 test("noProductNameAfterIntro also checks code blocks", () => {
   const out = { trajectory: [], response: "Here's what would change:\n```\n- [ ] Turn on Release Autopilot for acme/demo\n```" };
   assert.equal(ra.noProductNameAfterIntro(out).pass, false);
   assert.equal(ra.noProductNameAfterIntro({ trajectory: [], response: "```\n- [ ] Turn on auto-flagging for acme/demo\n```" }).pass, true);
-});
-
-test("noInternalFirstOffered needs the starter question without the internal option", () => {
-  const starter = (labels) => ({ trajectory: [ask("Which starter plan?", labels)] });
-  assert.equal(ra.noInternalFirstOffered(starter(["Progressive (Recommended)", "Custom"])).pass, true);
-  assert.equal(ra.noInternalFirstOffered(starter(["Internal users first (Recommended)", "Progressive", "Custom"])).pass, false);
-  assert.equal(ra.noInternalFirstOffered({ trajectory: [] }).pass, false);
 });
 
 test("stopsReleaseSetupOnPlanError fails on a policy fallback or auto-releasing on", () => {

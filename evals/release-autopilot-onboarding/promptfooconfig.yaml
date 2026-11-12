@@ -1087,19 +1087,16 @@ tests:
         weight: 4
 
   # ------------------------------------------------------------------
-  # Production has no release plans: offer a starter. "Internal users
-  # first" targets the company email domain, then everyone progressively;
-  # it is created before the repo write and set as the default.
+  # Production has no release plans: offer a starter. Progressive is
+  # 10% -> 25% -> 50% of everyone with 4-hour holds; it is created before
+  # the repo write and set as the default.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Starter plan: internal users first, created and set as production default"
+    description: "Starter plan: progressive, created and set as production default"
     vars:
       user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
       max_turns: 26
       mock_overrides:
-        search-contexts:
-          items: [{ kind: user, key: "user-1", attributes: { email: "dev@acme.example", name: "Dev" } }]
-          totalCount: 1
         get-metrics: { metrics: [], totalCount: 0 }
       mock_ask_question_match: true
       mock_ask_question_answers:
@@ -1107,9 +1104,7 @@ tests:
         - ["Auto-flagging", "Auto-releasing"]
         - ["LaunchDarkly's"]
         - ["Production"]
-        - ["Internal users first"]
-        - ["acme.example"]
-        - ["user"]
+        - ["Progressive"]
         - ["Looks right"]
         - ["Looks good"]
     assert:
@@ -1122,13 +1117,9 @@ tests:
         metric: report_default_plan
         weight: 2
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:starterPlanInternalFirst
+        value: file://../release-autopilot-onboarding/assertions.js:starterPlanProgressive
         metric: starter_plan
         weight: 4
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:saysEmailMatchIsExact
-        metric: email_match_exact
-        weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
@@ -1249,13 +1240,12 @@ tests:
         weight: 2
 
   # ------------------------------------------------------------------
-  # Guarded starter: the default contexts mock finds user contexts but none
-  # with an email, so the starter question must not offer internal users
-  # first; a user-unit metric exists, so the starter offers it for
-  # automatic rollback. The plan includes it with autoRollback.
+  # Guarded starter: a user-unit metric exists, so the starter offers it
+  # for automatic rollback. The plan includes it with autoRollback, and
+  # every step stays at or under 50% (the create mock rejects more).
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Guarded starter: rollback metric with matching unit, no email phase"
+    description: "Guarded starter: rollback metric with matching unit"
     vars:
       user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
       max_turns: 26
@@ -1289,56 +1279,9 @@ tests:
         metric: guarded_starter
         weight: 4
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:noInternalFirstOffered
-        metric: no_internal_first
-        weight: 3
-      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:checksContextsBeforeStarter
         metric: checks_contexts
         weight: 2
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
-        metric: confirms_before_writing
-        weight: 3
-
-  # ------------------------------------------------------------------
-  # Internal users first with a rollback metric. A plan with metrics allows
-  # at most 50000 per step (the create mock rejects more), so the internal
-  # phase is one 50000 step, not 99000.
-  # ------------------------------------------------------------------
-  - providers: ["mcp"]
-    description: "Guarded internal users first: internal phase capped at 50%"
-    vars:
-      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
-      max_turns: 28
-      mock_overrides:
-        search-contexts:
-          items: [{ kind: user, key: "user-1", attributes: { email: "dev@acme.example", name: "Dev" } }]
-          totalCount: 1
-        get-metrics:
-          metrics:
-            - key: user-error-rate
-              name: User error rate
-              measureType: occurrence
-              successCriteria: LowerThanBaseline
-              analysisUnits: ["user"]
-          totalCount: 1
-      mock_ask_question_match: true
-      mock_ask_question_answers:
-        - ["Add more"]
-        - ["Auto-flagging", "Auto-releasing"]
-        - ["LaunchDarkly's"]
-        - ["Production"]
-        - ["User error rate"]
-        - ["Internal users first"]
-        - ["acme.example"]
-        - ["Looks right"]
-        - ["Looks good"]
-    assert:
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:starterPlanInternalFirstGuarded
-        metric: starter_plan_guarded
-        weight: 4
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing

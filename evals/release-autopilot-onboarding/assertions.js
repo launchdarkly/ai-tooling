@@ -499,51 +499,25 @@ module.exports.previewListsCleanup = (output) => {
   return result(listed && cleanupWrites === 0, `cleanup listed: ${listed}; cleanup writes: ${cleanupWrites}`);
 };
 
-// Starter plan for production: internal users by email domain first, created
-// before the repo write and set as the environment's default. The internal
-// phase is one step: 99000, or 50000 when the plan has metrics (a guarded
-// plan allows at most 50000 per step). Then everyone: 10%, 25%, 50%.
-const internalFirstPlan = ({ guarded }) => (output) => {
+// Starter plan for production: progressive, one phase for everyone at
+// 10% -> 25% -> 50% with 4-hour holds, created before the repo write and set
+// as the environment's default.
+module.exports.starterPlanProgressive = (output) => {
   const steps = traj(output);
   const ci = steps.findIndex((t) => t.tool === "create-environment-release-plan" && (t.arguments || {}).environmentKey === "production" &&
     !/error/i.test(String(t.mock_response_preview || "")));
   if (ci === -1) return result(false, "no production release plan created (or the create was rejected)");
   const pr = steps[ci].arguments.progressiveRelease || {};
   const phases = pr.phases || [];
-  const metricKeys = Object.keys(pr.metrics || {});
-  const isEmail = (c) => c.attribute === "email" && JSON.stringify(c.values || []).includes("acme.example");
-  const internal = phases.findIndex((ph) => (ph.clauses || []).some(isEmail));
-  const internalStep = guarded ? 50000 : 99000;
-  const allocs = (ph) => (ph.steps || []).map((s) => s.allocation);
-  const internalOk = internal === 0 && JSON.stringify(allocs(phases[0])) === JSON.stringify([internalStep]);
-  const everyone = phases[1] && !(phases[1].clauses || []).some((c) => c.attribute === "email") &&
-    JSON.stringify(allocs(phases[1])) === JSON.stringify([10000, 25000, 50000]);
-  const kindEverywhere = phases.length === 2 && phases.every((ph) => (ph.clauses || []).some((c) => c.attribute === "kind"));
-  const holds = phases.every((ph) => (ph.steps || []).every((s) => s.durationMillis === 14400000));
-  const metricsOk = guarded ? metricKeys.includes("user-error-rate") && pr.metrics["user-error-rate"].autoRollback === true : metricKeys.length === 0;
+  const one = phases.length === 1 && (phases[0].clauses || []).some((c) => c.attribute === "kind");
+  const allocs = one ? (phases[0].steps || []).map((s) => s.allocation) : [];
+  const stepsOk = JSON.stringify(allocs) === JSON.stringify([10000, 25000, 50000]) &&
+    phases[0].steps.every((s) => s.durationMillis === 14400000);
   const key = steps[ci].arguments.key;
   const di = steps.findIndex((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).releasePlanKey === key && t.arguments.default === true);
   const ri = steps.findIndex((t) => t.tool === "update-automations" && t.arguments && t.arguments.repo);
-  const pass = internalOk && everyone && kindEverywhere && holds && metricsOk && di > ci && (ri === -1 || ci < ri);
-  return result(pass, `internal phase first, one ${internalStep} step: ${internalOk}; everyone 10/25/50: ${Boolean(everyone)}; kind clause in both phases: ${kindEverywhere}; 4h holds: ${holds}; metrics ${JSON.stringify(metricKeys)} ok: ${metricsOk}; default set after create: ${di > ci}; plan before repo write: ${ri === -1 || ci < ri}`);
-};
-module.exports.starterPlanInternalFirst = internalFirstPlan({ guarded: false });
-module.exports.starterPlanInternalFirstGuarded = internalFirstPlan({ guarded: true });
-
-// The plan summary says the email match is exact and case-sensitive.
-module.exports.saysEmailMatchIsExact = (output) => {
-  const pass = /case[- ]sensitive/i.test([allText(output), ...askPrompts(output)].join("\n"));
-  return result(pass, pass ? "says the email match is case-sensitive" : "never says the email match is exact and case-sensitive");
-};
-
-// The "Starter plan" question was asked and did not offer "Internal users
-// first" (no stored context has an email).
-module.exports.noInternalFirstOffered = (output) => {
-  const qs = traj(output).filter((t) => t.tool === "ask-question" &&
-    ((t.arguments && t.arguments.options) || []).some((o) => /^progressive\b/i.test(String(o.label || ""))));
-  if (qs.length === 0) return result(false, "never asked the starter plan question");
-  const offered = qs.some((q) => q.arguments.options.some((o) => /internal users/i.test(String(o.label || ""))));
-  return result(!offered, offered ? "offered Internal users first with no email on any stored context" : "starter question did not offer Internal users first");
+  const pass = one && stepsOk && di > ci && (ri === -1 || ci < ri);
+  return result(pass, `one phase with the kind clause: ${one}; steps ${JSON.stringify(allocs)} with 4h holds: ${stepsOk}; default set after create: ${di > ci}; plan before repo write: ${ri === -1 || ci < ri}`);
 };
 
 // A release plans read that fails with anything but the plan 403 stops
@@ -602,7 +576,7 @@ module.exports.noArchivalStep = (output) => {
 
 module.exports.reportListsDefaultPlan = (output) => {
   const text = finalText(output).toLowerCase();
-  const pass = /default/.test(text) && /internal|progressive/.test(text) && /production/.test(text);
+  const pass = /default/.test(text) && /progressive/.test(text) && /production/.test(text);
   return result(pass, pass ? "report names production's default plan" : "report does not name the default plan");
 };
 
@@ -612,25 +586,23 @@ module.exports.reportListsCleanup = (output) => {
   return result(pass, pass ? "report lists the cleanup schedule and repository" : "report does not list the cleanup schedule and repository");
 };
 
-// Before creating a starter plan, the unit is checked against stored contexts;
-// the email attribute is read rather than asked.
+// Before creating a starter plan, the unit is checked against stored contexts.
 module.exports.checksContextsBeforeStarter = (output) => {
   const steps = traj(output);
   const create = steps.findIndex((t) => t.tool === "create-environment-release-plan");
   if (create === -1) return result(false, "no release plan created");
   const unit = steps.slice(0, create).some((t) => t.tool === "search-contexts" && (t.arguments || {}).kind);
-  const emailQ = steps.filter((t) => t.tool === "ask-question" && /email attribute|send an email/i.test(String((t.arguments && t.arguments.prompt) || ""))).length;
-  return result(unit && emailQ === 0, `context kind checked before create: ${unit}; email questions asked: ${emailQ}`);
+  return result(unit, `context kind checked before create: ${unit}`);
 };
 
 // Guarded starter: the plan carries the picked rollback metric with
-// automatic rollback, and no internal-users phase without an email attribute.
+// automatic rollback, and every step is at most 50000.
 module.exports.guardedStarterMetrics = (output) => {
   const p = traj(output).find((t) => t.tool === "create-environment-release-plan");
   if (!p) return result(false, "no release plan created");
   const pr = p.arguments.progressiveRelease || {};
   const m = (pr.metrics || {})["user-error-rate"];
-  const email = (pr.phases || []).some((ph) => (ph.clauses || []).some((c) => c.attribute === "email"));
-  const pass = Boolean(m && m.autoRollback === true && m.isGroup === false) && !email;
-  return result(pass, `metrics: ${JSON.stringify(pr.metrics || {})}; email clause: ${email}`);
+  const capped = (pr.phases || []).every((ph) => (ph.steps || []).every((s) => s.allocation > 0 && s.allocation <= 50000));
+  const pass = Boolean(m && m.autoRollback === true && m.isGroup === false) && capped;
+  return result(pass, `metrics: ${JSON.stringify(pr.metrics || {})}; every step at most 50000: ${capped}`);
 };

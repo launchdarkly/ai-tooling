@@ -12,23 +12,12 @@ Offer these when an environment has no plans. Each is a normal plan the user can
 |---------|-----|--------|
 | Progressive (non-production) | `progressive` | One phase for everyone: 10% for 4h, then 50% for 4h |
 | Progressive (production) | `progressive` | One phase for everyone: 10%, 25%, 50%, each for 4h |
-| Internal users first (production) | `internal-first` | Phase 1, internal users: one step for 4h, with the clauses below. The step is 99% (the most one step allows), or 50% with rollback metrics. Phase 2, everyone: 10%, 25%, 50%, each for 4h |
 
-Every phase includes the randomization unit clause; alone it means everyone:
+The phase has only the randomization unit clause, which means everyone:
 
 ```json
 { "attribute": "kind", "op": "in", "values": ["<unit>"], "contextKind": "<unit>" }
 ```
-
-The internal-users phase adds one email clause with every confirmed domain (up to 25 values):
-
-```json
-{ "attribute": "email", "op": "endsWith", "values": ["@acme.example", "@acme-corp.example"], "contextKind": "<unit>" }
-```
-
-The match is exact and case-sensitive: `dev@Acme.example` does not match `@acme.example`. Say so in the plan summary.
-
-The email clause only works if the app sends an `email` attribute on that context kind, so the skill offers this starter only when `search-contexts` finds a context of the unit's kind with `email` set.
 
 Rollback metrics go in `progressiveRelease.metrics`, keyed by metric key, each with automatic rollback:
 

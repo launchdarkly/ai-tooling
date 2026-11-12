@@ -199,17 +199,7 @@ function isUnfilteredContextSearch(input) {
   return kindBlank && filterBlank;
 }
 
-// A clause on a context attribute (for example `user.email exists`) finds no
-// stored context: the stored contexts have no attributes. Only a
-// `<kind>.<attribute> <operator>` clause counts, not a dotted value such as
-// `key equals "user.1"` or `applicationId equals "GoSDK/1.2"`.
-const ATTRIBUTE_CLAUSE = /(?:^|[,|(])\s*[A-Za-z][\w-]*\.[A-Za-z_][\w.-]*\s+(?:equals|notEquals|anyOf|startsWith|exists|before|after)\b/;
-function hasAttributeFilter(input) {
-  return typeof input.filter === "string" && ATTRIBUTE_CLAUSE.test(input.filter);
-}
-
 function searchContextsResponse(input) {
-  if (hasAttributeFilter(input)) return { items: [], totalCount: 0 };
   const mixed = input.projectKey === "mixed-contexts";
   if (isNotEqualsUser(input)) {
     if (mixed) {
