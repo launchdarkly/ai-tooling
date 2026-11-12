@@ -187,3 +187,17 @@ test("starterKeysDoNotCollide wants progressive and progressive-2 across test an
   assert.equal(frp.starterKeysDoNotCollide({ trajectory: [envCreate("test", "progressive"), envCreate("production", "progressive")] }).pass, false);
 });
 
+
+test("asksToRunNothing fails on a Run this command question", () => {
+  const runQ = { tool: "ask-question", arguments: { prompt: "Run this command", options: [{ id: "d", label: "Done, here's the output" }, { id: "s", label: "Skip" }] } };
+  assert.equal(frp.asksToRunNothing({ trajectory: [] }).pass, true);
+  assert.equal(frp.asksToRunNothing({ trajectory: [runQ] }).pass, false);
+});
+
+test("picksDefaultAmongComplete: offers both plans, sets the chosen default, creates nothing", () => {
+  const ask = { tool: "ask-question", arguments: { prompt: "Production has no default. Which plan?", options: [{ id: "g", label: "Gradual" }, { id: "f", label: "Fast" }, { id: "s", label: "Create a starter plan" }] }, selected: ["g"] };
+  const def = { tool: "update-default-environment-release-plan", arguments: { environmentKey: "production", releasePlanKey: "gradual", default: true } };
+  assert.equal(frp.picksDefaultAmongComplete({ trajectory: [ask, confirm(), def] }).pass, true);
+  assert.equal(frp.picksDefaultAmongComplete({ trajectory: [confirm(), def] }).pass, false);
+  assert.equal(frp.picksDefaultAmongComplete({ trajectory: [ask, envCreate("production", "progressive"), def] }).pass, false);
+});

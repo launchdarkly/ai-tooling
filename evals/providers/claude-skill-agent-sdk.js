@@ -79,10 +79,11 @@
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
  *                                 successive `ask-question` calls; an empty
  *                                 array is a dismissed question (no selection).
- *                                 An entry { when: "<regex>", text: "..." } is text
- *                                 the user pasted (such as command output): in match
- *                                 mode it answers the first question whose prompt
- *                                 matches.
+ *                                 An entry { command: "<regex>", text: "..." } is
+ *                                 output the user pasted after running a command the
+ *                                 agent showed. In match mode it answers a question
+ *                                 only when no option answer fits and the last shown
+ *                                 command ("METHOD /api/v2/...") matches the regex.
  *                                 Calls past the end get the first option.
  *   mock_ask_question_match     - when true, each `ask-question` call takes the first
  *                                 unused scripted answer whose entries all match its
@@ -158,20 +159,31 @@ function matchOption(want, options) {
  * mark it used, and return the matched ids. Returns undefined when no
  * scripted answer applies.
  */
-function pickAnswer(answers, idx, options, matchMode, used, prompt) {
-  // A pasted answer, { when: "<regex on the prompt>", text: "..." }, stands
-  // for text the user typed (such as command output). In match mode it
-  // answers the first question whose prompt matches; in order mode, its turn.
-  const isPaste = (ans) => ans && !Array.isArray(ans) && typeof ans === "object" && typeof ans.text === "string";
-  if (matchMode) {
-    const paste = answers.findIndex((ans, i) => !used.has(i) && isPaste(ans) && new RegExp(ans.when || ".", "i").test(String(prompt || "")));
-    if (paste !== -1) {
-      used.add(paste);
-      return [answers[paste].text];
+// The last LaunchDarkly REST command shown to the user, as "METHOD /path",
+// from curl code blocks in the given texts (assistant turns, then the
+// question prompt). Returns "" when none was shown.
+function lastShownCommand(texts) {
+  let last = "";
+  for (const text of texts) {
+    for (const m of String(text || "").matchAll(/```[a-z]*\n([\s\S]*?)```/g)) {
+      const block = m[1];
+      if (!/\bcurl\b/.test(block)) continue;
+      const path = (block.match(/https?:\/\/[^\s"']*?(\/api\/v2\/[^\s"'?]*)/) || [])[1];
+      if (!path) continue;
+      const method = (block.match(/-X\s+([A-Z]+)/) || [])[1] || "GET";
+      last = `${method} ${path}`;
     }
-  } else if (isPaste(answers[idx])) {
-    return [answers[idx].text];
   }
+  return last;
+}
+
+function pickAnswer(answers, idx, options, matchMode, used, command) {
+  // A pasted answer, { command: "<regex on METHOD /path>", text: "..." },
+  // stands for output the user pasted after running a command the agent
+  // showed. In match mode, scripted option answers win; a paste answers a
+  // question only when no option answer fits it, and only when the last
+  // command shown matches its regex. In order mode, it answers its turn.
+  const isPaste = (ans) => ans && !Array.isArray(ans) && typeof ans === "object" && typeof ans.text === "string";
   const resolves = (ans) =>
     Array.isArray(ans) &&
     ans.length > 0 &&
@@ -179,11 +191,19 @@ function pickAnswer(answers, idx, options, matchMode, used, prompt) {
   let chosen;
   if (matchMode) {
     const hit = answers.findIndex((ans, i) => !used.has(i) && resolves(ans));
-    if (hit === -1) return undefined;
-    used.add(hit);
-    chosen = answers[hit];
-    return chosen.map((want) => matchOption(want, options));
+    if (hit !== -1) {
+      used.add(hit);
+      chosen = answers[hit];
+      return chosen.map((want) => matchOption(want, options));
+    }
+    const paste = command
+      ? answers.findIndex((ans, i) => !used.has(i) && isPaste(ans) && typeof ans.command === "string" && new RegExp(ans.command).test(command))
+      : -1;
+    if (paste === -1) return undefined;
+    used.add(paste);
+    return [answers[paste].text];
   }
+  if (isPaste(answers[idx])) return [answers[idx].text];
   // Order mode is unchanged: the scripted answer is returned as written,
   // and an explicit [] is a dismissed question (no selection).
   chosen = answers[idx];
@@ -515,7 +535,8 @@ class ClaudeSkillAgentSdk {
             },
             async (args) => {
               const idx = askQuestionCallCount++;
-              const picked = pickAnswer(askQuestionAnswers, idx, args.options, matchAnswers, usedAnswers, args.prompt);
+              const command = lastShownCommand([...assistantTurns.map((t) => t.text), args.prompt]);
+              const picked = pickAnswer(askQuestionAnswers, idx, args.options, matchAnswers, usedAnswers, command);
               const scripted = picked !== undefined;
               let selected;
               if (scripted) {
@@ -804,4 +825,5 @@ module.exports.skillInstructions = skillInstructions;
 module.exports.overrideFor = overrideFor;
 module.exports.matchOption = matchOption;
 module.exports.pickAnswer = pickAnswer;
+module.exports.lastShownCommand = lastShownCommand;
 module.exports.scrubLdCredentials = scrubLdCredentials;

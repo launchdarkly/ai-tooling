@@ -1420,9 +1420,9 @@ tests:
         - ["Production"]
         - ["Progressive"]
         - ["Looks right"]
-        - { when: "list|current|flag release plans", text: "{\"items\": [], \"totalCount\": 0}\nHTTP 200" }
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [], \"totalCount\": 0}\nHTTP 200" }
         - ["Looks good"]
-        - { when: "creat|run", text: "{\"key\": \"default-release\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
+        - { command: "^POST .*/flag-release-plans$", text: "{\"key\": \"default-release\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:flagReleasePlanAfterEnvPlans
@@ -1567,10 +1567,10 @@ tests:
         - ["LaunchDarkly's"]
         - ["Production"]
         - ["Use this plan"]
-        - { when: "list|current|flag release plans", text: "{\"items\": [{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10\", \"version\": 2, \"name\": \"Staged rollout\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"old-plan\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}], \"totalCount\": 1}\nHTTP 200" }
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10\", \"version\": 2, \"name\": \"Staged rollout\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"old-plan\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}], \"totalCount\": 1}\nHTTP 200" }
         - ["Update Staged rollout"]
         - ["Looks good"]
-        - { when: "replac|updat|run", text: "{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10\", \"version\": 3, \"name\": \"Staged rollout\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"gradual\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 200" }
+        - { command: "^PUT .*/flag-release-plans/staged-rollout$", text: "{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10\", \"version\": 3, \"name\": \"Staged rollout\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"gradual\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 200" }
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:flagReleasePlanUpdatedInPlace

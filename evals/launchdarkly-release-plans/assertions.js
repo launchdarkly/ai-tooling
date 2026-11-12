@@ -257,3 +257,21 @@ const namesDefaultFirst = (name, keepLabel, wrote) => (output) => {
 };
 module.exports.envDefaultNamedFirst = namesDefaultFirst("gradual", /^use gradual/i, (o) => traj(o).filter(isMcpWrite).length);
 module.exports.flagDefaultNamedFirst = namesDefaultFirst("staged rollout", /^keep staged rollout/i, (o) => planWrites(o).length);
+
+// Read-only: the user is asked to run nothing.
+module.exports.asksToRunNothing = (output) => {
+  const asked = traj(output).filter((t) => t.tool === "ask-question" && /run this command|here's the output/i.test(JSON.stringify(t.arguments || {}))).length;
+  return result(asked === 0, `questions that ask the user to run a command: ${asked}`);
+};
+
+// Complete plans but no default: each plan is offered as the default, the
+// chosen one is set as the default after a confirmation, and no plan is
+// created.
+module.exports.picksDefaultAmongComplete = (output) => {
+  const steps = traj(output);
+  const offered = steps.some((t) => t.tool === "ask-question" &&
+    ["gradual", "fast"].every((n) => ((t.arguments && t.arguments.options) || []).some((o) => new RegExp(n, "i").test(String(o.label || "")))));
+  const set = steps.some((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).releasePlanKey === "gradual" && t.arguments.default === true);
+  const created = steps.filter((t) => t.tool === "create-environment-release-plan").length;
+  return result(offered && set && created === 0, `offers both plans: ${offered}; sets gradual as the default: ${set}; plans created: ${created}`);
+};

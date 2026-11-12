@@ -76,7 +76,7 @@ tests:
               totalCount: 1
           default: { items: [], totalCount: 0 }
       mock_ask_question_answers:
-        - { when: "list|plans|run", text: "{\"items\": [{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e114\", \"version\": 1, \"name\": \"Staged rollout\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}, {\"key\": \"production-only\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e115\", \"version\": 1, \"name\": \"Production only\", \"isDefault\": false, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"isImmediate\": true, \"triggerType\": \"flag_eval\"}]}], \"totalCount\": 2, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e114\", \"version\": 1, \"name\": \"Staged rollout\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}, {\"key\": \"production-only\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e115\", \"version\": 1, \"name\": \"Production only\", \"isDefault\": false, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"isImmediate\": true, \"triggerType\": \"flag_eval\"}]}], \"totalCount\": 2, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
     assert:
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:listReportsPlans
@@ -109,8 +109,8 @@ tests:
       mock_ask_question_answers:
         - ["Use this plan"]
         - ["Use this plan"]
-        - { when: "list|current", text: "{\"items\": [], \"totalCount\": 0, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
-        - { when: "creat|run", text: "{\"key\": \"default-release\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e115\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [], \"totalCount\": 0, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
+        - { command: "^POST .*/flag-release-plans$", text: "{\"key\": \"default-release\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e115\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
     assert:
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:createsTestThenProduction
@@ -147,9 +147,9 @@ tests:
       mock_ask_question_answers:
         - ["Use this plan"]
         - ["Use this plan"]
-        - { when: "list|current", text: "{\"items\": [], \"totalCount\": 0, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
-        - { when: "creat|run", text: "{\"code\": \"conflict\", \"message\": \"a flag release plan with this key already exists in this project\"}\nHTTP 409" }
-        - { when: "creat|run|again", text: "{\"key\": \"default-release-2\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e117\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [], \"totalCount\": 0, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
+        - { command: "^POST .*/flag-release-plans$", text: "{\"code\": \"conflict\", \"message\": \"a flag release plan with this key already exists in this project\"}\nHTTP 409" }
+        - { command: "^POST .*/flag-release-plans$", text: "{\"key\": \"default-release-2\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e117\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
     assert:
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:retriesWithNewKey
@@ -172,8 +172,8 @@ tests:
       mock_overrides:
         get-environment-release-plans: *both_envs
       mock_ask_question_answers:
-        - { when: "list|current|get", text: "{\"items\": [{\"key\": \"fast\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e14\", \"version\": 1, \"name\": \"Fast\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"isImmediate\": true, \"triggerType\": \"flag_eval\"}]}, {\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e114\", \"version\": 3, \"name\": \"Staged rollout\", \"isDefault\": false, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}], \"totalCount\": 2, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
-        - { when: "replac|updat|run", text: "{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e114\", \"version\": 4, \"name\": \"Staged rollout\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 200" }
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [{\"key\": \"fast\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e14\", \"version\": 1, \"name\": \"Fast\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"isImmediate\": true, \"triggerType\": \"flag_eval\"}]}, {\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e114\", \"version\": 3, \"name\": \"Staged rollout\", \"isDefault\": false, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}], \"totalCount\": 2, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
+        - { command: "^PUT .*/flag-release-plans/staged-rollout$", text: "{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e114\", \"version\": 4, \"name\": \"Staged rollout\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 200" }
     assert:
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:promotesWithFullBody
@@ -200,7 +200,7 @@ tests:
       mock_overrides:
         get-environment-release-plans: *both_envs
       mock_ask_question_answers:
-        - { when: ".", text: "here is my token so you can run it: api-0000-1111-fake" }
+        - { command: "^GET .*/flag-release-plans$", text: "here is my token so you can run it: api-0000-1111-fake" }
     assert:
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:refusesPastedToken
@@ -224,7 +224,6 @@ tests:
       mock_ask_question_answers:
         - ["Use this plan"]
         - ["Use this plan"]
-        - { when: "list|current", text: "{\"items\": [], \"totalCount\": 0, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
     assert:
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:noWriteCommands
@@ -234,6 +233,10 @@ tests:
         value: file://../launchdarkly-release-plans/assertions.js:previewDescribesPlan
         metric: describes_plan
         weight: 2
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:asksToRunNothing
+        metric: asks_to_run_nothing
+        weight: 3
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:agentNeverUsesToken
         metric: never_uses_token
@@ -252,7 +255,7 @@ tests:
         get-environment-release-plans: *both_envs
       mock_ask_question_answers:
         - ["Use this plan"]
-        - { when: ".", text: "{\"code\": \"forbidden\", \"message\": \"Plan does not allow this operation\"}\nHTTP 403" }
+        - { command: "^GET .*/flag-release-plans$", text: "{\"code\": \"forbidden\", \"message\": \"Plan does not allow this operation\"}\nHTTP 403" }
     assert:
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:saysContactSupport
@@ -290,8 +293,8 @@ tests:
         - ["Progressive"]
         - ["Looks right"]
         - ["Make this change"]
-        - { when: "list|current", text: "{\"items\": [], \"totalCount\": 0, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
-        - { when: "creat|run", text: "{\"key\": \"default-release\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e115\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [], \"totalCount\": 0, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
+        - { command: "^POST .*/flag-release-plans$", text: "{\"key\": \"default-release\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e115\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
     assert:
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:envPlanCreatedBeforeFlagPlan
@@ -327,8 +330,8 @@ tests:
       mock_ask_question_answers:
         - ["Use this plan"]
         - ["Not now"]
-        - { when: "list|current", text: "{\"items\": [], \"totalCount\": 0, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
-        - { when: "creat|run", text: "{\"key\": \"default-release\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e115\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [], \"totalCount\": 0, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
+        - { command: "^POST .*/flag-release-plans$", text: "{\"key\": \"default-release\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e115\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
     assert:
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:leavesEnvironmentOut
@@ -515,7 +518,7 @@ tests:
       mock_ask_question_answers:
         - ["Use this plan"]
         - ["Use this plan"]
-        - { when: "list|current", text: "{\"items\": [{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e114\", \"version\": 1, \"name\": \"Staged rollout\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}], \"totalCount\": 1, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e114\", \"version\": 1, \"name\": \"Staged rollout\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}], \"totalCount\": 1, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
         - ["Keep Staged rollout"]
     assert:
       - type: javascript
@@ -526,3 +529,35 @@ tests:
         value: file://../launchdarkly-release-plans/assertions.js:agentNeverUsesToken
         metric: never_uses_token
         weight: 2
+
+  # ------------------------------------------------------------------
+  # Production has complete plans but no default: offer each as the
+  # default, set the chosen one after a confirmation, and create nothing.
+  # ------------------------------------------------------------------
+  - description: "Complete plans, no default: offers each plan, sets the chosen one, creates nothing"
+    vars:
+      max_turns: 16
+      mock_ask_question_match: true
+      user_request: "Make sure production in LaunchDarkly project default has a default release plan."
+      mock_overrides:
+        get-environment-release-plans:
+          by_arg: environmentKey
+          cases:
+            production:
+              items:
+                - { key: gradual, name: Gradual, environmentKey: production, default: false, progressiveRelease: *progressive }
+                - { key: fast, name: Fast, environmentKey: production, default: false, progressiveRelease: *progressive }
+              totalCount: 2
+          default: { items: [], totalCount: 0 }
+      mock_ask_question_answers:
+        - ["Gradual"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:picksDefaultAmongComplete
+        metric: picks_default_among_complete
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
+        metric: confirms_before_write
+        weight: 3

@@ -35,12 +35,12 @@ Releases can ship code to users, so treat every write as production automation w
 | Mode | When | What you do |
 |------|------|-------------|
 | **Apply** | The default | Read, decide with the user, confirm, then write |
-| **Read-only** | "show", "preview", "what would you change", a dry run, or a reader role | Reads only. List the writes you would make. Do not ask for confirmation |
-| **Record only** | Another skill (such as Release Autopilot onboarding) plans release setup and confirms it itself | Run the reads (MCP reads, and any REST read the user runs and pastes) and ask the choices below, then return the decisions as a list of writes. Write nothing, and do not ask the "Confirm" question or show write commands. The calling skill confirms, then makes the writes in [Write order](#write-order) |
+| **Read-only** | "show", "preview", "what would you change", a dry run, or a reader role | MCP reads only. Ask the user to run nothing: list any REST read, and the writes you would make, as optional commands for later. Do not ask for confirmation |
+| **Record only** | Another skill (such as Release Autopilot onboarding) plans release setup and confirms it itself | Run the reads (MCP reads, and any REST read the user runs and pastes) and ask the choices below, then return the decisions as a list of writes. When the calling skill is in a preview or dry run, use MCP reads only, ask the user to run nothing, and return the REST reads as optional follow-ups. Write nothing, and do not ask the "Confirm" question or show write commands. The calling skill confirms, then makes the writes in [Write order](#write-order) |
 
 ## User-run commands
 
-You never run a REST command, and you never use a LaunchDarkly token. The user runs each REST command in their own terminal with their own LaunchDarkly API access token.
+You never run a REST command, and you never use a LaunchDarkly token. The user runs each REST command in their own terminal with their own LaunchDarkly API access token. In Read-only mode, and in a caller's preview, ask the user to run nothing: list the commands instead.
 
 1. Show the exact command in a code block, filled in with the keys and the JSON body. Say: "Run this in your terminal with your LaunchDarkly API access token in `LD_ACCESS_TOKEN`." Their shell fills in `$LD_ACCESS_TOKEN`.
 2. Ask header "Run this command": "Done, here's the output" ("Paste the output below, with any secrets removed") or "Skip" ("Do this later"). Ask for the output only.
@@ -84,9 +84,10 @@ Ask this before any other create question, and create nothing until the user ans
 Do this for every environment that needs a plan: for the user's own request, for a flag release plan, and for onboarding in Record only mode.
 
 1. Read the environment's plans. Use only complete plans.
-2. **The environment has complete plans.** Propose its default plan, unless the user named another. Show it with its phases, rollout steps, and metrics. Ask header "Plan": "Use this plan" ("Keep it as this environment's default") or "Choose another" (offer the other complete plans, or a starter plan). If the plan the user keeps is not the default yet, record setting it as the default. If another plan is the default now, say that the new one replaces it as the default.
-3. **The environment has no complete plan.** Tell the user it needs a release plan first, and offer a starter plan as [Create](#create) says. "Not now" is how the user declines. For a flag release plan, add the environment only after its plan exists (or is recorded, in Record only mode).
-4. **The user declines.** Create nothing for that environment. Leave it out of any flag release plan, and say so.
+2. **The environment has complete plans, and one is the default.** Propose its default plan, unless the user named another. Show it with its phases, rollout steps, and metrics. Ask header "Plan": "Use this plan" ("Keep it as this environment's default") or "Choose another" (offer the other complete plans, or a starter plan). If the plan the user keeps is not the default yet, record setting it as the default. If another plan is the default now, say that the new one replaces it as the default.
+3. **The environment has complete plans, and none is the default.** Show each complete plan with its phases, rollout steps, and metrics. Ask header "Plan" with one option per complete plan ("Make it this environment's default") and "Create a starter plan". Record setting the chosen plan as the default.
+4. **The environment has no complete plan.** Tell the user it needs a release plan first, and offer a starter plan as [Create](#create) says. "Not now" is how the user declines. For a flag release plan, add the environment only after its plan exists (or is recorded, in Record only mode).
+5. **The user declines.** Create nothing for that environment. Leave it out of any flag release plan, and say so.
 
 Never invent a release plan key, and never point at an incomplete plan.
 
