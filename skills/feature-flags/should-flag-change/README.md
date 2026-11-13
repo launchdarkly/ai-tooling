@@ -35,15 +35,16 @@ order.
 |---|---|---|
 | `LAUNCHDARKLY_API_KEY` | unset | Read flag state directly; without it the agent fetches flags with its own tools. |
 | `SHOULD_I_FLAG_PROFILES` | unset | Folders (separated like `PATH`) of repo profiles, `<name>.json`, each naming its `repo` and optionally a `launchdarkly` section (instance, project, environments). |
-| `SHOULD_I_FLAG_RUNS` | `~/.cache/should-i-flag/` | Where run folders go. |
+| `SHOULD_I_FLAG_RUNS` | `~/.cache/should-i-flag/` | Where everything the skill writes goes: run folders, and repo profiles in `profiles/`. Set it to a writable folder in a sandbox that can't write `~/.cache`. |
 
 A repo without a profile gets one derived from its code on each run and
 checked against the change. Lines the check can't account for never stop the
 run: they become leads for the gate search, and the agent may repair the
 profile ([references/PROFILE_REPAIR.md](references/PROFILE_REPAIR.md)), never
-must. A repair's additions are saved under `~/.cache/should-i-flag/profiles/` and applied on
-top of the derived profile on later runs; any that no longer match the code
-are left out.
+must. The derived profile and a repair's additions are saved in `profiles/`
+under `SHOULD_I_FLAG_RUNS` (by default `~/.cache/should-i-flag/profiles/`), and the
+additions are applied on top of the derived profile on later runs; any that
+no longer match the code are left out.
 
 The settings, the run and profile folders, the in-repo profile
 (`.launchdarkly/should-i-flag.json`) and the `should-i-flag-record` block keep
