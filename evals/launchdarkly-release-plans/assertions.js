@@ -9,6 +9,7 @@ const checks = require("./command-checks");
 const { traj, result, shownCommands, planCreates, planWrites, userFacingText } = checks;
 
 module.exports.everyCommandBeta = checks.everyCommandBeta;
+module.exports.runQuestionShowsCommand = checks.runQuestionShowsCommand;
 module.exports.agentNeverUsesToken = checks.agentNeverUsesToken;
 module.exports.noWriteCommands = checks.noWriteCommands;
 

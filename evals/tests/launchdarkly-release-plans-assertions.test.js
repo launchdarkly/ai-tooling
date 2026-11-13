@@ -218,3 +218,18 @@ test("saysReplacesDefault wants the replaced default named in a question before 
   assert.equal(frp.saysReplacesDefault({ trajectory: [def, ask("Gradual replaces Fast as the default.")] }).pass, false);
   assert.equal(frp.saysReplacesDefault(out([turn(2, "Gradual replaces Fast as the default.")], { trajectory: [confirm(), def], response: "Gradual replaces Fast as the default for production." })).pass, false);
 });
+
+const runAsk = (args) => ({ tool: "ask-question", arguments: { options: [{ id: "done", label: "Done, here's the output" }, { id: "skip", label: "Skip" }], ...args } });
+test("runQuestionShowsCommand needs the command in each Run this command question", () => {
+  const cmd = block(getCmd());
+  assert.equal(checks.runQuestionShowsCommand(out([turn(1, cmd)], { trajectory: [runAsk({ prompt: "Run this:\n" + cmd })] })).pass, true);
+  const inPreview = runAsk({ prompt: "Run this command?" });
+  inPreview.arguments.options[0].preview = cmd;
+  assert.equal(checks.runQuestionShowsCommand(out([], { trajectory: [inPreview] })).pass, true);
+  const inSkipPreview = runAsk({ prompt: "Run this command?" });
+  inSkipPreview.arguments.options[1].preview = cmd;
+  assert.equal(checks.runQuestionShowsCommand(out([], { trajectory: [inSkipPreview] })).pass, false);
+  assert.equal(checks.runQuestionShowsCommand(out([turn(1, cmd)], { trajectory: [runAsk({ prompt: "Run this command?" })] })).pass, false);
+  assert.equal(checks.runQuestionShowsCommand(out([turn(1, cmd)], { trajectory: [runAsk({ prompt: cmd }), runAsk({ prompt: "And this one?" })] })).pass, false);
+  assert.equal(checks.runQuestionShowsCommand(out([turn(1, cmd)], { trajectory: [confirm()] })).pass, false);
+});

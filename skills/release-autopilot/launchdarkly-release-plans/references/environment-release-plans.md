@@ -16,7 +16,7 @@ Ask header "Starter plan" with options that fit the environment, marking the fir
 - Production: "Progressive" ("10% → 25% → 50% of everyone, with 4-hour holds"), "Custom" ("Build the plan step by step"), and "Not now" ("Leave this environment without a release plan for now").
 - Any other environment: "Progressive" ("10% → 50% of everyone, with 4-hour holds"), "Custom", and "Not now".
 
-If the user picked rollback metrics, add "rolls back automatically if <metric names> regress" to the descriptions. Then show the full plan and ask "Looks right" or "Adjust it". For "Not now", create nothing, and list "set up a release plan for <environment>" as a follow-up.
+If the user picked rollback metrics, add "rolls back automatically if <metric names> regress" to the descriptions. Then show the full plan and ask "Looks right" or "Adjust it", with the plan in the preview of "Looks right" (or in the question text if the question tool has no preview). For "Not now", create nothing, and list "set up a release plan for <environment>" as a follow-up.
 
 | Starter | Key | Phases |
 |---------|-----|--------|

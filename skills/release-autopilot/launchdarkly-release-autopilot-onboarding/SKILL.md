@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # LaunchDarkly Release Autopilot Onboarding
@@ -77,7 +77,10 @@ When a step is complete, go to the next one unless it says to ask or wait. Treat
 
 **Asking questions:** When a question has options, use `AskUserQuestion` with the labels and descriptions given below. Ask free-text questions as a normal message. If the user's request already answers a question explicitly, such as naming the repo, the project, or the capabilities, use that answer and say so instead of asking. Never infer the answer to the Step 7 confirmation.
 
-**Links:** the question dialog covers the message above it. When a question follows a link the user must open (GitHub, bring your own key, Automations or release settings), put the exact URL in the question text itself, not only in the message before it.
+**The question carries what it asks about.** The question dialog covers the message above it, so the user may see only the question: its header, text, and option labels. When a question asks about something you showed, put that content in the question too, not only in the message before it:
+
+- **A link** the user must open (GitHub, bring your own key, Automations or release settings): the exact URL in the question text.
+- **A plan, summary, command, or diff** (the current setup in Step 1, the plan in Step 7, a release plan or flag release plan from [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md), a command to run, a test pull request's diff): in the `preview` of the option that accepts it (such as "Looks good" or "Done, here's the output"). If the question tool has no preview, put it in the question text.
 
 ### Step 0: Welcome the user
 
@@ -105,7 +108,7 @@ Run these reads. Do not write anything.
 
 The server already joins mapped repos to the install list. For a repo with `visibleOnInstall: false` (mapped, but no longer on the install), tell the user, for example, "One more repository (ID 999) is mapped to project default but is no longer on the GitHub install; I'll leave it alone." Do not write the field name or change that repo. If a later step fails with a generative AI eligibility error, see [references/edge-cases.md](references/edge-cases.md).
 
-Summarize what is already set up in two or three sentences. If the account already has a capability on or any repo mapped, ask:
+Summarize what is already set up in two or three sentences. If the account already has a capability on or any repo mapped, ask, with that summary in the question text:
 
 - label: "Add more", description: "Keep the current setup and add capabilities, repos, or release setup"
 - label: "Change one setting", description: "Hand off to the settings skill for a single change"
@@ -206,7 +209,7 @@ If `get-environment-release-plans`, `create-environment-release-plan`, or `updat
 Follow [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md) in its **Record only** mode: it runs the reads and asks the questions, and you record its decisions for Step 7. Write nothing here.
 
 1. **Environment release plans.** For each chosen environment, follow that skill's "Choose an environment's release plan". It proposes the environment's default plan, or offers a starter plan (Progressive, Custom, or Not now) when the environment has no complete plan. Record each plan to create and each new default. For "Not now", list "set up a release plan for <environment>" as a follow-up. If no chosen environment of the project ends with a release plan, record no flag release plan, and record a repo override that turns auto-releasing off (`{ "enabled": false }`) for each repo in the project, as when release setup stops.
-2. **Flag release plan.** When Release Autopilot proposes a release on a pull request, it uses the project's flag release plan, and it proposes none without one. A rollout recorded for a flag with the `flag-release` skill uses each environment's default release plan instead. Follow that skill's "Build or update the project's plan" for the environments that have a release plan, in order, non-production first. Show its list command, and ask the user to run it and paste the output (header "Run this command"). In Preview, ask the user to run nothing, and list the command as an optional follow-up. Then record what it decides from that output: a new "Default release" plan, no change (the default already matches), or an update of the current default in place ("Update <name>", recommended, or "Keep <name>"). Onboarding does not offer "Create another plan".
+2. **Flag release plan.** When Release Autopilot proposes a release on a pull request, it uses the project's flag release plan, and it proposes none without one. A rollout recorded for a flag with the `flag-release` skill uses each environment's default release plan instead. Follow that skill's "Build or update the project's plan" for the environments that have a release plan, in order, non-production first. Show its list command, and ask the user to run it and paste the output (header "Run this command", with the command in the question as that skill's "User-run commands" says). In Preview, ask the user to run nothing, and list the command as an optional follow-up. Then record what it decides from that output: a new "Default release" plan, no change (the default already matches), or an update of the current default in place ("Update <name>", recommended, or "Keep <name>"). Onboarding does not offer "Create another plan".
    - **The user skips the list, or it fails:** record a new "Default release" plan, to check against the list again in Step 8. Keep auto-releasing on as the user picked: do not turn it off for this reason. For 403 `Plan does not allow this operation`, also tell the user to contact LaunchDarkly support.
 
 #### Auto-cleanup
@@ -250,7 +253,7 @@ If there are no writes and no browser steps, say so, list the follow-ups, and st
 - [ ] In the browser: turn on automatic archival at /projects/default/settings/automations
 ```
 
-**Setup mode:** use `AskUserQuestion` with header "Confirm":
+**Setup mode:** use `AskUserQuestion` with header "Confirm". Put the full plan (every line above, in the same order) in the preview of "Looks good", or in the question text if the question tool has no preview. The user approves only what the question shows, so never ask with only "Ready to apply?":
 
 - label: "Looks good", description: "Make every change in this plan"
 - label: "Change something", description: "Adjust the plan before you start"
@@ -263,7 +266,7 @@ Make only the writes in the confirmed plan, in this order. Stop at the first fai
 
 1. Release plans only: metrics recorded in Step 6, created in LaunchDarkly with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md). Skip its instrumentation steps.
 2. Release plans only: `create-environment-release-plan` for each new plan, then `update-default-environment-release-plan` with `default: true` for each plan recorded as an environment's default.
-3. Flag release plan only: a step the user runs, after the release plans it names exist. Show the command for the plan recorded in Step 6: a create, or a replace of the current default in place (same key, still the default, its `version`, the new environments). If Step 6 had no list, show the list command first, and compare the pasted list with the recorded plan. If it shows a default flag release plan, the recorded create is not valid: ask "Update <name>" or "Keep <name>" as in Step 6, show the changed plan, and ask for "Looks good" again before you show any write command. Ask header "Run this command": "Done, here's the output" or "Skip", and wait. Check the pasted response against the confirmed plan. If the key is taken, show the command again with the next free key. If the user skips it, or it fails, say so in words, add the commands to the follow-ups, and continue with the next write. Keep auto-releasing on as confirmed.
+3. Flag release plan only: a step the user runs, after the release plans it names exist. Show the command for the plan recorded in Step 6: a create, or a replace of the current default in place (same key, still the default, its `version`, the new environments). If Step 6 had no list, show the list command first, and compare the pasted list with the recorded plan. If it shows a default flag release plan, the recorded create is not valid: ask "Update <name>" or "Keep <name>" as in Step 6, show the changed plan, and ask for "Looks good" again, with the changed plan in the question as Step 7 says, before you show any write command. Ask header "Run this command": "Done, here's the output" or "Skip", with the command in the question as `launchdarkly-release-plans` "User-run commands" says, and wait. Check the pasted response against the confirmed plan. If the key is taken, show the command again with the next free key. If the user skips it, or it fails, say so in words, add the commands to the follow-ups, and continue with the next write. Keep auto-releasing on as confirmed.
 4. `update-automations` with `accountWide: false` for each repo, with `repo: "owner/name"` and `projectKey`. For each picked capability that can work, send `{ "enabled": true }`, because on accounts that use project Automations settings, a capability the repo does not turn on is off. For each capability the user did not pick, or that cannot work yet, send `{ "enabled": false }`, so the repo does not get it from the account settings.
 5. `update-automations` with `accountWide: true` and only the confirmed fields. Never send `autoCleanup`.
 6. Auto-cleanup only: `update-automations` with `projectKey` and a `cleanup` object (`schedule`, `repositories`, `maxJobsPerRun`) for each project.
@@ -297,7 +300,7 @@ If any change was left for an admin or failed, lead with "Partly set up: waiting
 
 Then offer the next steps, each in one line. If a change is waiting on an admin, make them conditional ("Once an admin turns on auto-flagging, …"):
 
-- **Try it with a test pull request.** If auto-flagging is on and the current workspace is a mapped repo, ask header "Test PR": "Help me open one" or "I'll do it later". For "Help me open one", suggest a small change that should ship behind a flag, and make it on a new branch only after the user agrees. Never push to the default branch or to an existing branch. Show the diff, and open it as a draft pull request only after they approve that diff. Then tell them what to expect: auto-flagging reads it within a few minutes and posts its proposed change on the PR, and nothing changes until someone replies `@launchdarkly approve` or presses Approve on the check. Otherwise, just describe that.
+- **Try it with a test pull request.** If auto-flagging is on and the current workspace is a mapped repo, ask header "Test PR": "Help me open one" or "I'll do it later". For "Help me open one", suggest a small change that should ship behind a flag, and make it on a new branch only after the user agrees. Never push to the default branch or to an existing branch. Show the diff, and open it as a draft pull request only after they approve that diff. Ask header "Open PR" with the diff in the preview of "Open it", or in the question text if the question tool has no preview. Then tell them what to expect: auto-flagging reads it within a few minutes and posts its proposed change on the PR, and nothing changes until someone replies `@launchdarkly approve` or presses Approve on the check. Otherwise, just describe that.
 - **Use LaunchDarkly from the terminal and other agents.** The LaunchDarkly MCP server comes with the plugin from [Prerequisites](#prerequisites). The CLI installs with `brew tap launchdarkly/homebrew-tap && brew install ldcli`, or `npm install -g @launchdarkly/ldcli`.
 - **Flag changes before they reach a pull request.** Coding agents can add the flag themselves while writing the change, with the `should-flag-change` and `flag-and-release-change` skills (`npx skills add https://github.com/launchdarkly/ai-tooling --skill flag-and-release-change`).
 - If a PR is not classified, use [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md#why-didnt-my-pr-get-classified) to diagnose it.
