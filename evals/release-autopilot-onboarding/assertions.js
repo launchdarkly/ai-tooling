@@ -685,10 +685,15 @@ function textThroughConfirm(output) {
   return [...turns, String((steps[ci].arguments && steps[ci].arguments.prompt) || "")].join("\n");
 }
 
-// The confirmation lists the flag release plan.
+// The confirmation lists the flag release plan in the question itself: its
+// text or the "Looks good" preview, because the user may see only the
+// question while it is open.
 module.exports.confirmListsFlagReleasePlan = (output) => {
-  const text = textThroughConfirm(output);
-  if (text === null) return result(false, "no confirmation question");
+  const q = traj(output).find(isConfirmQuestion);
+  if (!q) return result(false, "no confirmation question");
+  const a = q.arguments || {};
+  const text = [a.prompt, ...(a.options || []).filter((o) => /looks good/i.test(String(o.label || ""))).map((o) => o.preview)]
+    .map((x) => String(x || "")).join("\n");
   const pass = /flag release plan/i.test(text);
   return result(pass, pass ? "the confirmation lists the flag release plan" : "the confirmation does not mention the flag release plan");
 };
@@ -754,8 +759,12 @@ module.exports.flagReleasePlanMcpVerified = (output) => {
   const ci = steps.findIndex((t) => t.tool === "create-flag-release-plan" && okCall(t));
   if (ci === -1) return result(false, "no successful create-flag-release-plan call");
   const key = (steps[ci].arguments || {}).key;
+  // The read must succeed and return the created plan. The trajectory keeps
+  // only the first 200 characters of a response, so check its key, not every
+  // field.
   const read = steps.slice(ci + 1).some((t) => t.tool === "get-flag-release-plans" &&
-    (!(t.arguments || {}).flagReleasePlanKey || t.arguments.flagReleasePlanKey === key));
+    (!(t.arguments || {}).flagReleasePlanKey || t.arguments.flagReleasePlanKey === key) &&
+    okCall(t) && String(t.mock_response_preview || "").includes(`"${key}"`));
   const text = finalText(output);
   const named = /flag release plan/i.test(text) && /default release/i.test(text) && !/not verified|could not verify/i.test(text);
   return result(read && named, `read back after the create: ${read}; the report names the plan as set up: ${named}`);

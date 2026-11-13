@@ -332,6 +332,9 @@ test("confirmUsesEnvPlanNames reads the confirm question, not the message", () =
   assert.equal(frp.confirmUsesEnvPlanNames({ trajectory: [confirmWith("Create it?", named)] }).pass, true, "in the preview");
   assert.equal(frp.confirmUsesEnvPlanNames({ trajectory: [confirmWith("Create Release train: test-progressive, then prod-progressive.")] }).pass, false);
   assert.equal(frp.confirmUsesEnvPlanNames({ trajectory: [] }).pass, false);
+  const onCancel = confirmWith("Create it?");
+  onCancel.arguments.options[1].preview = named;
+  assert.equal(frp.confirmUsesEnvPlanNames({ trajectory: [onCancel] }).pass, false, "names only on Cancel");
 });
 
 const flagPlanQ = { tool: "ask-question", arguments: { prompt: "The project's default is Staged rollout: production.", options: [{ id: "u", label: "Update Staged rollout (Recommended)" }, { id: "k", label: "Keep Staged rollout" }, { id: "c", label: "Create another plan" }] }, selected: ["c"] };

@@ -275,6 +275,10 @@ tests:
         value: file://../launchdarkly-release-plans/assertions.js:asksToRunOnlyReads
         metric: asks_to_run_reads_only
         weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:agentNeverUsesToken
+        metric: never_uses_token
+        weight: 3
 
   # ------------------------------------------------------------------
   # Read only, with the flag release plan tools missing (a live run found
@@ -309,10 +313,6 @@ tests:
         value: file://../launchdarkly-release-plans/assertions.js:noWriteCommands
         metric: no_writes
         weight: 2
-      - type: javascript
-        value: file://../launchdarkly-release-plans/assertions.js:agentNeverUsesToken
-        metric: never_uses_token
-        weight: 3
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:agentNeverUsesToken
         metric: never_uses_token

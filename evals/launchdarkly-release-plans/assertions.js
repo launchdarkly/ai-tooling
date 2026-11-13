@@ -444,7 +444,8 @@ module.exports.confirmUsesEnvPlanNames = (output) => {
   const q = steps.find(isConfirm);
   if (!q) return result(false, "no \"Make this change\" question");
   const a = q.arguments || {};
-  const text = [a.prompt, ...(a.options || []).map((o) => o.preview)].map((x) => String(x || "")).join("\n");
+  const text = [a.prompt, ...(a.options || []).filter((o) => CONFIRM.test(String(o.label || ""))).map((o) => o.preview)]
+    .map((x) => String(x || "")).join("\n");
   const { missing, key } = namesNotKeys(text);
   return result(missing.length === 0 && !key, `names missing from the question: ${missing.join(", ") || "none"}; key shown as a name: ${key || "none"}`);
 };
