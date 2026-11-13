@@ -11,10 +11,6 @@ name: Skill Evals
 # Cost shape: only suites whose source has actually changed (per
 # evals/scripts/diff-changed-skills.js) get re-evaluated, so a typical PR
 # touching one skill costs roughly one suite's worth of API tokens.
-#
-# Shards: a suite with `shards: N` in evals/scripts/_manifest.js runs as N
-# matrix jobs ("<suite>#1" ... "<suite>#N"), each with its share of the
-# tests. "Aggregate scores" merges the shards into one suite score.
 
 on:
   # No `paths:` filter on pull_request — branch protection requires
@@ -75,7 +71,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       slugs: ${{ steps.compute.outputs.slugs }}
-      matrix: ${{ steps.compute.outputs.matrix }}
       has_changes: ${{ steps.compute.outputs.has_changes }}
     steps:
       - name: Checkout
@@ -95,16 +90,12 @@ jobs:
             slugs="$(node evals/scripts/diff-changed-skills.js --json --verbose)"
           fi
           echo "slugs=${slugs}" >> "$GITHUB_OUTPUT"
-          # A changed suite runs every one of its shards.
-          matrix="$(node evals/scripts/shards.js matrix "${slugs}")"
-          echo "matrix=${matrix}" >> "$GITHUB_OUTPUT"
           if [[ "${slugs}" == "[]" ]]; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           else
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
           echo "Changed suites: ${slugs}"
-          echo "Matrix jobs: ${matrix}"
 
   evaluate:
     name: "Evaluate ${{ matrix.suite }}"
@@ -113,12 +104,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # 5, not 3: the onboarding suite's shards add jobs, and with 3 the
-      # last of them waited behind the rest of the matrix.
-      max-parallel: 5
+      max-parallel: 3
       matrix:
-        # A suite slug, or "<suite>#<i>" for shard i of a sharded suite.
-        suite: ${{ fromJson(needs.diff.outputs.matrix) }}
+        suite: ${{ fromJson(needs.diff.outputs.slugs) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -136,37 +124,21 @@ jobs:
         run: npm ci --legacy-peer-deps
         working-directory: evals
 
-      - name: Name the results artifact
-        id: names
-        env:
-          ENTRY: ${{ matrix.suite }}
-        run: |
-          suite="${ENTRY%%#*}"
-          if [[ "$ENTRY" == *"#"* ]]; then
-            artifact="results-${suite}--shard-${ENTRY##*#}"
-          else
-            artifact="results-${suite}"
-          fi
-          echo "suite=${suite}" >> "$GITHUB_OUTPUT"
-          echo "artifact=${artifact}" >> "$GITHUB_OUTPUT"
-
       - name: Run eval suite
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           AGENT_MODEL: ${{ vars.AGENT_MODEL || 'claude-sonnet-4-6' }}
           RUBRIC_MODEL: ${{ vars.RUBRIC_MODEL || 'anthropic:messages:claude-haiku-4-5-20251001' }}
-          ENTRY: ${{ matrix.suite }}
-        run: node scripts/aggregate.js --run "--only=${ENTRY}"
+        run: node scripts/aggregate.js --run --only=${{ matrix.suite }}
         working-directory: evals
 
       - name: Upload suite results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.names.outputs.artifact }}
-          # results.json, or results.shard-<i>-of-<n>.json for a shard.
-          path: evals/${{ steps.names.outputs.suite }}/results*.json
+          name: results-${{ matrix.suite }}
+          path: evals/${{ matrix.suite }}/results.json
           retention-days: 14
 
   aggregate:
@@ -199,19 +171,17 @@ jobs:
           pattern: results-*
           merge-multiple: false
 
-      - name: Stage suite results into evals/<suite>/
+      - name: Stage suite results into evals/<suite>/results.json
         run: |
           set -e
           shopt -s nullglob
-          # results-<suite> holds results.json; results-<suite>--shard-<i>
-          # holds results.shard-<i>-of-<n>.json. aggregate.js merges shards.
           for d in artifact-results/results-*; do
-            name=$(basename "$d" | sed -e 's/^results-//' -e 's/--shard-[0-9]*$//')
+            name=$(basename "$d" | sed 's/^results-//')
             mkdir -p "evals/$name"
-            for f in "$d"/results*.json; do
-              cp "$f" "evals/$name/"
-              echo "Staged evals/$name/$(basename "$f")"
-            done
+            if [[ -f "$d/results.json" ]]; then
+              cp "$d/results.json" "evals/$name/results.json"
+              echo "Staged evals/$name/results.json"
+            fi
           done
 
       - name: Save previous eval-scores.json for diff
