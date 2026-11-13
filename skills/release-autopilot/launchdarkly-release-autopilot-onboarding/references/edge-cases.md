@@ -17,7 +17,7 @@
 | Auto-releasing picked but no metrics exist (release plans) | Offer the metric skills. Without metrics, the plan is progressive and nothing rolls back automatically |
 | Incomplete migrated plan | Cannot start a release. Create a complete plan in that environment |
 | Generative AI or Vega eligibility error | Release Autopilot's agents need generative AI turned on, and no MCP tool reads that setting. An Admin or Owner selects **Enable generative AI use cases** in Organization settings > Security. Stop |
-| Environment has no release plans | Offer a starter plan (see [release-plans.md](release-plans.md)) and make it the environment's default |
+| Environment has no release plans | Offer a starter plan with [`launchdarkly-release-plans`](../../launchdarkly-release-plans/SKILL.md#create) and make it the environment's default |
 | Bring your own key chosen | Browser step only. Record it as reported, never as verified |
 | No writes and no browser steps needed | Say so, list follow-ups, and stop. A plan with only browser steps or auto-cleanup settings still goes through the Step 7 confirmation and the Step 8 browser steps |
 

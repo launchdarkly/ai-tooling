@@ -97,6 +97,22 @@ function readResults(suite) {
   }
 }
 
+// GitHub Actions log downloads are not always available (for example through
+// a proxy), but annotations are. Emit one warning per failing test, naming the
+// failed assertions and their reasons, so the cause shows on the check run.
+function annotateFailures(suite, tests) {
+  const clean = (text) => String(text || "").replace(/\r?\n/g, " ").replace(/::/g, ": :").slice(0, 300);
+  for (const t of tests) {
+    if (t.success) continue;
+    const name = t.testCase?.description || t.description || t.vars?.user_request?.slice(0, 80) || "";
+    const failed = (t.gradingResult?.componentResults || [])
+      .filter((c) => !c.pass)
+      .map((c) => `${c.assertion?.metric || c.assertion?.type || "assert"}: ${clean(c.reason)}`);
+    const detail = failed.length ? failed.join(" | ") : clean(t.error || t.gradingResult?.reason);
+    console.log(`::warning title=${clean(suite.suite)} eval failed::${clean(name)} (score ${t.score ?? 0}) -- ${detail}`);
+  }
+}
+
 function summarize(suite, results, commit) {
   const tests = results?.results?.results || results?.results || [];
   const arr = Array.isArray(tests) ? tests : [];
@@ -109,6 +125,8 @@ function summarize(suite, results, commit) {
     score: t.score ?? (t.success ? 1.0 : 0.0),
   }));
 
+  if (process.env.GITHUB_ACTIONS === "true") annotateFailures(suite, arr);
+
   return {
     score,
     passed,
@@ -118,6 +136,36 @@ function summarize(suite, results, commit) {
     lastRun: new Date().toISOString(),
     perTest,
   };
+}
+
+// In GitHub Actions, emit one warning annotation per failed test with the
+// failed assertions' reasons. Check run annotations can be read where the
+// job log cannot (for example through a proxy that does not follow log
+// redirects).
+function annotateFailures(suite, results) {
+  if (!process.env.GITHUB_ACTIONS) return;
+  const tests = results?.results?.results || results?.results || [];
+  // GitHub workflow command escaping: escapeData for the message, and
+  // escapeProperty (which also encodes ":" and ",") for the title.
+  const escData = (v) => String(v).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  const escProp = (v) => escData(v).replace(/:/g, "%3A").replace(/,/g, "%2C");
+  for (const t of Array.isArray(tests) ? tests : []) {
+    if (t.success) continue;
+    const parts = (t.gradingResult?.componentResults || [])
+      .filter((c) => !c.pass)
+      .map((c) => `${c.assertion?.metric || c.assertion?.value || "assert"}: ${c.reason || ""}`);
+    if (t.error) parts.unshift(`error: ${t.error}`);
+    // What the agent did: its tool calls and the start of its final reply.
+    let out = t.response?.output;
+    try { out = typeof out === "string" ? JSON.parse(out) : out; } catch { out = null; }
+    if (out && typeof out === "object") {
+      if (Array.isArray(out.tools_called)) parts.push(`tools: ${out.tools_called.join(",").slice(0, 400)}`);
+      if (out.terminated) parts.push(`terminated: ${out.terminated}`);
+      if (out.response) parts.push(`reply: ${String(out.response).slice(0, 400)}`);
+    }
+    const name = t.description || t.testCase?.description || t.vars?.user_request?.slice(0, 80) || "test";
+    console.log(`::warning title=${escProp(`${suite.suite}: ${String(name).slice(0, 160)}`)}::${escData(parts.join(" | ").slice(0, 1500))}`);
+  }
 }
 
 function main() {
@@ -152,6 +200,7 @@ function main() {
     const results = readResults(suite);
     if (!results) { anyError = true; continue; }
     skills[suite.skillKey] = summarize(suite, results, commit);
+    annotateFailures(suite, results);
     const s = skills[suite.skillKey];
     const icon = s.status === "passing" ? "✓" : "✗";
     console.log(`${icon} ${suite.skillKey}: ${s.passed}/${s.total} passed (${s.score}%)`);
@@ -170,4 +219,6 @@ function main() {
   if (anyError || belowThreshold.length > 0) process.exit(1);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { annotateFailures };

@@ -18,8 +18,14 @@ const isRepoUpdate = (t) => t.tool === "update-automations" && (t.arguments || {
   Boolean((t.arguments || {}).repo || (t.arguments || {}).githubRepoId) && !(t.arguments || {}).cleanup && !(t.arguments || {}).archival;
 const isRepoWrite = (t) => isRepoUpdate(t) || t.tool === "delete-automations-repo-settings";
 
+const checks = require("../launchdarkly-release-plans/command-checks");
+
+// A write is an MCP write tool. The flag release plan is a REST command the
+// user runs, so it is checked from the text the agent shows.
+const isWriteStep = (t) => WRITE_TOOLS.has(t.tool);
+
 const traj = (output) => (output && output.trajectory) || [];
-const writes = (output) => traj(output).filter((t) => WRITE_TOOLS.has(t.tool));
+const writes = (output) => traj(output).filter(isWriteStep);
 const result = (pass, reason) => ({ pass, score: pass ? 1 : 0, reason });
 
 function isConfirmQuestion(step) {
@@ -53,7 +59,7 @@ module.exports.noWrites = (output) => {
 
 module.exports.confirmsBeforeWriting = (output) => {
   const steps = traj(output);
-  const firstWrite = steps.findIndex((t) => WRITE_TOOLS.has(t.tool));
+  const firstWrite = steps.findIndex(isWriteStep);
   if (firstWrite === -1) return result(false, "never wrote, so the confirmed plan was not applied");
   const approved = approvedConfirmBefore(steps, firstWrite);
   return result(approved !== -1, approved !== -1 ? `approved at ${approved}, first write at ${firstWrite}` : `first write at ${firstWrite} without "Looks good" as the latest confirmation answer`);
@@ -73,7 +79,7 @@ module.exports.accountWriteLast = (output) => {
   const steps = traj(output);
   const acct = steps.findIndex(isAccountWrite);
   if (acct === -1) return result(false, "no account write");
-  const laterWrite = steps.slice(acct + 1).some((t) => WRITE_TOOLS.has(t.tool));
+  const laterWrite = steps.slice(acct + 1).some(isWriteStep);
   return result(!laterWrite, laterWrite ? "a write came after the account write" : "account write was last");
 };
 
@@ -124,23 +130,6 @@ module.exports.planBeforeRepoWrite = (output) => {
   return result(pass, `plan at ${plan}, repo write at ${repo} (${args.repo}@${args.projectKey})`);
 };
 
-module.exports.plansHaveClauses = (output) => {
-  const plans = traj(output).filter((t) => t.tool === "create-environment-release-plan");
-  if (!plans.length) return result(false, "no release plan created");
-  const okClause = (c) => c && typeof c.attribute === "string" && typeof c.op === "string" && Array.isArray(c.values);
-  const okStep = (s) => s && typeof s.allocation === "number" && typeof s.durationMillis === "number";
-  for (const p of plans) {
-    const phases = (((p.arguments || {}).progressiveRelease || {}).phases) || [];
-    if (!phases.length) return result(false, "plan has no phases");
-    for (const ph of phases) {
-      if (!Array.isArray(ph.clauses) || !ph.clauses.length || !ph.clauses.every(okClause))
-        return result(false, `bad clauses: ${JSON.stringify(ph.clauses).slice(0, 120)}`);
-      if (!Array.isArray(ph.steps) || !ph.steps.length || !ph.steps.every(okStep))
-        return result(false, `bad steps: ${JSON.stringify(ph.steps).slice(0, 120)}`);
-    }
-  }
-  return result(true, "every phase has valid clauses and steps");
-};
 module.exports.noReleasePlanCreated = noneOf(["create-environment-release-plan"]);
 module.exports.noAccountWrite = (output) => {
   const hit = traj(output).filter(isAccountWrite);
@@ -234,7 +223,7 @@ module.exports.stopsAfterFailedWrite = (output) => {
   const acct = steps.findIndex(isAccountWrite);
   const repo = steps.findIndex(isRepoUpdate);
   if (acct === -1) return result(false, "never attempted the account write");
-  const after = steps.slice(acct + 1).filter((t) => WRITE_TOOLS.has(t.tool));
+  const after = steps.slice(acct + 1).filter(isWriteStep);
   const pass = repo !== -1 && repo < acct && after.length === 0;
   return result(pass, `repo write at ${repo}, account write at ${acct}, ${after.length} write(s) after`);
 };
@@ -583,26 +572,7 @@ module.exports.reportListsCleanup = (output) => {
   return result(pass, pass ? "report lists the cleanup schedule and repository" : "report does not list the cleanup schedule and repository");
 };
 
-// Before creating a starter plan, the unit is checked against stored contexts.
-module.exports.checksContextsBeforeStarter = (output) => {
-  const steps = traj(output);
-  const create = steps.findIndex((t) => t.tool === "create-environment-release-plan");
-  if (create === -1) return result(false, "no release plan created");
-  const unit = steps.slice(0, create).some((t) => t.tool === "search-contexts" && (t.arguments || {}).kind);
-  return result(unit, `context kind checked before create: ${unit}`);
-};
 
-// Guarded starter: the plan carries the picked rollback metric with
-// automatic rollback, and every step is at most 50000.
-module.exports.guardedStarterMetrics = (output) => {
-  const p = traj(output).find((t) => t.tool === "create-environment-release-plan");
-  if (!p) return result(false, "no release plan created");
-  const pr = p.arguments.progressiveRelease || {};
-  const m = (pr.metrics || {})["user-error-rate"];
-  const capped = (pr.phases || []).every((ph) => (ph.steps || []).every((s) => s.allocation > 0 && s.allocation <= 50000));
-  const pass = Boolean(m && m.autoRollback === true && m.isGroup === false) && capped;
-  return result(pass, `metrics: ${JSON.stringify(pr.metrics || {})}; every step at most 50000: ${capped}`);
-};
 
 // The GitHub App install cannot be read: read it once more, then pause with
 // the resume phrase. No writes and no repo question.
@@ -616,13 +586,6 @@ module.exports.pausesOnReposError = (output) => {
   return result(reads >= 2 && repoQ === 0 && resume && w === 0, `install reads: ${reads}; repo questions: ${repoQ}; resume phrase: ${resume}; writes: ${w}`);
 };
 
-// A project with no stored contexts still gets a starter, randomized by user.
-module.exports.starterUnitIsUser = (output) => {
-  const p = traj(output).find((t) => t.tool === "create-environment-release-plan");
-  if (!p) return result(false, "no release plan created");
-  const unit = ((p.arguments || {}).progressiveRelease || {}).randomizationUnit;
-  return result(unit === "user", `randomization unit: ${unit}`);
-};
 
 // Preview with an unreadable install lists the mapping for later and no
 // GitHub connect step (there is no connect link; GitHub is connected).
@@ -657,4 +620,119 @@ module.exports.missingPlanToolsSkipsRelease = (output) => {
   const releasingOff = module.exports.repoTurnsAutoReleasingOff(output);
   const pass = !support && reconnect && planWrites === 0 && flagging && releasingOff.pass;
   return result(pass, `contact support: ${support}; update or reconnect: ${reconnect}; plan writes: ${planWrites}; auto-flagging on: ${flagging}; auto-releasing off override: ${releasingOff.reason}`);
+};
+
+// ---------------------------------------------------------------------------
+// Flag release plan (through launchdarkly-release-plans). Its REST commands
+// are shown to the user, who runs them and pastes the output (a scripted
+// { when, text } answer); the agent never runs them.
+
+module.exports.everyCommandBeta = checks.everyCommandBeta;
+module.exports.agentNeverUsesToken = checks.agentNeverUsesToken;
+
+const lastPlanCreate = (output) => checks.planCreates(output).filter((c) => c.body).pop();
+const turnOf = (steps, test) => {
+  const i = steps.findIndex(test);
+  return i === -1 ? undefined : steps[i].turn;
+};
+
+// The create command for the flag release plan is shown after "Looks good"
+// and after production's new release plan and its default. It names that
+// plan and makes it the project's default.
+module.exports.flagReleasePlanAfterEnvPlans = (output) => {
+  const steps = traj(output);
+  const c = lastPlanCreate(output);
+  if (!c) return result(false, "no flag release plan create command with a JSON body shown");
+  const create = steps.findIndex((t) => t.tool === "create-environment-release-plan" && (t.arguments || {}).environmentKey === "production");
+  const envKey = create === -1 ? null : steps[create].arguments.key;
+  const defTurn = turnOf(steps, (t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).environmentKey === "production" && t.arguments.default === true);
+  const ci = steps.findIndex(isConfirmQuestion);
+  const approved = ci !== -1 && approvedConfirmBefore(steps, ci + 1) !== -1;
+  const confirmTurn = ci === -1 ? undefined : steps[ci].turn;
+  const envs = c.body.environments || [];
+  const points = envs.length === 1 && envs[0].environmentKey === "production" && envs[0].environmentReleasePlanKey === envKey;
+  const order = defTurn !== undefined && confirmTurn !== undefined && c.turn >= defTurn && c.turn > confirmTurn;
+  const pass = points && order && approved && c.body.isDefault === true;
+  return result(pass, `names production's new plan ${envKey}: ${points}; shown after "Looks good" and the default: ${order}; approved: ${approved}; default: ${c.body.isDefault}`);
+};
+
+// The pasted create response is read: the report names the plan as set up.
+module.exports.flagReleasePlanVerified = (output) => {
+  const text = finalText(output);
+  const pass = /flag release plan/i.test(text) && /default release/i.test(text) && !/not verified|could not verify/i.test(text);
+  return result(pass, pass ? "the report names the flag release plan from the pasted response" : "the report does not name the flag release plan as set up");
+};
+
+// Text the user saw up to and including the Step 7 confirmation.
+function textThroughConfirm(output) {
+  const steps = traj(output);
+  const ci = steps.findIndex(isConfirmQuestion);
+  if (ci === -1) return null;
+  const turn = steps[ci].turn;
+  const turns = ((output && output.assistant_turns) || [])
+    .filter((x) => typeof x !== "object" || x.turn === undefined || turn === undefined || x.turn <= turn)
+    .map((x) => (typeof x === "string" ? x : String(x.text || "")));
+  return [...turns, String((steps[ci].arguments && steps[ci].arguments.prompt) || "")].join("\n");
+}
+
+// The confirmation lists the flag release plan.
+module.exports.confirmListsFlagReleasePlan = (output) => {
+  const text = textThroughConfirm(output);
+  if (text === null) return result(false, "no confirmation question");
+  const pass = /flag release plan/i.test(text);
+  return result(pass, pass ? "the confirmation lists the flag release plan" : "the confirmation does not mention the flag release plan");
+};
+
+// The user skips the flag release plan step: the report lists it as a
+// follow-up with the exact command (the endpoint and the beta header).
+module.exports.followUpHasFlagReleasePlanCommand = (output) => {
+  const finalOnly = { trajectory: [], assistant_turns: [], response: finalText(output) };
+  const cmds = checks.shownCommands(finalOnly).filter((c) => /\/api\/v2\/projects\/default\/flag-release-plans/.test(c.path));
+  const beta = cmds.length > 0 && cmds.every((c) => c.beta);
+  const asked = checks.asksForToken(checks.userFacingText(output));
+  return result(beta && !asked, `flag release plan commands in the report: ${cmds.length}; all with the beta header: ${beta}; asks for the token: ${asked}`);
+};
+
+// Preview lists the flag release plan, writes nothing, and asks the user to
+// run nothing.
+module.exports.previewListsFlagReleasePlan = (output) => {
+  const listed = /flag release plan/i.test(finalText(output));
+  const asked = traj(output).filter((t) => t.tool === "ask-question" && /run this command/i.test(JSON.stringify(t.arguments || {}))).length;
+  const w = writes(output).length;
+  return result(listed && asked === 0 && w === 0, `lists the flag release plan: ${listed}; asks to run a command: ${asked}; writes: ${w}`);
+};
+
+// The project's default flag release plan does not match: after "Looks
+// good", the replace command keeps its key, the default on, its version, and
+// production's release plan. No create command.
+module.exports.flagReleasePlanUpdatedInPlace = (output) => {
+  const steps = traj(output);
+  const put = checks.shownCommands(output).find((c) => c.method === "PUT" && /\/flag-release-plans\/staged-rollout$/.test(c.path));
+  const posts = checks.planCreates(output).length;
+  if (!put || !put.body) return result(false, `no replace command for staged-rollout; create commands: ${posts}`);
+  const b = put.body;
+  const envs = (b.environments || []).map((e) => `${e.environmentKey}:${e.environmentReleasePlanKey || "immediate"}`);
+  const ci = steps.findIndex(isConfirmQuestion);
+  const after = ci !== -1 && put.turn > steps[ci].turn && approvedConfirmBefore(steps, ci + 1) !== -1;
+  const pass = b.isDefault === true && b.version === 2 && JSON.stringify(envs) === JSON.stringify(["production:gradual"]) && after && posts === 0;
+  return result(pass, `isDefault ${b.isDefault}; version ${b.version}; environments ${JSON.stringify(envs)}; after "Looks good": ${after}; create commands: ${posts}`);
+};
+
+// The flag release plan is a follow-up, and auto-releasing stays on as the
+// user picked: the repo write turns it on, and no write turns it off.
+module.exports.autoReleasingOnWithFollowUp = (output) => {
+  const repo = traj(output).filter((t) => isRepoUpdate(t) && t.arguments.repo === "acme/demo");
+  const on = repo.some((t) => t.arguments.autoReleasing && t.arguments.autoReleasing.enabled === true);
+  const off = repo.some((t) => t.arguments.autoReleasing && t.arguments.autoReleasing.enabled === false);
+  return result(on && !off, `auto-releasing turned on for acme/demo: ${on}; turned off: ${off}`);
+};
+
+// The summary and the final report say auto-releasing proposes no release
+// until the flag release plan exists.
+const NO_RELEASE_UNTIL = /(proposes? no release|won'?t propose (a |any )?releases?|will not propose (a |any )?releases?|doesn'?t propose (a |any )?releases?)[^.\n]{0,60}until[^.\n]{0,40}flag release plan/i;
+module.exports.notesNoReleaseUntilPlan = (output) => {
+  const confirm = textThroughConfirm(output) || "";
+  const inSummary = NO_RELEASE_UNTIL.test(confirm);
+  const inReport = NO_RELEASE_UNTIL.test(finalText(output));
+  return result(inSummary && inReport, `in the confirmation: ${inSummary}; in the final report: ${inReport}`);
 };

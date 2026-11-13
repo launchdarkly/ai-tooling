@@ -5,14 +5,14 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server and a git CLI with access to the PR's repository
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Flag & Release a PR Change
 
 You're using a skill that takes a pull request whose change should ship behind a feature flag and drives it end to end: decide it needs a flag, create the guarding flag, wire the new behavior behind it on the PR's branch, and record an **automated release** so the change ships safely once the PR merges.
 
-**The deploy is not the release.** The merge ships the control path — the flag is created OFF, so deployment always serves the pre-change behavior. The *release* is the flag operation the automated rollout performs afterward, governed by the environment's policy. Creating the flag OFF and recording the release are deliberately separate things.
+**The deploy is not the release.** The merge ships the control path — the flag is created OFF, so deployment always serves the pre-change behavior. The *release* is the flag operation the automated rollout performs afterward, governed by the environment's default release plan. Creating the flag OFF and recording the release are deliberately separate things.
 
 This skill is a **portable PR orchestrator**. It doesn't own the flag mechanics or the release mechanics — it composes three focused skills and adds the PR workflow (read the diff, work in a clone, push to the branch) plus the plan→implement sequencing:
 
@@ -34,7 +34,7 @@ You work in two phases — **plan**, then **implement** — and you check in wit
 - A `git` CLI that can read and push to the PR's repository.
 - The composed skills available: [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md) (flag creation + code wiring) and [`flag-release`](../flag-release/SKILL.md) (recording the rollout). [`should-flag-change`](../should-flag-change/SKILL.md) is used if the flag decision hasn't been made.
 
-MCP tools are used *via the composed skills* — `create-flag`/`get-flags` through flag-create, `match-release-policies`/`create-automated-rollout-config` through flag-release. This skill calls none directly.
+MCP tools are used *via the composed skills* — `create-flag`/`get-flags` through flag-create, `get-environment-release-plans`/`create-automated-rollout-config` through flag-release. This skill calls none directly.
 
 ## Working With the Pull Request
 
@@ -55,8 +55,8 @@ The three-dot diff (`base...head`) shows exactly what the PR introduces. Read th
 1. **Confirm it should be flagged.** If [`should-flag-change`](../should-flag-change/SKILL.md) already ran, act on its verdict. Otherwise apply the same judgment: favor a flag for user-facing or risky changes; skip config-only, dependency-bump, infra, test-only, or docs changes. If a flag clearly isn't warranted, say so and stop.
 2. **Understand the change and conventions.** Read the three-dot diff and changed files — what does it do, what's the blast radius? Then follow **flag-create's Step 1** to learn how this codebase already uses flags (SDK, wrapper, key constants, naming). Don't reinvent that exploration here.
 3. **Design the flag.** Usually a single boolean kill-switch around the new path (flag-create's [flag-types](../launchdarkly-flag-create/references/flag-types.md) covers the choice). Don't propose more flags than the change needs. If Step 1 (or `should-flag-change`) surfaced a **dependency on a parent flag/feature that isn't live yet**, note it — the release step can couple them with a prerequisite.
-4. **Plan the release.** Follow [`flag-release`](../flag-release/SKILL.md)'s plan phase: pick target environments, preview each with `match-release-policies`, and capture the human's **release intent** (release on merge / hold / `notBefore` / segment / prerequisite). Don't re-derive the rollout model here — that's flag-release's job.
-5. **Present the combined plan and stop.** Summarize: the flag (`key`, `name`, boolean, tags) and why it gates *this* change; where in the code the guard goes; the per-environment release plan + captured intent (and anything to be *held*). Then wait. Revise on feedback; proceed only on clear approval. Ask a focused question if you're genuinely missing something (project key, environments, a missing policy) rather than guessing.
+4. **Plan the release.** Follow [`flag-release`](../flag-release/SKILL.md)'s plan phase: pick target environments, preview each environment's default release plan with `get-environment-release-plans` (the default plans don't depend on the flag, so this works before the flag exists), and capture the human's **release intent** (release on merge / hold / `notBefore` / segment / prerequisite). An environment with no default release plan can't auto-release yet: plan it as held and say so. Don't re-derive the rollout model here — that's flag-release's job.
+5. **Present the combined plan and stop.** Summarize: the flag (`key`, `name`, boolean, tags) and why it gates *this* change; where in the code the guard goes; the per-environment release plan + captured intent (and anything to be *held*, including any environment with no default release plan; [`launchdarkly-release-plans`](../../release-autopilot/launchdarkly-release-plans/SKILL.md) creates one). Then wait. Revise on feedback; proceed only on clear approval. Ask a focused question if you're genuinely missing something (project key, environments) rather than guessing.
 
 ## Implement Phase
 
@@ -77,7 +77,7 @@ Only after approval:
 | Flag creation fails for any other reason (auth, permissions, 5xx) | Hard stop. Don't wire code, record a release, or claim success — surface the error. |
 | Codebase has no LaunchDarkly SDK | Wiring can't evaluate a flag — SDK install is separate ([onboarding/sdk-install](../../onboarding/sdk-install/SKILL.md)). |
 | Guarding needs more than a boolean | Prefer a boolean kill-switch. Only go multivariate if the change serves distinct variants; see flag-create's [flag-types](../launchdarkly-flag-create/references/flag-types.md). |
-| Release-specific cases (hold/`notBefore`, prerequisites, no matching policy, duplicate config, no useful metric) | Handled by [`flag-release`](../flag-release/SKILL.md) — see its edge cases. |
+| Release-specific cases (hold/`notBefore`, prerequisites, no default release plan, duplicate config, no useful metric) | Handled by [`flag-release`](../flag-release/SKILL.md) — see its edge cases. |
 
 ## What NOT to Do
 
