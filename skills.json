@@ -191,7 +191,7 @@
       "name": "flag-and-release-change",
       "description": "Drive a pull request's change end to end: decide it's flag-worthy, create the guarding flag, wire the new code path behind it on the PR branch, and record an automated release so the change ships safely when the PR merges. A portable orchestrator that composes should-flag-change, launchdarkly-flag-create, and flag-release. Keywords: flag a PR, wrap change in a flag, dark launch, kill switch, auto-release, automated rollout, end-to-end flag workflow.",
       "path": "skills/feature-flags/flag-and-release-change",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server and a git CLI with access to the PR's repository",
       "tags": [
@@ -202,16 +202,16 @@
         "pull-request",
         "auto-release",
         "automated-rollout",
-        "release-policy",
+        "release-plan",
         "dark-launch",
         "mcp"
       ]
     },
     {
       "name": "flag-release",
-      "description": "Record an automated rollout for an existing LaunchDarkly flag that guards a pull request's change, so the change releases safely when the PR merges. Honors a stated release intent (release now / hold / notBefore / segment / prerequisite) and defers per-environment to the project's release policies. Use as the release step once the guarding flag exists and its code is wired. Keywords: record release, automated rollout, release policy, guarded rollout, staged rollout, immediate vs policy, release intent, hold release, dark launch.",
+      "description": "Record an automated rollout for an existing LaunchDarkly flag that guards a pull request's change, so the change releases safely when the PR merges. Honors a stated release intent (release now / hold / notBefore / segment / prerequisite) and otherwise releases each environment with its default environment release plan. Use as the release step once the guarding flag exists and its code is wired. Keywords: record release, automated rollout, release plan, default release plan, flag release plan, guarded rollout, progressive rollout, release intent, hold release, dark launch.",
       "path": "skills/feature-flags/flag-release",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Operates on a flag that already exists; does not create flags or edit code.",
       "tags": [
@@ -221,7 +221,7 @@
         "pull-request",
         "auto-release",
         "automated-rollout",
-        "release-policy",
+        "release-plan",
         "release-intent",
         "guarded-rollout",
         "dark-launch",
@@ -232,7 +232,7 @@
       "name": "investigate",
       "description": "Finds the root cause of a production problem from observability data (logs, traces, errors, sessions, metrics): scope and onset, what changed (deploys and flag changes), which host, version, route or flag variation is over-represented against a baseline, then trace, log and error evidence and blast radius. Use when the user reports a bug, an outage, an error or latency spike, an incident, or asks about patterns across application data.",
       "path": "skills/observability/investigate",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
@@ -468,9 +468,9 @@
     },
     {
       "name": "launchdarkly-release-autopilot-onboarding",
-      "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), review release policies (release plans by GA), and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
+      "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), set up environment release plans (with starter plans) and the project's flag release plan, and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
-      "version": "0.4.0-experimental",
+      "version": "1.1.1",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -488,9 +488,9 @@
     },
     {
       "name": "launchdarkly-release-autopilot-settings",
-      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, review release policies), use launchdarkly-release-autopilot-onboarding instead.",
+      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, set up environment release plans and the project's flag release plan), use launchdarkly-release-autopilot-onboarding instead. For release plans, use launchdarkly-release-plans. For auto-cleanup or auto-archival settings, use launchdarkly-automations-cleanup-settings or launchdarkly-automations-archival-settings.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-settings",
-      "version": "1.5.0-experimental",
+      "version": "1.6.1-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -501,6 +501,31 @@
         "auto-releasing",
         "mcp"
       ]
+    },
+    {
+      "name": "launchdarkly-release-plans",
+      "description": "List, create, edit, make default, and delete LaunchDarkly release plans of both kinds: environment release plans (one environment's phases, rollout steps, and rollback metrics, with starter plans) and flag release plans (a project's environments in release order, each with its environment release plan, which Release Autopilot proposes releases from on pull requests). Also starts a flag's release from a flag release plan. Use when the user wants to see, build, change, or remove a release plan, set an environment's or a project's default plan, or when another skill such as Release Autopilot onboarding needs release plans planned or created. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding, which follows this skill.",
+      "path": "skills/release-autopilot/launchdarkly-release-plans",
+      "version": "1.0.1",
+      "license": "Apache-2.0",
+      "compatibility": "Environment release plans use the hosted LaunchDarkly MCP server. For flag release plans, and for deleting an environment release plan, the user runs the REST API (beta) commands that the skill shows in their own terminal.",
+      "tags": [
+        "launchdarkly",
+        "release-autopilot",
+        "auto-releasing",
+        "release-plans",
+        "guarded-rollouts",
+        "mcp",
+        "rest-api"
+      ]
+    },
+    {
+      "name": "legacy-sdk-migrate",
+      "description": "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server` plus handler packages). Use when code calls `LDAIClient`, `initAi`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade between LaunchDarkly AI SDKs. For apps with hardcoded LLM prompts that aren't on LaunchDarkly yet, use `migrate` instead.",
+      "path": "skills/agentcontrol/legacy-sdk-migrate",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Python 3.12+ (`launchdarkly-ai-server` 1.0.0+ with `launchdarkly-server-sdk`) or Node.js (`@launchdarkly/ai-node` 1.0.0+). No LaunchDarkly MCP tools needed; the AgentControl configs already exist."
     },
     {
       "name": "mcp-configure",
@@ -517,6 +542,14 @@
       "version": "0.1.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+    },
+    {
+      "name": "observability-plugin-setup",
+      "description": "Set up LaunchDarkly observability for an app that already uses a LaunchDarkly SDK by adding the observability plugin to its existing client and opening a pull request. Use when an observability tool reports the project has never received data (observability_set_up or observabilitySetUp is false), when observability queries come back empty because nothing is instrumented, or when the user asks to add observability, error monitoring, logs, tracing, or session replay to a LaunchDarkly-enabled app.",
+      "path": "skills/observability/observability-plugin-setup",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Needs a codebase with an existing LaunchDarkly SDK client. Uses the remotely hosted LaunchDarkly MCP server to confirm data arrives."
     },
     {
       "name": "onboarding",

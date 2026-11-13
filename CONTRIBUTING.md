@@ -30,6 +30,14 @@ skills/your-skill-name/
 - Make descriptions explicit and keyword-rich.
 - If skill is specific to a launchdarkly domain (i.e feature flags, ai configs, etc), please enclose the skills in a directory with the domain name. 
 
+## Asking the User Questions
+
+While a question tool's dialog is open (such as `AskUserQuestion`), the user may see only the dialog: its header, question, and option labels. The message above it can be hidden. So a question must carry everything the user needs to answer it.
+
+- When a skill shows something and then asks about it (a command to run, a plan to approve, a diff, a summary of a change), tell the agent to put that content in the question too: in the option's `preview` when the tool has one, or else in the question text. The message can show it as well, but the question cannot depend on it.
+- This applies to confirm questions ("Make this change", "Looks right") and to "Run this command" questions. A confirm question names what it changes, not only "Proceed?".
+- Where an eval covers the step, assert on the question's own text or preview, not only on the assistant's message. `runQuestionShowsCommand` in `evals/launchdarkly-release-plans/command-checks.js` is an example.
+
 ## Local Testing
 
 Point your agent client at the `skills/` directory. Specific setup depends on the client.

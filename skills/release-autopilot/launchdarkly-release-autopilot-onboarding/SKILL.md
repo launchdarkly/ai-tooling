@@ -1,16 +1,16 @@
 ---
 name: launchdarkly-release-autopilot-onboarding
-description: "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), review release policies (release plans by GA), and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead."
+description: "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), set up environment release plans (with starter plans) and the project's flag release plan, and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.4.0-experimental"
+  version: "1.1.1"
 ---
 
 # LaunchDarkly Release Autopilot Onboarding
 
-You're using a skill that walks a user through setting up Release Autopilot. The user picks the capabilities they want, and you set up only what those capabilities need: the GitHub App, repository mappings, Vega inference, and the environment release setup for auto-releasing.
+You're using a skill that walks a user through setting up Release Autopilot. The user picks the capabilities they want, and you set up only what those capabilities need: the GitHub App, repository mappings, Vega inference, and the release setup for auto-releasing (environment release plans and the project's flag release plan).
 
 **This is a step-by-step wizard.** Ask one question at a time and wait for each answer. Gather every decision first, confirm one plan, and only then write. Release Autopilot opens and changes pull requests, and auto-releasing can ship code, so every write is production automation.
 
@@ -27,13 +27,14 @@ This skill requires the remotely hosted LaunchDarkly MCP server. Installing the 
 On a server that has not picked up the Automations rename yet, the same tools are named `get-release-autopilot`, `update-release-autopilot`, and `delete-release-autopilot-repo-settings`; use those names with the same arguments. If a call fails with "this tool has been removed from the server", ask the user to reconnect the LaunchDarkly MCP server so it loads the new tool names, then retry.
 
 **Required for auto-releasing:**
-- `get-release-policies`
+- `get-environment-release-plans` / `create-environment-release-plan` / `update-default-environment-release-plan`: environment release plans (see [Release setup](#release-setup)). These are required only for auto-releasing. If any of them is missing, skip release setup as [Release setup](#release-setup) says, and continue the wizard with the other capabilities
+- [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md): how to read, choose, create, and set the default for environment release plans and the project's flag release plan. The flag release plan has no MCP tool, so the user runs its commands in their own terminal and pastes the output, as that skill's "User-run commands" says. If the user skips them, the plan becomes a follow-up, and the wizard continues.
 
 **Used when available:**
-- `get-release-plans` / `create-release-plan` / `get-metrics`: environment release plans (see [Release setup](#release-setup))
+- `get-metrics` and `search-contexts`: the release plans skill uses them before it offers a starter plan
 - `get-projects` (with `projectKey` for one project and its environments): offer project and environment keys as options instead of asking for free text
 
-If a required tool is missing, stop and tell the user which one. If no LaunchDarkly tool is available, tell the user to install or update the LaunchDarkly plugin as described above, sign in, and say "continue Release Autopilot setup". Do not invent REST calls. If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
+If a required tool is missing, stop and tell the user which one. The exception is the release plan tools: a missing one skips only release setup, and the wizard continues. If no LaunchDarkly tool is available, tell the user to install or update the LaunchDarkly plugin as described above, sign in, and say "continue Release Autopilot setup". Do not invent REST calls: the only ones are the commands from [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md). If any tool response includes `latestMcp.deprecated: true`, the user is connected to an older MCP server that may not have these tools: give them `latestMcp.installUrl` and stop.
 
 If every Release Autopilot tool returns 404, the account does not have the Release Autopilot add-on enabled. Tell the user "Your account does not have the Release Autopilot add-on enabled," and stop.
 
@@ -55,18 +56,19 @@ Every mode is safe to run again. A re-run reads live state and proposes only the
 2. **Least privilege by default.** Recommend auto-flagging, which always waits for a person to approve its proposed change. Auto-releasing is opt-in and you must say it can ship code.
 3. **Gather, confirm, then write.** No write happens before [Step 7](#step-7-confirm-the-plan). The confirmation lists every write with its current and proposed state. This holds in every mode, including Resume and requests that already state every answer: a restated pick is an answer, never approval. Step 1's reads, including the role check, always run first.
 4. **Don't ask what the account already answers.** If live state already settles a question, state the answer and move on.
-5. **Never act in the user's browser, and defer browser changes.** GitHub install and authorization come early, because repo mapping needs them. Bring your own key, auto-cleanup, and auto-archival change settings in the browser, so they happen only after "Looks good", in [Step 8](#step-8-apply). Give the exact link and wait for the user to say they finished.
+5. **Never act in the user's browser, and defer browser changes.** GitHub install and authorization come early, because repo mapping needs them. Bring your own key and turning on auto-archival change settings in the browser, so they happen only after "Looks good", in [Step 8](#step-8-apply). Give the exact link and wait for the user to say they finished. Auto-cleanup is set through the MCP, in Step 8 as well.
 6. **Only touch what the user named.** Never map every repo on the install. Never create release plans in environments the user did not pick.
 7. **Each repo's own settings decide what runs in it.** On accounts that use the project Automations settings page, only the repo's settings count: a capability that the repo does not turn on is off. Other accounts still use the account settings too, until a migration moves them. There, a capability runs in a repo only when the account has it on and the repo does not turn it off. So each repo write turns on every picked capability, and the account write still turns on a picked capability that the account has off. The effective values that `get-automations` returns for a repo follow the rule that its account uses.
 
 ## Speaking to the user
 
-- Use product words ("auto-flagging", "release policy", "approval") in every message, including questions, checklists, and the final summary. Never show tool names, field names (`githubRepoId`, `autoReleasing.enabled`), HTTP status codes, step numbers, or this skill's mode names ("preview mode", "policy mode", "plan mode"); say "Here's what would change", "your account uses release policies", and "Verification", not "Step 9".
+- Use product words ("auto-flagging", "release plan", "approval") in every message, including questions, checklists, and the final summary. Never show tool names, field names (`githubRepoId`, `autoReleasing.enabled`), HTTP status codes, step numbers, or this skill's mode names ("preview mode", "plan mode"); say "Here's what would change", "your account uses release plans", and "Verification", not "Step 9".
 - Say "Release Autopilot" only in the welcome. After that, name the capability ("auto-flagging", "auto-releasing", "auto-cleanup", "auto-archival"), or say "these capabilities". The exceptions are the resume phrase "continue Release Autopilot setup", the name of the settings skill, and "the Release Autopilot add-on".
 - Name repos as `owner/name`. Show a repository ID only for a mapped repo with no name.
 - Describe each change in words ("Turn on auto-flagging for acme/demo"), never as a tool call or a field and value, not even in parentheses for an admin. If a check after a write disagrees with it, name the change that could not be confirmed and where to check it in the LaunchDarkly UI.
-- Every browser step (GitHub, bring your own key, Automations or release settings) must be done while signed in as the member from Step 1. Say so when you give the link.
+- Every browser step (GitHub, bring your own key, turning on auto-archival, release settings) must be done while signed in as the member from Step 1. Say so when you give the link.
 - State only what the reads show. Do not guess at causes (such as "installs can take a few minutes to propagate"), and do not invent UI locations: give only the pages this skill names. For an account change left for an admin, tell them to run [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md).
+- The one exception is a command the user runs themselves, such as the flag release plan commands: show it in a code block. Never ask for an API access token in the chat. You never run these commands.
 - Keep each message to the current step, and do not narrate tool calls.
 
 ## Workflow
@@ -75,7 +77,10 @@ When a step is complete, go to the next one unless it says to ask or wait. Treat
 
 **Asking questions:** When a question has options, use `AskUserQuestion` with the labels and descriptions given below. Ask free-text questions as a normal message. If the user's request already answers a question explicitly, such as naming the repo, the project, or the capabilities, use that answer and say so instead of asking. Never infer the answer to the Step 7 confirmation.
 
-**Links:** the question dialog covers the message above it. When a question follows a link the user must open (GitHub, bring your own key, Automations or release settings), put the exact URL in the question text itself, not only in the message before it.
+**The question carries what it asks about.** The question dialog covers the message above it, so the user may see only the question: its header, text, and option labels. When a question asks about something you showed, put that content in the question too, not only in the message before it:
+
+- **A link** the user must open (GitHub, bring your own key, Automations or release settings): the exact URL in the question text.
+- **A plan, summary, command, or diff** (the current setup in Step 1, the plan in Step 7, a release plan or flag release plan from [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md), a command to run, a test pull request's diff): in the `preview` of the option that accepts it (such as "Looks good" or "Done, here's the output"). If the question tool has no preview, put it in the question text.
 
 ### Step 0: Welcome the user
 
@@ -103,7 +108,7 @@ Run these reads. Do not write anything.
 
 The server already joins mapped repos to the install list. For a repo with `visibleOnInstall: false` (mapped, but no longer on the install), tell the user, for example, "One more repository (ID 999) is mapped to project default but is no longer on the GitHub install; I'll leave it alone." Do not write the field name or change that repo. If a later step fails with a generative AI eligibility error, see [references/edge-cases.md](references/edge-cases.md).
 
-Summarize what is already set up in two or three sentences. If the account already has a capability on or any repo mapped, ask:
+Summarize what is already set up in two or three sentences. If the account already has a capability on or any repo mapped, ask, with that summary in the question text:
 
 - label: "Add more", description: "Keep the current setup and add capabilities, repos, or release setup"
 - label: "Change one setting", description: "Hand off to the settings skill for a single change"
@@ -116,7 +121,7 @@ In Preview mode, leave out "Change one setting", because that hand-off writes. F
 Use `AskUserQuestion` with header "Capabilities", `multiSelect: true`:
 
 - label: "Auto-flagging (Recommended)", description: "Reads each pull request and, when a change should ship behind a flag, opens a PR that adds the flag"
-- label: "Auto-releasing", description: "After a flagged change deploys, releases it with the environment's release policy or release plan. This can ship code to users"
+- label: "Auto-releasing", description: "After a flagged change deploys, releases it with the environment's release plan. This can ship code to users"
 - label: "Auto-cleanup", description: "On a schedule, opens pull requests that remove the code for flags that are ready for removal. This removes code"
 - label: "Auto-archival", description: "Archives flags that are ready to archive, after safety checks and a grace period"
 
@@ -128,9 +133,11 @@ Auto-cleanup and auto-archival are opt-in like auto-releasing: never recommend t
 
 Only if the user picked auto-flagging, auto-releasing, or auto-cleanup. Auto-archival alone does not need GitHub: skip Steps 3 and 4 and choose projects directly (see [Step 4](#step-4-map-repositories)).
 
-Skip this step without mentioning GitHub if Step 1 returned `installed: true`, `userAuthorized: true`, and no `githubConnectUrl`.
+Skip this step without mentioning GitHub if Step 1 returned no `githubConnectUrl` and no `reposError`.
 
-**Preview mode:** do not ask the user to install or authorize. List "Connect GitHub" in the Step 7 checklist with the link. Repo mapping cannot be planned until GitHub is connected, so skip Step 4 and any release setup that depends on it. If the user picked auto-flagging or auto-releasing, list "After GitHub is connected: map the repos" in the checklist; for auto-cleanup alone, ask which projects instead (as Step 4 says) and list its Automations settings step for each, noting that it needs GitHub connected. If the user picked auto-releasing, also list "After mapping: choose environments and check the release policies (or release plans) for project {projectKey}", because auto-releasing needs that before it can work. Continue with the steps that do not need GitHub.
+A `reposError` means the install could not be read right now, not that GitHub is disconnected. Call `get-automations` once more. If it still returns `reposError`, the repos cannot be listed, so repo mapping and everything after it must wait. Say that the GitHub App install could not be read, summarize the decisions so far, tell the user to say "continue Release Autopilot setup" later, and stop. In Preview mode, do not stop: list only "Map the repos once the GitHub App install can be read" in the checklist, with no connect link and no "Connect GitHub" item, skip Step 4, and continue with the steps that do not need the repo list. The Preview paragraph below does not apply.
+
+**Preview mode, with `githubConnectUrl`:** do not ask the user to install or authorize. List "Connect GitHub" in the Step 7 checklist with the link. Repo mapping cannot be planned until GitHub is connected, so skip Step 4 and any release setup that depends on it. If the user picked auto-flagging or auto-releasing, list "After GitHub is connected: map the repos" in the checklist; for auto-cleanup alone, ask which projects instead (as Step 4 says) and list its cleanup settings for each, noting that they need GitHub connected and are saved after "Looks good", not in the browser. If the user picked auto-releasing, also list "After mapping: choose environments and set up the release plans for project {projectKey}", because auto-releasing needs that before it can work. Continue with the steps that do not need GitHub.
 
 Otherwise read the URL's `flow`:
 
@@ -154,7 +161,7 @@ On "Done", call `get-automations` again. If it still returns `githubConnectUrl`,
 
 For "A different one" or "Not sure", tell them to check at `/profile`, sign in as the member from Step 1, open the link again, and finish there; then list again. For "The same", check the other causes in [references/github-troubleshooting.md](references/github-troubleshooting.md). On "Need an org owner", summarize the decisions so far, repeat the exact URL for the org owner, tell the user to say "continue Release Autopilot setup" after the App is installed, and stop. On "I can't authorize", pause the same way: summarize the decisions so far, tell them to sign in to GitHub with an account that is a member of that organization (or ask an org owner to add theirs), repeat the exact URL, tell them to say "continue Release Autopilot setup" once they have authorized, and stop. See the GitHub-identity cause in [references/github-troubleshooting.md](references/github-troubleshooting.md).
 
-Never go on to Step 4 while `get-automations` still returns `githubConnectUrl`: an empty repo list then means GitHub is not connected, not that the repo's organization lacks the App.
+Never go on to Step 4 while `get-automations` still returns `githubConnectUrl` or `reposError`: the repo list then has only mapped repos, so a missing repo does not mean that its organization lacks the App.
 
 ### Step 4: Map repositories
 
@@ -164,7 +171,7 @@ Only if the user picked auto-flagging or auto-releasing. If they picked only aut
 
    If a repo the user wants is not on the list, its owner decides the fix: a listed owner means the App needs access to that repo, and a new owner means an org owner must install the App there (no `githubConnectUrl` appears for this case). See [references/edge-cases.md](references/edge-cases.md). Wait for "Done" and list again.
 2. **Choose a project for each repo.** Each repo maps to one LaunchDarkly project, which is where auto-flagging creates flags and metrics for that repo. If `get-projects` is available, offer the projects as options. Otherwise ask for the project key.
-3. **Check existing mappings** with the `repos` list from Step 1 (an unmapped repo has `mapped: false`). Already mapped to the chosen project with matching capabilities: write nothing. Mapped to the chosen project with an unpicked capability on: record an override that turns it off. Mapped to the chosen project with a picked capability effectively off, because the repo turns it off or (on accounts that use project Automations settings) does not set it: record a repo write that turns it on (`{ "enabled": true }`), plus the account write if the account has it off (see Core Principle 7), and say so in Step 7. The exception is a capability that cannot work yet, such as auto-releasing in a project with no complete release policy (Step 6): keep it off. Mapped to a different project: never remap here; send the user to the settings skill to unmap first. Details: [references/edge-cases.md](references/edge-cases.md#existing-mappings).
+3. **Check existing mappings** with the `repos` list from Step 1 (an unmapped repo has `mapped: false`). Already mapped to the chosen project with matching capabilities: write nothing. Mapped to the chosen project with an unpicked capability on: record an override that turns it off. Mapped to the chosen project with a picked capability effectively off, because the repo turns it off or (on accounts that use project Automations settings) does not set it: record a repo write that turns it on (`{ "enabled": true }`), plus the account write if the account has it off (see Core Principle 7), and say so in Step 7. The exception is a capability that cannot work yet, such as auto-releasing in a project where release setup stopped (Step 6): keep it off. Mapped to a different project: never remap here; send the user to the settings skill to unmap first. Details: [references/edge-cases.md](references/edge-cases.md#existing-mappings).
 4. **Say what starts when.** On accounts that use project Automations settings, each picked capability starts in a repo as soon as Step 8 writes that repo. On accounts that still use account settings, it starts only once the account setting is also on: right after the Step 8 account write, or, if the account has it off and the user cannot write account settings, when an admin turns it on.
 
 ### Step 5: Choose the AI model account
@@ -188,40 +195,36 @@ Run each part of this step only for a capability the user picked in Step 2, and 
 
 #### Release setup
 
-Only if the user picked auto-releasing. Otherwise skip to [Auto-cleanup](#auto-cleanup) or [Auto-archival](#auto-archival), and do not ask about environments or look up release plans or policies.
+Only if the user picked auto-releasing. Otherwise skip to [Auto-cleanup](#auto-cleanup) or [Auto-archival](#auto-archival), and do not ask about environments or look up release plans.
 
-For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-projects` with `projectKey`, or ask). Then check once per account whether it uses release plans or release policies.
+For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-projects` with `projectKey`, or ask). An environment is production when `get-projects` marks it `critical: true`. If no chosen environment has `critical: true`, or the read does not show `critical`, ask header "Production", `multiSelect: true`, which chosen environments serve production traffic, with "None" as an option. Then call `get-environment-release-plans` for the first chosen environment only, and wait for its result before calling it for any other environment:
 
-##### Check whether the account uses release plans
+- It succeeds: follow [Release plans](#release-plans).
+- It fails: stop release setup for this project, and create no plans. Record a repo override that turns auto-releasing off (`{ "enabled": false }`) for each repo in the project, and list "set up release plans for this project" as a follow-up. For 403 `Plan does not allow this operation`, tell the user that release plans are not available on their account and to contact LaunchDarkly support. The 403 is account-wide, so do not call it for other projects. For any other error, tell the user what failed.
 
-Call `get-release-plans` for the first chosen environment.
+If `get-environment-release-plans`, `create-environment-release-plan`, or `update-default-environment-release-plan` is not on the server, the server is older than the account, not the account's plan. Check this before the environments question, and skip release setup for every project: ask no environment questions, and create no plans. Record a repo override that turns auto-releasing off (`{ "enabled": false }`) for each repo, so it does not come from the account settings, and list "update or reconnect the LaunchDarkly MCP server, then set up auto-releasing" as a follow-up. Tell the user that the connected LaunchDarkly MCP server does not have the release plan tools yet, and to update or reconnect it. Do not say that the account lacks release plans, and do not send them to support. Continue with the other picked capabilities.
 
-- **Release policies** if the call returns 403 `Plan does not allow this operation`, or if `get-release-plans` is not available. The 403 is account-wide, so do not call it for other environments. This is the mode for every account today: auto-releasing requires a complete release policy for each environment.
-- **Release plans** if the call succeeds. Environment release plans replace release policies by general availability.
+##### Release plans
 
-##### Release policies (today)
+Follow [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md) in its **Record only** mode: it runs the reads and asks the questions, and you record its decisions for Step 7. Write nothing here.
 
-Call `get-release-policies` for the project and show the user what it returns, including any `warnings`. Record no plan writes. This skill does not change policies.
-
-- No warnings for the chosen environments: say that auto-releasing in this project uses those policies.
-- Any warning, such as `missing_policy` or `incomplete_policy`: auto-releasing cannot work there yet. Tell the user to add or complete a release policy in the project's release settings (`/projects/{projectKey}/settings/releases` on their LaunchDarkly instance). Record a repo override that keeps auto-releasing off for each repo in that project, and say in Step 7 that they can turn it on with the settings skill once the policy is complete.
-
-##### Release plans (by GA)
-
-For each chosen environment, call `get-release-plans`. If a complete plan exists, show its name, phases, and metrics, and ask header "Plan":
-
-- label: "Use this plan", description: "Keep the existing plan for this environment"
-- label: "Create another", description: "Add a new plan for this environment"
-
-To create a plan, follow [references/release-plans.md](references/release-plans.md). Record the plan and any metrics to create. Do not call `create-release-plan` or create metrics yet.
+1. **Environment release plans.** For each chosen environment, follow that skill's "Choose an environment's release plan". It proposes the environment's default plan, or offers a starter plan (Progressive, Custom, or Not now) when the environment has no complete plan. Record each plan to create and each new default. For "Not now", list "set up a release plan for <environment>" as a follow-up. If no chosen environment of the project ends with a release plan, record no flag release plan, and record a repo override that turns auto-releasing off (`{ "enabled": false }`) for each repo in the project, as when release setup stops.
+2. **Flag release plan.** When Release Autopilot proposes a release on a pull request, it uses the project's flag release plan, and it proposes none without one. A rollout recorded for a flag with the `flag-release` skill uses each environment's default release plan instead. Follow that skill's "Build or update the project's plan" for the environments that have a release plan, in order, non-production first. Show its list command, and ask the user to run it and paste the output (header "Run this command", with the command in the question as that skill's "User-run commands" says). In Preview, ask the user to run nothing, and list the command as an optional follow-up. Then record what it decides from that output: a new "Default release" plan, no change (the default already matches), or an update of the current default in place ("Update <name>", recommended, or "Keep <name>"). Onboarding does not offer "Create another plan".
+   - **The user skips the list, or it fails:** record a new "Default release" plan, to check against the list again in Step 8. Keep auto-releasing on as the user picked: do not turn it off for this reason. For 403 `Plan does not allow this operation`, also tell the user to contact LaunchDarkly support.
 
 #### Auto-cleanup
 
-Only if the user picked auto-cleanup. Record it for each project. It is a browser step that changes settings, so it happens after "Looks good", in [Step 8](#step-8-apply). Never send `autoCleanup`.
+Only if the user picked auto-cleanup. For each project, call `get-automations` with `section: "cleanup"` and `projectKey`. If cleanup already runs (a schedule other than `disabled`), say so and record no change unless the user wants one. Lists replace the whole stored list, so when adding repositories to a running cleanup, record the full list: the existing `repositories` from the read plus the new ones. Otherwise ask, each as its own question:
+
+1. **Schedule**: header "Cleanup schedule": "Weekly (Recommended)", "Daily", or "Monthly".
+2. **Repositories**: which repos cleanup opens pull requests in. Offer the repos mapped in Step 4 for that project; for auto-cleanup alone, offer repos from the install list. Use only repos on the install.
+3. **Pull requests per run**: header "Pull requests per run": "3 (Recommended)", "1", or "10".
+
+Cleanup picks up flags that are ready to archive, and its jobs run with the permissions of the member who saves the settings, which is this member. Say both in Step 7. Record the settings; do not write them yet.
 
 #### Auto-archival
 
-Only if the user picked auto-archival. Record it for each project. It is a browser step that changes settings, so it happens after "Looks good", in [Step 8](#step-8-apply).
+Only if the user picked auto-archival. For each project, call `get-automations` with `section: "archival"` and `projectKey`. If automatic archival is already on, say so and record no change. If it is off, turning it on needs a person on the Automations page (the MCP can only turn it off or adjust it once it is on), so record a browser step for after "Looks good". If the call says automatic archival is not available, the account does not include it: list it as a follow-up.
 
 ### Step 7: Confirm the plan
 
@@ -229,12 +232,14 @@ Only if the user picked auto-archival. Record it for each project. It is a brows
 
 List every write in the order you will make it. For each write, state the current and the proposed state and the blast radius, using the wording rules from the settings skill's [Confirm before write](../launchdarkly-release-autopilot-settings/SKILL.md#confirm-before-write):
 
-1. **Metrics and release plans** (release plans only): one line per metric to create and per environment, with the plan name, steps, advancement, and metrics.
-2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; this project has no release policy yet)." For a picked capability that a repo override kept off, say the write turns it back on: "Auto-flagging: off → on for this repository (it was turned off for this repository only)."
+1. **Metrics and release plans** (release plans only): one line per metric to create and per environment, with the plan name, rollout steps, advancement, metrics, and that it becomes the environment's default. When the environment already has a default, say that the plan "replaces <current default> as the default".
+   Then one line per project for its **flag release plan**: the plan name, the environments in release order with each one's release plan, and that it becomes the project's default. For an update of the current default, show what changes: its current environments and release plans, then the new ones. A reused or kept plan is "already set up". Add this note: "The flag release plan keeps these release plans even if an environment's default release plan changes later." A new or updated plan is a command the user runs after "Looks good", so add this line: "Auto-releasing is on, but Release Autopilot proposes no release on pull requests until the flag release plan exists."
+2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; release plans are not set up for this project)." For a picked capability that a repo override kept off, say the write turns it back on: "Auto-flagging: off → on for this repository (it was turned off for this repository only)."
 3. **Account settings**: only fields that change, for a picked capability the account has off (see Core Principle 7). If auto-releasing turns on, say it can ship code.
    For a member who is not an admin or owner, list account writes under "Needs an admin" instead, and say an admin can make them with the settings skill. Do not name a settings page; there is none to point to.
-4. **Browser steps after these changes**: bring your own key, auto-cleanup, and auto-archival, one line per project with its link. GitHub, if the user connected it in Step 3, is marked as reported, not verified.
-5. **Follow-ups for the user**: release policies to add, metric events to instrument.
+4. **Auto-cleanup**: one line per project with the schedule, repositories, and pull requests per run. Say that cleanup will open pull requests that remove code, and that its jobs run with this member's permissions.
+5. **Steps you run after these changes**: the flag release plan command, and the browser steps (bring your own key and turning on auto-archival), one line per project with its link. GitHub, if the user connected it in Step 3, is marked as reported, not verified.
+6. **Follow-ups for the user**: release plans to set up, metric events to instrument, and the flag release plan commands to run when this flow cannot run them.
 
 If there are no writes and no browser steps, say so, list the follow-ups, and stop.
 
@@ -243,10 +248,12 @@ If there are no writes and no browser steps, say so, list the follow-ups, and st
 ```
 - [ ] Map acme/demo to project default, with auto-releasing off for this repository
 - [ ] Turn on auto-flagging for the account
-- [ ] In the browser: turn on automated flag cleanup at /projects/default/settings/automations
+- [ ] Create the flag release plan "Default release" for project default: test, then production, each with its environment's default release plan, as the project's default
+- [ ] Turn on weekly flag cleanup for project default in acme/demo, up to 3 pull requests per run
+- [ ] In the browser: turn on automatic archival at /projects/default/settings/automations
 ```
 
-**Setup mode:** use `AskUserQuestion` with header "Confirm":
+**Setup mode:** use `AskUserQuestion` with header "Confirm". Put the full plan (every line above, in the same order) in the preview of "Looks good", or in the question text if the question tool has no preview. The user approves only what the question shows, so never ask with only "Ready to apply?":
 
 - label: "Looks good", description: "Make every change in this plan"
 - label: "Change something", description: "Adjust the plan before you start"
@@ -255,34 +262,47 @@ Only "Looks good" approves the plan. On "Change something", ask what to change, 
 
 ### Step 8: Apply
 
-Make only the writes in the confirmed plan, in this order. Stop at the first failure, report it, and do not continue.
+Make only the writes in the confirmed plan, in this order. Stop at the first failure, report it, and do not continue. The exception is the flag release plan (item 3), which the user runs, and which becomes a follow-up when it is skipped or fails. Make each release plan write as [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md) says, without its "Confirm" question: "Looks good" already confirmed it. If `create-environment-release-plan` fails because the randomization unit is not available for guarded rollouts, nothing else was written: offer the same starter with "No metrics" and confirm the plan again.
 
 1. Release plans only: metrics recorded in Step 6, created in LaunchDarkly with [`launchdarkly-metric-create`](../../metrics/launchdarkly-metric-create/SKILL.md). Skip its instrumentation steps.
-2. Release plans only: `create-release-plan` for each new plan.
-3. `update-automations` with `accountWide: false` for each repo, with `repo: "owner/name"` and `projectKey`. For each picked capability that can work, send `{ "enabled": true }`, because on accounts that use project Automations settings, a capability the repo does not turn on is off. For each capability the user did not pick, or that cannot work yet, send `{ "enabled": false }`, so the repo does not get it from the account settings.
-4. `update-automations` with `accountWide: true` and only the confirmed fields. Never send `autoCleanup`.
+2. Release plans only: `create-environment-release-plan` for each new plan, then `update-default-environment-release-plan` with `default: true` for each plan recorded as an environment's default.
+3. Flag release plan only: a step the user runs, after the release plans it names exist. Show the command for the plan recorded in Step 6: a create, or a replace of the current default in place (same key, still the default, its `version`, the new environments). If Step 6 had no list, show the list command first, and compare the pasted list with the recorded plan. If it shows a default flag release plan, the recorded create is not valid: ask "Update <name>" or "Keep <name>" as in Step 6, show the changed plan, and ask for "Looks good" again, with the changed plan in the question as Step 7 says, before you show any write command. Ask header "Run this command": "Done, here's the output" or "Skip", with the command in the question as `launchdarkly-release-plans` "User-run commands" says, and wait. Check the pasted response against the confirmed plan. If the key is taken, show the command again with the next free key. If the user skips it, or it fails, say so in words, add the commands to the follow-ups, and continue with the next write. Keep auto-releasing on as confirmed.
+4. `update-automations` with `accountWide: false` for each repo, with `repo: "owner/name"` and `projectKey`. For each picked capability that can work, send `{ "enabled": true }`, because on accounts that use project Automations settings, a capability the repo does not turn on is off. For each capability the user did not pick, or that cannot work yet, send `{ "enabled": false }`, so the repo does not get it from the account settings.
+5. `update-automations` with `accountWide: true` and only the confirmed fields. Never send `autoCleanup`.
+6. Auto-cleanup only: `update-automations` with `projectKey` and a `cleanup` object (`schedule`, `repositories`, `maxJobsPerRun`) for each project.
 
-The order matters. When the plan creates release plans, they come first, so that no release can start without the plan the user chose. The account settings come last because, on accounts that still use them, turning a capability on there starts it in every mapped repo that does not turn it off.
+`update-automations` and `update-default-environment-release-plan` require `confirm: true`; pass it only for writes in the confirmed plan.
 
-If a write fails with 403, the member lacks that permission. Report which write failed, list the remaining writes as a checklist for an admin, and stop.
+The order matters. When the plan creates release plans, they come first, then the flag release plan that names them, so that no release can start without the plans the user chose. The account settings come last because, on accounts that still use them, turning a capability on there starts it in every mapped repo that does not turn it off.
+
+If a write fails with 403, the member lacks that permission. Report which write failed, list the remaining writes as a checklist for an admin, and stop. A flag release plan failure does not stop the flow (item 3).
 
 **Browser steps.** After the writes, walk the user through each browser step from Step 7, one at a time, with the link in the question text:
 
 - **Bring your own key:** for each project, `/projects/{projectKey}/settings/automations`, in the "Inference" section. Follow [references/byok.md](references/byok.md). Ask header "AI model": "Done" ("I saved my key in the Automations settings for every project") or "Use LaunchDarkly's for now" ("Skip this. I'll switch to my own key later").
-- **Auto-cleanup:** for each project, exactly `/projects/{projectKey}/settings/automations`, in the "Automated flag cleanup" section. Follow [references/auto-cleanup.md](references/auto-cleanup.md). Ask header "Auto-cleanup": "Done" ("I turned on automated flag cleanup for every project") or "Later" ("Skip this. I'll turn it on from Automations settings later").
-- **Auto-archival:** for each project, exactly `/projects/{projectKey}/settings/automations`, in the "Automatic archival" section. Follow [references/auto-archival.md](references/auto-archival.md). Ask header "Auto-archival": "Done" ("I turned on automatic archival for every project") or "Later" ("Skip this, or the section isn't there yet. I'll turn it on from Automations settings later").
+- **Auto-archival:** for each project, exactly `/projects/{projectKey}/settings/automations`, in the "Automatic archival" section. Follow [references/auto-archival.md](references/auto-archival.md). Ask header "Auto-archival": "Done" ("I turned on automatic archival for every project") or "Later" ("Skip this. I'll turn it on from Automations settings later").
 
 Record each answer as reported by the user. Never do these in Preview mode.
 
 ### Step 9: Verify
 
-1. `get-automations`: `account` matches the plan.
-2. `get-automations` with `repo` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan. If a picked capability is still effectively off for a repo, say which and do not call the setup complete.
-3. With release plans: `get-release-plans` for each environment lists the new plans. With release policies: report the policy state from Step 6.
+1. **GitHub:** `get-automations` returns neither `githubConnectUrl` nor `reposError`. Say "GitHub is connected" only then. With `reposError`, say the GitHub App install could not be read, and do not call the setup complete.
+2. **Repos:** `get-automations` with `repo` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan. If a picked capability is still effectively off for a repo, say which and do not call the setup complete.
+3. **Account:** `get-automations`: `account` matches the plan.
+4. **Release plans:** `get-environment-release-plans` for each environment lists the new plans and the right default.
+5. **Flag release plan:** from the response the user pasted in Step 8: its environments, release plans, and default match the plan. A pasted response that matches is verified. A plan left as a follow-up is not verified. Say "Auto-releasing is on, but Release Autopilot proposes no release on pull requests until the flag release plan exists", give the command, and do not call the setup complete.
+6. **Cleanup and archival:** `get-automations` with `section: "cleanup"` (schedule, repositories, and the flags the next run picks up) and `section: "archival"` for each project. Archival that this read shows on is verified, including after the user turned it on in the browser.
 
-If any change was left for an admin or failed, lead with "Partly set up: waiting on an admin" and the admin checklist, and never call the setup complete. Then report a short checklist with each item marked verified, reported by the user (browser steps the user did in this flow), or already set up (steps the flow skipped because they were already done), then the follow-ups. Tell the user how to see it work; if a change is waiting on an admin, make that conditional ("Once an admin turns on auto-flagging, open a pull request…"):
+If any change was left for an admin or failed, lead with "Partly set up: waiting on an admin" and the admin checklist, and never call the setup complete. Then report:
 
-- Open a pull request in a mapped repo. Auto-flagging reads it within a few minutes and posts its proposed change on the PR; nothing changes until someone replies `@launchdarkly approve` or presses Approve on the check.
+- **What is set up, exactly:** one line per repo (`owner/name` → project, auto-flagging and auto-releasing on or off), one line per environment's default release plan, one line per project for its flag release plan (environments in order, and whether it is the default), and one line per project for cleanup (schedule and repositories) and archival.
+- A checklist with each item marked verified, reported by the user (browser steps the user did in this flow), or already set up (steps the flow skipped because they were already done), then the follow-ups.
+
+Then offer the next steps, each in one line. If a change is waiting on an admin, make them conditional ("Once an admin turns on auto-flagging, …"):
+
+- **Try it with a test pull request.** If auto-flagging is on and the current workspace is a mapped repo, ask header "Test PR": "Help me open one" or "I'll do it later". For "Help me open one", suggest a small change that should ship behind a flag, and make it on a new branch only after the user agrees. Never push to the default branch or to an existing branch. Show the diff, and open it as a draft pull request only after they approve that diff. Ask header "Open PR" with the diff in the preview of "Open it", or in the question text if the question tool has no preview. Then tell them what to expect: auto-flagging reads it within a few minutes and posts its proposed change on the PR, and nothing changes until someone replies `@launchdarkly approve` or presses Approve on the check. Otherwise, just describe that.
+- **Use LaunchDarkly from the terminal and other agents.** The LaunchDarkly MCP server comes with the plugin from [Prerequisites](#prerequisites). The CLI installs with `brew tap launchdarkly/homebrew-tap && brew install ldcli`, or `npm install -g @launchdarkly/ldcli`.
+- **Flag changes before they reach a pull request.** Coding agents can add the flag themselves while writing the change, with the `should-flag-change` and `flag-and-release-change` skills (`npx skills add https://github.com/launchdarkly/ai-tooling --skill flag-and-release-change`).
 - If a PR is not classified, use [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md#why-didnt-my-pr-get-classified) to diagnose it.
 
 ## Edge Cases
@@ -291,7 +311,11 @@ If any change was left for an admin or failed, lead with "Partly set up: waiting
 |-----------|--------|
 | Every settings tool returns 404 | The account does not have the Release Autopilot add-on enabled. Tell the user and stop |
 | Member role is `reader` or `no_access` | Preview mode. End with a checklist for an admin |
-| Release plans return 403 | Use release policies. Create no plans |
+| Environment release plans return an error | Stop release setup for that project, create no plans, keep auto-releasing off there. For the 403 `Plan does not allow this operation`, tell the user to contact LaunchDarkly support |
+| A release plan tool is missing from the server | Skip release setup, keep auto-releasing off, and tell the user to update or reconnect the LaunchDarkly MCP server. Continue with the other capabilities |
+| The user skips the flag release plan commands | List them as a follow-up, keep auto-releasing on, and continue. Never ask for a token in the chat |
+| The project already has a default flag release plan | Reuse it if it matches. Otherwise offer to update it in place (recommended) or keep it. Never create a second plan |
+| A flag release plan command fails (from the pasted output) | Say what failed in words, list the commands as a follow-up, and continue. For `Plan does not allow this operation`, tell the user to contact LaunchDarkly support |
 | Repo not on the install list | Explain the GitHub fix by owner, then list again |
 | GitHub still not connected after "Done" | Likely a different browser account. Follow [references/github-troubleshooting.md](references/github-troubleshooting.md) |
 
@@ -299,17 +323,18 @@ More cases: [references/edge-cases.md](references/edge-cases.md).
 
 ## What NOT to Do
 
-- Don't write before Step 7's "Looks good", or at all in Preview mode.
+- Don't write before Step 7's "Looks good", or at all in Preview mode. In Preview, ask the user to run nothing: list the flag release plan and its commands in the checklist.
+- Don't ask for an API access token in the chat, and don't run REST commands yourself.
 - Don't turn on auto-releasing unless the user picked it, and never send `approvalRequired`.
 - Don't map unpicked repos, iterate over the install list, or remap a repo to another project.
-- Don't act in the user's browser, change release policies, or report a browser step as verified. Don't ask for a browser change before "Looks good" or in Preview mode.
+- Don't act in the user's browser or report a browser step as verified (a read that confirms it, such as the archival section, is verified). Don't open a test pull request without the user's approval. Don't ask for a browser change before "Looks good" or in Preview mode.
 
 ## References
 
-- [references/release-plans.md](references/release-plans.md): creating environment release plans
+- [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md): reading, choosing, and creating environment release plans (starter plans included) and the project's flag release plan
 - [references/modes.md](references/modes.md): Preview and Resume details
 - [references/byok.md](references/byok.md): bring-your-own-key setup
-- [references/auto-cleanup.md](references/auto-cleanup.md) / [references/auto-archival.md](references/auto-archival.md): turning on flag cleanup and archival
+- [references/auto-cleanup.md](references/auto-cleanup.md) / [references/auto-archival.md](references/auto-archival.md): cleanup settings, and turning on archival
 - [references/github-troubleshooting.md](references/github-troubleshooting.md): GitHub still not connected after the user finished
 - [references/edge-cases.md](references/edge-cases.md): edge cases and existing mappings
 - [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md): settings rules, write confirmations, and PR diagnosis
