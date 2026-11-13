@@ -1441,6 +1441,10 @@ tests:
         metric: beta_header
         weight: 3
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:runQuestionShowsCommand
+        metric: run_question_shows_command
+        weight: 2
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:agentNeverUsesToken
         metric: never_uses_token
         weight: 4
@@ -1583,6 +1587,10 @@ tests:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:everyCommandBeta
         metric: beta_header
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:runQuestionShowsCommand
+        metric: run_question_shows_command
         weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:agentNeverUsesToken

@@ -628,6 +628,7 @@ module.exports.missingPlanToolsSkipsRelease = (output) => {
 // { when, text } answer); the agent never runs them.
 
 module.exports.everyCommandBeta = checks.everyCommandBeta;
+module.exports.runQuestionShowsCommand = checks.runQuestionShowsCommand;
 module.exports.agentNeverUsesToken = checks.agentNeverUsesToken;
 
 const lastPlanCreate = (output) => checks.planCreates(output).filter((c) => c.body).pop();

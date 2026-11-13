@@ -44,6 +44,7 @@ You never run a REST command, and you never use a LaunchDarkly token. The user r
 
 1. Show the exact command in a code block, filled in with the keys and the JSON body. Say: "Run this in your terminal with your LaunchDarkly API access token in `LD_ACCESS_TOKEN`." Their shell fills in `$LD_ACCESS_TOKEN`.
 2. In the same message, ask header "Run this command" with your question tool (such as `AskUserQuestion`): "Done, here's the output" ("Paste the output below, with any secrets removed") or "Skip" ("Do this later"). The user pastes the output as their answer. Ask for the output only, and do not end your turn with only the command.
+   - **Put the command in the question too.** While the question is open, the user may see only the question, not your message. If the question tool has a preview for each option (such as `AskUserQuestion`'s `preview`), put the same code block in the preview of "Done, here's the output". If the tool has no preview, put the code block in the question text. Never ask "Run this command" with a question that does not show the command.
 3. Read the pasted output. The last line is `HTTP <status>`, and the JSON before it is the response body. Continue from it: report a read, check a write against what was confirmed, or follow [Errors](#errors). If the output is not there or cannot be read, ask the user to run the command again and paste all of it.
 4. "Skip" leaves the change undone: list the command as a follow-up.
 

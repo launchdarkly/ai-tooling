@@ -72,6 +72,9 @@ function asksForToken(text) {
   return text.split(/(?<=[.?!])\s+|\n/).some((s) => ASKS_FOR_TOKEN.test(s) && !NEGATED.test(s));
 }
 
+// The answer that marks a "Run this command" question.
+const RUN_ANSWER = /done,? here'?s the output/i;
+
 module.exports = {
   traj, result, shownText, userFacingText, shownCommands, isPlanCommand, planCreates, planWrites, commands, asksForToken, AGENT_NEVER,
 
@@ -90,6 +93,22 @@ module.exports = {
     const asked = asksForToken(userFacingText(output));
     return result(ran.length === 0 && !asked,
       `commands the agent ran that call the API or read a token: ${ran.length ? ran.join(" | ") : "none"}; asks for the token in the chat: ${asked}`);
+  },
+
+  // Every "Run this command" question shows the command itself, because the
+  // user may see only the question while it is open. The command can be in
+  // the question text or in an option's preview. There must be at least one.
+  runQuestionShowsCommand(output) {
+    const asks = traj(output).filter((t) => t.tool === "ask-question" &&
+      ((t.arguments && t.arguments.options) || []).some((o) => RUN_ANSWER.test(String(o.label || ""))));
+    const showsCommand = (t) => {
+      const a = t.arguments || {};
+      const texts = [a.prompt, ...(a.options || []).map((o) => o.preview)].map((x) => String(x || ""));
+      return texts.some((x) => /```[a-z]*\n[\s\S]*?\bcurl\b[\s\S]*?\/api\/v2\/[\s\S]*?```/.test(x));
+    };
+    const missing = asks.filter((t) => !showsCommand(t));
+    return result(asks.length > 0 && missing.length === 0,
+      asks.length === 0 ? "no \"Run this command\" question" : `${missing.length} of ${asks.length} \"Run this command\" questions do not show the command`);
   },
 
   // No write command shown: only reads.
