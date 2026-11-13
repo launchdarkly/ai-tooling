@@ -944,3 +944,26 @@ test("a release plan without metrics allows 99000 but not more", () => {
   assert.equal(renderMockResponse({}, planArgs([99000], {}), "create-environment-release-plan", state).error, undefined);
   assert.match(renderMockResponse({}, planArgs([100000], {}), "create-environment-release-plan", state).error, /at most 99000/);
 });
+
+// ---------------------------------------------------------------------------
+// flag-release suite: default environment release plans
+// ---------------------------------------------------------------------------
+
+test("flag-release suite owns a template for every suite tool", () => {
+  const suiteDefs = require("../flag-release/tool-definitions.json").map((def) => def.name);
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  for (const name of suiteDefs) assert.ok(suiteTemplates[name], `no template for ${name}`);
+});
+
+test("flag-release default release plan renders as the environment's default", () => {
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  const state = createMockState();
+  const result = renderMockResponse(suiteTemplates["get-environment-release-plans"], {
+    projectKey: "default",
+    environmentKey: "production",
+  }, "get-environment-release-plans", state);
+  const defaults = result.items.filter((p) => p.default === true);
+  assert.equal(defaults.length, 1);
+  assert.equal(defaults[0].environmentKey, "production");
+  assert.ok(Object.keys(defaults[0].progressiveRelease.metrics).length > 0);
+});
