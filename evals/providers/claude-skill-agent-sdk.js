@@ -35,6 +35,9 @@
  *                            interrupts MCP calls when the agent's first
  *                            action is one (seen 2026-10-28). Use for skills a
  *                            host loads up front, like an agent's system prompt.
+ *   inline_references      - Default false. With inline_skill, also put the
+ *                            skill's references/*.md files into the
+ *                            instructions, for an agent with builtins off.
  *   tool_definitions       - Optional path, relative to evals/, of a JSON
  *                            array of tool definitions for this suite only.
  *                            Each replaces the shared definition of the same
@@ -49,6 +52,12 @@
  *   exclude_mcp_tools      - Optional list of mock tool names to hide, e.g.
  *                            older duplicates the skill's real MCP server
  *                            doesn't have.
+ *   scrub_ld_credentials   - Default false. When true, remove LaunchDarkly
+ *                            credential variables (LD_ACCESS_TOKEN,
+ *                            LD_BASE_URI, LD_API_KEY, LAUNCHDARKLY_*) from the
+ *                            agent's environment, so a suite with builtins
+ *                            on can check that the agent never uses a token
+ *                            without any real account in reach.
  *   expose_ask_question    - Default false. When true, expose a second in-process
  *                            MCP server with an `ask-question` tool that records
  *                            calls into the trajectory and returns a canned answer.
@@ -73,6 +82,11 @@
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
  *                                 successive `ask-question` calls; an empty
  *                                 array is a dismissed question (no selection).
+ *                                 An entry { command: "<regex>", text: "..." } is
+ *                                 output the user pasted after running a command the
+ *                                 agent showed. In match mode it answers a question
+ *                                 only when no option answer fits and the last shown
+ *                                 command ("METHOD /api/v2/...") matches the regex.
  *                                 Calls past the end get the first option.
  *   mock_ask_question_match     - when true, each `ask-question` call takes the first
  *                                 unused scripted answer whose entries all match its
@@ -148,7 +162,33 @@ function matchOption(want, options) {
  * mark it used, and return the matched ids. Returns undefined when no
  * scripted answer applies.
  */
-function pickAnswer(answers, idx, options, matchMode, used) {
+// The last LaunchDarkly REST command shown to the user, as "METHOD /path",
+// from curl code blocks in the given texts (assistant turns, then the
+// question prompt). Returns "" when none was shown.
+function lastShownCommand(texts) {
+  let last = "";
+  for (const text of texts) {
+    for (const m of String(text || "").matchAll(/```[a-z]*\n([\s\S]*?)```/g)) {
+      const block = m[1];
+      if (!/\bcurl\b/.test(block)) continue;
+      const path = (block.match(/https?:\/\/[^\s"']*?(\/api\/v2\/[^\s"'?]*)/) || [])[1];
+      if (!path) continue;
+      const method = (block.match(/-X\s+([A-Z]+)/) || [])[1] || "GET";
+      last = `${method} ${path}`;
+    }
+  }
+  return last;
+}
+
+function pickAnswer(answers, idx, options, matchMode, used, command, prompt) {
+  // A pasted answer, { command: "<regex on METHOD /path>", text: "..." },
+  // stands for output the user pasted after running a command the agent
+  // showed. In match mode, scripted option answers win; a paste answers a
+  // question only when no option answer fits it, the question is the
+  // "Run this command" step (its prompt says so, or an option asks for the
+  // output), and the last command shown matches its regex. In order mode,
+  // it answers its turn.
+  const isPaste = (ans) => ans && !Array.isArray(ans) && typeof ans === "object" && typeof ans.text === "string";
   const resolves = (ans) =>
     Array.isArray(ans) &&
     ans.length > 0 &&
@@ -156,11 +196,21 @@ function pickAnswer(answers, idx, options, matchMode, used) {
   let chosen;
   if (matchMode) {
     const hit = answers.findIndex((ans, i) => !used.has(i) && resolves(ans));
-    if (hit === -1) return undefined;
-    used.add(hit);
-    chosen = answers[hit];
-    return chosen.map((want) => matchOption(want, options));
+    if (hit !== -1) {
+      used.add(hit);
+      chosen = answers[hit];
+      return chosen.map((want) => matchOption(want, options));
+    }
+    const runStep = /run this command/i.test(String(prompt || "")) ||
+      (options || []).some((o) => /output/i.test(String(o.label || "")));
+    const paste = command && runStep
+      ? answers.findIndex((ans, i) => !used.has(i) && isPaste(ans) && typeof ans.command === "string" && new RegExp(ans.command).test(command))
+      : -1;
+    if (paste === -1) return undefined;
+    used.add(paste);
+    return [answers[paste].text];
   }
+  if (isPaste(answers[idx])) return [answers[idx].text];
   // Order mode is unchanged: the scripted answer is returned as written,
   // and an explicit [] is a dismissed question (no selection).
   chosen = answers[idx];
@@ -265,9 +315,30 @@ function overrideFor(overrides, toolName, callIndex, args, state) {
 
 // The skill's SKILL.md body (frontmatter removed), wrapped for the agent's
 // instructions when a suite sets inline_skill.
-function skillInstructions(markdown) {
+function skillInstructions(markdown, references = []) {
   const body = markdown.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---(\r?\n|$)/, "").trim();
-  return `Follow the skill below. It is your procedure for this run.\n\n<skill>\n${body}\n</skill>`;
+  const refs = references
+    .map((r) => `\n\n<reference path="${r.path}">\n${r.text.trim()}\n</reference>`)
+    .join("");
+  return `Follow the skill below. It is your procedure for this run.\n\n<skill>\n${body}\n</skill>${refs}`;
+}
+
+// The skill's references/*.md files, for inline_references, so an agent
+// with builtins off can still follow links into them.
+function readReferences(skillSource) {
+  const dir = path.join(skillSource, "references");
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith(".md")).sort()
+    .map((f) => ({ path: `references/${f}`, text: fs.readFileSync(path.join(dir, f), "utf-8") }));
+}
+
+// The agent's environment with LaunchDarkly credentials removed
+// (scrub_ld_credentials).
+const LD_CREDENTIAL_VARS = ["LD_ACCESS_TOKEN", "LD_BASE_URI", "LD_API_KEY", "LAUNCHDARKLY_ACCESS_TOKEN", "LAUNCHDARKLY_API_KEY"];
+function scrubLdCredentials(baseEnv) {
+  const env = { ...baseEnv };
+  for (const name of LD_CREDENTIAL_VARS) delete env[name];
+  return env;
 }
 
 // Hide the named mock tools from a suite, so the agent sees only the tools its
@@ -338,6 +409,8 @@ class ClaudeSkillAgentSdk {
     }
     this.mockTemplates = { ...mockTemplates, ...readSuiteJson(config.tool_mocks, {}) };
     this.inlineSkill = Boolean(config.inline_skill);
+    this.inlineReferences = Boolean(config.inline_references);
+    this.scrubLdCredentials = Boolean(config.scrub_ld_credentials);
 
     const source = resolveSkillSource(this.skillSlug);
     if (!source) {
@@ -409,6 +482,7 @@ class ClaudeSkillAgentSdk {
     const trajectory = [];
     let currentTurn = 0;
     const mockState = createMockState();
+
     const toolCallCounts = {};
 
     const mcpTools = exposeMcpTools
@@ -481,7 +555,8 @@ class ClaudeSkillAgentSdk {
             },
             async (args) => {
               const idx = askQuestionCallCount++;
-              const picked = pickAnswer(askQuestionAnswers, idx, args.options, matchAnswers, usedAnswers);
+              const command = lastShownCommand([...assistantTurns.map((t) => t.text), args.prompt]);
+              const picked = pickAnswer(askQuestionAnswers, idx, args.options, matchAnswers, usedAnswers, command, args.prompt);
               const scripted = picked !== undefined;
               let selected;
               if (scripted) {
@@ -535,7 +610,10 @@ class ClaudeSkillAgentSdk {
         ? "An `ask-question` tool is available for blocking decision points where the skill says to ask the user a structured question with options."
         : null,
       this.inlineSkill
-        ? skillInstructions(fs.readFileSync(path.join(this.skillSource, "SKILL.md"), "utf-8"))
+        ? skillInstructions(
+            fs.readFileSync(path.join(this.skillSource, "SKILL.md"), "utf-8"),
+            this.inlineReferences ? readReferences(this.skillSource) : [],
+          )
         : null,
       "If the user message includes a <codebase_context> block, treat it as the authoritative description of the project. If you can also read files directly (Read/Glob/Bash), you may do so — the scaffolded files will match what the context describes.",
       "Do not run package manager install commands (`npm install`, `npm ci`, `yarn add`, `pnpm add`, `pnpm install`). Simulate them as having completed successfully.",
@@ -558,7 +636,7 @@ class ClaudeSkillAgentSdk {
       allowDangerouslySkipPermissions: true,
       persistSession: false,
       env: {
-        ...process.env,
+        ...(this.scrubLdCredentials ? scrubLdCredentials(process.env) : process.env),
         CLAUDE_CONFIG_DIR: isolatedConfig,
       },
       agent: "eval-agent",
@@ -577,6 +655,12 @@ class ClaudeSkillAgentSdk {
 
     if (!this.allowBuiltins) {
       queryOptions.tools = [];
+    }
+    // With builtins on, the structured question must go through the
+    // harness's ask-question tool, which returns the scripted answers. The
+    // built-in AskUserQuestion has no one to answer it in a headless run.
+    if (this.allowBuiltins && this.exposeAskQuestion) {
+      queryOptions.disallowedTools = ["AskUserQuestion"];
     }
 
     let finalText = "";
@@ -767,6 +851,9 @@ module.exports.resolveExposeMcpTools = resolveExposeMcpTools;
 module.exports.filterToolDefs = filterToolDefs;
 module.exports.mergeToolDefs = mergeToolDefs;
 module.exports.skillInstructions = skillInstructions;
+module.exports.readReferences = readReferences;
 module.exports.overrideFor = overrideFor;
 module.exports.matchOption = matchOption;
 module.exports.pickAnswer = pickAnswer;
+module.exports.lastShownCommand = lastShownCommand;
+module.exports.scrubLdCredentials = scrubLdCredentials;
