@@ -299,11 +299,12 @@ Record each answer as reported by the user. Never do these in Preview mode.
 2. **Repos:** `get-automations` with `repo` for each repo: mapped to the right project, effective auto-flagging and auto-releasing match the plan. If a picked capability is still effectively off for a repo, say which and do not call the setup complete.
 3. **Account:** `get-automations`: `account` matches the plan.
 4. **Release plans:** `get-environment-release-plans` for each environment lists the new plans and the right default.
-5. **Flag release plan:** with the tools, `get-flag-release-plans` with `flagReleasePlanKey`. Without them, the response the user pasted in Step 8.
-   - **It matches** (environments, release plans, and default): it is verified, and it does not block calling the setup complete.
-   - **It was left as a follow-up** (skipped, or the write failed): it does not exist. Say "Auto-releasing is on, but Release Autopilot proposes no release on pull requests until the flag release plan exists", give the command when there is no tool, and do not call the setup complete.
-   - **The read fails:** the plan may exist. Say that it could not be verified, and where to check it: `/projects/{projectKey}/settings/releases?tab=flag-release-plans`. Do not say that it does not exist, and do not call the setup complete.
-   - **The read does not match:** the plan exists, and Release Autopilot proposes releases from it as it is. Say what differs from the confirmed plan. Offer to update it to the confirmed plan, with its own confirmation, and do not call the setup complete until it matches.
+5. **Flag release plan:** start from what Step 8 did with it.
+   - **Left as a follow-up** (the user skipped the command, or the write failed): the plan does not exist, so do not read it back. Say "Auto-releasing is on, but Release Autopilot proposes no release on pull requests until the flag release plan exists", give the command when there is no tool, and do not call the setup complete.
+   - **Written in Step 8, or kept as already set up:** read it back. With the tools, use `get-flag-release-plans` with `flagReleasePlanKey`. Without them, use the response the user pasted in Step 8.
+     - **It matches** (environments, release plans, and default): it is verified, and it does not block calling the setup complete.
+     - **It does not match:** the plan exists, and Release Autopilot proposes releases from it as it is. Say what differs from the confirmed plan. Offer to update it to the confirmed plan, with its own confirmation, and do not call the setup complete until it matches.
+     - **The read fails** (any error, including not found): the write was reported, but it could not be verified. Say so, and where to check it: `/projects/{projectKey}/settings/releases?tab=flag-release-plans`. Do not say that it does not exist, and do not call the setup complete.
 6. **Cleanup and archival:** `get-automations` with `section: "cleanup"` (schedule, repositories, and the flags the next run picks up) and `section: "archival"` for each project. Archival that this read shows on is verified, including after the user turned it on in the browser.
 
 If any change was left for an admin or failed, lead with "Partly set up: waiting on an admin" and the admin checklist, and never call the setup complete. Then report:
