@@ -411,3 +411,113 @@ module.exports.noFeatureMissingClaim = (output) => {
   const hit = (userFacingText(output).match(LACKS_FEATURE) || [])[0];
   return result(!hit, hit ? `says the account lacks the feature: "${hit}"` : "does not say the account lacks flag release plans");
 };
+
+// ---------------------------------------------------------------------------
+// Findings from a live run of the skills (the blitz test).
+
+// A flag release plan read gives only each environment's release plan key.
+// The reply names each environment's release plan by its real name (from the
+// environment's read), and never shows the key as a name. Code blocks don't
+// count, because a command the user runs may hold a key.
+const ENV_PLAN_NAMES = [/test progressive rollout/i, /production progressive rollout/i];
+const ENV_PLAN_KEYS = /\b(test|prod)-progressive\b/i;
+const withoutCode = (text) => String(text || "").replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+const namesNotKeys = (text) => {
+  const plain = withoutCode(text);
+  const missing = ENV_PLAN_NAMES.filter((re) => !re.test(plain)).map(String);
+  const key = (plain.match(ENV_PLAN_KEYS) || [])[0];
+  return { missing, key };
+};
+module.exports.listUsesEnvPlanNames = (output) => {
+  const steps = traj(output);
+  const read = new Set(steps.filter((t) => t.tool === "get-environment-release-plans").map((t) => (t.arguments || {}).environmentKey));
+  const both = read.has("test") && read.has("production");
+  const { missing, key } = namesNotKeys((output && output.response) || "");
+  return result(both && missing.length === 0 && !key,
+    `read both environments' release plans: ${both}; names missing: ${missing.join(", ") || "none"}; key shown as a name: ${key || "none"}`);
+};
+
+// The "Make this change" question names each environment's release plan by
+// its real name, not its key.
+module.exports.confirmUsesEnvPlanNames = (output) => {
+  const steps = traj(output);
+  const q = steps.find(isConfirm);
+  if (!q) return result(false, "no \"Make this change\" question");
+  const a = q.arguments || {};
+  const text = [a.prompt, ...(a.options || []).map((o) => o.preview)].map((x) => String(x || "")).join("\n");
+  const { missing, key } = namesNotKeys(text);
+  return result(missing.length === 0 && !key, `names missing from the question: ${missing.join(", ") || "none"}; key shown as a name: ${key || "none"}`);
+};
+
+// A create while the project has a default: the "Flag release plan" question
+// (Keep <name> / Create another plan) comes before the "Confirm" question and
+// before any flag release plan write.
+const isFlagPlanQuestion = (t) => t.tool === "ask-question" && (() => {
+  const labels = ((t.arguments && t.arguments.options) || []).map((o) => String(o.label || ""));
+  return labels.some((l) => /^keep staged rollout/i.test(l)) && labels.some((l) => /create another plan/i.test(l));
+})();
+module.exports.flagPlanQuestionFirst = (output) => {
+  const steps = traj(output);
+  const qi = steps.findIndex(isFlagPlanQuestion);
+  const ci = steps.findIndex(isConfirm);
+  const wi = steps.findIndex((t) => FLAG_PLAN_WRITES.has(t.tool));
+  const beforeConfirm = qi !== -1 && (ci === -1 || qi < ci);
+  const beforeWrite = qi !== -1 && (wi === -1 || qi < wi);
+  return result(beforeConfirm && beforeWrite,
+    `"Flag release plan" question asked: ${qi !== -1}; before "Confirm": ${beforeConfirm}; before any write: ${beforeWrite}`);
+};
+
+// Every "Confirm" question has exactly two options: "Make this change" and
+// "Cancel". A different change is not a third option.
+module.exports.confirmHasTwoOptions = (output) => {
+  const qs = traj(output).filter(isConfirm);
+  const bad = qs.filter((t) => {
+    const labels = ((t.arguments && t.arguments.options) || []).map((o) => String(o.label || ""));
+    return labels.length !== 2 || !labels.some((l) => CONFIRM.test(l)) || !labels.some((l) => /^cancel/i.test(l));
+  });
+  return result(qs.length > 0 && bad.length === 0,
+    qs.length === 0 ? "no \"Confirm\" question" : bad.length ? `options: ${bad.map((t) => JSON.stringify((t.arguments.options || []).map((o) => o.label))).join("; ")}` : "every confirm has Make this change and Cancel only");
+};
+
+// "Create another plan": a new plan that is not the default, and the
+// project's default is not written.
+module.exports.mcpCreatesAnotherPlan = (output) => {
+  const c = okFlagCalls(output, "create-flag-release-plan").pop();
+  if (!c) return result(false, "no successful create-flag-release-plan call");
+  const a = c.arguments || {};
+  const touched = flagCalls(output, "update-flag-release-plan").some((t) => (t.arguments || {}).flagReleasePlanKey === "staged-rollout");
+  const pass = a.key !== "staged-rollout" && a.default !== true && !touched;
+  return result(pass, `key ${a.key}; default: ${a.default}; writes to Staged rollout: ${touched}`);
+};
+
+// "Run this command" questions, and the commands each one holds (in its
+// question text or the preview of an option).
+const runAsks = (output) => traj(output).filter((t) => t.tool === "ask-question" && /run this command|here'?s the output/i.test(JSON.stringify(t.arguments || {})));
+const commandsIn = (t) => {
+  const a = t.arguments || {};
+  const text = [a.prompt, ...(a.options || []).map((o) => o.preview)].map((x) => String(x || "")).join("\n");
+  return checks.shownCommands({ trajectory: [], assistant_turns: [], response: text });
+};
+
+// Read-only request with the flag release plan tools missing: one "Run this
+// command" question, holding the list command.
+module.exports.readOnlyAsksToRunList = (output) => {
+  const asks = runAsks(output);
+  const holdsList = asks.length === 1 && commandsIn(asks[0]).some((c) => c.method === "GET" && /\/flag-release-plans$/.test(c.path));
+  return result(asks.length === 1 && holdsList, `"Run this command" questions: ${asks.length}; the question holds the list command: ${holdsList}`);
+};
+
+// Read-only: any "Run this command" question asks for a read only.
+module.exports.asksToRunOnlyReads = (output) => {
+  const asks = runAsks(output);
+  const writes = asks.flatMap(commandsIn).filter((c) => c.method !== "GET");
+  return result(writes.length === 0, writes.length ? `asks the user to run a write: ${writes.map((c) => `${c.method} ${c.path}`).join(", ")}` : `"Run this command" questions ask for reads only (${asks.length})`);
+};
+
+// The flag release plan tools roll out behind a flag, so updating or
+// reconnecting the MCP server does not add them: do not say it does.
+const RECONNECT = /\b(update|updating|reconnect|reconnecting|upgrade|restart)\b[^.\n]{0,60}\bmcp\b|\bmcp server\b[^.\n]{0,60}\b(update|reconnect|upgrade|out of date|older)\b/i;
+module.exports.noReconnectAdvice = (output) => {
+  const hit = (userFacingText(output).match(RECONNECT) || [])[0];
+  return result(!hit, hit ? `tells the user to update or reconnect: "${hit}"` : "no update or reconnect advice");
+};

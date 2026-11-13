@@ -98,20 +98,21 @@ module.exports = {
   // Every "Run this command" question shows the command itself, because the
   // user may see only the question while it is open. The command can be in
   // the question text or in the preview of the "Done, here's the output"
-  // option. A preview on another option (such as Skip) does not count.
-  // There must be at least one such question.
+  // option. A preview on another option (such as Skip) does not count, and
+  // neither does a preview that only points at the command ("full command
+  // above") when the question text does not hold it. There must be at least
+  // one such question.
   runQuestionShowsCommand(output) {
     const asks = traj(output).filter((t) => t.tool === "ask-question" &&
       ((t.arguments && t.arguments.options) || []).some((o) => RUN_ANSWER.test(String(o.label || ""))));
-    const showsCommand = (t) => {
-      const a = t.arguments || {};
-      const runOpts = (a.options || []).filter((o) => RUN_ANSWER.test(String(o.label || "")));
-      const texts = [a.prompt, ...runOpts.map((o) => o.preview)].map((x) => String(x || ""));
-      return texts.some((x) => /```[a-z]*\n[\s\S]*?\bcurl\b[\s\S]*?\/api\/v2\/[\s\S]*?```/.test(x));
-    };
+    const CODE = /```[a-z]*\n[\s\S]*?\bcurl\b[\s\S]*?\/api\/v2\/[\s\S]*?```/;
+    const runPreviews = (t) => ((t.arguments || {}).options || []).filter((o) => RUN_ANSWER.test(String(o.label || ""))).map((o) => String(o.preview || ""));
+    const showsCommand = (t) => [String((t.arguments || {}).prompt || ""), ...runPreviews(t)].some((x) => CODE.test(x));
     const missing = asks.filter((t) => !showsCommand(t));
+    const refs = missing.filter((t) => runPreviews(t).some((p) => p.trim())).length;
     return result(asks.length > 0 && missing.length === 0,
-      asks.length === 0 ? "no \"Run this command\" question" : `${missing.length} of ${asks.length} \"Run this command\" questions do not show the command`);
+      asks.length === 0 ? "no \"Run this command\" question" :
+        `${missing.length} of ${asks.length} \"Run this command\" questions do not show the command${refs ? ` (${refs} with a preview that only points at it)` : ""}`);
   },
 
   // With the flag release plan tools on the server, the agent shows no REST

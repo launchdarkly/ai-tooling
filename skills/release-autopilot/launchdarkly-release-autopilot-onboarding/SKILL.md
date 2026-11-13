@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # LaunchDarkly Release Autopilot Onboarding
@@ -198,7 +198,7 @@ Run each part of this step only for a capability the user picked in Step 2, and 
 
 Only if the user picked auto-releasing. Otherwise skip to [Auto-cleanup](#auto-cleanup) or [Auto-archival](#auto-archival), and do not ask about environments or look up release plans.
 
-For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-projects` with `projectKey`, or ask). An environment is production when `get-projects` marks it `critical: true`. If no chosen environment has `critical: true`, or the read does not show `critical`, ask header "Production", `multiSelect: true`, which chosen environments serve production traffic, with "None" as an option. Then call `get-environment-release-plans` for the first chosen environment only, and wait for its result before calling it for any other environment:
+For each project from Step 4, choose environments: use `AskUserQuestion` with header "Environments", `multiSelect: true`, offering the project's environments (from `get-projects` with `projectKey`, or ask). An environment is production when `get-projects` marks it `critical: true`. If no chosen environment has `critical: true`, or the read does not show `critical`, ask header "Production", `multiSelect: true`, which chosen environments serve production traffic, with "None" as an option. Ask it right after the environments question, before you read any environment's release plans. Then call `get-environment-release-plans` for the first chosen environment only, and wait for its result before calling it for any other environment:
 
 - It succeeds: follow [Release plans](#release-plans).
 - It fails: stop release setup for this project, and create no plans. Record a repo override that turns auto-releasing off (`{ "enabled": false }`) for each repo in the project, and list "set up release plans for this project" as a follow-up. For 403 `Plan does not allow this operation`, tell the user that release plans are not available on their account and to contact LaunchDarkly support. The 403 is account-wide, so do not call it for other projects. For any other error, tell the user what failed.
@@ -237,7 +237,7 @@ Only if the user picked auto-archival. For each project, call `get-automations` 
 
 List every write in the order you will make it. For each write, state the current and the proposed state and the blast radius, using the wording rules from the settings skill's [Confirm before write](../launchdarkly-release-autopilot-settings/SKILL.md#confirm-before-write):
 
-1. **Metrics and release plans** (release plans only): one line per metric to create and per environment, with the plan name, rollout steps, advancement, metrics, and that it becomes the environment's default. When the environment already has a default, say that the plan "replaces <current default> as the default".
+1. **Metrics and release plans** (release plans only): one line per metric to create and per environment, with the plan name, rollout steps, advancement, metrics, and that it becomes the environment's default. When the environment already has a default, say that the plan "replaces <current default> as the default". Keeping the plan that a flag release plan already names for an environment does not change that environment's default: do not say that it becomes the default.
    Then one line per project for its **flag release plan**: the plan name, the environments in release order with each one's release plan, and that it becomes the project's default. For an update of the current default, show what changes: its current environments and release plans, then the new ones. A reused or kept plan is "already set up". Add this note: "The flag release plan keeps these release plans even if an environment's default release plan changes later." With the flag release plan tools, a new or updated plan is a write after "Looks good", like the other writes. Without them, it is a command the user runs after "Looks good", so add this line: "Auto-releasing is on, but Release Autopilot proposes no release on pull requests until the flag release plan exists."
 2. **Repo mappings and overrides**: one line per repo, naming the project and the **effective** auto-flagging and auto-releasing state after every write in this plan. For a capability the user did not pick, or that cannot work yet, the mapping sends a repo override that turns it off. Say so: "Auto-releasing: off for this repository (the account has it on; release plans are not set up for this project)." For a picked capability that a repo override kept off, say the write turns it back on: "Auto-flagging: off → on for this repository (it was turned off for this repository only)."
 3. **Account settings**: only fields that change, for a picked capability the account has off (see Core Principle 7). If auto-releasing turns on, say it can ship code.
@@ -248,7 +248,7 @@ List every write in the order you will make it. For each write, state the curren
 
 If there are no writes and no browser steps, say so, list the follow-ups, and stop.
 
-**Preview mode:** the final message contains only the heading "Changes an admin would make", the checklist (one line per change), and any follow-ups. Do not repeat the account state, and do not ask for confirmation. For example:
+**Preview mode:** the final message contains only the heading "Changes an admin would make", the checklist (one line per change), and any follow-ups. List only changes: leave out anything that needs no change (such as a plan that is already set up), and add no other section for it. Do not repeat the account state, and do not ask for confirmation. For example:
 
 ```
 - [ ] Map acme/demo to project default, with auto-releasing off for this repository

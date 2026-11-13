@@ -16,6 +16,10 @@
 # listed, the created plan, a 409, a 403, and a pasted token. The MCP cases
 # check the list, a create as the default, an update in place, making
 # another plan the default, and that no write comes before "Make this change".
+# Cases from a live run check that environment release plans are named by
+# their real names, that a read-only request without the tools still asks
+# the user to run the list, and that a create while a default exists asks
+# "Flag release plan" before a two-option "Confirm".
 description: "Evaluation of the release plans skill"
 
 prompts:
@@ -247,9 +251,10 @@ tests:
         weight: 4
 
   # ------------------------------------------------------------------
-  # Read only: describe the plan, show no write command.
+  # Read only: describe the plan. The user may be asked to run the list
+  # (a read), never a write.
   # ------------------------------------------------------------------
-  - description: "Preview: describes the plan it would create, asks to run nothing"
+  - description: "Preview: describes the plan it would create, asks the user to run reads only"
     vars:
       max_turns: 18
       exclude_mcp_tools: *no_flag_plan_tools
@@ -260,14 +265,53 @@ tests:
       mock_ask_question_answers:
         - ["Use this plan"]
         - ["Use this plan"]
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [], \"totalCount\": 0, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
     assert:
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:previewDescribesPlan
         metric: describes_plan
         weight: 2
       - type: javascript
-        value: file://../launchdarkly-release-plans/assertions.js:asksToRunNothing
-        metric: asks_to_run_nothing
+        value: file://../launchdarkly-release-plans/assertions.js:asksToRunOnlyReads
+        metric: asks_to_run_reads_only
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Read only, with the flag release plan tools missing (a live run found
+  # this): "show me" still asks the user to run the list command in one
+  # "Run this command" question, reads the pasted output, and does not tell
+  # the user to update or reconnect the MCP server.
+  # ------------------------------------------------------------------
+  - description: "Read only, tools missing: one Run this command question with the list, reads the paste, no reconnect advice"
+    vars:
+      max_turns: 14
+      exclude_mcp_tools: *no_flag_plan_tools
+      mock_ask_question_match: true
+      user_request: "Show me the flag release plans in LaunchDarkly project default."
+      mock_overrides:
+        get-environment-release-plans: *both_envs
+      mock_ask_question_answers:
+        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e114\", \"version\": 1, \"name\": \"Staged rollout\", \"default\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"test\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}, {\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive-2\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}, {\"key\": \"production-only\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e115\", \"version\": 1, \"name\": \"Production only\", \"default\": false, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"isImmediate\": true, \"triggerType\": \"flag_eval\"}]}], \"totalCount\": 2, \"_links\": {\"self\": {\"href\": \"/api/v2/projects/default/flag-release-plans\"}}}\nHTTP 200" }
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:readOnlyAsksToRunList
+        metric: read_only_asks_to_run_list
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:listReportsPlans
+        metric: lists_plans
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:noReconnectAdvice
+        metric: no_reconnect_advice
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:noWriteCommands
+        metric: no_writes
+        weight: 2
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:agentNeverUsesToken
+        metric: never_uses_token
         weight: 3
       - type: javascript
         value: file://../launchdarkly-release-plans/assertions.js:agentNeverUsesToken
@@ -850,3 +894,102 @@ tests:
         value: file://../launchdarkly-release-plans/assertions.js:cancelWritesNothing
         metric: cancel_writes_nothing
         weight: 4
+
+  # ------------------------------------------------------------------
+  # Live run findings, with the MCP tools. The environment release plans
+  # have names that differ from their keys, so a reply that shows a key,
+  # or makes up a name from it, fails.
+  # ------------------------------------------------------------------
+  # List: the flag release plan read gives only the keys; the reply names
+  # each environment's release plan from the environment's read.
+  - description: "MCP list: names each environment's release plan by its real name, not its key"
+    vars:
+      max_turns: 12
+      mock_ask_question_match: true
+      user_request: "Show me the flag release plans in LaunchDarkly project default."
+      mock_overrides:
+        get-environment-release-plans: &named_envs
+          by_arg: environmentKey
+          cases:
+            test:
+              items:
+                - { key: test-progressive, name: Test progressive rollout, environmentKey: test, default: true, progressiveRelease: *progressive }
+              totalCount: 1
+            production:
+              items:
+                - { key: prod-progressive, name: Production progressive rollout, environmentKey: production, default: true, progressiveRelease: *progressive }
+              totalCount: 1
+          default: { items: [], totalCount: 0 }
+        get-flag-release-plans:
+          flagReleasePlans:
+            - key: staged-rollout
+              name: Staged rollout
+              default: true
+              version: 1
+              executionMode: sequential
+              applicationKeys: []
+              environments:
+                - { environmentKey: test, environmentReleasePlanKey: test-progressive, isImmediate: false, triggerType: flag_eval }
+                - { environmentKey: production, environmentReleasePlanKey: prod-progressive, isImmediate: false, triggerType: flag_eval }
+          totalCount: 1
+          hasMore: false
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:listUsesEnvPlanNames
+        metric: env_plan_names
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:noCommandsShown
+        metric: no_commands_shown
+        weight: 2
+
+  # Create while the project has a default (Staged rollout): the "Flag
+  # release plan" question comes before "Confirm" and before any write,
+  # "Confirm" has only "Make this change" and "Cancel", and it names each
+  # environment's release plan by its real name. "Create another plan"
+  # creates a plan that is not the default.
+  - description: "MCP create while a default exists: Flag release plan asked first, Confirm has two options and real plan names"
+    vars:
+      max_turns: 20
+      mock_ask_question_match: true
+      user_request: "Create a flag release plan named Release train in LaunchDarkly project default: test first, then production, each with its environment's default release plan."
+      mock_overrides:
+        get-environment-release-plans: *named_envs
+        get-flag-release-plans:
+          flagReleasePlans:
+            - key: staged-rollout
+              name: Staged rollout
+              default: true
+              version: 1
+              executionMode: sequential
+              applicationKeys: []
+              environments:
+                - { environmentKey: production, environmentReleasePlanKey: prod-progressive, isImmediate: false, triggerType: flag_eval }
+          totalCount: 1
+          hasMore: false
+      mock_ask_question_answers:
+        - ["Use this plan"]
+        - ["Use this plan"]
+        - ["Create another plan"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:flagPlanQuestionFirst
+        metric: flag_plan_question_first
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmHasTwoOptions
+        metric: confirm_two_options
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmUsesEnvPlanNames
+        metric: confirm_env_plan_names
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:mcpCreatesAnotherPlan
+        metric: creates_another_plan
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
+        metric: confirms_before_write
+        weight: 3
