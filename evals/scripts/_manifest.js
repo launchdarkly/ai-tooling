@@ -11,6 +11,8 @@
  *   skillKey - identifier used in eval-scores.json and README badges
  *   skillDir - path from repo root to the skill source directory
  *   readme   - skill README path from repo root for badge rendering
+ *   shards   - optional; run the suite as this many CI matrix jobs
+ *              ("<suite>#1" ... "<suite>#N"), see scripts/shards.js
  */
 const SUITES = [
   {
@@ -84,6 +86,8 @@ const SUITES = [
     skillKey: "release-autopilot/launchdarkly-release-autopilot-onboarding",
     skillDir: "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
     readme: "skills/release-autopilot/launchdarkly-release-autopilot-onboarding/README.md",
+    // About 600 agent turns: one job took 17-19 minutes, three take about 6.
+    shards: 3,
   },
   {
     suite: "launchdarkly-release-plans",

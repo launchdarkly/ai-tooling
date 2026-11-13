@@ -201,3 +201,16 @@ test("picksDefaultAmongComplete: offers both plans, sets the chosen default, cre
   assert.equal(frp.picksDefaultAmongComplete({ trajectory: [confirm(), def] }).pass, false);
   assert.equal(frp.picksDefaultAmongComplete({ trajectory: [ask, envCreate("production", "progressive"), def] }).pass, false);
 });
+
+test("existingPlanSetAsDefault wants Gradual set as the default and no create", () => {
+  const setGradual = { tool: "update-default-environment-release-plan", arguments: { environmentKey: "production", releasePlanKey: "gradual", default: true } };
+  assert.equal(frp.existingPlanSetAsDefault({ trajectory: [setGradual] }).pass, true);
+  assert.equal(frp.existingPlanSetAsDefault({ trajectory: [envCreate("production", "progressive"), setGradual] }).pass, false);
+  assert.equal(frp.existingPlanSetAsDefault({ trajectory: [{ ...setGradual, arguments: { ...setGradual.arguments, releasePlanKey: "fast" } }] }).pass, false);
+});
+
+test("saysReplacesDefault looks for the replaced default by name", () => {
+  assert.equal(frp.saysReplacesDefault(out([], { response: "Gradual replaces Fast as the default for production." })).pass, true);
+  assert.equal(frp.saysReplacesDefault(out([turn(2, "Gradual replaces **Fast** as the default.")])).pass, true);
+  assert.equal(frp.saysReplacesDefault(out([], { response: "Gradual becomes the default for production." })).pass, false);
+});

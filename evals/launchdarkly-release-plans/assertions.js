@@ -275,3 +275,18 @@ module.exports.picksDefaultAmongComplete = (output) => {
   const created = steps.filter((t) => t.tool === "create-environment-release-plan").length;
   return result(offered && set && created === 0, `offers both plans: ${offered}; sets gradual as the default: ${set}; plans created: ${created}`);
 };
+
+// A complete plan becomes the default: Gradual is set as the default, and no
+// plan is created.
+module.exports.existingPlanSetAsDefault = (output) => {
+  const steps = traj(output);
+  const created = steps.filter((t) => t.tool === "create-environment-release-plan").length;
+  const def = steps.some((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).releasePlanKey === "gradual" && t.arguments.default === true);
+  return result(created === 0 && def, `plans created: ${created}; existing plan set as default: ${def}`);
+};
+
+// Making another plan the default says which default it replaces.
+module.exports.saysReplacesDefault = (output) => {
+  const pass = /replaces\s+[`"*]*(fast|fast rollout)[`"*]*\s+as\s+the\s+default/i.test(userFacingText(output));
+  return result(pass, pass ? "says the plan replaces Fast as the default" : "never says the new default replaces the current one");
+};

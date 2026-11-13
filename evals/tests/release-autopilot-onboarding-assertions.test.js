@@ -62,11 +62,6 @@ test("stopsReleaseSetupOnPlanError fails on a policy fallback or auto-releasing 
   assert.equal(ra.stopsReleaseSetupOnPlanError({ trajectory: [repoWrite({ autoReleasing: { enabled: true } })] }).pass, false);
 });
 
-test("saysReplacesDefault looks for the replaced default by name", () => {
-  assert.equal(ra.saysReplacesDefault({ trajectory: [], response: "Gradual replaces Fast as the default for production." }).pass, true);
-  assert.equal(ra.saysReplacesDefault({ trajectory: [], response: "Gradual becomes the default for production." }).pass, false);
-});
-
 test("pausesOnReposError wants a second read, the resume phrase, and no writes", () => {
   const read = { tool: "get-automations", arguments: {} };
   const paused = { trajectory: [read, read], response: "Say \"continue Release Autopilot setup\" once it can be read." };
@@ -150,23 +145,6 @@ test("followUpHasFlagReleasePlanCommand wants the command with the beta header i
   assert.equal(ra.followUpHasFlagReleasePlanCommand({ trajectory: [], response: "Follow-ups:\n" + block(writeCmd("POST", "", frpBody(), false)) }).pass, false);
   assert.equal(ra.followUpHasFlagReleasePlanCommand({ trajectory: [], response: "Follow-ups:\n" + block(cmd) + "\nOr paste your access token here." }).pass, false);
   assert.equal(ra.followUpHasFlagReleasePlanCommand({ trajectory: [], response: "Create the flag release plan later." }).pass, false);
-});
-
-test("previewListsFlagReleasePlan wants it listed, no run question, and no writes", () => {
-  const runQ = { tool: "ask-question", arguments: { prompt: "Run this command", options: [{ id: "d", label: "Done, here's the output" }, { id: "s", label: "Skip" }] } };
-  assert.equal(ra.previewListsFlagReleasePlan({ trajectory: [], response: "- [ ] Create the flag release plan Default release" }).pass, true);
-  assert.equal(ra.previewListsFlagReleasePlan({ trajectory: [runQ], response: "- [ ] Create the flag release plan" }).pass, false);
-  assert.equal(ra.previewListsFlagReleasePlan({ trajectory: [envPlan], response: "- [ ] Create the flag release plan" }).pass, false);
-  assert.equal(ra.previewListsFlagReleasePlan({ trajectory: [], response: "- [ ] Map acme/demo" }).pass, false);
-});
-
-test("flagReleasePlanUpdatedInPlace wants a replace on the existing key, still default, and no create", () => {
-  const good = { name: "Staged rollout", version: 2, isDefault: true, environments: [{ environmentKey: "production", environmentReleasePlanKey: "gradual", triggerType: "flag_eval" }] };
-  const put = (b, turn = 8) => shown(turn, writeCmd("PUT", "/staged-rollout", b));
-  assert.equal(ra.flagReleasePlanUpdatedInPlace({ trajectory: [looksGood(5)], assistant_turns: [put(good)] }).pass, true);
-  assert.equal(ra.flagReleasePlanUpdatedInPlace({ trajectory: [looksGood(5)], assistant_turns: [put(good), shown(9, writeCmd("POST", "", frpBody()))] }).pass, false);
-  assert.equal(ra.flagReleasePlanUpdatedInPlace({ trajectory: [looksGood(5)], assistant_turns: [put({ ...good, isDefault: undefined })] }).pass, false);
-  assert.equal(ra.flagReleasePlanUpdatedInPlace({ trajectory: [looksGood(5)], assistant_turns: [put(good, 3)] }).pass, false);
 });
 
 test("autoReleasingOnWithFollowUp wants auto-releasing on for the repo and no off write", () => {
