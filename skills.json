@@ -232,7 +232,7 @@
       "name": "investigate",
       "description": "Finds the root cause of a production problem from observability data (logs, traces, errors, sessions, metrics): scope and onset, what changed (deploys and flag changes), which host, version, route or flag variation is over-represented against a baseline, then trace, log and error evidence and blast radius. Use when the user reports a bug, an outage, an error or latency spike, an incident, or asks about patterns across application data.",
       "path": "skills/observability/investigate",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
@@ -468,9 +468,9 @@
     },
     {
       "name": "launchdarkly-release-autopilot-onboarding",
-      "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), review release policies (release plans by GA), and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
+      "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), set up environment release plans (with starter plans), and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
-      "version": "0.4.0-experimental",
+      "version": "1.0.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -525,6 +525,14 @@
       "version": "0.1.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
+    },
+    {
+      "name": "observability-plugin-setup",
+      "description": "Set up LaunchDarkly observability for an app that already uses a LaunchDarkly SDK by adding the observability plugin to its existing client and opening a pull request. Use when an observability tool reports the project has never received data (observability_set_up or observabilitySetUp is false), when observability queries come back empty because nothing is instrumented, or when the user asks to add observability, error monitoring, logs, tracing, or session replay to a LaunchDarkly-enabled app.",
+      "path": "skills/observability/observability-plugin-setup",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Needs a codebase with an existing LaunchDarkly SDK client. Uses the remotely hosted LaunchDarkly MCP server to confirm data arrives."
     },
     {
       "name": "onboarding",

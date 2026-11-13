@@ -12,12 +12,14 @@
 | Repo not on the install list | Same owner as listed repos: the user grants the App access to it. New owner: an org owner installs the App on that organization. Then list again |
 | Mapped repo ID not on the install list | Mapped-repo reads return only repository IDs, so join them to the install list. An ID with no match is a repo the App can no longer see, or one this member cannot see. Show it by ID with its project. Do not change it |
 | Repo already mapped to a different project | Do not remap here. The user unmaps it with the settings skill, then maps it in this flow |
-| `get-release-plans` returns 403 `Plan does not allow this operation` | Use release policies. Show them and their warnings, create no plans, and keep auto-releasing off for the repo where a policy is missing or incomplete |
+| `get-environment-release-plans` returns 403 `Plan does not allow this operation` | Release plans are not available on the account. Tell the user to contact LaunchDarkly support. Stop release setup for that project, create no plans, and keep auto-releasing off for its repos |
+| A release plan tool (`get-environment-release-plans`, `create-environment-release-plan`, `update-default-environment-release-plan`) is not on the server | The MCP server is out of date, not the account. Tell the user to update or reconnect the LaunchDarkly MCP server. Skip release setup, keep auto-releasing off for every repo, list it as a follow-up, and continue with the other capabilities |
 | Auto-releasing picked but no metrics exist (release plans) | Offer the metric skills. Without metrics, the plan is progressive and nothing rolls back automatically |
 | Incomplete migrated plan | Cannot start a release. Create a complete plan in that environment |
 | Generative AI or Vega eligibility error | Release Autopilot's agents need generative AI turned on, and no MCP tool reads that setting. An Admin or Owner selects **Enable generative AI use cases** in Organization settings > Security. Stop |
+| Environment has no release plans | Offer a starter plan (see [release-plans.md](release-plans.md)) and make it the environment's default |
 | Bring your own key chosen | Browser step only. Record it as reported, never as verified |
-| No writes and no browser steps needed | Say so, list follow-ups, and stop. A plan with only browser steps (bring your own key, auto-cleanup, auto-archival) still goes through the Step 7 confirmation and the Step 8 browser steps |
+| No writes and no browser steps needed | Say so, list follow-ups, and stop. A plan with only browser steps or auto-cleanup settings still goes through the Step 7 confirmation and the Step 8 browser steps |
 
 ## Existing mappings
 

@@ -39,3 +39,8 @@ test("skillInstructions handles CRLF line endings and a BOM", () => {
   assert.ok(!out.includes('name: "x"'));
   assert.ok(out.includes("# Title"));
 });
+
+test("a test's exclude_mcp_tools hides tools on top of the suite's", () => {
+  const suite = filterToolDefs(defs, ["create-feature-flag"]);
+  assert.deepEqual(filterToolDefs(suite, ["get-flag"]).map((d) => d.name), ["create-flag"]);
+});

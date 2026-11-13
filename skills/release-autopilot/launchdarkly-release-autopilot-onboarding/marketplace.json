@@ -1,7 +1,7 @@
 {
   "name": "launchdarkly-release-autopilot-onboarding",
   "description": "Step-by-step Release Autopilot onboarding: pick capabilities, connect GitHub, map repos, choose inference, review release setup",
-  "version": "0.4.0-experimental",
+  "version": "1.0.0",
   "author": "LaunchDarkly",
   "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],

@@ -2,16 +2,20 @@
 // promptfoo javascript assertion, referenced as file://assertions.js:<name>.
 
 const WRITE_TOOLS = new Set([
+  "update-default-environment-release-plan",
   "update-automations",
   "delete-automations-repo-settings",
-  "create-release-plan",
+  "create-environment-release-plan",
   "create-metric",
 ]);
 
 // update-automations covers both scopes: accountWide true is the account
 // write, false is a repo write.
 const isAccountWrite = (t) => t.tool === "update-automations" && (t.arguments || {}).accountWide === true;
-const isRepoUpdate = (t) => t.tool === "update-automations" && (t.arguments || {}).accountWide === false;
+// A repo write names a repo; a project cleanup or archival write does not,
+// even if the agent also sends accountWide false.
+const isRepoUpdate = (t) => t.tool === "update-automations" && (t.arguments || {}).accountWide === false &&
+  Boolean((t.arguments || {}).repo || (t.arguments || {}).githubRepoId) && !(t.arguments || {}).cleanup && !(t.arguments || {}).archival;
 const isRepoWrite = (t) => isRepoUpdate(t) || t.tool === "delete-automations-repo-settings";
 
 const traj = (output) => (output && output.trajectory) || [];
@@ -89,8 +93,8 @@ const noneOf = (tools) => (output) => {
 };
 
 module.exports.releasePlansCalledAtMostOnce = (output) => {
-  const n = traj(output).filter((t) => t.tool === "get-release-plans").length;
-  return result(n <= 1, `get-release-plans called ${n} time(s)`);
+  const n = traj(output).filter((t) => t.tool === "get-environment-release-plans").length;
+  return result(n <= 1, `get-environment-release-plans called ${n} time(s)`);
 };
 
 module.exports.repoTurnsAutoReleasingOff = mapsRepoWithOverrides("acme/demo", "default", ["autoReleasing"]);
@@ -111,7 +115,7 @@ module.exports.noRepoWrite = (output) => {
 
 module.exports.planBeforeRepoWrite = (output) => {
   const steps = traj(output);
-  const plan = steps.findIndex((t) => t.tool === "create-release-plan");
+  const plan = steps.findIndex((t) => t.tool === "create-environment-release-plan");
   const repo = steps.findIndex(isRepoUpdate);
   if (plan === -1) return result(false, "never created a release plan");
   if (repo === -1) return result(false, "never mapped acme/demo");
@@ -121,7 +125,7 @@ module.exports.planBeforeRepoWrite = (output) => {
 };
 
 module.exports.plansHaveClauses = (output) => {
-  const plans = traj(output).filter((t) => t.tool === "create-release-plan");
+  const plans = traj(output).filter((t) => t.tool === "create-environment-release-plan");
   if (!plans.length) return result(false, "no release plan created");
   const okClause = (c) => c && typeof c.attribute === "string" && typeof c.op === "string" && Array.isArray(c.values);
   const okStep = (s) => s && typeof s.allocation === "number" && typeof s.durationMillis === "number";
@@ -137,7 +141,7 @@ module.exports.plansHaveClauses = (output) => {
   }
   return result(true, "every phase has valid clauses and steps");
 };
-module.exports.noReleasePlanCreated = noneOf(["create-release-plan"]);
+module.exports.noReleasePlanCreated = noneOf(["create-environment-release-plan"]);
 module.exports.noAccountWrite = (output) => {
   const hit = traj(output).filter(isAccountWrite);
   return result(hit.length === 0, hit.length ? `wrote account settings: ${JSON.stringify(hit[0].arguments)}` : "no account write");
@@ -149,7 +153,7 @@ const finalText = (output) => String((output && output.response) || "");
 const RAW_NAMES = [
   "update-automations", "get-automations", "delete-automations",
   "githubRepoId", "enabledOverride", "autoReleasing", "autoFlagging", "approvalRequired",
-  "create-release-plan", "get-release-plans", "get-release-policies",
+  "create-environment-release-plan", "get-environment-release-plans", "update-default-environment-release-plan", "get-release-policies",
   "preview mode", "policy mode", "plan mode",
 ];
 
@@ -363,7 +367,7 @@ module.exports.neverSendsApproval = (output) => {
 // release plan or policy lookup otherwise.
 module.exports.noReleaseSetup = (output) => {
   const steps = traj(output);
-  const lookups = steps.filter((t) => t.tool === "get-release-plans" || t.tool === "get-release-policies");
+  const lookups = steps.filter((t) => t.tool === "get-environment-release-plans" || t.tool === "get-release-policies");
   const envQ = steps.filter((t) => t.tool === "ask-question" && /environment/i.test(String((t.arguments && t.arguments.prompt) || "")));
   const pass = lookups.length === 0 && envQ.length === 0;
   return result(pass, `release lookups: ${lookups.length}, environment questions: ${envQ.length}`);
@@ -391,29 +395,26 @@ module.exports.pausesBeforeMapping = (output) => {
 };
 
 // Release setup lookups for one project and the environments the case
-// selects, valid for both modes. Every release-plans call names the project
-// and a selected environment. If the first call is the account-wide 403,
-// there is exactly one plans call and a release-policies lookup for the
-// project (release policies, today). If it succeeds, every selected
-// environment has a successful plans lookup (environment release plans, GA).
+// selects. Every release-plans call names the project and a selected
+// environment. If the first call is the account-wide 403, there is exactly
+// one plans call and no release policy read. If it succeeds, every selected
+// environment has a successful plans lookup.
 const isForbidden = (t) => /403|not allow/i.test(String(t.mock_response_preview || ""));
 const releaseSetupLookups = (projectKey, selectedEnvs) => (output) => {
   const steps = traj(output);
-  const plans = steps.filter((t) => t.tool === "get-release-plans");
+  const plans = steps.filter((t) => t.tool === "get-environment-release-plans");
   if (!plans.length) return result(false, "never checked release plans");
   const bad = plans.find((t) => (t.arguments || {}).projectKey !== projectKey || !selectedEnvs.includes((t.arguments || {}).environmentKey));
-  if (bad) return result(false, `get-release-plans lookup outside ${projectKey} ${JSON.stringify(selectedEnvs)}: ${JSON.stringify(bad.arguments)}`);
+  if (bad) return result(false, `release-plans lookup outside ${projectKey} ${JSON.stringify(selectedEnvs)}: ${JSON.stringify(bad.arguments)}`);
   if (isForbidden(plans[0])) {
-    const policies = steps.filter((t) => t.tool === "get-release-policies");
-    const ok = policies.filter((t) => (t.arguments || {}).projectKey === projectKey);
-    const pass = plans.length === 1 && ok.length >= 1 && ok.length === policies.length;
-    return result(pass, `release policies path: plans lookups ${plans.length}; policy lookups for ${projectKey}: ${ok.length} of ${policies.length}`);
+    const policies = steps.filter((t) => t.tool === "get-release-policies").length;
+    return result(plans.length === 1 && policies === 0, `403 path: plans lookups ${plans.length}; policy reads: ${policies}`);
   }
   const looked = new Set(plans.filter((t) => !isForbidden(t)).map((t) => t.arguments.environmentKey));
   const missing = selectedEnvs.filter((e) => !looked.has(e));
   return result(missing.length === 0, missing.length ? `release plans path: no successful lookup for ${missing.join(", ")}` : `release plans path: looked up ${[...looked].join(", ")}`);
 };
-// Policy-mode case selects Test and Production; plan-mode case selects Production.
+// The 403 case selects Test and Production; the other case selects Production.
 module.exports.releaseSetupLookupsTestProduction = releaseSetupLookups("default", ["test", "production"]);
 module.exports.releaseSetupLookupsProduction = releaseSetupLookups("default", ["production"]);
 
@@ -471,6 +472,189 @@ module.exports.byokQuestionHasAutomationsLink = (output) => {
 module.exports.previewListsDeferredReleaseSetup = (output) => {
   const text = finalText(output).toLowerCase();
   const mapping = /map/.test(text) && /github/.test(text);
-  const release = /environment/.test(text) && /release (polic|plan)/.test(text);
-  return result(mapping && release, `lists mapping after GitHub: ${mapping}; lists environments and release policies/plans: ${release}`);
+  const release = /environment/.test(text) && /release plan/.test(text);
+  return result(mapping && release, `lists mapping after GitHub: ${mapping}; lists environments and release plans: ${release}`);
+};
+
+// Auto-cleanup is an MCP write after "Looks good": a cleanup object for the
+// project with a running schedule and acme/demo among the repositories.
+module.exports.cleanupWrittenAfterConfirm = (output) => {
+  const steps = traj(output);
+  const w = steps.findIndex((t) => t.tool === "update-automations" && (t.arguments || {}).cleanup);
+  if (w === -1) return result(false, "never wrote the cleanup settings");
+  const c = steps[w].arguments.cleanup;
+  const approved = approvedConfirmBefore(steps, w);
+  const ok = approved !== -1 && steps[w].arguments.projectKey === "default" && c.schedule && c.schedule !== "disabled" &&
+    Array.isArray(c.repositories) && c.repositories.includes("acme/demo");
+  return result(ok, `cleanup write at ${w} (approved at ${approved}): ${JSON.stringify(steps[w].arguments)}`);
+};
+
+module.exports.previewListsCleanup = (output) => {
+  const text = finalText(output).toLowerCase();
+  const cleanupWrites = traj(output).filter((t) => t.tool === "update-automations" && (t.arguments || {}).cleanup).length;
+  const listed = /cleanup/.test(text);
+  return result(listed && cleanupWrites === 0, `cleanup listed: ${listed}; cleanup writes: ${cleanupWrites}`);
+};
+
+// Starter plan for production: progressive, one phase for everyone at
+// 10% -> 25% -> 50% with 4-hour holds, created before the repo write and set
+// as the environment's default.
+module.exports.starterPlanProgressive = (output) => {
+  const steps = traj(output);
+  const ci = steps.findIndex((t) => t.tool === "create-environment-release-plan" && (t.arguments || {}).environmentKey === "production" &&
+    !/error/i.test(String(t.mock_response_preview || "")));
+  if (ci === -1) return result(false, "no production release plan created (or the create was rejected)");
+  const pr = steps[ci].arguments.progressiveRelease || {};
+  const phases = pr.phases || [];
+  const one = phases.length === 1 && (phases[0].clauses || []).some((c) => c.attribute === "kind");
+  const allocs = one ? (phases[0].steps || []).map((s) => s.allocation) : [];
+  const stepsOk = JSON.stringify(allocs) === JSON.stringify([10000, 25000, 50000]) &&
+    phases[0].steps.every((s) => s.durationMillis === 14400000);
+  const key = steps[ci].arguments.key;
+  const di = steps.findIndex((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).releasePlanKey === key && t.arguments.default === true);
+  const ri = steps.findIndex((t) => t.tool === "update-automations" && t.arguments && t.arguments.repo);
+  const pass = one && stepsOk && di > ci && (ri === -1 || ci < ri);
+  return result(pass, `one phase with the kind clause: ${one}; steps ${JSON.stringify(allocs)} with 4h holds: ${stepsOk}; default set after create: ${di > ci}; plan before repo write: ${ri === -1 || ci < ri}`);
+};
+
+// A release plans read that fails with anything but the plan 403 stops
+// release setup for the project: no policy read, no plan, and the repo
+// keeps auto-releasing off.
+module.exports.stopsReleaseSetupOnPlanError = (output) => {
+  const steps = traj(output);
+  const policies = steps.filter((t) => t.tool === "get-release-policies").length;
+  const creates = steps.filter((t) => t.tool === "create-environment-release-plan").length;
+  const releasingOn = steps.some((t) => isRepoUpdate(t) && t.arguments.autoReleasing && t.arguments.autoReleasing.enabled === true);
+  return result(policies === 0 && creates === 0 && !releasingOn, `policy reads: ${policies}; plans created: ${creates}; auto-releasing turned on for a repo: ${releasingOn}`);
+};
+
+// Making another plan the default says which default it replaces.
+module.exports.saysReplacesDefault = (output) => {
+  const pass = /replaces\s+[`"*]*(fast|fast rollout)[`"*]*\s+as\s+the\s+default/i.test([allText(output), ...askPrompts(output)].join("\n"));
+  return result(pass, pass ? "says the plan replaces Fast as the default" : "never says the new default replaces the current one");
+};
+
+// Verification confirms GitHub works, names each configured repo, and offers
+// a test pull request.
+module.exports.verifyReportsSetup = (output) => {
+  const text = finalText(output);
+  const github = /github[^.\n]{0,40}\bconnected\b/i.test(text) && !/not connected/i.test(text);
+  const repo = text.includes("acme/demo");
+  const testPr = /test pull request|test PR/i.test(text);
+  return result(github && repo && testPr, `GitHub connected: ${github}; lists acme/demo: ${repo}; offers a test PR: ${testPr}`);
+};
+
+// Adding a repo to a running cleanup sends the whole list: existing plus new.
+module.exports.cleanupKeepsExistingRepos = (output) => {
+  const w = traj(output).find((t) => t.tool === "update-automations" && (t.arguments || {}).cleanup && t.arguments.cleanup.repositories);
+  if (!w) return result(false, "never wrote cleanup repositories");
+  const repos = w.arguments.cleanup.repositories;
+  const pass = repos.includes("acme/api") && repos.includes("acme/demo");
+  return result(pass, `cleanup repositories written: ${JSON.stringify(repos)}`);
+};
+
+// An environment with a complete plan the user keeps: set it as default, do
+// not create another.
+module.exports.existingPlanSetAsDefault = (output) => {
+  const steps = traj(output);
+  const created = steps.filter((t) => t.tool === "create-environment-release-plan").length;
+  const def = steps.some((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).releasePlanKey === "gradual" && t.arguments.default === true);
+  return result(created === 0 && def, `plans created: ${created}; existing plan set as default: ${def}`);
+};
+
+// Archival already on: nothing to do for it.
+module.exports.noArchivalStep = (output) => {
+  const steps = traj(output);
+  const asked = steps.filter((t) => t.tool === "ask-question" && /automatic archival|auto-archival/i.test(String((t.arguments && t.arguments.prompt) || "")) &&
+    ((t.arguments && t.arguments.options) || []).some((o) => /^done\b/i.test(String(o.label || "")))).length;
+  const writes = steps.filter((t) => t.tool === "update-automations" && (t.arguments || {}).archival).length;
+  return result(asked === 0 && writes === 0, `archival browser questions: ${asked}; archival writes: ${writes}`);
+};
+
+module.exports.reportListsDefaultPlan = (output) => {
+  const text = finalText(output).toLowerCase();
+  const pass = /default/.test(text) && /progressive/.test(text) && /production/.test(text);
+  return result(pass, pass ? "report names production's default plan" : "report does not name the default plan");
+};
+
+module.exports.reportListsCleanup = (output) => {
+  const text = finalText(output).toLowerCase();
+  const pass = /cleanup/.test(text) && /weekly/.test(text) && text.includes("acme/demo");
+  return result(pass, pass ? "report lists the cleanup schedule and repository" : "report does not list the cleanup schedule and repository");
+};
+
+// Before creating a starter plan, the unit is checked against stored contexts.
+module.exports.checksContextsBeforeStarter = (output) => {
+  const steps = traj(output);
+  const create = steps.findIndex((t) => t.tool === "create-environment-release-plan");
+  if (create === -1) return result(false, "no release plan created");
+  const unit = steps.slice(0, create).some((t) => t.tool === "search-contexts" && (t.arguments || {}).kind);
+  return result(unit, `context kind checked before create: ${unit}`);
+};
+
+// Guarded starter: the plan carries the picked rollback metric with
+// automatic rollback, and every step is at most 50000.
+module.exports.guardedStarterMetrics = (output) => {
+  const p = traj(output).find((t) => t.tool === "create-environment-release-plan");
+  if (!p) return result(false, "no release plan created");
+  const pr = p.arguments.progressiveRelease || {};
+  const m = (pr.metrics || {})["user-error-rate"];
+  const capped = (pr.phases || []).every((ph) => (ph.steps || []).every((s) => s.allocation > 0 && s.allocation <= 50000));
+  const pass = Boolean(m && m.autoRollback === true && m.isGroup === false) && capped;
+  return result(pass, `metrics: ${JSON.stringify(pr.metrics || {})}; every step at most 50000: ${capped}`);
+};
+
+// The GitHub App install cannot be read: read it once more, then pause with
+// the resume phrase. No writes and no repo question.
+module.exports.pausesOnReposError = (output) => {
+  const steps = traj(output);
+  const reads = steps.filter((t) => t.tool === "get-automations" && !(t.arguments || {}).section).length;
+  const repoQ = steps.filter((t) => t.tool === "ask-question" &&
+    ((t.arguments && t.arguments.options) || []).some((o) => /^[\w.-]+\/[\w.-]+$/.test(String(o.label || "")))).length;
+  const resume = /continue Release Autopilot setup/i.test(finalText(output));
+  const w = writes(output).length;
+  return result(reads >= 2 && repoQ === 0 && resume && w === 0, `install reads: ${reads}; repo questions: ${repoQ}; resume phrase: ${resume}; writes: ${w}`);
+};
+
+// A project with no stored contexts still gets a starter, randomized by user.
+module.exports.starterUnitIsUser = (output) => {
+  const p = traj(output).find((t) => t.tool === "create-environment-release-plan");
+  if (!p) return result(false, "no release plan created");
+  const unit = ((p.arguments || {}).progressiveRelease || {}).randomizationUnit;
+  return result(unit === "user", `randomization unit: ${unit}`);
+};
+
+// Preview with an unreadable install lists the mapping for later and no
+// GitHub connect step (there is no connect link; GitHub is connected).
+module.exports.previewReposErrorNoConnect = (output) => {
+  const text = finalText(output);
+  const mapping = /map/i.test(text) && /can be read|could not be read|cannot be read/i.test(text);
+  const connect = /connect github|install the (launchdarkly )?github app|github\/connect|authorize github/i.test(text);
+  const w = writes(output).length;
+  return result(mapping && !connect && w === 0, `lists mapping for later: ${mapping}; Connect GitHub item: ${connect}; writes: ${w}`);
+};
+
+// Release plans not available on the account: tell the user to contact
+// LaunchDarkly support, and never mention release policies.
+module.exports.saysContactSupport = (output) => {
+  const text = [allText(output), ...askPrompts(output)].join("\n");
+  const support = /contact (launchdarkly )?support|launchdarkly support/i.test(text);
+  const policy = /release polic/i.test(text);
+  return result(support && !policy, `contact support: ${support}; mentions release policies: ${policy}`);
+};
+
+// A release plan tool is missing from the server: release setup is skipped
+// with an update-or-reconnect message (not contact support), no plan
+// writes, an explicit auto-releasing off override (not inherited from the
+// account), and auto-flagging still turned on for the repo.
+module.exports.missingPlanToolsSkipsRelease = (output) => {
+  const steps = traj(output);
+  const text = [allText(output), ...askPrompts(output)].join("\n");
+  const support = /contact (launchdarkly )?support|launchdarkly support|not available on your account/i.test(text);
+  const reconnect = /\b(update|reconnect)\b/i.test(text) && /mcp server/i.test(text);
+  const planWrites = steps.filter((t) => /release-plan/.test(t.tool) && t.tool !== "get-environment-release-plans").length;
+  const flagging = steps.filter(isRepoUpdate).some((t) => t.arguments.autoFlagging && t.arguments.autoFlagging.enabled === true);
+  const releasingOff = module.exports.repoTurnsAutoReleasingOff(output);
+  const pass = !support && reconnect && planWrites === 0 && flagging && releasingOff.pass;
+  return result(pass, `contact support: ${support}; update or reconnect: ${reconnect}; plan writes: ${planWrites}; auto-flagging on: ${flagging}; auto-releasing off override: ${releasingOff.reason}`);
 };

@@ -6,15 +6,15 @@
 # The onboarding wizard for Release Autopilot. These cases lock in the write
 # rules found in dry runs against catamorphic: nothing is written before the
 # user approves, Preview and reader runs never write, a repo never inherits a
-# capability the user did not pick, the release-plans 403 is treated as
-# account-wide policy mode, and account settings stay untouched when they
-# already match.
+# capability the user did not pick, the release-plans 403 stops release
+# setup with auto-releasing off, and account settings stay untouched when
+# they already match.
 #
 # Tool definitions and default mocks live in this folder (tool_definitions,
 # tool_mocks). Default mocks match a catamorphic-like account with both capabilities on,
-# the GitHub App installed, and release plans available but empty (the GA
-# shape). The policy-mode case overrides release plans to the 403 accounts
-# return today. Mocks record Release Autopilot writes, so verification reads
+# the GitHub App installed, and release plans available but empty. The
+# 403 case overrides release plans to "Plan does not allow this operation".
+# Mocks record Release Autopilot writes, so verification reads
 # reflect them. Tests change state with mock_overrides, and scripted
 # answers are matched to each question by option label
 # (mock_ask_question_match), so a skipped question cannot shift them.
@@ -79,6 +79,10 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:verifyReportsSetup
+        metric: verification_report
+        weight: 2
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
         metric: never_sends_approval
         weight: 3
@@ -124,25 +128,21 @@ tests:
         weight: 2
 
   # ------------------------------------------------------------------
-  # Account already on, both capabilities picked, policy mode with no
-  # release policy. get-release-plans is called once (the 403 is
-  # account-wide), no plans are created, the repo keeps auto-releasing
-  # off, and the account settings are not rewritten.
+  # Account already on, both capabilities picked, release plans return 403
+  # "Plan does not allow this operation". get-environment-release-plans is
+  # called once (the 403 is account-wide), release setup stops with a
+  # contact-support message, no plans are created, no release policies are
+  # read, the repo keeps auto-releasing off, and the account settings are
+  # not rewritten.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Policy mode, missing policy: one plans call, no plans, auto-releasing off for the repo, no account write"
+    description: "Release plans 403: one plans call, contact support, no plans, auto-releasing off for the repo, no account write"
     vars:
       user_request: "Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        get-release-plans:
+        get-environment-release-plans:
           error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Plan does not allow this operation\"}"
-        get-release-policies:
-          policies: []
-          count: 0
-          warnings:
-            - code: missing_policy
-              message: "No release policy matches."
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Add more"]
@@ -179,8 +179,16 @@ tests:
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
-        metric: auto_releasing_off_without_policy
+        metric: auto_releasing_off_without_plans
         weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:stopsReleaseSetupOnPlanError
+        metric: stops_on_plan_403
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:saysContactSupport
+        metric: says_contact_support
+        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noAccountWrite
         metric: no_redundant_account_write
@@ -445,7 +453,7 @@ tests:
     vars:
       user_request: >
         Set up Release Autopilot with auto-flagging and auto-releasing for acme/demo in project default.
-        For production only, create a release plan: randomize by user, 1% then 10% then 50% then 100%
+        For production only, create a release plan: randomize by user, 1% then 10% then 50%
         with 4h holds, automatic advancement, no metrics, and leave rules in place.
       max_turns: 22
       mock_ask_question_match: true
@@ -454,6 +462,7 @@ tests:
         - ["Auto-flagging", "Auto-releasing"]
         - ["LaunchDarkly's"]
         - ["Production"]
+        - ["Custom"]
         - ["Automatic"]
         - ["Leave rules"]
         - ["Looks good"]
@@ -646,7 +655,7 @@ tests:
   # question, autoCleanup is never sent, and the repo write is confirmed.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Auto-cleanup: Automations settings link in the question, never sends autoCleanup"
+    description: "Auto-cleanup: cleanup settings written through the MCP after confirm, never sends account autoCleanup"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 22
@@ -666,12 +675,18 @@ tests:
       mock_ask_question_answers:
         - ["Auto-flagging", "Auto-cleanup"]
         - ["LaunchDarkly's"]
-        - ["Done"]
+        - ["Weekly"]
+        - ["acme/demo"]
+        - ["3"]
         - ["Looks good"]
     assert:
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:browserStepsAfterConfirm
-        metric: browser_after_confirm
+        value: file://../release-autopilot-onboarding/assertions.js:reportListsCleanup
+        metric: report_cleanup
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:cleanupWrittenAfterConfirm
+        metric: cleanup_written_after_confirm
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noReleaseSetup
@@ -688,10 +703,6 @@ tests:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noAutoCleanup
         metric: no_auto_cleanup
-        weight: 3
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:cleanupQuestionHasAutomationsLink
-        metric: automations_link_in_question
         weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
@@ -962,8 +973,8 @@ tests:
         metric: no_writes
         weight: 4
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:previewListsBrowserSteps
-        metric: preview_lists_browser_steps
+        value: file://../release-autopilot-onboarding/assertions.js:previewListsCleanup
+        metric: preview_lists_cleanup
         weight: 4
 
   # ------------------------------------------------------------------
@@ -1047,7 +1058,7 @@ tests:
   # ------------------------------------------------------------------
   # Preview, GitHub disconnected, auto-releasing picked: the checklist
   # lists GitHub, the later repo mapping, and the later release setup
-  # (environments and release policies or plans). No writes.
+  # (environments and release plans). No writes.
   # ------------------------------------------------------------------
   - providers: ["mcp-auto"]
     description: "Preview, GitHub disconnected, auto-releasing: lists deferred mapping and release setup"
@@ -1078,3 +1089,419 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:previewListsDeferredReleaseSetup
         metric: deferred_release_setup
         weight: 4
+
+  # ------------------------------------------------------------------
+  # Production has no release plans: offer a starter. Progressive is
+  # 10% -> 25% -> 50% of everyone with 4-hour holds; it is created before
+  # the repo write and set as the default.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Starter plan: progressive, created and set as production default"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 26
+      mock_overrides:
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:checksContextsBeforeStarter
+        metric: checks_contexts
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:reportListsDefaultPlan
+        metric: report_default_plan
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:starterPlanProgressive
+        metric: starter_plan
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Cleanup already runs on acme/api; the user adds acme/demo. Lists
+  # replace the stored list, so the write must keep acme/api.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Running cleanup: adding a repo keeps the existing one"
+    vars:
+      user_request: "Add acme/demo to auto-cleanup for project default; keep the current schedule."
+      max_turns: 18
+      mock_overrides:
+        get-automations:
+          by_arg: section
+          cases:
+            cleanup:
+              projectKey: default
+              settings: { schedule: weekly, repositories: ["acme/api"], maxJobsPerRun: 3, flagStates: ["readyToArchive"] }
+              upcoming: { flagKeys: ["old-banner"], nextRunAt: null }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-cleanup"]
+        - ["default"]
+        - ["LaunchDarkly's"]
+        - ["acme/demo"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:cleanupKeepsExistingRepos
+        metric: keeps_existing_repos
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Production already has a complete plan that is not the default. The
+  # user keeps it: it becomes the default, and no plan is created.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Existing plan: kept and set as default, no new plan"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 24
+      mock_overrides:
+        get-environment-release-plans:
+          items:
+            - key: gradual
+              name: Gradual
+              environmentKey: production
+              default: false
+              progressiveRelease:
+                randomizationUnit: user
+                advancementMode: automatic
+                cleanupBehavior: remove_rules_and_update_default_rule
+                phases:
+                  - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
+                    steps: [{ allocation: 10000, durationMillis: 14400000 }, { allocation: 50000, durationMillis: 14400000 }]
+                metrics: {}
+          totalCount: 1
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Use this plan"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:existingPlanSetAsDefault
+        metric: existing_plan_default
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Automatic archival is already on for the project: no browser step and
+  # no archival write.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Archival already on: no browser step, no archival write"
+    vars:
+      user_request: "Set up Release Autopilot auto-archival for project default."
+      max_turns: 14
+      mock_overrides:
+        get-automations:
+          by_arg: section
+          cases:
+            archival:
+              projectKey: default
+              settings: { enabled: true, graceSeconds: 604800, requireApproval: false, maxArchivalsPerRun: 10 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-archival"]
+        - ["default"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noArchivalStep
+        metric: no_archival_step
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noGithubOrMapping
+        metric: no_github_or_mapping
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Guarded starter: a user-unit metric exists, so the starter offers it
+  # for automatic rollback. The plan includes it with autoRollback, and
+  # every step stays at or under 50% (the create mock rejects more).
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Guarded starter: rollback metric with matching unit"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 26
+      mock_overrides:
+        get-metrics:
+          metrics:
+            - key: user-error-rate
+              name: User error rate
+              measureType: occurrence
+              successCriteria: LowerThanBaseline
+              analysisUnits: ["user"]
+            - key: account-revenue
+              name: Account revenue
+              measureType: value
+              successCriteria: HigherThanBaseline
+              analysisUnits: ["account"]
+          totalCount: 2
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["User error rate"]
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:guardedStarterMetrics
+        metric: guarded_starter
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:checksContextsBeforeStarter
+        metric: checks_contexts
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # The first release plans read fails with a server error, not the plan
+  # 403. Release setup stops for the project: no release policy reads, no
+  # plan, and auto-releasing stays off for the repo.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Release plans read fails: stop release setup, no plans"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 22
+      mock_overrides:
+        get-environment-release-plans:
+          error: "LaunchDarkly API error: 500: {\"code\":\"internal_server_error\",\"message\":\"Internal server error\"}"
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:stopsReleaseSetupOnPlanError
+        metric: stops_on_plan_error
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Production's default is Fast; the user picks Gradual instead. The
+  # confirmation says Gradual replaces Fast as the default.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Another plan as default: says it replaces the current default"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 24
+      mock_overrides:
+        get-environment-release-plans:
+          items:
+            - key: fast
+              name: Fast
+              environmentKey: production
+              default: true
+              progressiveRelease:
+                randomizationUnit: user
+                advancementMode: automatic
+                cleanupBehavior: remove_rules_and_update_default_rule
+                phases:
+                  - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
+                    steps: [{ allocation: 50000, durationMillis: 3600000 }]
+                metrics: {}
+            - key: gradual
+              name: Gradual
+              environmentKey: production
+              default: false
+              progressiveRelease:
+                randomizationUnit: user
+                advancementMode: automatic
+                cleanupBehavior: remove_rules_and_update_default_rule
+                phases:
+                  - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
+                    steps: [{ allocation: 10000, durationMillis: 14400000 }, { allocation: 50000, durationMillis: 14400000 }]
+                metrics: {}
+          totalCount: 2
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Choose another"]
+        - ["Gradual"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:existingPlanSetAsDefault
+        metric: existing_plan_default
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:saysReplacesDefault
+        metric: says_replaces_default
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # The GitHub App install cannot be read (reposError) on every read. The
+  # wizard reads once more, then pauses before repo mapping: no writes.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Install unreadable: pause before mapping, no writes"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
+      max_turns: 14
+      mock_overrides:
+        get-automations:
+          account: { autoFlagging: { enabled: true, approvalRequired: true }, autoReleasing: { enabled: true }, version: 9 }
+          repos:
+            - { githubRepoId: 101, mapped: true, projectKey: default, autoFlagging: { enabled: true, approvalRequired: true, enabledOverride: false }, autoReleasing: { enabled: true, enabledOverride: false } }
+          totalCount: 1
+          hasMore: false
+          reposError: "The GitHub App install could not be read, so repos lists only mapped repositories, without names. Retry later."
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:pausesOnReposError
+        metric: pauses_on_repos_error
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # Preview with the same unreadable install: the checklist lists repo
+  # mapping for later and has no "Connect GitHub" item or link.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Preview, install unreadable: mapping listed for later, no Connect GitHub"
+    vars:
+      user_request: "Preview what you would change to set up Release Autopilot auto-flagging for acme/demo in project default. Don't change anything."
+      max_turns: 14
+      mock_overrides:
+        get-automations:
+          account: { autoFlagging: { enabled: true, approvalRequired: true }, autoReleasing: { enabled: true }, version: 9 }
+          repos:
+            - { githubRepoId: 101, mapped: true, projectKey: default, autoFlagging: { enabled: true, approvalRequired: true, enabledOverride: false }, autoReleasing: { enabled: true, enabledOverride: false } }
+          totalCount: 1
+          hasMore: false
+          reposError: "The GitHub App install could not be read, so repos lists only mapped repositories, without names. Retry later."
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:previewReposErrorNoConnect
+        metric: preview_repos_error
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noWrites
+        metric: no_writes
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # A new project has no stored contexts of any kind. The starter still
+  # uses user, the default kind, instead of blocking on a kind question.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "No stored contexts: progressive starter by user"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 26
+      mock_overrides:
+        search-contexts: { items: [], totalCount: 0 }
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:starterUnitIsUser
+        metric: starter_unit_user
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:starterPlanProgressive
+        metric: starter_plan
+        weight: 3
+
+  # ------------------------------------------------------------------
+  # The MCP server has get-environment-release-plans but not the plan write
+  # tools. The server is out of date, not the account: release setup is
+  # skipped with an update-or-reconnect message, auto-releasing stays off,
+  # and auto-flagging is still set up.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Release plan tools missing: update the MCP server, auto-flagging still set up"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 22
+      exclude_mcp_tools: ["create-environment-release-plan", "update-default-environment-release-plan"]
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:missingPlanToolsSkipsRelease
+        metric: missing_plan_tools
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
+        metric: auto_releasing_off_without_plan_tools
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
