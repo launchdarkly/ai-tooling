@@ -67,7 +67,7 @@ module.exports.listReportsPlans = (output) => {
   const text = String((output && output.response) || "");
   const names = /staged rollout/i.test(text) && /production only/i.test(text);
   const isDefault = /default/i.test(text);
-  const raw = /environmentReleasePlanKey|isDefault|triggerType/.test(text);
+  const raw = /environmentReleasePlanKey|isDefault|"default"|triggerType/.test(text);
   return result(listed && names && isDefault && !raw, `list command shown: ${listed}; names both plans: ${names}; says which is default: ${isDefault}; field names: ${raw}`);
 };
 
@@ -77,8 +77,8 @@ module.exports.createsTestThenProduction = (output) => {
   const c = lastCreate(output);
   if (!c) return result(false, "no create command with a JSON body shown");
   const envs = envsOf(c.body);
-  const pass = JSON.stringify(envs) === JSON.stringify(["test:progressive", "production:progressive-2"]) && c.body.isDefault === true;
-  return result(pass, `environments ${JSON.stringify(envs)}; default: ${c.body.isDefault}`);
+  const pass = JSON.stringify(envs) === JSON.stringify(["test:progressive", "production:progressive-2"]) && c.body.default === true;
+  return result(pass, `environments ${JSON.stringify(envs)}; default: ${c.body.default}`);
 };
 
 // After the user pastes the create response, the reply reports it as done
@@ -105,9 +105,9 @@ module.exports.promotesWithFullBody = (output) => {
   const b = put.body;
   const envs = (b.environments || []).map((e) => e.environmentKey);
   const creates = planCreates(output).length;
-  const pass = b.isDefault === true && b.name === "Staged rollout" && b.version === 3 &&
+  const pass = b.default === true && b.name === "Staged rollout" && b.version === 3 &&
     JSON.stringify(envs) === JSON.stringify(["test", "production"]) && creates === 0;
-  return result(pass, `isDefault ${b.isDefault}; name ${b.name}; version ${b.version}; environments ${JSON.stringify(envs)}; creates ${creates}`);
+  return result(pass, `default ${b.default}; name ${b.name}; version ${b.version}; environments ${JSON.stringify(envs)}; creates ${creates}`);
 };
 
 // The user pastes a token instead of output: the reply does not repeat it,
