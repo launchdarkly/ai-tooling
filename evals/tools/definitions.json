@@ -1587,7 +1587,7 @@
                 "type": "string"
               },
               "waitBeforeReleaseMillis": {
-                "description": "Delay after the preceding environment finishes. Applies only to sequential configs and is dropped from the first sequential environment.",
+                "description": "Delay after the preceding environment finishes. Dropped from the first environment, which has nothing to wait after.",
                 "minimum": 0,
                 "type": "integer"
               }
@@ -1600,9 +1600,8 @@
           "type": "array"
         },
         "executionMode": {
-          "description": "parallel (default) starts environments independently; sequential releases them in array order.",
+          "description": "sequential, the only accepted value, releases environments in array order. Omitting it means sequential.",
           "enum": [
-            "parallel",
             "sequential"
           ],
           "type": "string"

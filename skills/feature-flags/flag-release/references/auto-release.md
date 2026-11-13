@@ -112,6 +112,7 @@ curl -sS -X POST "https://app.launchdarkly.com/api/v2/projects/default/automated
     "flagKey": "new-checkout-flow",
     "repoFullName": "acme/storefront",
     "prNumber": 482,
+    "executionMode": "sequential",
     "environments": [
       { "environmentKey": "staging", "desiredReleaseType": "policy" },
       { "environmentKey": "production", "desiredReleaseType": "policy", "environmentReleasePlanKey": "guarded-prod" }

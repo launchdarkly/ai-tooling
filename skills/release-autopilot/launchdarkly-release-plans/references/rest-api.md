@@ -208,7 +208,7 @@ Create takes these fields. Replace takes the same fields without `key`, plus `ve
 | `environments[].triggerType` | Yes | `flag_eval`, `webhook`, `manual`, or `promotion`. `manual` and `promotion` need `sequential`; the first environment cannot use `promotion` |
 | `environments[].environmentReleasePlanKey` | Unless immediate | A complete environment release plan in that environment |
 | `environments[].isImmediate` | No | `true` releases at once with no release plan. Do not send a release plan key with it |
-| `executionMode` | No | `sequential` (the default for plans) or `parallel` |
+| `executionMode` | No | `sequential`, the only accepted value. Left out, it means `sequential` |
 | `applicationKeys` | No | At most 25 keys. Auto-releasing uses them to choose a plan for an application |
 | `default` | No | Create: only when the project has no default. Replace: `true` demotes the current default; left out clears it |
 | `maintainer` | No | `{ "kind": "member", "memberId": "..." }` or `{ "kind": "team", "teamKey": "..." }` |
