@@ -183,3 +183,18 @@ test("notesNoReleaseUntilPlan wants the note in the confirmation and the report"
   assert.equal(ra.notesNoReleaseUntilPlan(out(note, "All set.")).pass, false);
   assert.equal(ra.notesNoReleaseUntilPlan(out("Auto-releasing won't propose a release until you create the flag release plan.", note)).pass, true);
 });
+
+test("confirmShowsPlan needs the plan, with every written repo, in the Looks good question", () => {
+  const plan = "Here's the plan:\n- Map acme/demo to project default, with auto-flagging on\n- Turn on auto-flagging for the account";
+  const write = repoWrite({ autoFlagging: { enabled: true } });
+  assert.equal(ra.confirmShowsPlan({ trajectory: [ask(plan, ["Looks good", "Change something"]), write] }).pass, true);
+  const inPreview = ask("Make these changes?", ["Looks good", "Change something"]);
+  inPreview.arguments.options[0].preview = plan;
+  assert.equal(ra.confirmShowsPlan({ trajectory: [inPreview, write] }).pass, true);
+  const inChangePreview = ask("Make these changes?", ["Looks good", "Change something"]);
+  inChangePreview.arguments.options[1].preview = plan;
+  assert.equal(ra.confirmShowsPlan({ trajectory: [inChangePreview, write] }).pass, false);
+  assert.equal(ra.confirmShowsPlan({ trajectory: [ask("Ready to apply?", ["Looks good", "Change something"]), write] }).pass, false);
+  assert.equal(ra.confirmShowsPlan({ trajectory: [ask("- Turn on auto-flagging for the account", ["Looks good", "Change something"]), write] }).pass, false);
+  assert.equal(ra.confirmShowsPlan({ trajectory: [ask(plan), write] }).pass, false);
+});

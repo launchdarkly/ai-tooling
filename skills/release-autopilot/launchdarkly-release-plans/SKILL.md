@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Environment release plans use the hosted LaunchDarkly MCP server. For flag release plans, and for deleting an environment release plan, the user runs the REST API (beta) commands that the skill shows in their own terminal."
 metadata:
   author: launchdarkly
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # LaunchDarkly Release Plans
@@ -44,6 +44,7 @@ You never run a REST command, and you never use a LaunchDarkly token. The user r
 
 1. Show the exact command in a code block, filled in with the keys and the JSON body. Say: "Run this in your terminal with your LaunchDarkly API access token in `LD_ACCESS_TOKEN`." Their shell fills in `$LD_ACCESS_TOKEN`.
 2. In the same message, ask header "Run this command" with your question tool (such as `AskUserQuestion`): "Done, here's the output" ("Paste the output below, with any secrets removed") or "Skip" ("Do this later"). The user pastes the output as their answer. Ask for the output only, and do not end your turn with only the command.
+   - **Put the command in the question too.** While the question is open, the user may see only the question, not your message. If the question tool has a preview for each option (such as `AskUserQuestion`'s `preview`), put the same code block in the preview of "Done, here's the output". If the tool has no preview, put the code block in the question text. Never ask "Run this command" with a question that does not show the command.
 3. Read the pasted output. The last line is `HTTP <status>`, and the JSON before it is the response body. Continue from it: report a read, check a write against what was confirmed, or follow [Errors](#errors). If the output is not there or cannot be read, ask the user to run the command again and paste all of it.
 4. "Skip" leaves the change undone: list the command as a follow-up.
 
@@ -68,10 +69,11 @@ Ask this before any other create question, and create nothing until the user ans
 ## Core Principles
 
 1. **Read before you write.** Read the existing plans first, and reuse a plan that already does what the user wants.
-2. **Confirm before every write** (Apply mode). State the current and the proposed plan in words. For an MCP write, ask header "Confirm" with "Make this change" and "Cancel", and write only after "Make this change" in this turn. For a REST write, the user runs the command, so show the change in words with the command. A detailed request is not approval, and neither is a yes from an earlier turn. A retry after a failed write needs its own confirmation.
-3. **Prefer MCP tools.** Use the REST API only for what has no MCP tool.
-4. **Only touch what the user named.** Never delete, demote, or edit a plan the user did not name.
-5. **Speak in product words.** Say "release plan", "flag release plan", "default", and environment names. Do not show tool names, field names, HTTP status codes, or JSON to the user, except inside a command the user runs.
+2. **The question carries what it asks about.** While a question is open, the user may see only the question, not your message. When a question asks about a plan, a change, or a command you showed ("Use this plan", "Looks right", "Make this change", "Update <name>", "Run this command"), put that plan, change, or command in the question too: in the `preview` of the option that accepts it, or in the question text if the question tool has no preview. This holds in every mode, including Record only.
+3. **Confirm before every write** (Apply mode). State the current and the proposed plan in words. For an MCP write, ask header "Confirm" with "Make this change" and "Cancel", and write only after "Make this change" in this turn. For a REST write, the user runs the command, so show the change in words with the command. A detailed request is not approval, and neither is a yes from an earlier turn. A retry after a failed write needs its own confirmation.
+4. **Prefer MCP tools.** Use the REST API only for what has no MCP tool.
+5. **Only touch what the user named.** Never delete, demote, or edit a plan the user did not name.
+6. **Speak in product words.** Say "release plan", "flag release plan", "default", and environment names. Do not show tool names, field names, HTTP status codes, or JSON to the user, except inside a command the user runs.
 
 ## Environment release plans
 
@@ -97,7 +99,7 @@ First apply [Check for a default before every create](#check-for-a-default-befor
 
 1. **Randomization unit:** check stored contexts with `search-contexts`. Do not ask the user what reads can answer.
 2. **Rollback metrics:** `get-metrics`, keeping metrics whose `analysisUnits` include the unit. Metrics make the plan guarded, and a guarded plan allows at most 50% per step.
-3. **Starter:** ask header "Starter plan": "Progressive", "Custom", or "Not now". Show the full plan, and ask "Looks right" or "Adjust it".
+3. **Starter:** ask header "Starter plan": "Progressive", "Custom", or "Not now". Show the full plan, and ask "Looks right" or "Adjust it", with the plan in the question ([Core Principles](#core-principles) 2).
 4. **Key:** keys are unique in the project, so if a starter's key is taken anywhere in the project (another environment, or an active plan here), add `-2`, then `-3`, until it is free.
 5. Confirm, then `create-environment-release-plan`, then `update-default-environment-release-plan` with `default: true` when it becomes the default. A new default replaces the current one: say so in the confirmation.
 
