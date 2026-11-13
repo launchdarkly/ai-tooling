@@ -37,6 +37,7 @@ npm run eval:onboarding              # onboarding
 npm run eval:experiment-setup        # experiments/launchdarkly-experiment-setup
 npm run eval:experiment-orchestration # aws-devops-agent/experiment-orchestration
 npm run eval:release-autopilot-onboarding  # release-autopilot/launchdarkly-release-autopilot-onboarding
+npm run eval:release-plans            # release-autopilot/launchdarkly-release-plans
 
 # Quick smoke check — first test case only (~15-20s, ~$0.05)
 npm run eval:configs-create:single
@@ -48,6 +49,7 @@ npm run eval:onboarding:single
 npm run eval:experiment-setup:single
 npm run eval:experiment-orchestration:single
 npm run eval:release-autopilot-onboarding:single
+npm run eval:release-plans:single
 
 # Aggregate and CI operations
 npm run eval:all                     # Run every suite and rebuild ../eval-scores.json
@@ -126,6 +128,7 @@ evals/
      "terminated": null
    }
    ```
+   With `scrub_ld_credentials: true`, the provider removes LaunchDarkly credential variables (`LD_ACCESS_TOKEN`, `LD_BASE_URI`, `LD_API_KEY`, `LAUNCHDARKLY_*`) from the agent's environment, so a suite with builtins on can check that the agent never uses a token. A scripted answer can also be `{ command: "<regex on METHOD /api/v2/...>", text: "..." }`, which stands for output the user pasted after running a command the agent showed. In match mode it answers only the "Run this command" step, only when no option answer fits, and only when the last command shown matches.
 5. `shared/transform.js` parses the JSON before assertions run. Every assertion receives `output` as an object — **do not call `JSON.parse(output)` inside assertions**.
 
 ### Shared defaults (`shared/defaults.yaml`)

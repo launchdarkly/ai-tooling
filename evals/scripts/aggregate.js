@@ -120,6 +120,36 @@ function summarize(suite, results, commit) {
   };
 }
 
+// In GitHub Actions, emit one warning annotation per failed test with the
+// failed assertions' reasons. Check run annotations can be read where the
+// job log cannot (for example through a proxy that does not follow log
+// redirects).
+function annotateFailures(suite, results) {
+  if (!process.env.GITHUB_ACTIONS) return;
+  const tests = results?.results?.results || results?.results || [];
+  // GitHub workflow command escaping: escapeData for the message, and
+  // escapeProperty (which also encodes ":" and ",") for the title.
+  const escData = (v) => String(v).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+  const escProp = (v) => escData(v).replace(/:/g, "%3A").replace(/,/g, "%2C");
+  for (const t of Array.isArray(tests) ? tests : []) {
+    if (t.success) continue;
+    const parts = (t.gradingResult?.componentResults || [])
+      .filter((c) => !c.pass)
+      .map((c) => `${c.assertion?.metric || c.assertion?.value || "assert"}: ${c.reason || ""}`);
+    if (t.error) parts.unshift(`error: ${t.error}`);
+    // What the agent did: its tool calls and the start of its final reply.
+    let out = t.response?.output;
+    try { out = typeof out === "string" ? JSON.parse(out) : out; } catch { out = null; }
+    if (out && typeof out === "object") {
+      if (Array.isArray(out.tools_called)) parts.push(`tools: ${out.tools_called.join(",").slice(0, 400)}`);
+      if (out.terminated) parts.push(`terminated: ${out.terminated}`);
+      if (out.response) parts.push(`reply: ${String(out.response).slice(0, 400)}`);
+    }
+    const name = t.description || t.testCase?.description || t.vars?.user_request?.slice(0, 80) || "test";
+    console.log(`::warning title=${escProp(`${suite.suite}: ${String(name).slice(0, 160)}`)}::${escData(parts.join(" | ").slice(0, 1500))}`);
+  }
+}
+
 function main() {
   const args = parseArgs(process.argv);
   const suites = selectSuites(args.only);
@@ -152,6 +182,7 @@ function main() {
     const results = readResults(suite);
     if (!results) { anyError = true; continue; }
     skills[suite.skillKey] = summarize(suite, results, commit);
+    annotateFailures(suite, results);
     const s = skills[suite.skillKey];
     const icon = s.status === "passing" ? "✓" : "✗";
     console.log(`${icon} ${suite.skillKey}: ${s.passed}/${s.total} passed (${s.score}%)`);
@@ -170,4 +201,6 @@ function main() {
   if (anyError || belowThreshold.length > 0) process.exit(1);
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { annotateFailures };
