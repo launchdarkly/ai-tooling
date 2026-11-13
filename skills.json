@@ -488,9 +488,9 @@
     },
     {
       "name": "launchdarkly-release-autopilot-settings",
-      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, set up environment release plans and the project's flag release plan), use launchdarkly-release-autopilot-onboarding instead. For release plans, use launchdarkly-release-plans.",
+      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, set up environment release plans and the project's flag release plan), use launchdarkly-release-autopilot-onboarding instead. For release plans, use launchdarkly-release-plans. For auto-cleanup or auto-archival settings, use launchdarkly-automations-cleanup-settings or launchdarkly-automations-archival-settings.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-settings",
-      "version": "1.6.0-experimental",
+      "version": "1.6.1-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
