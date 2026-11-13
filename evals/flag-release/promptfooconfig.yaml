@@ -47,6 +47,9 @@ providers:
     config:
       skill_slug: flag-release
       allow_builtins: true
+      # The shell is on, so remove LaunchDarkly credentials from the agent's
+      # environment: a curl the agent should not run can't reach an account.
+      scrub_ld_credentials: true
       tool_mocks: flag-release/tool-mocks.json
       tool_definitions: flag-release/tool-definitions.json
       exclude_mcp_tools: ["match-release-policies", "get-release-policies"]
