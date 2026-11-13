@@ -176,3 +176,45 @@ test("confirmShowsPlan needs the plan, with every written repo, in the Looks goo
   assert.equal(ra.confirmShowsPlan({ trajectory: [ask("- Turn on auto-flagging for the account", ["Looks good", "Change something"]), write] }).pass, false);
   assert.equal(ra.confirmShowsPlan({ trajectory: [ask(plan), write] }).pass, false);
 });
+
+// Flag release plan step through the MCP tools.
+const frpCreate = (args = {}, preview = "{\"key\":\"default-release\"}") => ({ tool: "create-flag-release-plan", turn: 8, arguments: { projectKey: "default", ...frpBody(), ...args }, mock_response_preview: preview });
+const frpRead = (args = {}) => ({ tool: "get-flag-release-plans", turn: 12, arguments: { projectKey: "default", flagReleasePlanKey: "default-release", ...args } });
+
+test("flagReleasePlanMcpAfterEnvPlans: create after Looks good and the default, naming the new plan, as the default", () => {
+  const good = { trajectory: [looksGood(5), envPlan, envDefault, frpCreate()], response: "" };
+  assert.equal(ra.flagReleasePlanMcpAfterEnvPlans(good).pass, true);
+  assert.equal(ra.flagReleasePlanMcpAfterEnvPlans({ trajectory: [envPlan, envDefault, frpCreate()] }).pass, false, "no Looks good");
+  assert.equal(ra.flagReleasePlanMcpAfterEnvPlans({ trajectory: [looksGood(5), envPlan, frpCreate(), envDefault] }).pass, false, "before the default");
+  assert.equal(ra.flagReleasePlanMcpAfterEnvPlans({ trajectory: [looksGood(5), envPlan, envDefault, frpCreate({ default: undefined })] }).pass, false, "not the default");
+  assert.equal(ra.flagReleasePlanMcpAfterEnvPlans({ trajectory: [looksGood(5), envPlan, envDefault, frpCreate({ environments: [{ environmentKey: "production", environmentReleasePlanKey: "made-up", triggerType: "flag_eval" }] })] }).pass, false, "wrong plan");
+  assert.equal(ra.flagReleasePlanMcpAfterEnvPlans({ trajectory: [looksGood(5), envPlan, envDefault, frpCreate({}, "{\"error\":\"already has a default\"}")] }).pass, false, "failed create");
+});
+
+test("flagReleasePlanMcpVerified wants a read after the create and the plan named in the report", () => {
+  const response = "Flag release plan: Default release (production), the project's default.";
+  assert.equal(ra.flagReleasePlanMcpVerified({ trajectory: [frpCreate(), frpRead()], response }).pass, true);
+  assert.equal(ra.flagReleasePlanMcpVerified({ trajectory: [frpCreate(), frpRead({ flagReleasePlanKey: undefined })], response }).pass, true, "a list read counts");
+  assert.equal(ra.flagReleasePlanMcpVerified({ trajectory: [frpRead(), frpCreate()], response }).pass, false, "read only before the create");
+  assert.equal(ra.flagReleasePlanMcpVerified({ trajectory: [frpCreate(), frpRead()], response: "Flag release plan Default release: not verified." }).pass, false);
+});
+
+test("flag release plan writes count as writes, and their tool names are raw names", () => {
+  assert.equal(ra.noWrites({ trajectory: [frpCreate()] }).pass, false);
+  assert.equal(ra.confirmsBeforeWriting({ trajectory: [frpCreate(), looksGood(9)] }).pass, false);
+  assert.equal(ra.noRawNames({ trajectory: [], assistant_turns: [], response: "I'll call create-flag-release-plan next." }).pass, false);
+});
+
+test("noCommandsShown fails on a shown command or a Run this command question", () => {
+  assert.equal(ra.noCommandsShown({ trajectory: [frpCreate()], assistant_turns: [], response: "Created." }).pass, true);
+  assert.equal(ra.noCommandsShown({ trajectory: [], assistant_turns: [shown(8, writeCmd("POST", "", frpBody()))], response: "" }).pass, false);
+  const run = ask("Run this command", ["Done, here's the output", "Skip"]);
+  assert.equal(ra.noCommandsShown({ trajectory: [run], assistant_turns: [], response: "" }).pass, false);
+});
+
+test("missingPlanToolsSkipsRelease does not count a flag release plan read as a write", () => {
+  const rw = repoWrite({ autoFlagging: { enabled: true }, autoReleasing: { enabled: false } });
+  const out = { trajectory: [{ tool: "get-flag-release-plans", arguments: { projectKey: "default" } }, rw], response: "Your LaunchDarkly MCP server does not have the release plan tools yet. Update or reconnect it." };
+  assert.equal(ra.missingPlanToolsSkipsRelease(out).pass, true);
+  assert.equal(ra.missingPlanToolsSkipsRelease({ ...out, trajectory: [frpCreate(), rw] }).pass, false);
+});

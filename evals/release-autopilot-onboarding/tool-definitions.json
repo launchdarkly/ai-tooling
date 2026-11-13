@@ -469,5 +469,319 @@
         "environmentKey"
       ]
     }
+  },
+  {
+    "name": "get-flag-release-plans",
+    "description": "Get flag release plans, reusable templates that say how a flag is released across a project's environments. Beta API. Without flagReleasePlanKey: a page in creation order with totalCount; when hasMore is true, pass nextOffset as offset. With flagReleasePlanKey: one plan with its environments (environmentKey, triggerType, environmentReleasePlanKey or isImmediate), executionMode, applicationKeys, maintainer, default, and version. A maintainer reads as {kind: member, memberId, email} or {kind: team, key, name}; to send a team maintainer to update-flag-release-plan, use {kind: team, teamKey: <key>}. The plan with default: true is the project's default, suggested first when starting a release. A project with no stored plans lists one built-in default, key default-release-configuration, which cannot be fetched, updated, or deleted by key; create a plan with default: true to replace it. Flag release plans are project-wide; environment release plans (get-environment-release-plans) are the per-environment rollout recipes they point to.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectKey"
+      ],
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "Project key. If the user hasn't named one, ask; don't guess."
+        },
+        "flagReleasePlanKey": {
+          "type": "string",
+          "description": "Get one plan. Omit to list plans."
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Only without flagReleasePlanKey. Defaults to 20."
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Only without flagReleasePlanKey. Pass nextOffset from the previous page."
+        }
+      }
+    }
+  },
+  {
+    "name": "create-flag-release-plan",
+    "description": "Create a flag release plan, a reusable project-wide template for releasing flags across environments. Does not start a release on a flag. Beta API. Requires key, name, and environments. A key already in use returns an error; check get-flag-release-plans first. RULES: 1-50 environments, each listed once, in release order. Each environment needs environmentKey and triggerType, plus environmentReleasePlanKey unless isImmediate is true (never both). The environment release plan must already exist in that environment and be complete; find one with get-environment-release-plans. triggerType: flag_eval starts when the flag is first evaluated there, webhook waits for a deploy signal, manual waits for a person, promotion starts when the previous environment finishes. manual and promotion need executionMode sequential (the default), and the first environment cannot use promotion. executionMode parallel starts every environment independently. At most 25 applicationKeys. A project holds at most 100 flag release plans and at most one default. When another plan is already the project's default, do not send default: true: LaunchDarkly rejects the create. Create the plan without default, then set default: true with update-flag-release-plan, which demotes the current default; say so to the user first. Send default: true only when the project has no stored default.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectKey",
+        "key",
+        "name",
+        "environments"
+      ],
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "Project key. If the user hasn't named one, ask; don't guess."
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[a-zA-Z0-9][._a-zA-Z0-9-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "maintainer": {
+          "description": "A member ({kind: member, memberId}) or a team ({kind: team, teamKey}).",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "memberId"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "member"
+                },
+                "memberId": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "teamKey"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "team"
+                },
+                "teamKey": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        },
+        "executionMode": {
+          "type": "string",
+          "enum": [
+            "sequential",
+            "parallel"
+          ],
+          "description": "Defaults to sequential."
+        },
+        "applicationKeys": {
+          "type": "array",
+          "maxItems": 25,
+          "items": {
+            "type": "string"
+          }
+        },
+        "environments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "environmentKey",
+              "triggerType"
+            ],
+            "properties": {
+              "environmentKey": {
+                "type": "string"
+              },
+              "triggerType": {
+                "type": "string",
+                "enum": [
+                  "flag_eval",
+                  "webhook",
+                  "manual",
+                  "promotion"
+                ]
+              },
+              "environmentReleasePlanKey": {
+                "type": "string",
+                "description": "The environment release plan to run in this environment. Required unless isImmediate is true."
+              },
+              "isImmediate": {
+                "type": "boolean",
+                "description": "true releases to everyone at once, with no environment release plan."
+              }
+            }
+          }
+        },
+        "default": {
+          "type": "boolean",
+          "description": "Only when get-flag-release-plans shows no stored plan with default: true. If another plan is the default, omit this field: create the plan, then make it the default with update-flag-release-plan."
+        }
+      }
+    }
+  },
+  {
+    "name": "update-flag-release-plan",
+    "description": "Update a flag release plan's name, description, maintainer, executionMode, applicationKeys, default, or environments. Beta API. Send only the fields to change; omitted fields keep their current values, including default. environments and applicationKeys are each replaced wholesale when provided, so include every entry to keep. default: true makes this plan the project's default and demotes the current one; default: false unsets this plan as the default and keeps the plan, so the project has no default until another plan is set. To delete a plan, use delete-flag-release-plan. The update is checked against the version that was read, so a concurrent edit returns an error instead of being overwritten; retry to apply it to the current plan. Flag releases already started from the plan are not affected. RULES: 1-50 environments, each listed once, in release order. Each environment needs environmentKey and triggerType, plus environmentReleasePlanKey unless isImmediate is true (never both). The environment release plan must already exist in that environment and be complete; find one with get-environment-release-plans. triggerType: flag_eval starts when the flag is first evaluated there, webhook waits for a deploy signal, manual waits for a person, promotion starts when the previous environment finishes. manual and promotion need executionMode sequential (the default), and the first environment cannot use promotion. executionMode parallel starts every environment independently. At most 25 applicationKeys. A project holds at most 100 flag release plans and at most one default. Returns the plan as read back after the update.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectKey",
+        "flagReleasePlanKey",
+        "confirm"
+      ],
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "Project key. If the user hasn't named one, ask; don't guess."
+        },
+        "flagReleasePlanKey": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "maintainer": {
+          "description": "A member ({kind: member, memberId}) or a team ({kind: team, teamKey}).",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "memberId"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "member"
+                },
+                "memberId": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "teamKey"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "team"
+                },
+                "teamKey": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          ]
+        },
+        "executionMode": {
+          "type": "string",
+          "enum": [
+            "sequential",
+            "parallel"
+          ],
+          "description": "Defaults to sequential."
+        },
+        "applicationKeys": {
+          "type": "array",
+          "maxItems": 25,
+          "items": {
+            "type": "string"
+          }
+        },
+        "environments": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "environmentKey",
+              "triggerType"
+            ],
+            "properties": {
+              "environmentKey": {
+                "type": "string"
+              },
+              "triggerType": {
+                "type": "string",
+                "enum": [
+                  "flag_eval",
+                  "webhook",
+                  "manual",
+                  "promotion"
+                ]
+              },
+              "environmentReleasePlanKey": {
+                "type": "string",
+                "description": "The environment release plan to run in this environment. Required unless isImmediate is true."
+              },
+              "isImmediate": {
+                "type": "boolean",
+                "description": "true releases to everyone at once, with no environment release plan."
+              }
+            }
+          }
+        },
+        "default": {
+          "type": "boolean",
+          "description": "Omit to keep the current value. true makes this the default and demotes the current default; false unsets this plan as the default and keeps the plan."
+        },
+        "confirm": {
+          "type": "boolean",
+          "description": "Confirm this destructive operation."
+        }
+      }
+    }
+  },
+  {
+    "name": "delete-flag-release-plan",
+    "description": "Permanently delete a flag release plan. Beta API. Flag releases already started from it keep running. Deleting the default plan leaves the project without a default. The key can be reused afterward.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectKey",
+        "flagReleasePlanKey",
+        "confirm"
+      ],
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "Project key. If the user hasn't named one, ask; don't guess."
+        },
+        "flagReleasePlanKey": {
+          "type": "string"
+        },
+        "confirm": {
+          "type": "boolean",
+          "description": "Confirm this destructive operation."
+        }
+      }
+    }
   }
 ]

@@ -2,20 +2,24 @@
 
 The user runs these commands in their own terminal with their LaunchDarkly API access token in `LD_ACCESS_TOKEN`, and pastes the output back. The agent shows them, filled in, and never runs them. Every endpoint is in beta, so every command sends `LD-API-Version: beta`. Each command prints the response body, then `HTTP <status>` on the last line. Replace `PROJECT_KEY`, `PLAN_KEY`, `ENV_KEY`, `RELEASE_PLAN_KEY`, and `FLAG_KEY`. For an instance other than `https://app.launchdarkly.com`, use that instance's URL.
 
-Prefer the MCP tools for environment release plans. Use these commands for flag release plans, for deleting an environment release plan, and when an MCP tool is missing. Do not add `-v` or `--trace`: they print the `Authorization` header.
+Prefer the MCP tools. Use a command here only when the connected server has no tool for that operation: for example, flag release plans before their tools reach the account, starting a flag's release without `create-flag-release`, or deleting an environment release plan without `delete-environment-release-plan`. Do not add `-v` or `--trace`: they print the `Authorization` header.
 
 ## Endpoints
 
 ### Flag release plans
 
-| Operation | Method and path | Success |
-|-----------|-----------------|---------|
-| List a project's plans | `GET /api/v2/projects/{projectKey}/flag-release-plans?limit=50&offset=0` | 200 |
-| Get one plan | `GET /api/v2/projects/{projectKey}/flag-release-plans/{planKey}` | 200 |
-| Create a plan | `POST /api/v2/projects/{projectKey}/flag-release-plans` | 201 |
-| Replace a plan (full update) | `PUT /api/v2/projects/{projectKey}/flag-release-plans/{planKey}` | 200 |
-| Delete a plan | `DELETE /api/v2/projects/{projectKey}/flag-release-plans/{planKey}` | 204 |
-| Start a flag's release | `POST /api/v2/projects/{projectKey}/flags/{flagKey}/flag-releases` | 201 |
+| Operation | Method and path | MCP tool | Success |
+|-----------|-----------------|----------|---------|
+| List a project's plans | `GET /api/v2/projects/{projectKey}/flag-release-plans?limit=50&offset=0` | `get-flag-release-plans` | 200 |
+| Get one plan | `GET /api/v2/projects/{projectKey}/flag-release-plans/{planKey}` | `get-flag-release-plans` with `flagReleasePlanKey` | 200 |
+| Create a plan | `POST /api/v2/projects/{projectKey}/flag-release-plans` | `create-flag-release-plan` | 201 |
+| Replace a plan (full update) | `PUT /api/v2/projects/{projectKey}/flag-release-plans/{planKey}` | `update-flag-release-plan` (changed fields only, `confirm: true`) | 200 |
+| Delete a plan | `DELETE /api/v2/projects/{projectKey}/flag-release-plans/{planKey}` | `delete-flag-release-plan` (`confirm: true`) | 204 |
+| Start a flag's release | `POST /api/v2/projects/{projectKey}/flags/{flagKey}/flag-releases` | `create-flag-release`, where the server has it | 201 |
+
+The flag release plan tools may not be on every server yet. When one is missing, use the command below for that operation.
+
+A project with no stored plans lists one built-in plan, key `default-release-configuration`. It is not stored: a get, replace, or delete by its key returns 404, and it cannot start a release. Create a plan with `"default": true` to replace it.
 
 ### Environment release plans
 
@@ -27,7 +31,7 @@ Paths start with `/api/v2/projects/{projectKey}/environments/{environmentKey}`.
 | Get one plan | `GET .../release-plans/{releasePlanKey}` | `get-environment-release-plans` with `releasePlanKey` | 200 |
 | Create a plan | `POST .../release-plans` | `create-environment-release-plan` | 201 |
 | Replace a plan (full update) | `PUT .../release-plans/{releasePlanKey}` | `update-environment-release-plan` (changed fields only) | 200 |
-| Delete a plan | `DELETE .../release-plans/{releasePlanKey}` | none | 204 |
+| Delete a plan | `DELETE .../release-plans/{releasePlanKey}` | `delete-environment-release-plan`, where the server has it | 204 |
 | Get the default | `GET .../default-release-plan` | `get-environment-release-plans` (`default`) | 200, or 204 with no default |
 | Set the default | `PUT .../default-release-plan` with `{ "key": "..." }` | `update-default-environment-release-plan` with `default: true` | 200 |
 | Clear the default | `DELETE .../default-release-plan` | `update-default-environment-release-plan` with `default: false` | 204 |
@@ -75,7 +79,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST \
 JSON
 ```
 
-Leave out `"default": true` when the project already has a default.
+Leave out `"default": true` when the project already has a stored default. The built-in plan does not count.
 
 ### Replace a flag release plan
 
@@ -210,7 +214,7 @@ Create takes these fields. Replace takes the same fields without `key`, plus `ve
 | `environments[].isImmediate` | No | `true` releases at once with no release plan. Do not send a release plan key with it |
 | `executionMode` | No | `sequential` (the default for plans) or `parallel` |
 | `applicationKeys` | No | At most 25 keys. Auto-releasing uses them to choose a plan for an application |
-| `default` | No | Create: only when the project has no default. Replace: `true` demotes the current default; left out clears it |
+| `default` | No | Create: only when the project has no stored default. Replace: `true` demotes the current default; left out clears it. (`update-flag-release-plan` keeps the current value when it is left out) |
 | `maintainer` | No | `{ "kind": "member", "memberId": "..." }` or `{ "kind": "team", "teamKey": "..." }` |
 | `version` | Replace only, optional | The version from the last read. A mismatch returns 409 and changes nothing |
 

@@ -159,5 +159,57 @@
         "critical": true
       }
     ]
+  },
+  "get-flag-release-plans": {
+    "flagReleasePlans": [
+      {
+        "key": "default-release-configuration",
+        "name": "Default release configuration",
+        "default": true,
+        "executionMode": "sequential",
+        "applicationKeys": [],
+        "environments": [
+          {
+            "environmentKey": "production",
+            "triggerType": "flag_eval",
+            "isImmediate": true
+          }
+        ]
+      }
+    ],
+    "totalCount": 1,
+    "hasMore": false
+  },
+  "get-flag-release-plans#flagReleasePlanKey": {
+    "flagReleasePlans": [
+      {
+        "key": "default-release-configuration",
+        "name": "Default release configuration",
+        "default": true,
+        "executionMode": "sequential",
+        "applicationKeys": [],
+        "environments": [
+          {
+            "environmentKey": "production",
+            "triggerType": "flag_eval",
+            "isImmediate": true
+          }
+        ]
+      }
+    ],
+    "totalCount": 1,
+    "hasMore": false
+  },
+  "create-flag-release-plan": {
+    "projectKey": "{{projectKey}}",
+    "key": "{{key}}"
+  },
+  "update-flag-release-plan": {
+    "projectKey": "{{projectKey}}",
+    "key": "{{flagReleasePlanKey}}"
+  },
+  "delete-flag-release-plan": {
+    "deleted": true,
+    "flagReleasePlanKey": "{{flagReleasePlanKey}}"
   }
 }

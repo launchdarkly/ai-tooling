@@ -16,7 +16,7 @@ const ORCH_TEMPLATES = require("../experiment-orchestration/mocks.json");
 test("createMockState returns fresh empty state each call", () => {
   const a = createMockState();
   const b = createMockState();
-  assert.deepEqual(a, { configs: {}, flags: {}, targeting: {}, raSettings: null, raRepos: {}, raPlans: {}, raDefaults: {}, raCleanup: {}, raArchival: {} });
+  assert.deepEqual(a, { configs: {}, flags: {}, targeting: {}, raSettings: null, raRepos: {}, raPlans: {}, raDefaults: {}, raCleanup: {}, raArchival: {}, raFlagPlans: {}, raFlagSeen: {} });
   a.configs["x"] = {};
   assert.deepEqual(b.configs, {}); // independent
 });
@@ -966,4 +966,93 @@ test("flag-release default release plan renders as the environment's default", (
   assert.equal(defaults.length, 1);
   assert.equal(defaults[0].environmentKey, "production");
   assert.ok(Object.keys(defaults[0].progressiveRelease.metrics).length > 0);
+});
+
+// ---------------------------------------------------------------------------
+// Flag release plans (release-autopilot-onboarding tool-mocks, mcp #522)
+// ---------------------------------------------------------------------------
+
+const RA_SUITE = require("../release-autopilot-onboarding/tool-mocks.json");
+const frpEnvs = [
+  { environmentKey: "test", environmentReleasePlanKey: "progressive", triggerType: "flag_eval" },
+  { environmentKey: "production", environmentReleasePlanKey: "progressive-2", triggerType: "flag_eval" },
+];
+const frpList = (plans) => ({ flagReleasePlans: plans, totalCount: plans.length, hasMore: false });
+const fast = { key: "fast", name: "Fast", default: true, version: 1, environments: [{ environmentKey: "production", isImmediate: true, triggerType: "flag_eval" }] };
+const staged = { key: "staged-rollout", name: "Staged rollout", default: false, version: 3, environments: frpEnvs };
+
+test("get-flag-release-plans has a template key per mode", () => {
+  assert.equal(templateKey("get-flag-release-plans", { projectKey: "default" }), "get-flag-release-plans");
+  assert.equal(templateKey("get-flag-release-plans", { projectKey: "default", flagReleasePlanKey: "x" }), "get-flag-release-plans#flagReleasePlanKey");
+});
+
+test("a project with no stored flag release plans lists only the built-in plan, which cannot be read by key", () => {
+  const state = createMockState();
+  const list = renderMockResponse(RA_SUITE["get-flag-release-plans"], { projectKey: "default" }, "get-flag-release-plans", state);
+  assert.deepEqual(list.flagReleasePlans.map((p) => p.key), ["default-release-configuration"]);
+  const one = renderMockResponse(RA_SUITE["get-flag-release-plans#flagReleasePlanKey"], { projectKey: "default", flagReleasePlanKey: "default-release-configuration" }, "get-flag-release-plans", state);
+  assert.match(one.error, /404/);
+  const upd = renderMockResponse(RA_SUITE["update-flag-release-plan"], { projectKey: "default", flagReleasePlanKey: "default-release-configuration", default: false, confirm: true }, "update-flag-release-plan", state);
+  assert.match(upd.error, /404/);
+});
+
+test("create-flag-release-plan with default true replaces the built-in plan, and reads reflect it", () => {
+  const state = createMockState();
+  renderMockResponse(RA_SUITE["get-flag-release-plans"], { projectKey: "default" }, "get-flag-release-plans", state);
+  const created = renderMockResponse(RA_SUITE["create-flag-release-plan"], { projectKey: "default", key: "default-release", name: "Default release", default: true, environments: frpEnvs }, "create-flag-release-plan", state);
+  assert.equal(created.error, undefined);
+  assert.equal(created.default, true);
+  assert.equal(created.version, 1);
+  const list = renderMockResponse(RA_SUITE["get-flag-release-plans"], { projectKey: "default" }, "get-flag-release-plans", state);
+  assert.deepEqual(list.flagReleasePlans.map((p) => [p.key, p.default]), [["default-release", true]]);
+  const one = renderMockResponse(RA_SUITE["get-flag-release-plans#flagReleasePlanKey"], { projectKey: "default", flagReleasePlanKey: "default-release" }, "get-flag-release-plans", state);
+  assert.deepEqual(one.environments, frpEnvs);
+});
+
+test("create-flag-release-plan rejects default true while a stored default exists, and a taken key", () => {
+  const state = createMockState();
+  renderMockResponse(frpList([fast, staged]), { projectKey: "default" }, "get-flag-release-plans", state);
+  const dflt = renderMockResponse({}, { projectKey: "default", key: "train", name: "Train", default: true, environments: frpEnvs }, "create-flag-release-plan", state);
+  assert.match(dflt.error, /already has a default/);
+  const taken = renderMockResponse({}, { projectKey: "default", key: "fast", name: "Fast 2", environments: frpEnvs }, "create-flag-release-plan", state);
+  assert.match(taken.error, /already in use/);
+  const ok = renderMockResponse({}, { projectKey: "default", key: "train", name: "Train", environments: frpEnvs }, "create-flag-release-plan", state);
+  assert.equal(ok.default, false);
+});
+
+test("update-flag-release-plan needs confirm, keeps default when left out, and default true demotes the current default", () => {
+  const state = createMockState();
+  const base = frpList([fast, staged]);
+  renderMockResponse(base, { projectKey: "default" }, "get-flag-release-plans", state);
+  const noConfirm = renderMockResponse({}, { projectKey: "default", flagReleasePlanKey: "fast", environments: frpEnvs }, "update-flag-release-plan", state);
+  assert.match(noConfirm.error, /confirm=true/);
+  const inPlace = renderMockResponse({}, { projectKey: "default", flagReleasePlanKey: "fast", environments: frpEnvs, confirm: true }, "update-flag-release-plan", state);
+  assert.equal(inPlace.default, true);
+  assert.equal(inPlace.version, 2);
+  assert.deepEqual(inPlace.environments, frpEnvs);
+  const promote = renderMockResponse({}, { projectKey: "default", flagReleasePlanKey: "staged-rollout", default: true, confirm: true }, "update-flag-release-plan", state);
+  assert.equal(promote.version, 4);
+  const list = renderMockResponse(base, { projectKey: "default" }, "get-flag-release-plans", state);
+  assert.deepEqual(list.flagReleasePlans.map((p) => [p.key, p.default]), [["fast", false], ["staged-rollout", true]]);
+  const empty = renderMockResponse({}, { projectKey: "default", flagReleasePlanKey: "fast", confirm: true }, "update-flag-release-plan", state);
+  assert.match(empty.error, /at least one field/);
+});
+
+test("delete-flag-release-plan needs confirm, and the deleted plan is gone from reads", () => {
+  const state = createMockState();
+  const base = frpList([fast, staged]);
+  renderMockResponse(base, { projectKey: "default" }, "get-flag-release-plans", state);
+  assert.match(renderMockResponse({}, { projectKey: "default", flagReleasePlanKey: "fast" }, "delete-flag-release-plan", state).error, /confirm=true/);
+  assert.deepEqual(renderMockResponse({}, { projectKey: "default", flagReleasePlanKey: "fast", confirm: true }, "delete-flag-release-plan", state), { deleted: true, flagReleasePlanKey: "fast" });
+  const list = renderMockResponse(base, { projectKey: "default" }, "get-flag-release-plans", state);
+  assert.deepEqual(list.flagReleasePlans.map((p) => p.key), ["staged-rollout"]);
+  assert.match(renderMockResponse(base, { projectKey: "default", flagReleasePlanKey: "fast" }, "get-flag-release-plans", state).error, /404/);
+});
+
+test("a failed flag release plan write (an error override) is not recorded", () => {
+  const state = createMockState();
+  renderMockResponse(frpList([]), { projectKey: "default" }, "get-flag-release-plans", state);
+  const err = renderMockResponse({ error: "permission denied" }, { projectKey: "default", key: "x", name: "X", environments: frpEnvs }, "create-flag-release-plan", state);
+  assert.equal(err.error, "permission denied");
+  assert.equal(state.raFlagPlans.default, undefined);
 });

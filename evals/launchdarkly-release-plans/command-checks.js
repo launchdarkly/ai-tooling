@@ -114,6 +114,16 @@ module.exports = {
       asks.length === 0 ? "no \"Run this command\" question" : `${missing.length} of ${asks.length} \"Run this command\" questions do not show the command`);
   },
 
+  // With the flag release plan tools on the server, the agent shows no REST
+  // command and asks the user to run nothing.
+  noCommandsShown(output) {
+    const cmds = shownCommands(output);
+    const runAsks = traj(output).filter((t) => t.tool === "ask-question" &&
+      ((t.arguments && t.arguments.options) || []).some((o) => RUN_ANSWER.test(String(o.label || "")))).length;
+    return result(cmds.length === 0 && runAsks === 0,
+      `REST commands shown: ${cmds.length ? cmds.map((c) => `${c.method} ${c.path}`).join(", ") : "none"}; "Run this command" questions: ${runAsks}`);
+  },
+
   // No write command shown: only reads.
   noWriteCommands(output) {
     const w = shownCommands(output).filter((c) => c.method !== "GET");
