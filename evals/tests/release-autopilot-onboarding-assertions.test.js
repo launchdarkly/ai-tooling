@@ -105,7 +105,7 @@ const looksGood = (turn) => ({
 const frpBody = (extra = {}) => ({
   key: "default-release",
   name: "Default release",
-  isDefault: true,
+  default: true,
   environments: [{ environmentKey: "production", environmentReleasePlanKey: "progressive", triggerType: "flag_eval" }],
   ...extra,
 });
@@ -118,7 +118,7 @@ test("flagReleasePlanAfterEnvPlans: the create command after Looks good and the 
   assert.equal(ra.flagReleasePlanAfterEnvPlans(good).pass, true);
   assert.equal(ra.flagReleasePlanAfterEnvPlans({ ...good, assistant_turns: [shown(4, writeCmd("POST", "", frpBody()))] }).pass, false);
   assert.equal(ra.flagReleasePlanAfterEnvPlans({ ...good, assistant_turns: [shown(8, writeCmd("POST", "", frpBody({ environments: [{ environmentKey: "production", environmentReleasePlanKey: "made-up", triggerType: "flag_eval" }] })))] }).pass, false);
-  assert.equal(ra.flagReleasePlanAfterEnvPlans({ ...good, assistant_turns: [shown(8, writeCmd("POST", "", frpBody({ isDefault: undefined })))] }).pass, false);
+  assert.equal(ra.flagReleasePlanAfterEnvPlans({ ...good, assistant_turns: [shown(8, writeCmd("POST", "", frpBody({ default: undefined })))] }).pass, false);
   assert.equal(ra.flagReleasePlanAfterEnvPlans({ ...good, trajectory: [envPlan, envDefault] }).pass, false);
 });
 

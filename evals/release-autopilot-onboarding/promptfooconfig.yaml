@@ -1273,7 +1273,7 @@ tests:
         - ["Looks right"]
         - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [], \"totalCount\": 0}\nHTTP 200" }
         - ["Looks good"]
-        - { command: "^POST .*/flag-release-plans$", text: "{\"key\": \"default-release\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10\", \"version\": 1, \"name\": \"Default release\", \"isDefault\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
+        - { command: "^POST .*/flag-release-plans$", text: "{\"key\": \"default-release\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10\", \"version\": 1, \"name\": \"Default release\", \"default\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"progressive\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 201" }
     assert:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:flagReleasePlanAfterEnvPlans

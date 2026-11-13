@@ -488,9 +488,9 @@
     },
     {
       "name": "launchdarkly-release-autopilot-settings",
-      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, set up environment release plans and the project's flag release plan), use launchdarkly-release-autopilot-onboarding instead. For release plans, use launchdarkly-release-plans.",
+      "description": "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, set up environment release plans and the project's flag release plan), use launchdarkly-release-autopilot-onboarding instead. For release plans, use launchdarkly-release-plans. For auto-cleanup or auto-archival settings, use launchdarkly-automations-cleanup-settings or launchdarkly-automations-archival-settings.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-settings",
-      "version": "1.6.0-experimental",
+      "version": "1.6.1-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -518,6 +518,14 @@
         "mcp",
         "rest-api"
       ]
+    },
+    {
+      "name": "legacy-sdk-migrate",
+      "description": "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server` plus handler packages). Use when code calls `LDAIClient`, `initAi`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade between LaunchDarkly AI SDKs. For apps with hardcoded LLM prompts that aren't on LaunchDarkly yet, use `migrate` instead.",
+      "path": "skills/agentcontrol/legacy-sdk-migrate",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Python 3.12+ (`launchdarkly-ai-server` 1.0.0+ with `launchdarkly-server-sdk`) or Node.js (`@launchdarkly/ai-node` 1.0.0+). No LaunchDarkly MCP tools needed; the AgentControl configs already exist."
     },
     {
       "name": "mcp-configure",

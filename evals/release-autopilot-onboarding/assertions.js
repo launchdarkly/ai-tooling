@@ -631,8 +631,8 @@ module.exports.flagReleasePlanAfterEnvPlans = (output) => {
   const envs = c.body.environments || [];
   const points = envs.length === 1 && envs[0].environmentKey === "production" && envs[0].environmentReleasePlanKey === envKey;
   const order = defTurn !== undefined && confirmTurn !== undefined && c.turn >= defTurn && c.turn > confirmTurn;
-  const pass = points && order && approved && c.body.isDefault === true;
-  return result(pass, `names production's new plan ${envKey}: ${points}; shown after "Looks good" and the default: ${order}; approved: ${approved}; default: ${c.body.isDefault}`);
+  const pass = points && order && approved && c.body.default === true;
+  return result(pass, `names production's new plan ${envKey}: ${points}; shown after "Looks good" and the default: ${order}; approved: ${approved}; default: ${c.body.default}`);
 };
 
 // The pasted create response is read: the report names the plan as set up.
