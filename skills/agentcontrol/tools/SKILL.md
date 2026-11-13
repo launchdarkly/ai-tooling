@@ -2,7 +2,7 @@
 name: tools
 description: "Give your agents capabilities through tools (function calling). Helps you identify what your agent needs to do, create tool definitions, and attach them to config variations."
 license: Apache-2.0
-compatibility: Requires the remotely hosted LaunchDarkly MCP server. Application code examples use `launchdarkly-ai-server` 0.4.0+ (Python) or `@launchdarkly/ai-node` 0.4.0+ (Node.js).
+compatibility: Requires the remotely hosted LaunchDarkly MCP server. Application code examples use `launchdarkly-ai-server` 1.0.0+ (Python) or `@launchdarkly/ai-node` 1.0.0+ (Node.js).
 metadata:
   author: launchdarkly
   version: "1.1.0-experimental"
@@ -132,10 +132,9 @@ const result = await config({
 
 Rules for tool functions:
 
-- **Keys must match exactly.** The key in `tool_handlers` must equal the tool key on the variation, including case. If the model calls a tool with no function, `invoke()` raises `No handler registered for tool "<key>"`.
+- **Keys must match exactly.** The key in `tool_handlers` must equal the tool key on the variation, including case. The handlers offer the model only the variation's tools that have a function, so a tool whose key doesn't match is silently left out of the call.
 - **One argument.** The function receives a single dict (Python) or object (Node.js) of arguments, not keyword arguments. It can be sync or async. The handler sends the return value back to the model as a string.
 - **The loop is bounded.** The handler packages stop after 10 tool steps and raise `Tool loop exceeded the maximum number of steps (10)`. A runaway loop is almost always a prompt or schema bug.
-- **Which tools the model sees.** The Node.js handlers offer the model only the variation's tools that have a function. The Python handlers offer every tool on the variation, so register a function for each one.
 
 To share tools across call sites, put them in a `Registry` (`Registry(handlers=..., tools=...)` in Python, `new Registry({ handlers, tools })` in Node.js) and pass `registry=` instead. A call receives only the tools its variation names. Some providers have built-in tools, such as `ClaudeWebSearch` from `launchdarkly-ai-claude-agents`. Assign one as the value for a tool key instead of a function, and its calls are tracked the same way.
 
@@ -155,7 +154,6 @@ The tool functions the SDK passes in are already wrapped to record `$ld:ai:tool_
 
 ```python
 from anthropic import AsyncAnthropic
-# tool_result_string needs launchdarkly-ai-server 0.4.0+
 from launchdarkly_ai_server import compose_history, create_handler, parse_template, tool_result_string
 
 anthropic_client = AsyncAnthropic()

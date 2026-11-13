@@ -631,7 +631,7 @@
       "path": "skills/agentcontrol/tools",
       "version": "1.1.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Application code examples use `launchdarkly-ai-server` 0.4.0+ (Python) or `@launchdarkly/ai-node` 0.4.0+ (Node.js)."
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Application code examples use `launchdarkly-ai-server` 1.0.0+ (Python) or `@launchdarkly/ai-node` 1.0.0+ (Node.js)."
     }
   ]
 }
