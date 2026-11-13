@@ -116,6 +116,10 @@ tests:
         metric: confirms_before_writing
         weight: 4
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
         metric: repo_override_unpicked
         weight: 4
@@ -214,6 +218,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
 
   # ------------------------------------------------------------------
   # Reader: Preview mode is forced, so nothing is written even after
@@ -374,6 +382,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
 
   # ------------------------------------------------------------------
   # "Change something" at the confirm step is not approval: no writes.
@@ -431,6 +443,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noAccountWrite
         metric: no_redundant_account_write
@@ -566,6 +582,10 @@ tests:
         metric: confirms_before_writing
         weight: 3
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoReleasingOff
         metric: repo_override_unpicked
         weight: 3
@@ -680,6 +700,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noProductNameAfterIntro
         metric: capability_names
@@ -838,6 +862,10 @@ tests:
         metric: confirms_before_writing
         weight: 3
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noAutoCleanup
         metric: no_auto_cleanup
         weight: 2
@@ -981,6 +1009,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
 
   # ------------------------------------------------------------------
   # Bring your own key is a browser change: it comes after "Looks good",
@@ -1093,6 +1125,10 @@ tests:
         metric: confirms_before_writing
         weight: 3
       - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
+      - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names
         weight: 2
@@ -1131,6 +1167,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
 
   # ------------------------------------------------------------------
   # Production already has a complete plan that is not the default. The
@@ -1174,6 +1214,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
 
   # ------------------------------------------------------------------
   # Automatic archival is already on for the project: no browser step and
@@ -1240,6 +1284,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
 
   # ------------------------------------------------------------------
   # Production's default is Fast; the user picks Gradual instead. The
@@ -1300,6 +1348,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
 
   # ------------------------------------------------------------------
   # The GitHub App install cannot be read (reposError) on every read. The
@@ -1397,6 +1449,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
 
   # ------------------------------------------------------------------
   # Flag release plan: the user runs the list command in Release setup and
@@ -1452,6 +1508,10 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
 
   # ------------------------------------------------------------------
   # The user skips the flag release plan commands: it is a follow-up with

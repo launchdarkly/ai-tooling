@@ -52,6 +52,27 @@ function approvedConfirmBefore(steps, limit) {
   return -1;
 }
 
+// Every "Looks good" question carries the plan it approves, because the
+// user may see only the question while it is open: the plan is a list in the
+// question text or in an option's preview, and it names every repository
+// that the run writes later. There must be at least one such question.
+module.exports.confirmShowsPlan = (output) => {
+  const steps = traj(output);
+  const asks = steps.map((t, i) => [t, i]).filter(([t]) => isConfirmQuestion(t));
+  if (asks.length === 0) return result(false, "no \"Looks good\" question");
+  const repos = [...new Set(steps.filter((t) => t.tool === "update-automations" && (t.arguments || {}).repo)
+    .map((t) => String(t.arguments.repo).toLowerCase()))];
+  const bad = asks.filter(([t]) => {
+    const a = t.arguments || {};
+    const text = [a.prompt, ...(a.options || []).map((o) => o.preview)].map((x) => String(x || "")).join("\n").toLowerCase();
+    const isList = /(^|\n)\s*(- |\* |\d+\. )/.test(text);
+    return !isList || repos.some((r) => !text.includes(r));
+  });
+  return result(bad.length === 0, bad.length
+    ? `${bad.length} of ${asks.length} "Looks good" questions do not show the plan${repos.length ? ` (repos ${repos.join(", ")})` : ""}`
+    : `${asks.length} "Looks good" questions show the plan`);
+};
+
 module.exports.noWrites = (output) => {
   const w = writes(output);
   return result(w.length === 0, w.length ? `wrote: ${w.map((t) => t.tool).join(", ")}` : "no writes");
