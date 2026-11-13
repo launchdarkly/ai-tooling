@@ -335,7 +335,7 @@ const result = await config({
 );
 ```
 
-Delete the hand-written loop, the provider tool-schema construction, and the manual `track_tool_call` / `trackToolCall` calls.
+Before deleting the loop, confirm that every tool it defined in code exists on each variation in LaunchDarkly. A tool missing from the variation is silently unavailable to the migrated agent; nothing fails. Do the same for a step cap or default model the old loop set: move it to the variation (or a custom handler) or tell the user. Then delete the hand-written loop, the provider tool-schema construction, and the manual `track_tool_call` / `trackToolCall` calls.
 
 ## Registries
 
@@ -445,7 +445,7 @@ getClient().track(event, context, result.trackData, 1);
 
 ## Judges
 
-Legacy apps created a judge and called it after each response. Now judges are attached to the config variation in LaunchDarkly and run inline by default on every `invoke()`. Delete `create_judge` / `createJudge` call sites once the judges are attached to the variation (ask the user to attach them if they aren't).
+Legacy apps created a judge and called it after each response. Now judges are attached to the config variation in LaunchDarkly and run inline by default on every `invoke()`. If the legacy app judged only some calls on a config, it will now judge all of them; pass `skip_judges=True` / `skipJudges: true` on the calls that shouldn't be judged. Delete `create_judge` / `createJudge` call sites once the judges are attached to the variation (ask the user to attach them if they aren't).
 
 To keep latency low, skip inline judges and put the returned tasks on a durable
 worker or queue. `run_judge()` / `runJudge()` executes the judge call but does
@@ -503,6 +503,10 @@ import {
   globalRegistry,
   runJudge,
 } from '@launchdarkly/ai-node';
+import { createOpenAIMessagesHandler } from '@launchdarkly/ai-openai-messages';
+
+// The handlers your judge configs' providers need.
+const handlers = [createOpenAIMessagesHandler()];
 
 const { response, judgeTasks } = await config({
   key: 'example-config-key',
@@ -564,5 +568,5 @@ console.log(result.response);
 To keep running on a framework the app already uses, call `resolve_graph()` / `resolveGraph()` and pass the result to that framework's runner: `to_lang_graph` / `toLangGraph`, `to_openai_agents` / `toOpenAIAgents`, or `to_claude_agents` / `toClaudeAgents`. Check the handler package's exports and README for the exact call.
 
 If the app walks the resolved topology by hand instead of using `graph().invoke()` or a native runner:
-- Node and edge accessors are attributes now: `graph.enabled`, `graph.root`, `node.key`, `node.config` (a plain dict), `node.edges`, and `edge.target_key` (replacing `is_enabled()`, `root()`, `get_key()`, `get_config()`, `get_edges()`, and `edge.target_config`).
-- `resolve_graph()` / `resolveGraph()` returns topology only and emits **no** telemetry on its own. Pass `handlers=` to `resolve_graph()` and execute nodes with `await graph.run_node(node, input, opts)` / `await graph.route(node, input, opts)`, or emit the 1.0 `$ld:ai:graph:*` events yourself (`$ld:ai:graph:node`, `$ld:ai:graph:handoff_success`, `$ld:ai:graph:handoff_failure`, `$ld:ai:graph:invocation_success`, `$ld:ai:graph:invocation_failure`, `$ld:ai:graph:duration:total`, `$ld:ai:graph:total_tokens`). Note that legacy event keys (`$ld:ai:graph:path`, `$ld:ai:graph:handoff`, `$ld:ai:graph:invocation`, `$ld:ai:graph:total`, `$ld:ai:tool`) changed in 1.0, so existing LaunchDarkly metrics built on the old keys must be updated.
+- Node and edge accessors are attributes now: `graph.enabled`, `graph.root`, `node.key`, `node.config` (a plain dict), `node.edges`, and `edge.target_key` / `edge.targetKey` (replacing `is_enabled()`, `root()`, `get_key()`, `get_config()`, `get_edges()`, and `edge.target_config`).
+- `resolve_graph()` / `resolveGraph()` returns topology only and emits **no** telemetry on its own. Pass `handlers=` to `resolve_graph()` and execute nodes with `await graph.run_node(node, input, opts)` / `await graph.runNode(node, input, opts)` or `graph.route(node, input, opts)`, or emit the `$ld:ai:graph:*` events yourself (`$ld:ai:graph:node`, `$ld:ai:graph:handoff_success`, `$ld:ai:graph:handoff_failure`, `$ld:ai:graph:invocation_success`, `$ld:ai:graph:invocation_failure`, `$ld:ai:graph:duration:total`, `$ld:ai:graph:total_tokens`, plus `$ld:ai:tool_call`). These match the legacy SDKs except that `$ld:ai:graph:path` became `$ld:ai:graph:node` and `$ld:ai:graph:redirect` is gone, so only LaunchDarkly metrics built on those two keys need updating.
