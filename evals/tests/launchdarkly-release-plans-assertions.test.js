@@ -209,6 +209,9 @@ test("runQuestionShowsCommand needs the command in each Run this command questio
   const inPreview = runAsk({ prompt: "Run this command?" });
   inPreview.arguments.options[0].preview = cmd;
   assert.equal(checks.runQuestionShowsCommand(out([], { trajectory: [inPreview] })).pass, true);
+  const inSkipPreview = runAsk({ prompt: "Run this command?" });
+  inSkipPreview.arguments.options[1].preview = cmd;
+  assert.equal(checks.runQuestionShowsCommand(out([], { trajectory: [inSkipPreview] })).pass, false);
   assert.equal(checks.runQuestionShowsCommand(out([turn(1, cmd)], { trajectory: [runAsk({ prompt: "Run this command?" })] })).pass, false);
   assert.equal(checks.runQuestionShowsCommand(out([turn(1, cmd)], { trajectory: [runAsk({ prompt: cmd }), runAsk({ prompt: "And this one?" })] })).pass, false);
   assert.equal(checks.runQuestionShowsCommand(out([turn(1, cmd)], { trajectory: [confirm()] })).pass, false);

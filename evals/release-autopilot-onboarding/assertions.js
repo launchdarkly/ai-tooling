@@ -54,8 +54,10 @@ function approvedConfirmBefore(steps, limit) {
 
 // Every "Looks good" question carries the plan it approves, because the
 // user may see only the question while it is open: the plan is a list in the
-// question text or in an option's preview, and it names every repository
-// that the run writes later. There must be at least one such question.
+// question text or in the preview of the "Looks good" option (a preview on
+// another option, such as "Change something", does not count), and it names
+// every repository that the run writes later. There must be at least one
+// such question.
 module.exports.confirmShowsPlan = (output) => {
   const steps = traj(output);
   const asks = steps.map((t, i) => [t, i]).filter(([t]) => isConfirmQuestion(t));
@@ -64,7 +66,8 @@ module.exports.confirmShowsPlan = (output) => {
     .map((t) => String(t.arguments.repo).toLowerCase()))];
   const bad = asks.filter(([t]) => {
     const a = t.arguments || {};
-    const text = [a.prompt, ...(a.options || []).map((o) => o.preview)].map((x) => String(x || "")).join("\n").toLowerCase();
+    const okOpts = (a.options || []).filter((o) => String(o.label || "").toLowerCase().includes("looks good"));
+    const text = [a.prompt, ...okOpts.map((o) => o.preview)].map((x) => String(x || "")).join("\n").toLowerCase();
     const isList = /(^|\n)\s*(- |\* |\d+\. )/.test(text);
     return !isList || repos.some((r) => !text.includes(r));
   });

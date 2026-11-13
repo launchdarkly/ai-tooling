@@ -191,6 +191,9 @@ test("confirmShowsPlan needs the plan, with every written repo, in the Looks goo
   const inPreview = ask("Make these changes?", ["Looks good", "Change something"]);
   inPreview.arguments.options[0].preview = plan;
   assert.equal(ra.confirmShowsPlan({ trajectory: [inPreview, write] }).pass, true);
+  const inChangePreview = ask("Make these changes?", ["Looks good", "Change something"]);
+  inChangePreview.arguments.options[1].preview = plan;
+  assert.equal(ra.confirmShowsPlan({ trajectory: [inChangePreview, write] }).pass, false);
   assert.equal(ra.confirmShowsPlan({ trajectory: [ask("Ready to apply?", ["Looks good", "Change something"]), write] }).pass, false);
   assert.equal(ra.confirmShowsPlan({ trajectory: [ask("- Turn on auto-flagging for the account", ["Looks good", "Change something"]), write] }).pass, false);
   assert.equal(ra.confirmShowsPlan({ trajectory: [ask(plan), write] }).pass, false);

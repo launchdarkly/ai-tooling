@@ -97,13 +97,16 @@ module.exports = {
 
   // Every "Run this command" question shows the command itself, because the
   // user may see only the question while it is open. The command can be in
-  // the question text or in an option's preview. There must be at least one.
+  // the question text or in the preview of the "Done, here's the output"
+  // option. A preview on another option (such as Skip) does not count.
+  // There must be at least one such question.
   runQuestionShowsCommand(output) {
     const asks = traj(output).filter((t) => t.tool === "ask-question" &&
       ((t.arguments && t.arguments.options) || []).some((o) => RUN_ANSWER.test(String(o.label || ""))));
     const showsCommand = (t) => {
       const a = t.arguments || {};
-      const texts = [a.prompt, ...(a.options || []).map((o) => o.preview)].map((x) => String(x || ""));
+      const runOpts = (a.options || []).filter((o) => RUN_ANSWER.test(String(o.label || "")));
+      const texts = [a.prompt, ...runOpts.map((o) => o.preview)].map((x) => String(x || ""));
       return texts.some((x) => /```[a-z]*\n[\s\S]*?\bcurl\b[\s\S]*?\/api\/v2\/[\s\S]*?```/.test(x));
     };
     const missing = asks.filter((t) => !showsCommand(t));
