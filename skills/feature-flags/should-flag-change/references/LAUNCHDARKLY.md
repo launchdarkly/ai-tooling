@@ -58,7 +58,7 @@ every environment listed in `launchdarkly-needed.txt` that the flag has:
         {"variation": 0, "weight": 10000},
         {"variation": 1, "weight": 90000}]}},
       "rules": [
-        {"variation": 0,
+        {"variation": 0, "disabled": false,
          "clauses": [{"op": "segmentMatch", "values": ["internal-staff"], "negate": false}]}
       ],
       "targets": [{"variation": 0, "values": ["user-123"]}],
@@ -78,7 +78,11 @@ every environment listed in `launchdarkly-needed.txt` that the flag has:
   weights out of 100000 (a 10% rollout is 10000).
 - **Rules:** keep every clause; `op`, `values` and `negate` are what's read.
   A rule targeting only internal audiences (segments named like `internal`
-  or `staff`) counts as not reaching real users.
+  or `staff`) counts as not reaching real users. Keep each rule's
+  `disabled`: a disabled rule serves nobody, and dropping the field makes
+  it read as live.
+- **Prerequisites** are fetched as flags of their own. A prerequisite
+  that's off fails for everyone, so the flag serves its off variation.
 - **A flag that doesn't exist** in that project:
   `{"key": "<key>", "not_found": true}`. Don't guess at another project.
 - **An environment the flag doesn't have:** leave it out.
@@ -92,7 +96,25 @@ every environment listed in `launchdarkly-needed.txt` that the flag has:
   `curl -s -H "Authorization: $TOKEN" <instance>/api/v2/flags/<project>/<key>`,
   with the instance `launchdarkly-needed.txt` names, returns this shape
   already (keep the whole response).
-- **A LaunchDarkly MCP server or other tool** that reads a flag's targeting
-  per environment: one call per flag and environment, assembled into the
-  shape above. Check that the project key you pass is the one the needed
-  file names.
+- **A LaunchDarkly MCP server's get-flag-targeting tool**: one call per flag
+  and environment, all made together. Write its results in as they came,
+  under the environment each was for, keeping the tool's field names
+  (`on`, `off_variation`, `fallthrough`, `rules` with `clauses`, `serves`
+  and `disabled`, `targets`, `context_targets`, `prerequisites`). Keep each
+  rule's `disabled`: dropped, a disabled rule reads as live. Keep one
+  result's `variations` as returned, each with its `index`: the tool may
+  list them out of index order, and values alone would then bind the wrong
+  indexes (write bare values only in index order). `ld-factory.pyz` converts this
+  to the shape above itself, so don't reshape it. A variation can be just
+  its index (`"off_variation": 1`). A result the tool marked as an error
+  leaves that environment out:
+
+  ```json
+  {"key": "new-checkout", "variations": [true, false],
+   "environments": {"production": {"on": true, "off_variation": 1,
+     "fallthrough": {"type": "variation", "variation": 0},
+     "rules": [], "targets": [], "context_targets": [], "prerequisites": []}}}
+  ```
+- **Any other tool** that reads a flag's targeting per environment: one
+  call per flag and environment, assembled into the shape above. Check that
+  the project key you pass is the one the needed file names.

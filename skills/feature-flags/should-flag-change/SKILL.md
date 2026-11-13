@@ -6,7 +6,7 @@ compatibility: "Advisory and read-only. Needs a git checkout with the change com
 metadata:
   author: launchdarkly
   version: "0.5.0"
-  graph: "adb7539a9092"
+  graph: "07355490e985"
 ---
 
 # Should This Change Be Behind a Flag?
@@ -27,11 +27,28 @@ It needs `python3` and `git`, nothing else.
 Everything below, including fetching flags and answering a question a second
 time, happens in the same turn.
 
+**On a pull request, start with this**, filling in the PR's base branch,
+head commit and title, then go by `start`'s exit code (step 1's table). Read
+the rest of this file as each step comes up. First save the PR's body to
+`/tmp/pr-body.txt` (from your PR tools, or `gh pr view <number> --json body
+-q .body` where `gh` works); if you can't get it, leave `--pr-body-file` out
+and the commit message stands in.
+
+```bash
+ld-factory.pyz start <REPO_PATH> --base origin/<base_ref> --head <head_sha> \
+    --pr-title "<PR title>" --pr-body-file /tmp/pr-body.txt
+```
+
+Exit 7: do what `RUN/launchdarkly-needed.txt` says (it lists the flags and
+the calls to make) and run the same `start` again. Exit 0: run
+`ld-factory.pyz next RUN`.
+
 ## Scope
 
 - **Advisory and read-only.** Never create, toggle, or modify a flag, and
-  never edit the repo being checked. Everything the skill writes goes to its
-  run folder under `~/.cache/should-i-flag/` (or `SHOULD_I_FLAG_RUNS`).
+  never edit the repo being checked. Everything the skill writes goes under
+  `~/.cache/should-i-flag/`, or `SHOULD_I_FLAG_RUNS` when it's set:
+  its run folders, and the repo profiles it derives and repairs, in `profiles/`.
 - **Committed changes only**: the branch's commits against its base, the same
   change a pull request shows. Uncommitted edits and untracked files are not
   part of it. A long-lived branch is checked as one change, all its commits
@@ -55,7 +72,8 @@ Follow that page from the start, and never mix the two.
 
 ```bash
 ld-factory.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
-    [--pr-title "<title>"] [--pr-body-file <file>] [--client-repo <NAME>=<PATH>]
+    [--pr-title "<title>"] [--pr-body-file <file>] [--client-repo <NAME>=<PATH>] \
+    [--flag-type multivariate|string|number|json]
 ```
 
 - `REPO_PATH` defaults to the current directory, `--head` to `HEAD`, `--base`
@@ -76,9 +94,13 @@ ld-factory.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
   it, checkouts beside `REPO_PATH` of the other repositories the skill knows
   are used when present. Only the gate search's caller coverage and the
   consumer search below read them.
+- `--flag-type`: pass it only when the developer says which type of flag they
+  want (`string`, `number` and `json` are multivariate). If a flag is
+  suggested, it is that type rather than a boolean. It never changes whether
+  one is suggested. Without it, a PR text that says "multivariate" does the same.
 
 It prints `RUN: <folder>` and status lines (`CHECKING`, `CHANGE`,
-`UNCOMMITTED`, `PR TEXT`, `PROFILE CHECK`, `LAUNCHDARKLY`, `PARTIAL CLONE`). By exit code:
+`UNCOMMITTED`, `PR TEXT`, `FLAG TYPE`, `PROFILE CHECK`, `LAUNCHDARKLY`, `PARTIAL CLONE`). By exit code:
 
 | Exit | Meaning | What you do |
 |---|---|---|
@@ -137,8 +159,8 @@ repository's LaunchDarkly project (`CALLER COVERAGE: N verified, M dropped`). A
 data gate (changed code that only acts on records whose every writer is
 behind a flag) is kept the same way: its lines match, and a search of the
 commit for the data's name finds no use you didn't list (`DATA GATES: N
-verified, M dropped`). An empty list is a correct result when nothing gates
-the change: don't guess.
+verified, M dropped`). When nothing gates the change, `{"gates": [],
+"searched": "..."}` is a correct result: don't guess.
 
 **Then the risk search.** Some changes rework a path customers already use in
 a way that can fail them -- a new call or write to another service, an
@@ -155,7 +177,8 @@ ld-factory.pyz risks RUN
 It checks each finding's every line (the changed line must be one the diff
 adds or modifies, the entry point outside tests) and answers one question
 from what holds (`RISKS: N verified ... P30 = yes|no`). You never answer that
-question yourself. Most changes have no finding: an empty list is correct.
+question yourself. Most changes have no finding: `{"findings": [],
+"searched": "..."}` is correct.
 
 **A dropped claim gets one repair.** When `gates`, `risks`, `readers`,
 `features` or `facts` prints a claim as dropped, read why: usually a quoted
@@ -239,8 +262,8 @@ to a file the change modifies. A flag that holds becomes a reuse candidate;
 its LaunchDarkly state is read like any other's (it may exit 7: fetch the
 flag as in step 1 and run `features` again). The reuse questions already
 answered are then asked again, with its lines (`ASKED AGAIN`). Don't report a
-flag over a whole area of the product: only the feature's own. An empty list
-is a correct result. Then run `next` again.
+flag over a whole area of the product: only the feature's own. `{"features":
+[], "searched": "..."}` is a correct result. Then run `next` again.
 
 **The fact search, when asked for.** When every answer the result needs is
 in, and one you gave as unresolved decides it, `next` (or `decide`) prints
@@ -344,7 +367,8 @@ Then summarize for the developer in short paragraphs, using only what
 1. The `RESULT` and `WHY`, close to verbatim, and a sentence or two on what
    in their change led there, in terms of their code. If `REASONS FOR A
    FLAG` lists more than the deciding one, a sentence for each.
-2. When a flag is suggested: what kind (`FLAG TO ADD`), where to check it
+2. When a flag is suggested: what kind (`FLAG TO ADD`, which names a
+   multivariate flag when the PR or the developer asked for one), where to check it
    (`WHERE TO CHECK IT`, by file and component), what a rollout can measure,
    and the `NEXT STEPS`. If there's a `NEARBY FLAGS` line, say a similar
    neighbor already uses a flag.

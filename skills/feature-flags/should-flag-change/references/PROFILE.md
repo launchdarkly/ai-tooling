@@ -18,9 +18,10 @@ unflagged without any error.
 ## Where it goes
 
 A profile written by hand goes at
-`~/.cache/should-i-flag/profiles/<org>__<repo>.json`, keyed by the
-repo's `origin`. It's picked up from there on every later run. Never write
-it into the repo being checked.
+`~/.cache/should-i-flag/profiles/<org>__<repo>.json` (under
+`SHOULD_I_FLAG_RUNS` instead, when that's set), keyed by the repo's
+`origin`. It's picked up from there on every later run. Never write it into
+the repo being checked.
 
 A repo can instead commit just the additions a derived profile needs, in
 `.launchdarkly/should-i-flag.json`, beside its Code References config. It
