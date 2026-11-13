@@ -12,7 +12,7 @@ const writeCmd = (method, path, body, beta = true) =>
 const body = (extra = {}) => ({
   key: "default-release",
   name: "Default release",
-  isDefault: true,
+  default: true,
   environments: [
     { environmentKey: "test", environmentReleasePlanKey: "progressive", triggerType: "flag_eval" },
     { environmentKey: "production", environmentReleasePlanKey: "progressive-2", triggerType: "flag_eval" },
@@ -72,7 +72,7 @@ test("createsTestThenProduction checks the order, release plans, and default in 
   assert.equal(frp.createsTestThenProduction(out([turn(2, block(writeCmd("POST", "", body())))])).pass, true);
   const reversed = body({ environments: [...body().environments].reverse() });
   assert.equal(frp.createsTestThenProduction(out([turn(2, block(writeCmd("POST", "", reversed)))])).pass, false);
-  assert.equal(frp.createsTestThenProduction(out([turn(2, block(writeCmd("POST", "", body({ isDefault: undefined }))))])).pass, false);
+  assert.equal(frp.createsTestThenProduction(out([turn(2, block(writeCmd("POST", "", body({ default: undefined }))))])).pass, false);
   assert.equal(frp.createsTestThenProduction(out([turn(2, "no command")])).pass, false);
 });
 
@@ -89,11 +89,11 @@ test("retriesWithNewKey wants a later create command with another key", () => {
   assert.equal(frp.retriesWithNewKey(out([first])).pass, false);
 });
 
-test("promotesWithFullBody needs the version, name, environments, isDefault, and no create", () => {
-  const full = { name: "Staged rollout", version: 3, isDefault: true, environments: body().environments };
+test("promotesWithFullBody needs the version, name, environments, default, and no create", () => {
+  const full = { name: "Staged rollout", version: 3, default: true, environments: body().environments };
   const put = (b) => turn(2, block(writeCmd("PUT", "/staged-rollout", b)));
   assert.equal(frp.promotesWithFullBody(out([put(full)])).pass, true);
-  assert.equal(frp.promotesWithFullBody(out([put({ isDefault: true, version: 3 })])).pass, false);
+  assert.equal(frp.promotesWithFullBody(out([put({ default: true, version: 3 })])).pass, false);
   assert.equal(frp.promotesWithFullBody(out([put(full), turn(3, block(writeCmd("POST", "", body())))])).pass, false);
 });
 

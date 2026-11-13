@@ -652,8 +652,8 @@ module.exports.flagReleasePlanAfterEnvPlans = (output) => {
   const envs = c.body.environments || [];
   const points = envs.length === 1 && envs[0].environmentKey === "production" && envs[0].environmentReleasePlanKey === envKey;
   const order = defTurn !== undefined && confirmTurn !== undefined && c.turn >= defTurn && c.turn > confirmTurn;
-  const pass = points && order && approved && c.body.isDefault === true;
-  return result(pass, `names production's new plan ${envKey}: ${points}; shown after "Looks good" and the default: ${order}; approved: ${approved}; default: ${c.body.isDefault}`);
+  const pass = points && order && approved && c.body.default === true;
+  return result(pass, `names production's new plan ${envKey}: ${points}; shown after "Looks good" and the default: ${order}; approved: ${approved}; default: ${c.body.default}`);
 };
 
 // The pasted create response is read: the report names the plan as set up.
@@ -714,8 +714,8 @@ module.exports.flagReleasePlanUpdatedInPlace = (output) => {
   const envs = (b.environments || []).map((e) => `${e.environmentKey}:${e.environmentReleasePlanKey || "immediate"}`);
   const ci = steps.findIndex(isConfirmQuestion);
   const after = ci !== -1 && put.turn > steps[ci].turn && approvedConfirmBefore(steps, ci + 1) !== -1;
-  const pass = b.isDefault === true && b.version === 2 && JSON.stringify(envs) === JSON.stringify(["production:gradual"]) && after && posts === 0;
-  return result(pass, `isDefault ${b.isDefault}; version ${b.version}; environments ${JSON.stringify(envs)}; after "Looks good": ${after}; create commands: ${posts}`);
+  const pass = b.default === true && b.version === 2 && JSON.stringify(envs) === JSON.stringify(["production:gradual"]) && after && posts === 0;
+  return result(pass, `default ${b.default}; version ${b.version}; environments ${JSON.stringify(envs)}; after "Looks good": ${after}; create commands: ${posts}`);
 };
 
 // The flag release plan is a follow-up, and auto-releasing stays on as the
