@@ -39,3 +39,22 @@ test("skillInstructions handles CRLF line endings and a BOM", () => {
   assert.ok(!out.includes('name: "x"'));
   assert.ok(out.includes("# Title"));
 });
+
+test("a test's exclude_mcp_tools hides tools on top of the suite's", () => {
+  const suite = filterToolDefs(defs, ["create-feature-flag"]);
+  assert.deepEqual(filterToolDefs(suite, ["get-flag"]).map((d) => d.name), ["create-flag"]);
+});
+
+test("skillInstructions appends references after the skill", () => {
+  const out = skillInstructions("---\nname: x\n---\n# Skill\n", [{ path: "references/a.md", text: "# A\n" }]);
+  assert.ok(out.includes("<skill>\n# Skill\n</skill>"));
+  assert.ok(out.endsWith('<reference path="references/a.md">\n# A\n</reference>'));
+});
+
+test("readReferences lists a skill's reference files in order", () => {
+  const { readReferences } = require("../providers/claude-skill-agent-sdk");
+  const path = require("node:path");
+  const refs = readReferences(path.join(__dirname, "..", "..", "skills", "release-autopilot", "launchdarkly-release-plans"));
+  assert.deepEqual(refs.map((r) => r.path), ["references/environment-release-plans.md", "references/rest-api.md"]);
+  assert.deepEqual(readReferences(path.join(__dirname, "no-such-skill")), []);
+});

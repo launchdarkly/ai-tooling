@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 // A test-level `mock_overrides` var replaces a tool's shared template for that
 // one test, so a suite can exercise branches like `requiresApproval`.
-const { resolveMockOverride, renderOverride } = require("../providers/_mock");
+const { resolveMockOverride, renderOverride, overrideKey, callCountKey } = require("../providers/_mock");
 
 test("no overrides returns undefined", () => {
   assert.equal(resolveMockOverride(undefined, "toggle-flag", 0), undefined);
@@ -63,4 +63,37 @@ test("a get-flags override doesn't hide a flag the agent created", () => {
   assert.deepEqual(overrideFor(overrides, "get-flags", 0, { flagKey: "exp-a" }, state), { error: "flag not found" });
   renderMockResponse(TEMPLATES["create-flag"], { projectKey: "p", key: "exp-a", name: "A" }, "create-flag", state);
   assert.equal(overrideFor(overrides, "get-flags", 1, { flagKey: "exp-a" }, state), undefined);
+});
+
+test("a get-automations override does not answer the cleanup or archival section reads", () => {
+  const overrides = { "get-automations": { repos: [] } };
+  assert.equal(overrideKey(overrides, "get-automations", { section: "cleanup", projectKey: "default" }), undefined);
+  assert.equal(overrideKey(overrides, "get-automations", { section: "archival", projectKey: "default" }), undefined);
+  assert.equal(overrideKey(overrides, "get-automations", { repo: "acme/demo" }), "get-automations");
+});
+
+test("a section override answers only its section", () => {
+  const overrides = { "get-automations#cleanup": { settings: { schedule: "weekly" } }, "get-automations": { repos: [] } };
+  assert.equal(overrideKey(overrides, "get-automations", { section: "cleanup" }), "get-automations#cleanup");
+  assert.equal(overrideKey(overrides, "get-automations", { section: "archival" }), undefined);
+  assert.equal(overrideKey(overrides, "get-flags", { flagKey: "f" }), undefined);
+});
+
+test("an override keyed by tool name still answers every mode of other tools", () => {
+  assert.equal(overrideKey({ "get-flags": { a: 1 } }, "get-flags", { flagKey: "f" }), "get-flags");
+});
+
+test("a by_arg section override for get-automations still answers the section reads", () => {
+  const overrides = { "get-automations": { by_arg: "section", cases: { cleanup: { settings: { schedule: "weekly" } } } } };
+  assert.equal(overrideKey(overrides, "get-automations", { section: "cleanup" }), "get-automations");
+  const key = overrideKey(overrides, "get-automations", { section: "cleanup" });
+  assert.deepEqual(resolveMockOverride(overrides, key, 0, { section: "cleanup" }), { settings: { schedule: "weekly" } });
+});
+
+test("a section read does not share the get-automations call counter", () => {
+  const overrides = { "get-automations": [{ page: 1 }, { page: 2 }] };
+  assert.equal(callCountKey(overrides, "get-automations", {}), "get-automations");
+  assert.equal(callCountKey(overrides, "get-automations", { section: "cleanup" }), "get-automations#cleanup");
+  assert.equal(callCountKey(overrides, "get-flags", { flagKey: "f" }), "get-flags#flagKey");
+  assert.equal(callCountKey({ "get-flags": [{}] }, "get-flags", { flagKey: "f" }), "get-flags");
 });

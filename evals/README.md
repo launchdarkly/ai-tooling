@@ -37,6 +37,7 @@ npm run eval:onboarding              # onboarding
 npm run eval:experiment-setup        # experiments/launchdarkly-experiment-setup
 npm run eval:experiment-orchestration # aws-devops-agent/experiment-orchestration
 npm run eval:release-autopilot-onboarding  # release-autopilot/launchdarkly-release-autopilot-onboarding
+npm run eval:release-plans            # release-autopilot/launchdarkly-release-plans
 
 # Quick smoke check — first test case only (~15-20s, ~$0.05)
 npm run eval:configs-create:single
@@ -48,6 +49,7 @@ npm run eval:onboarding:single
 npm run eval:experiment-setup:single
 npm run eval:experiment-orchestration:single
 npm run eval:release-autopilot-onboarding:single
+npm run eval:release-plans:single
 
 # Aggregate and CI operations
 npm run eval:all                     # Run every suite and rebuild ../eval-scores.json
@@ -126,6 +128,7 @@ evals/
      "terminated": null
    }
    ```
+   With `scrub_ld_credentials: true`, the provider removes LaunchDarkly credential variables (`LD_ACCESS_TOKEN`, `LD_BASE_URI`, `LD_API_KEY`, `LAUNCHDARKLY_*`) from the agent's environment, so a suite with builtins on can check that the agent never uses a token. A scripted answer can also be `{ command: "<regex on METHOD /api/v2/...>", text: "..." }`, which stands for output the user pasted after running a command the agent showed. In match mode it answers only the "Run this command" step, only when no option answer fits, and only when the last command shown matches.
 5. `shared/transform.js` parses the JSON before assertions run. Every assertion receives `output` as an object — **do not call `JSON.parse(output)` inside assertions**.
 
 ### Shared defaults (`shared/defaults.yaml`)
@@ -186,6 +189,22 @@ npm run eval:diff -- --json          # determine which suites changed
 npm run eval:<suite>
 npm run eval:aggregate               # rebuild eval-scores.json from results
 ```
+
+### Sharded suites (`shards.js`)
+
+A slow suite can run as several CI jobs. Set `shards: N` on its entry in `scripts/_manifest.js`. The "Compute changed suites" job then puts `<suite>#1` to `<suite>#N` in the matrix when the suite changes, and each job runs only its share of the tests. `release-autopilot-onboarding` has `shards: 3`.
+
+The split is deterministic. Tests go, heaviest first by `vars.max_turns` (20 when unset), to the shard with the fewest turns so far, so the shards take about the same time. Adding or removing a test can move other tests to another shard. Sharding selects tests by `description`, so every test in a sharded suite needs a unique description (a unit test checks this for the onboarding suite).
+
+Each shard writes `<suite>/results.shard-<i>-of-<N>.json`. When you aggregate without `--run`, `aggregate.js` merges a suite's shard files into one score, and it fails if a shard is missing. Run a shard locally with:
+
+```bash
+node scripts/aggregate.js --run --only=release-autopilot-onboarding#2   # shard 2 of the manifest's 3
+node scripts/aggregate.js --run --only=launchdarkly-release-plans --shard=1/2  # any suite, any split
+node scripts/aggregate.js --only=release-autopilot-onboarding             # merge the shard files
+```
+
+An unsharded run of a suite deletes its shard files, and a sharded run deletes its `results.json`, so one score never mixes the two.
 
 ### README badge rendering (`render-badges.js`)
 
@@ -275,6 +294,7 @@ Add an entry to `scripts/_manifest.js`:
   skillKey: "<domain>/<skill-name>",   // e.g. "agentcontrol/configs-create"
   skillDir: "skills/<domain>/<skill-name>",
   readme: "skills/<domain>/<skill-name>/README.md",
+  // shards: 2,                         // optional, for a slow suite (see "Sharded suites")
 },
 ```
 

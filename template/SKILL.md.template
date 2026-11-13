@@ -22,6 +22,7 @@ You're using a skill that will guide you through [the job to be done]. Your job 
 1. **First principle**: Brief description
 2. **Second principle**: Brief description
 3. **Third principle**: Brief description
+4. **Questions carry their content**: When you ask the user about something you showed (a command, a plan, a change), put it in the question too: in the option's `preview` when the question tool has one, or else in the question text. While a question is open, the user may see only the question.
 
 ## Workflow
 
