@@ -66,7 +66,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST \
 {
   "key": "default-release",
   "name": "Default release",
-  "isDefault": true,
+  "default": true,
   "environments": [
     { "environmentKey": "test", "environmentReleasePlanKey": "progressive", "triggerType": "flag_eval" },
     { "environmentKey": "production", "environmentReleasePlanKey": "progressive-2", "triggerType": "flag_eval" }
@@ -75,11 +75,11 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST \
 JSON
 ```
 
-Leave out `"isDefault": true` when the project already has a default.
+Leave out `"default": true` when the project already has a default.
 
 ### Replace a flag release plan
 
-Start from a fresh get. Send every field to keep, because anything left out is cleared, including `isDefault`. `key` is not in the body; it is in the path.
+Start from a fresh get. Send every field to keep, because anything left out is cleared, including `default`. `key` is not in the body; it is in the path.
 
 ```sh
 curl -sS -w '\nHTTP %{http_code}\n' -X PUT \
@@ -91,7 +91,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X PUT \
 {
   "version": 1,
   "name": "Default release",
-  "isDefault": true,
+  "default": true,
   "executionMode": "sequential",
   "environments": [
     { "environmentKey": "test", "environmentReleasePlanKey": "progressive", "triggerType": "flag_eval" },
@@ -210,7 +210,7 @@ Create takes these fields. Replace takes the same fields without `key`, plus `ve
 | `environments[].isImmediate` | No | `true` releases at once with no release plan. Do not send a release plan key with it |
 | `executionMode` | No | `sequential` (the default for plans) or `parallel` |
 | `applicationKeys` | No | At most 25 keys. Auto-releasing uses them to choose a plan for an application |
-| `isDefault` | No | Create: only when the project has no default. Replace: `true` demotes the current default; left out clears it |
+| `default` | No | Create: only when the project has no default. Replace: `true` demotes the current default; left out clears it |
 | `maintainer` | No | `{ "kind": "member", "memberId": "..." }` or `{ "kind": "team", "teamKey": "..." }` |
 | `version` | Replace only, optional | The version from the last read. A mismatch returns 409 and changes nothing |
 
@@ -226,7 +226,7 @@ Create, get, and replace return the plan. Its version starts at 1 and goes up by
   "_id": "0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10",
   "version": 1,
   "name": "Default release",
-  "isDefault": true,
+  "default": true,
   "executionMode": "sequential",
   "applicationKeys": [],
   "environments": [
@@ -242,7 +242,7 @@ Errors return `{ "code": "...", "message": "..." }`. Read `message` for the reas
 
 | Status | When |
 |--------|------|
-| 400 | A field breaks a rule above; an environment is not in the project; a release plan is unknown, incomplete, or in another environment; `isDefault` on create while the project has a default; the project already has 100 plans; an unknown plan key when starting a release |
+| 400 | A field breaks a rule above; an environment is not in the project; a release plan is unknown, incomplete, or in another environment; `default` on create while the project has a default; the project already has 100 plans; an unknown plan key when starting a release |
 | 401 | No token, or the token is not valid |
 | 403 | `Plan does not allow this operation`: the account does not have flag release plans. Any other message: the token's role lacks the action |
 | 404 | The project, flag, or plan does not exist |
