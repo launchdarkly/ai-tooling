@@ -209,8 +209,12 @@ test("existingPlanSetAsDefault wants Gradual set as the default and no create", 
   assert.equal(frp.existingPlanSetAsDefault({ trajectory: [{ ...setGradual, arguments: { ...setGradual.arguments, releasePlanKey: "fast" } }] }).pass, false);
 });
 
-test("saysReplacesDefault looks for the replaced default by name", () => {
-  assert.equal(frp.saysReplacesDefault(out([], { response: "Gradual replaces Fast as the default for production." })).pass, true);
-  assert.equal(frp.saysReplacesDefault(out([turn(2, "Gradual replaces **Fast** as the default.")])).pass, true);
-  assert.equal(frp.saysReplacesDefault(out([], { response: "Gradual becomes the default for production." })).pass, false);
+test("saysReplacesDefault wants the replaced default named in a question before the change", () => {
+  const ask = (prompt) => ({ tool: "ask-question", arguments: { prompt, options: [{ id: "yes", label: "Make this change" }, { id: "no", label: "Cancel" }] }, selected: ["yes"] });
+  const def = { tool: "update-default-environment-release-plan", arguments: { environmentKey: "production", releasePlanKey: "gradual", default: true } };
+  assert.equal(frp.saysReplacesDefault({ trajectory: [ask("Gradual replaces Fast as the default for production."), def] }).pass, true);
+  assert.equal(frp.saysReplacesDefault({ trajectory: [ask("Gradual replaces **Fast** as the default."), def] }).pass, true);
+  assert.equal(frp.saysReplacesDefault({ trajectory: [ask("Make Gradual the default for production?"), def] }).pass, false);
+  assert.equal(frp.saysReplacesDefault({ trajectory: [def, ask("Gradual replaces Fast as the default.")] }).pass, false);
+  assert.equal(frp.saysReplacesDefault(out([turn(2, "Gradual replaces Fast as the default.")], { trajectory: [confirm(), def], response: "Gradual replaces Fast as the default for production." })).pass, false);
 });

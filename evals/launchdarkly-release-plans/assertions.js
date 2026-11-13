@@ -285,8 +285,16 @@ module.exports.existingPlanSetAsDefault = (output) => {
   return result(created === 0 && def, `plans created: ${created}; existing plan set as default: ${def}`);
 };
 
-// Making another plan the default says which default it replaces.
+// Making another plan the default says which default it replaces, in a
+// question asked before the default changes. The question hides the text
+// above it, so assistant turns and the final reply don't count.
 module.exports.saysReplacesDefault = (output) => {
-  const pass = /replaces\s+[`"*]*(fast|fast rollout)[`"*]*\s+as\s+the\s+default/i.test(userFacingText(output));
-  return result(pass, pass ? "says the plan replaces Fast as the default" : "never says the new default replaces the current one");
+  const steps = traj(output);
+  const write = steps.findIndex((t) => t.tool === "update-default-environment-release-plan");
+  const asked = steps.slice(0, write === -1 ? steps.length : write)
+    .filter((t) => t.tool === "ask-question")
+    .map((t) => JSON.stringify(t.arguments || {}))
+    .join("\n");
+  const pass = /replaces\s+[`"*\\]*(fast|fast rollout)[`"*\\]*\s+as\s+the\s+default/i.test(asked);
+  return result(pass, pass ? "the confirmation says the plan replaces Fast as the default" : "no question before the change says the new default replaces the current one");
 };
