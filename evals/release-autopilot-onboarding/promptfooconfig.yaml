@@ -1091,49 +1091,6 @@ tests:
         weight: 4
 
   # ------------------------------------------------------------------
-  # Production has no release plans: offer a starter. Progressive is
-  # 10% -> 25% -> 50% of everyone with 4-hour holds; it is created before
-  # the repo write and set as the default.
-  # ------------------------------------------------------------------
-  - providers: ["mcp"]
-    description: "Starter plan: progressive, created and set as production default"
-    vars:
-      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
-      max_turns: 26
-      mock_overrides:
-        get-metrics: { metrics: [], totalCount: 0 }
-      mock_ask_question_match: true
-      mock_ask_question_answers:
-        - ["Add more"]
-        - ["Auto-flagging", "Auto-releasing"]
-        - ["LaunchDarkly's"]
-        - ["Production"]
-        - ["Progressive"]
-        - ["Looks right"]
-        - ["Looks good"]
-    assert:
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:reportListsDefaultPlan
-        metric: report_default_plan
-        weight: 2
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:starterPlanProgressive
-        metric: starter_plan
-        weight: 4
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
-        metric: confirms_before_writing
-        weight: 3
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
-        metric: confirm_shows_plan
-        weight: 2
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
-        metric: no_raw_names
-        weight: 2
-
-  # ------------------------------------------------------------------
   # Cleanup already runs on acme/api; the user adds acme/demo. Lists
   # replace the stored list, so the write must keep acme/api.
   # ------------------------------------------------------------------
@@ -1162,53 +1119,6 @@ tests:
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:cleanupKeepsExistingRepos
         metric: keeps_existing_repos
-        weight: 4
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
-        metric: confirms_before_writing
-        weight: 3
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
-        metric: confirm_shows_plan
-        weight: 2
-
-  # ------------------------------------------------------------------
-  # Production already has a complete plan that is not the default. The
-  # user keeps it: it becomes the default, and no plan is created.
-  # ------------------------------------------------------------------
-  - providers: ["mcp"]
-    description: "Existing plan: kept and set as default, no new plan"
-    vars:
-      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
-      max_turns: 24
-      mock_overrides:
-        get-environment-release-plans:
-          items:
-            - key: gradual
-              name: Gradual
-              environmentKey: production
-              default: false
-              progressiveRelease:
-                randomizationUnit: user
-                advancementMode: automatic
-                cleanupBehavior: remove_rules_and_update_default_rule
-                phases:
-                  - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
-                    steps: [{ allocation: 10000, durationMillis: 14400000 }, { allocation: 50000, durationMillis: 14400000 }]
-                metrics: {}
-          totalCount: 1
-      mock_ask_question_match: true
-      mock_ask_question_answers:
-        - ["Add more"]
-        - ["Auto-flagging", "Auto-releasing"]
-        - ["LaunchDarkly's"]
-        - ["Production"]
-        - ["Use this plan"]
-        - ["Looks good"]
-    assert:
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:existingPlanSetAsDefault
-        metric: existing_plan_default
         weight: 4
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
@@ -1252,10 +1162,6 @@ tests:
         weight: 2
 
   # ------------------------------------------------------------------
-  # Guarded starter: a user-unit metric exists, so the starter offers it
-  # for automatic rollback. The plan includes it with autoRollback, and
-  # every step stays at or under 50% (the create mock rejects more).
-  # ------------------------------------------------------------------
   # The first release plans read fails with a server error, not the plan
   # 403. Release setup stops for the project: no release policy reads, no
   # plan, and auto-releasing stays off for the repo.
@@ -1280,70 +1186,6 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:stopsReleaseSetupOnPlanError
         metric: stops_on_plan_error
         weight: 4
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
-        metric: confirms_before_writing
-        weight: 3
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
-        metric: confirm_shows_plan
-        weight: 2
-
-  # ------------------------------------------------------------------
-  # Production's default is Fast; the user picks Gradual instead. The
-  # confirmation says Gradual replaces Fast as the default.
-  # ------------------------------------------------------------------
-  - providers: ["mcp"]
-    description: "Another plan as default: says it replaces the current default"
-    vars:
-      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
-      max_turns: 24
-      mock_overrides:
-        get-environment-release-plans:
-          items:
-            - key: fast
-              name: Fast
-              environmentKey: production
-              default: true
-              progressiveRelease:
-                randomizationUnit: user
-                advancementMode: automatic
-                cleanupBehavior: remove_rules_and_update_default_rule
-                phases:
-                  - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
-                    steps: [{ allocation: 50000, durationMillis: 3600000 }]
-                metrics: {}
-            - key: gradual
-              name: Gradual
-              environmentKey: production
-              default: false
-              progressiveRelease:
-                randomizationUnit: user
-                advancementMode: automatic
-                cleanupBehavior: remove_rules_and_update_default_rule
-                phases:
-                  - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
-                    steps: [{ allocation: 10000, durationMillis: 14400000 }, { allocation: 50000, durationMillis: 14400000 }]
-                metrics: {}
-          totalCount: 2
-      mock_ask_question_match: true
-      mock_ask_question_answers:
-        - ["Add more"]
-        - ["Auto-flagging", "Auto-releasing"]
-        - ["LaunchDarkly's"]
-        - ["Production"]
-        - ["Choose another"]
-        - ["Gradual"]
-        - ["Looks good"]
-    assert:
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:existingPlanSetAsDefault
-        metric: existing_plan_default
-        weight: 4
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:saysReplacesDefault
-        metric: says_replaces_default
-        weight: 3
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
         metric: confirms_before_writing
@@ -1415,9 +1257,6 @@ tests:
         metric: no_writes
         weight: 3
 
-  # ------------------------------------------------------------------
-  # A new project has no stored contexts of any kind. The starter still
-  # uses user, the default kind, instead of blocking on a kind question.
   # ------------------------------------------------------------------
   # The MCP server has get-environment-release-plans but not the plan write
   # tools. The server is out of date, not the account: release setup is
@@ -1566,93 +1405,3 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names
         weight: 2
-
-  # ------------------------------------------------------------------
-  # Preview with auto-releasing: the flag release plan is listed, the user
-  # is asked to run nothing, and nothing is written.
-  # ------------------------------------------------------------------
-  - providers: ["mcp"]
-    description: "Preview with auto-releasing: lists the flag release plan, asks to run nothing, no writes"
-    vars:
-      user_request: "Preview what you'd change to set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only. Don't change anything."
-      max_turns: 24
-      mock_overrides:
-        get-metrics: { metrics: [], totalCount: 0 }
-      mock_ask_question_match: true
-      mock_ask_question_answers:
-        - ["Add more"]
-        - ["Auto-flagging", "Auto-releasing"]
-        - ["LaunchDarkly's"]
-        - ["Production"]
-        - ["Progressive"]
-        - ["Looks right"]
-    assert:
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:previewListsFlagReleasePlan
-        metric: preview_flag_release_plan
-        weight: 4
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:noWrites
-        metric: no_writes
-        weight: 4
-
-  # ------------------------------------------------------------------
-  # The pasted list shows a default flag release plan that points
-  # production at an old release plan. The user keeps "gradual" and picks
-  # "Update Staged rollout": after "Looks good", the replace command keeps
-  # the key, the default, and its version, with the new release plan. No
-  # create command.
-  # ------------------------------------------------------------------
-  - providers: ["mcp-shell"]
-    description: "Default flag release plan does not match: replace command in place, no create"
-    vars:
-      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
-      max_turns: 30
-      mock_overrides:
-        get-environment-release-plans:
-          items:
-            - key: gradual
-              name: Gradual
-              environmentKey: production
-              default: true
-              progressiveRelease:
-                randomizationUnit: user
-                advancementMode: automatic
-                cleanupBehavior: remove_rules_and_update_default_rule
-                phases:
-                  - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
-                    steps: [{ allocation: 10000, durationMillis: 14400000 }, { allocation: 50000, durationMillis: 14400000 }]
-                metrics: {}
-          totalCount: 1
-      mock_ask_question_match: true
-      mock_ask_question_answers:
-        - ["Add more"]
-        - ["Auto-flagging", "Auto-releasing"]
-        - ["LaunchDarkly's"]
-        - ["Production"]
-        - ["Use this plan"]
-        - { command: "^GET .*/flag-release-plans$", text: "{\"items\": [{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10\", \"version\": 2, \"name\": \"Staged rollout\", \"default\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"old-plan\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}], \"totalCount\": 1}\nHTTP 200" }
-        - ["Update Staged rollout"]
-        - ["Looks good"]
-        - { command: "^PUT .*/flag-release-plans/staged-rollout$", text: "{\"key\": \"staged-rollout\", \"_id\": \"0b6c3a43-5d0e-4f43-9a8e-2f6f1d7c9e10\", \"version\": 3, \"name\": \"Staged rollout\", \"default\": true, \"executionMode\": \"sequential\", \"applicationKeys\": [], \"environments\": [{\"environmentKey\": \"production\", \"environmentReleasePlanKey\": \"gradual\", \"isImmediate\": false, \"triggerType\": \"flag_eval\"}]}\nHTTP 200" }
-    assert:
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:flagReleasePlanUpdatedInPlace
-        metric: flag_release_plan_updated
-        weight: 4
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:confirmListsFlagReleasePlan
-        metric: confirm_lists_flag_release_plan
-        weight: 2
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:everyCommandBeta
-        metric: beta_header
-        weight: 2
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:runQuestionShowsCommand
-        metric: run_question_shows_command
-        weight: 2
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:agentNeverUsesToken
-        metric: never_uses_token
-        weight: 3

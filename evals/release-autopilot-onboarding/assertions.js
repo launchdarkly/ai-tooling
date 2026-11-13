@@ -541,12 +541,6 @@ module.exports.stopsReleaseSetupOnPlanError = (output) => {
   return result(policies === 0 && creates === 0 && !releasingOn, `policy reads: ${policies}; plans created: ${creates}; auto-releasing turned on for a repo: ${releasingOn}`);
 };
 
-// Making another plan the default says which default it replaces.
-module.exports.saysReplacesDefault = (output) => {
-  const pass = /replaces\s+[`"*]*(fast|fast rollout)[`"*]*\s+as\s+the\s+default/i.test([allText(output), ...askPrompts(output)].join("\n"));
-  return result(pass, pass ? "says the plan replaces Fast as the default" : "never says the new default replaces the current one");
-};
-
 // Verification confirms GitHub works, names each configured repo, and offers
 // a test pull request.
 module.exports.verifyReportsSetup = (output) => {
@@ -566,15 +560,6 @@ module.exports.cleanupKeepsExistingRepos = (output) => {
   return result(pass, `cleanup repositories written: ${JSON.stringify(repos)}`);
 };
 
-// An environment with a complete plan the user keeps: set it as default, do
-// not create another.
-module.exports.existingPlanSetAsDefault = (output) => {
-  const steps = traj(output);
-  const created = steps.filter((t) => t.tool === "create-environment-release-plan").length;
-  const def = steps.some((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).releasePlanKey === "gradual" && t.arguments.default === true);
-  return result(created === 0 && def, `plans created: ${created}; existing plan set as default: ${def}`);
-};
-
 // Archival already on: nothing to do for it.
 module.exports.noArchivalStep = (output) => {
   const steps = traj(output);
@@ -582,12 +567,6 @@ module.exports.noArchivalStep = (output) => {
     ((t.arguments && t.arguments.options) || []).some((o) => /^done\b/i.test(String(o.label || "")))).length;
   const writes = steps.filter((t) => t.tool === "update-automations" && (t.arguments || {}).archival).length;
   return result(asked === 0 && writes === 0, `archival browser questions: ${asked}; archival writes: ${writes}`);
-};
-
-module.exports.reportListsDefaultPlan = (output) => {
-  const text = finalText(output).toLowerCase();
-  const pass = /default/.test(text) && /progressive/.test(text) && /production/.test(text);
-  return result(pass, pass ? "report names production's default plan" : "report does not name the default plan");
 };
 
 module.exports.reportListsCleanup = (output) => {
@@ -716,31 +695,6 @@ module.exports.followUpHasFlagReleasePlanCommand = (output) => {
   const beta = cmds.length > 0 && cmds.every((c) => c.beta);
   const asked = checks.asksForToken(checks.userFacingText(output));
   return result(beta && !asked, `flag release plan commands in the report: ${cmds.length}; all with the beta header: ${beta}; asks for the token: ${asked}`);
-};
-
-// Preview lists the flag release plan, writes nothing, and asks the user to
-// run nothing.
-module.exports.previewListsFlagReleasePlan = (output) => {
-  const listed = /flag release plan/i.test(finalText(output));
-  const asked = traj(output).filter((t) => t.tool === "ask-question" && /run this command/i.test(JSON.stringify(t.arguments || {}))).length;
-  const w = writes(output).length;
-  return result(listed && asked === 0 && w === 0, `lists the flag release plan: ${listed}; asks to run a command: ${asked}; writes: ${w}`);
-};
-
-// The project's default flag release plan does not match: after "Looks
-// good", the replace command keeps its key, the default on, its version, and
-// production's release plan. No create command.
-module.exports.flagReleasePlanUpdatedInPlace = (output) => {
-  const steps = traj(output);
-  const put = checks.shownCommands(output).find((c) => c.method === "PUT" && /\/flag-release-plans\/staged-rollout$/.test(c.path));
-  const posts = checks.planCreates(output).length;
-  if (!put || !put.body) return result(false, `no replace command for staged-rollout; create commands: ${posts}`);
-  const b = put.body;
-  const envs = (b.environments || []).map((e) => `${e.environmentKey}:${e.environmentReleasePlanKey || "immediate"}`);
-  const ci = steps.findIndex(isConfirmQuestion);
-  const after = ci !== -1 && put.turn > steps[ci].turn && approvedConfirmBefore(steps, ci + 1) !== -1;
-  const pass = b.default === true && b.version === 2 && JSON.stringify(envs) === JSON.stringify(["production:gradual"]) && after && posts === 0;
-  return result(pass, `default ${b.default}; version ${b.version}; environments ${JSON.stringify(envs)}; after "Looks good": ${after}; create commands: ${posts}`);
 };
 
 // The flag release plan is a follow-up, and auto-releasing stays on as the

@@ -577,3 +577,53 @@ tests:
         value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
         metric: confirms_before_write
         weight: 3
+
+  # ------------------------------------------------------------------
+  # Production's default is Fast; the user makes Gradual the default
+  # instead. The confirmation says Gradual replaces Fast as the default,
+  # Gradual is set as the default, and no plan is created. (Moved from the
+  # onboarding suite, where the wizard reached the same step.)
+  # ------------------------------------------------------------------
+  - description: "Another plan as default: says it replaces the current default, sets it, creates nothing"
+    vars:
+      max_turns: 16
+      mock_ask_question_match: true
+      user_request: "Make Gradual the default release plan for production in LaunchDarkly project default."
+      mock_overrides:
+        get-environment-release-plans:
+          by_arg: environmentKey
+          cases:
+            production:
+              items:
+                - key: fast
+                  name: Fast
+                  environmentKey: production
+                  default: true
+                  progressiveRelease:
+                    randomizationUnit: user
+                    advancementMode: automatic
+                    cleanupBehavior: remove_rules_and_update_default_rule
+                    phases:
+                      - clauses: [{ attribute: kind, op: in, values: ["user"], contextKind: user }]
+                        steps: [{ allocation: 50000, durationMillis: 3600000 }]
+                    metrics: {}
+                - { key: gradual, name: Gradual, environmentKey: production, default: false, progressiveRelease: *progressive }
+              totalCount: 2
+          default: { items: [], totalCount: 0 }
+      mock_ask_question_answers:
+        - ["Use this plan"]
+        - ["Gradual"]
+        - ["Make this change"]
+    assert:
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:existingPlanSetAsDefault
+        metric: existing_plan_default
+        weight: 4
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:saysReplacesDefault
+        metric: says_replaces_default
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
+        metric: confirms_before_write
+        weight: 3
