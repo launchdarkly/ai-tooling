@@ -595,7 +595,7 @@ tests:
               totalCount: 2
           default: { items: [], totalCount: 0 }
       mock_ask_question_answers:
-        - ["Choose another"]
+        - ["Use this plan"]
         - ["Gradual"]
         - ["Make this change"]
     assert:
