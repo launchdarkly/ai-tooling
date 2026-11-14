@@ -14,9 +14,12 @@
 # tool_mocks). Default mocks match a catamorphic-like account with both capabilities on,
 # the GitHub App installed, and release plans available but empty. The
 # 403 case overrides release plans to "Plan does not allow this operation".
-# The flag release plan goes through REST commands that the agent shows and
-# the user runs: a scripted { when, text } answer stands for the output the
-# user pastes back. The mcp-shell provider gives the agent a shell with
+# The flag release plan goes through the flag release plan MCP tools when the
+# server has them (mcp #522). Those tools are gated by a preview flag, so the
+# fallback cases hide them (exclude_mcp_tools), and the flag release plan
+# goes through REST commands that the agent shows and the user runs: a
+# scripted { command, text } answer stands for the output the user pastes
+# back. The mcp-shell provider gives the agent a shell with
 # LaunchDarkly credentials scrubbed, to check that it never runs them.
 # Mocks record Release Autopilot writes, so verification reads
 # reflect them. Tests change state with mock_overrides, and scripted
@@ -1268,7 +1271,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
       max_turns: 22
-      exclude_mcp_tools: ["create-environment-release-plan", "update-default-environment-release-plan"]
+      exclude_mcp_tools: "create-environment-release-plan,update-default-environment-release-plan"
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Add more"]
@@ -1294,7 +1297,8 @@ tests:
         weight: 2
 
   # ------------------------------------------------------------------
-  # Flag release plan: the user runs the list command in Release setup and
+  # Flag release plan without the flag release plan tools (REST fallback):
+  # the user runs the list command in Release setup and
   # the create command after "Looks good" (pasted output). The create comes
   # after production's starter plan and its default, names that plan, and
   # makes it the project's default; the report reads the pasted response.
@@ -1305,6 +1309,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
       max_turns: 30
+      exclude_mcp_tools: "get-flag-release-plans,create-flag-release-plan,update-flag-release-plan,delete-flag-release-plan"
       mock_overrides:
         get-metrics: { metrics: [], totalCount: 0 }
       mock_ask_question_match: true
@@ -1363,6 +1368,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
       max_turns: 28
+      exclude_mcp_tools: "get-flag-release-plans,create-flag-release-plan,update-flag-release-plan,delete-flag-release-plan"
       mock_overrides:
         get-metrics: { metrics: [], totalCount: 0 }
       mock_ask_question_match: true
@@ -1401,6 +1407,59 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:repoTurnsAutoFlaggingOn
         metric: repo_turns_picked_on
         weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
+        metric: no_raw_names
+        weight: 2
+
+  # ------------------------------------------------------------------
+  # Flag release plan through the MCP tools: the list is read with the tool
+  # in Release setup (only the built-in plan, so no stored default), and
+  # the plan is created after "Looks good", after production's starter plan
+  # and its default. It names that plan, becomes the project's default, and
+  # is read back in the verification. No command is shown.
+  # ------------------------------------------------------------------
+  - providers: ["mcp"]
+    description: "Flag release plan through the MCP: created after Looks good and the release plan's default, read back, no command"
+    vars:
+      user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
+      max_turns: 30
+      mock_overrides:
+        get-metrics: { metrics: [], totalCount: 0 }
+      mock_ask_question_match: true
+      mock_ask_question_answers:
+        - ["Add more"]
+        - ["Auto-flagging", "Auto-releasing"]
+        - ["LaunchDarkly's"]
+        - ["Production"]
+        - ["Progressive"]
+        - ["Looks right"]
+        - ["Looks good"]
+    assert:
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:flagReleasePlanMcpAfterEnvPlans
+        metric: flag_release_plan_mcp
+        weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:flagReleasePlanMcpVerified
+        metric: flag_release_plan_mcp_verified
+        weight: 2
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmListsFlagReleasePlan
+        metric: confirm_lists_flag_release_plan
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:noCommandsShown
+        metric: no_commands_shown
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
+        metric: confirms_before_writing
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names

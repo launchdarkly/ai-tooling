@@ -233,3 +233,165 @@ test("runQuestionShowsCommand needs the command in each Run this command questio
   assert.equal(checks.runQuestionShowsCommand(out([turn(1, cmd)], { trajectory: [runAsk({ prompt: cmd }), runAsk({ prompt: "And this one?" })] })).pass, false);
   assert.equal(checks.runQuestionShowsCommand(out([turn(1, cmd)], { trajectory: [confirm()] })).pass, false);
 });
+
+// Flag release plans through the MCP tools (mcp #522).
+const envs2 = body().environments;
+const frpTool = (tool, args, preview = "{}") => ({ tool, arguments: { projectKey: "default", ...args }, mock_response_preview: preview });
+const frpList = () => frpTool("get-flag-release-plans", {});
+const frpCreate = (args = {}, preview) => frpTool("create-flag-release-plan", { key: "default-release", name: "Default release", default: true, environments: envs2, ...args }, preview);
+const frpUpdate = (args = {}, preview) => frpTool("update-flag-release-plan", { flagReleasePlanKey: "staged-rollout", confirm: true, ...args }, preview);
+const confirmWith = (prompt, preview, answer = "Make this change") => ({
+  tool: "ask-question",
+  arguments: { prompt, options: [{ id: "yes", label: "Make this change", preview }, { id: "no", label: "Cancel" }] },
+  selected: [answer === "Make this change" ? "yes" : "no"],
+});
+
+test("mcpListReportsPlans wants the tool read, both names, the default, and no command or field names", () => {
+  const response = "Staged rollout (the default): test, then production. Production only: releases immediately.";
+  assert.equal(frp.mcpListReportsPlans({ trajectory: [frpList()], response }).pass, true);
+  assert.equal(frp.mcpListReportsPlans({ trajectory: [], response }).pass, false, "no tool read");
+  assert.equal(frp.mcpListReportsPlans({ trajectory: [frpList()], response: response + " (get-flag-release-plans)" }).pass, false, "tool name");
+  assert.equal(frp.mcpListReportsPlans(out([turn(1, block(getCmd()))], { trajectory: [frpList()], response })).pass, false, "a command shown");
+});
+
+test("mcpCreatesDefaultPlan wants the list first, test then production, and the default", () => {
+  assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [frpList(), confirm(), frpCreate()] }).pass, true);
+  assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [confirm(), frpCreate()] }).pass, false, "no list first");
+  assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [frpList(), confirm(), frpCreate({ default: undefined })] }).pass, false, "not the default");
+  assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [frpList(), confirm(), frpCreate({ environments: [...envs2].reverse() })] }).pass, false, "order");
+  assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [frpList(), confirm(), frpCreate({}, "{\"error\":\"already has a default\"}")] }).pass, false, "failed create");
+  assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [frpList(), frpUpdate({ flagReleasePlanKey: "default-release-configuration", default: false }), confirm(), frpCreate()] }).pass, false, "writes the built-in plan");
+});
+
+test("mcpUpdatesInPlace wants staged-rollout updated with confirm, the new environments, the default kept, and no create", () => {
+  assert.equal(frp.mcpUpdatesInPlace({ trajectory: [frpList(), confirm(), frpUpdate({ environments: envs2 })] }).pass, true);
+  assert.equal(frp.mcpUpdatesInPlace({ trajectory: [frpList(), confirm(), frpUpdate({ environments: envs2, default: true })] }).pass, true);
+  assert.equal(frp.mcpUpdatesInPlace({ trajectory: [frpList(), confirm(), frpUpdate({ environments: envs2, default: false })] }).pass, false, "default unset");
+  assert.equal(frp.mcpUpdatesInPlace({ trajectory: [frpList(), confirm(), frpUpdate({ environments: envs2, confirm: undefined })] }).pass, false, "no confirm");
+  assert.equal(frp.mcpUpdatesInPlace({ trajectory: [frpList(), confirm(), frpCreate({ default: undefined }), frpUpdate({ environments: envs2 })] }).pass, false, "a create");
+});
+
+test("mcpPromotesDefault wants default true with confirm on staged-rollout, no create, and Fast untouched", () => {
+  assert.equal(frp.mcpPromotesDefault({ trajectory: [frpList(), confirm(), frpUpdate({ default: true })] }).pass, true);
+  assert.equal(frp.mcpPromotesDefault({ trajectory: [frpList(), confirm(), frpUpdate({ default: true, confirm: undefined })] }).pass, false);
+  assert.equal(frp.mcpPromotesDefault({ trajectory: [frpList(), confirm(), frpUpdate({ flagReleasePlanKey: "fast", default: false }), frpUpdate({ default: true })] }).pass, false);
+});
+
+test("confirmsBeforeWrite covers flag release plan writes, and a create then default on one confirmation", () => {
+  assert.equal(frp.confirmsBeforeWrite({ trajectory: [frpList(), frpCreate()] }).pass, false);
+  assert.equal(frp.confirmsBeforeWrite({ trajectory: [confirm("Cancel"), frpUpdate({ default: true })] }).pass, false);
+  const create = frpCreate({ key: "train", default: undefined });
+  assert.equal(frp.confirmsBeforeWrite({ trajectory: [confirm(), create, frpUpdate({ flagReleasePlanKey: "train", default: true })] }).pass, true);
+  assert.equal(frp.confirmsBeforeWrite({ trajectory: [confirm(), create, frpUpdate({ flagReleasePlanKey: "train", environments: envs2 })] }).pass, false);
+});
+
+test("confirmShows* read the Make this change question before the first flag release plan write", () => {
+  const plan = "Default release: test (Progressive), then production (Progressive (production)). The project's default.";
+  assert.equal(frp.confirmShowsTestThenProduction({ trajectory: [confirmWith("Create this flag release plan?", plan), frpCreate()] }).pass, true);
+  assert.equal(frp.confirmShowsTestThenProduction({ trajectory: [confirmWith(plan), frpCreate()] }).pass, true);
+  assert.equal(frp.confirmShowsTestThenProduction({ trajectory: [confirmWith("Create it?"), frpCreate()] }).pass, false);
+  assert.equal(frp.confirmShowsTestThenProduction({ trajectory: [frpCreate(), confirmWith(plan)] }).pass, false);
+  assert.equal(frp.confirmShowsStagedRollout({ trajectory: [confirmWith("Staged rollout becomes the default. It replaces Fast as the default."), frpUpdate({ default: true })] }).pass, true);
+});
+
+test("saysReplacesFlagDefault wants Fast named as the replaced default before the update", () => {
+  assert.equal(frp.saysReplacesFlagDefault({ trajectory: [confirmWith("Staged rollout replaces Fast as the default."), frpUpdate({ default: true })] }).pass, true);
+  assert.equal(frp.saysReplacesFlagDefault({ trajectory: [confirmWith("Make Staged rollout the default?"), frpUpdate({ default: true })] }).pass, false);
+});
+
+test("cancelWritesNothing wants the confirm question and no write", () => {
+  assert.equal(frp.cancelWritesNothing({ trajectory: [frpList(), confirm("Cancel")] }).pass, true);
+  assert.equal(frp.cancelWritesNothing({ trajectory: [frpList()] }).pass, false, "never asked");
+  assert.equal(frp.cancelWritesNothing({ trajectory: [frpList(), confirm("Cancel"), frpCreate()] }).pass, false);
+});
+
+test("noCommandsShown and noFeatureMissingClaim", () => {
+  assert.equal(frp.noCommandsShown({ trajectory: [frpList()], response: "Two plans." }).pass, true);
+  assert.equal(frp.noCommandsShown(out([turn(1, block(getCmd()))])).pass, false);
+  assert.equal(frp.noFeatureMissingClaim(out([turn(1, "Run this command in your terminal.")], { response: "Staged rollout is the default." })).pass, true);
+  assert.equal(frp.noFeatureMissingClaim(out([], { response: "Flag release plans are not available on your account. Contact LaunchDarkly support." })).pass, false);
+  assert.equal(frp.noFeatureMissingClaim(out([], { response: "Your account doesn't have flag release plans." })).pass, false);
+});
+
+// Findings from a live run of the skills.
+const envRead = (env) => ({ tool: "get-environment-release-plans", arguments: { projectKey: "default", environmentKey: env } });
+
+test("listUsesEnvPlanNames wants both environments read and the real names, not the keys", () => {
+  const reads = [envRead("test"), envRead("production")];
+  const good = "Staged rollout (the default): test with Test progressive rollout, then production with Production progressive rollout.";
+  assert.equal(frp.listUsesEnvPlanNames({ trajectory: reads, response: good }).pass, true);
+  assert.equal(frp.listUsesEnvPlanNames({ trajectory: [envRead("test")], response: good }).pass, false, "production not read");
+  assert.equal(frp.listUsesEnvPlanNames({ trajectory: reads, response: "Staged rollout: test -> test-progressive, production -> prod-progressive." }).pass, false, "keys");
+  assert.equal(frp.listUsesEnvPlanNames({ trajectory: reads, response: "Staged rollout: test: Test progressive, production: Prod progressive." }).pass, false, "made-up names");
+  assert.equal(frp.listUsesEnvPlanNames({ trajectory: reads, response: good + " (production: prod-progressive)" }).pass, false, "a key as well");
+});
+
+test("confirmUsesEnvPlanNames reads the confirm question, not the message", () => {
+  const named = "Create Release train: test with Test progressive rollout, then production with Production progressive rollout.";
+  assert.equal(frp.confirmUsesEnvPlanNames({ trajectory: [confirmWith(named)] }).pass, true);
+  assert.equal(frp.confirmUsesEnvPlanNames({ trajectory: [confirmWith("Create it?", named)] }).pass, true, "in the preview");
+  assert.equal(frp.confirmUsesEnvPlanNames({ trajectory: [confirmWith("Create Release train: test-progressive, then prod-progressive.")] }).pass, false);
+  assert.equal(frp.confirmUsesEnvPlanNames({ trajectory: [] }).pass, false);
+  const onCancel = confirmWith("Create it?");
+  onCancel.arguments.options[1].preview = named;
+  assert.equal(frp.confirmUsesEnvPlanNames({ trajectory: [onCancel] }).pass, false, "names only on Cancel");
+});
+
+const flagPlanQ = { tool: "ask-question", arguments: { prompt: "The project's default is Staged rollout: production.", options: [{ id: "u", label: "Update Staged rollout (Recommended)" }, { id: "k", label: "Keep Staged rollout" }, { id: "c", label: "Create another plan" }] }, selected: ["c"] };
+test("flagPlanQuestionFirst wants the Flag release plan question before Confirm and before any write", () => {
+  const create = frpCreate({ key: "release-train", name: "Release train", default: undefined });
+  assert.equal(frp.flagPlanQuestionFirst({ trajectory: [frpList(), flagPlanQ, confirm(), create] }).pass, true);
+  assert.equal(frp.flagPlanQuestionFirst({ trajectory: [frpList(), confirm(), create] }).pass, false, "never asked");
+  assert.equal(frp.flagPlanQuestionFirst({ trajectory: [frpList(), confirm(), flagPlanQ, create] }).pass, false, "after Confirm");
+  assert.equal(frp.flagPlanQuestionFirst({ trajectory: [frpList(), create, flagPlanQ] }).pass, false, "after the write");
+});
+
+test("confirmHasTwoOptions fails on a third option, and when there is no Confirm", () => {
+  assert.equal(frp.confirmHasTwoOptions({ trajectory: [confirm()] }).pass, true);
+  const three = { tool: "ask-question", arguments: { prompt: "Create it?", options: [{ id: "y", label: "Make this change" }, { id: "d", label: "Make it the default instead" }, { id: "n", label: "Cancel" }] }, selected: ["y"] };
+  assert.equal(frp.confirmHasTwoOptions({ trajectory: [three] }).pass, false);
+  assert.equal(frp.confirmHasTwoOptions({ trajectory: [confirm(), three] }).pass, false);
+  assert.equal(frp.confirmHasTwoOptions({ trajectory: [] }).pass, false);
+});
+
+test("mcpCreatesAnotherPlan wants a new plan that is not the default, and the default untouched", () => {
+  const create = (args) => frpCreate({ key: "release-train", name: "Release train", default: undefined, ...args });
+  assert.equal(frp.mcpCreatesAnotherPlan({ trajectory: [confirm(), create()] }).pass, true);
+  assert.equal(frp.mcpCreatesAnotherPlan({ trajectory: [confirm(), create({ default: true })] }).pass, false, "the default");
+  assert.equal(frp.mcpCreatesAnotherPlan({ trajectory: [confirm(), create(), frpUpdate({ default: false })] }).pass, false, "Staged rollout written");
+  assert.equal(frp.mcpCreatesAnotherPlan({ trajectory: [] }).pass, false);
+});
+
+test("readOnlyAsksToRunList wants exactly one Run this command question holding the list command", () => {
+  const cmd = block(getCmd());
+  assert.equal(frp.readOnlyAsksToRunList({ trajectory: [runAsk({ prompt: "Run this:\n" + cmd })] }).pass, true);
+  const inPreview = runAsk({ prompt: "Run this command?" });
+  inPreview.arguments.options[0].preview = cmd;
+  assert.equal(frp.readOnlyAsksToRunList({ trajectory: [inPreview] }).pass, true, "in the preview");
+  assert.equal(frp.readOnlyAsksToRunList(out([turn(1, cmd)], { trajectory: [] })).pass, false, "only listed, never asked");
+  assert.equal(frp.readOnlyAsksToRunList({ trajectory: [runAsk({ prompt: "Run this:\n" + cmd }), runAsk({ prompt: "Again:\n" + cmd })] }).pass, false, "two questions");
+  assert.equal(frp.readOnlyAsksToRunList({ trajectory: [runAsk({ prompt: "Run this:\n" + block(getCmd("/staged-rollout")) })] }).pass, false, "not the list");
+});
+
+test("asksToRunOnlyReads fails when a Run this command question holds a write", () => {
+  assert.equal(frp.asksToRunOnlyReads({ trajectory: [] }).pass, true);
+  assert.equal(frp.asksToRunOnlyReads({ trajectory: [runAsk({ prompt: block(getCmd()) })] }).pass, true);
+  assert.equal(frp.asksToRunOnlyReads({ trajectory: [runAsk({ prompt: block(writeCmd("POST", "", body())) })] }).pass, false);
+});
+
+test("noReconnectAdvice fails when the user is told to update or reconnect the MCP server", () => {
+  assert.equal(frp.noReconnectAdvice(out([], { response: "Staged rollout is the default." })).pass, true);
+  assert.equal(frp.noReconnectAdvice(out([], { response: "Updating or reconnecting the LaunchDarkly MCP server should add the tool." })).pass, false);
+  assert.equal(frp.noReconnectAdvice(out([], { response: "Your MCP server may be out of date." })).pass, false);
+});
+
+test("runQuestionShowsCommand fails on a preview that only points at the command", () => {
+  const ref = runAsk({ prompt: "Run this command?" });
+  ref.arguments.options[0].preview = "(full command above)";
+  const r = checks.runQuestionShowsCommand(out([turn(1, block(getCmd()))], { trajectory: [ref] }));
+  assert.equal(r.pass, false);
+  assert.match(r.reason, /only points at it/);
+  const both = runAsk({ prompt: "Run this:\n" + block(getCmd()) });
+  both.arguments.options[0].preview = "(full command above)";
+  assert.equal(checks.runQuestionShowsCommand(out([], { trajectory: [both] })).pass, true, "the question text holds it");
+});

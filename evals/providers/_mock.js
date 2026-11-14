@@ -138,6 +138,8 @@ function createMockState() {
     raDefaults: {},   // environmentKey -> default release plan key set this run
     raCleanup: {},    // projectKey -> auto-cleanup settings written this run
     raArchival: {},   // projectKey -> auto-archival settings written this run
+    raFlagPlans: {},  // projectKey -> stored flag release plans after a write this run
+    raFlagSeen: {},   // projectKey -> stored flag release plans from the first list read
   };
 }
 
@@ -302,6 +304,8 @@ function templateKey(toolName, input) {
       return safe.toolKey ? "get-ai-tools#toolKey" : toolName;
     case "get-projects":
       return safe.projectKey ? "get-projects#projectKey" : toolName;
+    case "get-flag-release-plans":
+      return safe.flagReleasePlanKey ? "get-flag-release-plans#flagReleasePlanKey" : toolName;
     case "get-automations":
       if (safe.section === "cleanup") return "get-automations#cleanup";
       if (safe.section === "archival") return "get-automations#archival";
@@ -358,8 +362,89 @@ function releasePlanStepError(progressiveRelease) {
   return null;
 }
 
+// Flag release plans, like the hosted MCP tools (mcp #522). The template (or a
+// test's override) is the project's list: { flagReleasePlans: [...] }. A
+// project with no stored plans lists the built-in default-release-configuration,
+// which is not stored: a get, update, or delete by its key is a 404. Writes
+// start from the stored plans the agent last saw (the first list read), and
+// later reads reflect them.
+const BUILTIN_FLAG_RELEASE_PLAN = "default-release-configuration";
+const FLAG_RELEASE_PLAN_FIELDS = ["name", "description", "maintainer", "executionMode", "applicationKeys", "default", "environments"];
+const flagPlanNotFound = (key) => ({ error: `LaunchDarkly API error: 404: {"code":"not_found","message":"flag release plan ${key} not found"}` });
+
+function flagPlanItems(base) {
+  if (!base || typeof base !== "object") return [];
+  if (Array.isArray(base.flagReleasePlans)) return base.flagReleasePlans;
+  if (Array.isArray(base.items)) return base.items;
+  return base.key ? [base] : [];
+}
+const storedFlagPlans = (items) => items.filter((p) => p.key !== BUILTIN_FLAG_RELEASE_PLAN);
+
+function renderFlagReleasePlans(template, args, toolName, state, replacements) {
+  const project = args.projectKey;
+  const written = state.raFlagPlans[project];
+  const current = () => written || state.raFlagSeen[project] || [];
+  if (toolName === "get-flag-release-plans") {
+    const base = walk(template, replacements);
+    if (base && base.error) return base;
+    const items = flagPlanItems(base);
+    if (!state.raFlagSeen[project]) state.raFlagSeen[project] = storedFlagPlans(items).map((p) => ({ ...p }));
+    const stored = written || storedFlagPlans(items);
+    if (args.flagReleasePlanKey) {
+      const plan = args.flagReleasePlanKey === BUILTIN_FLAG_RELEASE_PLAN ? undefined : stored.find((p) => p.key === args.flagReleasePlanKey);
+      return plan ? { ...plan } : flagPlanNotFound(args.flagReleasePlanKey);
+    }
+    const builtin = items.filter((p) => p.key === BUILTIN_FLAG_RELEASE_PLAN);
+    const list = stored.length ? stored : (builtin.length ? builtin : [{ key: BUILTIN_FLAG_RELEASE_PLAN, name: "Default release configuration", default: true, environments: [] }]);
+    return { flagReleasePlans: list.map((p) => ({ ...p })), totalCount: list.length, hasMore: false };
+  }
+  if (toolName === "create-flag-release-plan") {
+    const plans = current();
+    if (!args.key || !String(args.name || "").trim() || !Array.isArray(args.environments) || args.environments.length === 0) {
+      return { error: "invalid input: key, name, and environments are required" };
+    }
+    if (plans.some((p) => p.key === args.key)) {
+      return { error: `invalid input: flag release plan key "${args.key}" is already in use in project "${project}". Pick another key, or inspect the existing plan with get-flag-release-plans and flagReleasePlanKey.` };
+    }
+    if (args.default === true && plans.some((p) => p.default === true)) {
+      return { error: `LaunchDarkly API error: 400: {"code":"invalid_request","message":"project ${project} already has a default flag release plan"}` };
+    }
+    const plan = { key: args.key, version: 1, name: args.name, default: args.default === true, executionMode: args.executionMode || "sequential",
+      applicationKeys: args.applicationKeys || [], environments: args.environments };
+    if (args.description !== undefined) plan.description = args.description;
+    if (args.maintainer !== undefined) plan.maintainer = args.maintainer;
+    state.raFlagPlans[project] = [...plans.map((p) => ({ ...p })), plan];
+    return { ...plan };
+  }
+  if (toolName === "update-flag-release-plan" || toolName === "delete-flag-release-plan") {
+    if (args.confirm !== true) {
+      return { error: `Expected arguments for ${toolName}: required: projectKey, flagReleasePlanKey, confirm=true.` };
+    }
+    const key = args.flagReleasePlanKey;
+    const plans = current().map((p) => ({ ...p }));
+    const at = key === BUILTIN_FLAG_RELEASE_PLAN ? -1 : plans.findIndex((p) => p.key === key);
+    if (at === -1) return flagPlanNotFound(key);
+    if (toolName === "delete-flag-release-plan") {
+      plans.splice(at, 1);
+      state.raFlagPlans[project] = plans;
+      return { deleted: true, flagReleasePlanKey: key };
+    }
+    const changes = {};
+    for (const field of FLAG_RELEASE_PLAN_FIELDS) if (args[field] !== undefined) changes[field] = args[field];
+    if (Object.keys(changes).length === 0) {
+      return { error: `invalid input: provide at least one field to update: ${FLAG_RELEASE_PLAN_FIELDS.join(", ")}` };
+    }
+    if (changes.default === true) for (const p of plans) p.default = false;
+    plans[at] = { ...plans[at], ...changes, version: (plans[at].version || 1) + 1 };
+    state.raFlagPlans[project] = plans;
+    return { ...plans[at] };
+  }
+  return undefined;
+}
+
 function renderReleaseAutopilot(template, input, toolName, state, replacements) {
   const args = input || {};
+  if (/flag-release-plan/.test(toolName)) return renderFlagReleasePlans(template, args, toolName, state, replacements);
   if (toolName === "update-automations") {
     const { accountWide, repo, githubRepoId, confirm, ...rest } = args;
     // A project's auto-cleanup or auto-archival (projectKey with a cleanup or

@@ -7,6 +7,9 @@ const WRITE_TOOLS = new Set([
   "delete-automations-repo-settings",
   "create-environment-release-plan",
   "create-metric",
+  "create-flag-release-plan",
+  "update-flag-release-plan",
+  "delete-flag-release-plan",
 ]);
 
 // update-automations covers both scopes: accountWide true is the account
@@ -20,8 +23,9 @@ const isRepoWrite = (t) => isRepoUpdate(t) || t.tool === "delete-automations-rep
 
 const checks = require("../launchdarkly-release-plans/command-checks");
 
-// A write is an MCP write tool. The flag release plan is a REST command the
-// user runs, so it is checked from the text the agent shows.
+// A write is an MCP write tool. Without the flag release plan tools, the flag
+// release plan is a REST command the user runs, so it is checked from the
+// text the agent shows.
 const isWriteStep = (t) => WRITE_TOOLS.has(t.tool);
 
 const traj = (output) => (output && output.trajectory) || [];
@@ -167,6 +171,7 @@ const RAW_NAMES = [
   "update-automations", "get-automations", "delete-automations",
   "githubRepoId", "enabledOverride", "autoReleasing", "autoFlagging", "approvalRequired",
   "create-environment-release-plan", "get-environment-release-plans", "update-default-environment-release-plan", "get-release-policies",
+  "get-flag-release-plans", "create-flag-release-plan", "update-flag-release-plan", "flagReleasePlanKey",
   "preview mode", "policy mode", "plan mode",
 ];
 
@@ -618,7 +623,7 @@ module.exports.missingPlanToolsSkipsRelease = (output) => {
   const text = [allText(output), ...askPrompts(output)].join("\n");
   const support = /contact (launchdarkly )?support|launchdarkly support|not available on your account/i.test(text);
   const reconnect = /\b(update|reconnect)\b/i.test(text) && /mcp server/i.test(text);
-  const planWrites = steps.filter((t) => /release-plan/.test(t.tool) && t.tool !== "get-environment-release-plans").length;
+  const planWrites = steps.filter((t) => /release-plan/.test(t.tool) && !/^get-/.test(t.tool)).length;
   const flagging = steps.filter(isRepoUpdate).some((t) => t.arguments.autoFlagging && t.arguments.autoFlagging.enabled === true);
   const releasingOff = module.exports.repoTurnsAutoReleasingOff(output);
   const pass = !support && reconnect && planWrites === 0 && flagging && releasingOff.pass;
@@ -631,6 +636,7 @@ module.exports.missingPlanToolsSkipsRelease = (output) => {
 // { when, text } answer); the agent never runs them.
 
 module.exports.everyCommandBeta = checks.everyCommandBeta;
+module.exports.noCommandsShown = checks.noCommandsShown;
 module.exports.runQuestionShowsCommand = checks.runQuestionShowsCommand;
 module.exports.agentNeverUsesToken = checks.agentNeverUsesToken;
 
@@ -679,10 +685,15 @@ function textThroughConfirm(output) {
   return [...turns, String((steps[ci].arguments && steps[ci].arguments.prompt) || "")].join("\n");
 }
 
-// The confirmation lists the flag release plan.
+// The confirmation lists the flag release plan in the question itself: its
+// text or the "Looks good" preview, because the user may see only the
+// question while it is open.
 module.exports.confirmListsFlagReleasePlan = (output) => {
-  const text = textThroughConfirm(output);
-  if (text === null) return result(false, "no confirmation question");
+  const q = traj(output).find(isConfirmQuestion);
+  if (!q) return result(false, "no confirmation question");
+  const a = q.arguments || {};
+  const text = [a.prompt, ...(a.options || []).filter((o) => /looks good/i.test(String(o.label || ""))).map((o) => o.preview)]
+    .map((x) => String(x || "")).join("\n");
   const pass = /flag release plan/i.test(text);
   return result(pass, pass ? "the confirmation lists the flag release plan" : "the confirmation does not mention the flag release plan");
 };
@@ -714,4 +725,47 @@ module.exports.notesNoReleaseUntilPlan = (output) => {
   const inSummary = NO_RELEASE_UNTIL.test(confirm);
   const inReport = NO_RELEASE_UNTIL.test(finalText(output));
   return result(inSummary && inReport, `in the confirmation: ${inSummary}; in the final report: ${inReport}`);
+};
+
+// ---------------------------------------------------------------------------
+// Flag release plan through the MCP tools (mcp #522): a write after "Looks
+// good", like the other writes, and a read in the verification.
+
+const okCall = (t) => !/error|not found|already|expected arguments/i.test(String(t.mock_response_preview || ""));
+
+// create-flag-release-plan comes after "Looks good" and after production's
+// new release plan and its default. It names that plan and makes the new
+// plan the project's default.
+module.exports.flagReleasePlanMcpAfterEnvPlans = (output) => {
+  const steps = traj(output);
+  const ci = steps.findIndex((t) => t.tool === "create-flag-release-plan" && okCall(t));
+  if (ci === -1) return result(false, "no successful create-flag-release-plan call");
+  const envCreate = steps.findIndex((t) => t.tool === "create-environment-release-plan" && (t.arguments || {}).environmentKey === "production");
+  const envKey = envCreate === -1 ? null : steps[envCreate].arguments.key;
+  const di = steps.findIndex((t) => t.tool === "update-default-environment-release-plan" && (t.arguments || {}).environmentKey === "production" && t.arguments.default === true);
+  const approved = approvedConfirmBefore(steps, ci) !== -1;
+  const a = steps[ci].arguments || {};
+  const envs = a.environments || [];
+  const points = envs.length === 1 && envs[0].environmentKey === "production" && envs[0].environmentReleasePlanKey === envKey;
+  const order = di !== -1 && di < ci;
+  const pass = points && order && approved && a.default === true;
+  return result(pass, `names production's new plan ${envKey}: ${points}; after the environment's default: ${order}; after "Looks good": ${approved}; default: ${a.default}`);
+};
+
+// The verification reads the flag release plan back with the tool after the
+// create, and the report names it as set up.
+module.exports.flagReleasePlanMcpVerified = (output) => {
+  const steps = traj(output);
+  const ci = steps.findIndex((t) => t.tool === "create-flag-release-plan" && okCall(t));
+  if (ci === -1) return result(false, "no successful create-flag-release-plan call");
+  const key = (steps[ci].arguments || {}).key;
+  // The read must succeed and return the created plan. The trajectory keeps
+  // only the first 200 characters of a response, so check its key, not every
+  // field.
+  const read = steps.slice(ci + 1).some((t) => t.tool === "get-flag-release-plans" &&
+    (!(t.arguments || {}).flagReleasePlanKey || t.arguments.flagReleasePlanKey === key) &&
+    okCall(t) && String(t.mock_response_preview || "").includes(`"${key}"`));
+  const text = finalText(output);
+  const named = /flag release plan/i.test(text) && /default release/i.test(text) && !/not verified|could not verify/i.test(text);
+  return result(read && named, `read back after the create: ${read}; the report names the plan as set up: ${named}`);
 };

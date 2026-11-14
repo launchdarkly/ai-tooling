@@ -22,10 +22,10 @@ This skill teaches agents how to:
 
 ## Prerequisites
 
-- The hosted LaunchDarkly MCP server, for environment release plans
-- For flag release plans and for deleting an environment release plan: the agent shows each REST command, and you run it in your own terminal with your LaunchDarkly API access token in `LD_ACCESS_TOKEN`, then paste the output back. The agent never runs these commands. Never paste a token into the chat.
+- The hosted LaunchDarkly MCP server, for both kinds of plan. Its flag release plan tools are still reaching accounts.
+- When the server has no tool for an operation (flag release plans without their tools, starting a flag's release, deleting an environment release plan): the agent shows the REST command, and you run it in your own terminal with your LaunchDarkly API access token in `LD_ACCESS_TOKEN`, then paste the output back. The agent never runs these commands. Never paste a token into the chat.
 
-These REST endpoints are in beta, and every command sends `LD-API-Version: beta`. The MCP server has no flag release plan tools, and `ldcli` has no command for these endpoints, so the commands use curl.
+These REST endpoints are in beta, and every command sends `LD-API-Version: beta`. `ldcli` has no command for these endpoints, so the commands use curl.
 
 ## Usage
 

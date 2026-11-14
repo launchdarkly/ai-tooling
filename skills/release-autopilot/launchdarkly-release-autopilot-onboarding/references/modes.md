@@ -4,8 +4,8 @@
 
 - Run Steps 1–7 with live reads, and make no writes. Never ask the user to install GitHub or change a setting in the browser; list those steps in the checklist.
 - In Step 1, leave out the "Change one setting" option, because that hand-off writes.
-- For release plans, use MCP reads only. For the flag release plan, ask the user to run nothing, not even the list command. List the plan to create in the checklist, and give its list and create commands as optional follow-ups.
-- In Step 7, show the plan as a checklist under "Changes an admin would make", one line per change, and stop without asking for confirmation.
+- For release plans, use MCP reads only. For the flag release plan, read the list with `get-flag-release-plans` when the server has it. Without it, ask the user to run nothing, not even the list command (the release plans skill's own Read-only mode asks the user to run a read, but a preview here asks for nothing). List the plan to create in the checklist, and, without the tool, give its list and create commands as optional follow-ups.
+- In Step 7, show the plan as a checklist under "Changes an admin would make", one line per change, and stop without asking for confirmation. Leave out anything that needs no change, and add no other section (such as "Already set up").
 - A member whose role is `reader` or `no_access` is always in Preview.
 
 ## Resume

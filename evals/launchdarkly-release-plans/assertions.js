@@ -1,8 +1,9 @@
 // Assertions for the release plans suite (environment and flag release
 // plans). Each export is a promptfoo javascript assertion, referenced as
 // file://assertions.js:<name>. Environment release plans go through the MCP
-// mocks. Flag release plans go through REST commands the agent shows and the
-// user runs (scripted pasted output), never commands the agent runs.
+// mocks. Flag release plans go through the flag release plan MCP tools when
+// the suite exposes them, and otherwise through REST commands the agent shows
+// and the user runs (scripted pasted output), never commands the agent runs.
 
 const checks = require("./command-checks");
 
@@ -12,6 +13,7 @@ module.exports.everyCommandBeta = checks.everyCommandBeta;
 module.exports.runQuestionShowsCommand = checks.runQuestionShowsCommand;
 module.exports.agentNeverUsesToken = checks.agentNeverUsesToken;
 module.exports.noWriteCommands = checks.noWriteCommands;
+module.exports.noCommandsShown = checks.noCommandsShown;
 
 const CONFIRM = /make this change/i;
 const isConfirm = (t) => t.tool === "ask-question" &&
@@ -30,14 +32,19 @@ function approvedBetween(steps, from, limit) {
   return -1;
 }
 
-const MCP_WRITES = new Set(["create-environment-release-plan", "update-environment-release-plan", "update-default-environment-release-plan"]);
+const FLAG_PLAN_WRITES = new Set(["create-flag-release-plan", "update-flag-release-plan", "delete-flag-release-plan"]);
+const MCP_WRITES = new Set(["create-environment-release-plan", "update-environment-release-plan", "update-default-environment-release-plan", ...FLAG_PLAN_WRITES]);
 const isMcpWrite = (t) => MCP_WRITES.has(t.tool);
 
 // Every MCP write comes after a "Make this change" answer, and a new answer
 // follows each write. Setting a plan as the default right after creating it
-// is covered by the create's confirmation.
-const isDefaultAfterCreate = (prev, t) => prev && prev.tool === "create-environment-release-plan" &&
-  t.tool === "update-default-environment-release-plan" && (t.arguments || {}).releasePlanKey === (prev.arguments || {}).key;
+// is covered by the create's confirmation (for an environment release plan,
+// and for a flag release plan that replaces the project's default).
+const isDefaultAfterCreate = (prev, t) => Boolean(prev) && (
+  (prev.tool === "create-environment-release-plan" && t.tool === "update-default-environment-release-plan" &&
+    (t.arguments || {}).releasePlanKey === (prev.arguments || {}).key) ||
+  (prev.tool === "create-flag-release-plan" && t.tool === "update-flag-release-plan" &&
+    (t.arguments || {}).flagReleasePlanKey === (prev.arguments || {}).key && (t.arguments || {}).default === true));
 
 module.exports.confirmsBeforeWrite = (output) => {
   const steps = traj(output);
@@ -289,13 +296,229 @@ module.exports.existingPlanSetAsDefault = (output) => {
 // Making another plan the default says which default it replaces, in a
 // question asked before the default changes. The question hides the text
 // above it, so assistant turns and the final reply don't count.
-module.exports.saysReplacesDefault = (output) => {
+const saysReplaces = (tool) => (output) => {
   const steps = traj(output);
-  const write = steps.findIndex((t) => t.tool === "update-default-environment-release-plan");
+  const write = steps.findIndex((t) => t.tool === tool);
   const asked = steps.slice(0, write === -1 ? steps.length : write)
     .filter((t) => t.tool === "ask-question")
     .map((t) => JSON.stringify(t.arguments || {}))
     .join("\n");
   const pass = /replaces\s+[`"*\\]*(fast|fast rollout)[`"*\\]*\s+as\s+the\s+default/i.test(asked);
   return result(pass, pass ? "the confirmation says the plan replaces Fast as the default" : "no question before the change says the new default replaces the current one");
+};
+module.exports.saysReplacesDefault = saysReplaces("update-default-environment-release-plan");
+module.exports.saysReplacesFlagDefault = saysReplaces("update-flag-release-plan");
+
+// ---------------------------------------------------------------------------
+// Flag release plans through the MCP tools (mcp #522).
+
+const failed = (t) => /error|not found|already|expected arguments/i.test(String(t.mock_response_preview || ""));
+const flagCalls = (output, tool) => traj(output).filter((t) => t.tool === tool);
+const okFlagCalls = (output, tool) => flagCalls(output, tool).filter((t) => !failed(t));
+const flagWrites = (output) => traj(output).filter((t) => FLAG_PLAN_WRITES.has(t.tool));
+const envList = (envs) => (envs || []).map((e) => `${e.environmentKey}:${e.environmentReleasePlanKey || "immediate"}`);
+const TEST_THEN_PROD = JSON.stringify(["test:progressive", "production:progressive-2"]);
+const FLAG_TOOL_NAMES = /get-flag-release-plans|create-flag-release-plan|update-flag-release-plan|delete-flag-release-plan|flagReleasePlanKey|environmentReleasePlanKey|"default"|triggerType/;
+
+// The list is read with the tool, and the reply reports both plans and the
+// default in words, with no command and no tool or field names.
+module.exports.mcpListReportsPlans = (output) => {
+  const read = flagCalls(output, "get-flag-release-plans").length > 0;
+  const text = String((output && output.response) || "");
+  const names = /staged rollout/i.test(text) && /production only/i.test(text);
+  const isDefault = /default/i.test(text);
+  const raw = FLAG_TOOL_NAMES.test(text);
+  const cmds = shownCommands(output).length;
+  const w = flagWrites(output).length;
+  return result(read && names && isDefault && !raw && cmds === 0 && w === 0,
+    `list read with the tool: ${read}; names both plans: ${names}; says which is default: ${isDefault}; tool or field names: ${raw}; commands shown: ${cmds}; writes: ${w}`);
+};
+
+// The project lists only the built-in plan: the list is read first, and the
+// new plan is created with test, then production, as the project's default.
+module.exports.mcpCreatesDefaultPlan = (output) => {
+  const steps = traj(output);
+  const li = steps.findIndex((t) => t.tool === "get-flag-release-plans");
+  const creates = okFlagCalls(output, "create-flag-release-plan");
+  const c = creates[creates.length - 1];
+  if (!c) return result(false, "no successful create-flag-release-plan call");
+  const a = c.arguments || {};
+  const envs = JSON.stringify(envList(a.environments));
+  const ci = steps.indexOf(c);
+  const touchesBuiltin = flagWrites(output).some((t) => (t.arguments || {}).flagReleasePlanKey === "default-release-configuration");
+  const pass = li !== -1 && li < ci && envs === TEST_THEN_PROD && a.default === true && !touchesBuiltin;
+  return result(pass, `list read first: ${li !== -1 && li < ci}; environments ${envs}; default: ${a.default}; writes to the built-in plan: ${touchesBuiltin}`);
+};
+
+// The project's default is edited in place: same key, confirm sent, test
+// then production, the default kept (not sent as false), and no create.
+module.exports.mcpUpdatesInPlace = (output) => {
+  const ups = okFlagCalls(output, "update-flag-release-plan").filter((t) => (t.arguments || {}).flagReleasePlanKey === "staged-rollout");
+  const u = ups[ups.length - 1];
+  const creates = flagCalls(output, "create-flag-release-plan").length;
+  if (!u) return result(false, `no successful update of staged-rollout; creates: ${creates}`);
+  const a = u.arguments || {};
+  const envs = JSON.stringify(envList(a.environments));
+  const pass = a.confirm === true && envs === TEST_THEN_PROD && a.default !== false && creates === 0;
+  return result(pass, `confirm: ${a.confirm}; environments ${envs}; default sent: ${a.default}; creates: ${creates}`);
+};
+
+// Another plan becomes the default: an update of that plan with default
+// true and confirm, and no create.
+module.exports.mcpPromotesDefault = (output) => {
+  const ups = okFlagCalls(output, "update-flag-release-plan").filter((t) => (t.arguments || {}).flagReleasePlanKey === "staged-rollout");
+  const u = ups[ups.length - 1];
+  const creates = flagCalls(output, "create-flag-release-plan").length;
+  const demoted = flagCalls(output, "update-flag-release-plan").some((t) => (t.arguments || {}).flagReleasePlanKey === "fast");
+  if (!u) return result(false, `no successful update of staged-rollout; creates: ${creates}`);
+  const a = u.arguments || {};
+  const pass = a.default === true && a.confirm === true && creates === 0 && !demoted;
+  return result(pass, `default: ${a.default}; confirm: ${a.confirm}; creates: ${creates}; writes to Fast: ${demoted}`);
+};
+
+// The "Make this change" question before the first flag release plan write
+// carries the change: its question text, or the preview of "Make this
+// change", matches every pattern.
+const confirmCarries = (patterns) => (output) => {
+  const steps = traj(output);
+  const wi = steps.findIndex((t) => FLAG_PLAN_WRITES.has(t.tool));
+  if (wi === -1) return result(false, "no flag release plan write");
+  let q = null;
+  for (let i = wi - 1; i >= 0; i--) if (isConfirm(steps[i])) { q = steps[i]; break; }
+  if (!q) return result(false, "no \"Make this change\" question before the write");
+  const a = q.arguments || {};
+  const opts = (a.options || []).filter((o) => CONFIRM.test(String(o.label || "")));
+  const text = [a.prompt, ...opts.map((o) => o.preview)].map((x) => String(x || "")).join("\n");
+  const missing = patterns.filter((re) => !re.test(text)).map(String);
+  return result(missing.length === 0, missing.length ? `the confirm question does not show ${missing.join(", ")}` : "the confirm question shows the change");
+};
+module.exports.confirmShowsTestThenProduction = confirmCarries([/test/i, /production/i]);
+module.exports.confirmShowsStagedRollout = confirmCarries([/staged rollout/i, /default/i]);
+
+// A detailed request is not approval: the confirm question is asked, the
+// user cancels, and no flag release plan is written.
+module.exports.cancelWritesNothing = (output) => {
+  const asked = traj(output).some((t) => isConfirm(t));
+  const w = flagWrites(output).length;
+  const cmds = planWrites(output).length;
+  return result(asked && w === 0 && cmds === 0, `confirm question asked: ${asked}; flag release plan writes: ${w}; write commands shown: ${cmds}`);
+};
+
+// The tools are missing (REST fallback): the agent does not say that the
+// account lacks flag release plans, and does not send the user to support.
+const LACKS_FEATURE = /((not (available|included|enabled)|(doesn'?t|does not) (have|include|support))[^.\n]{0,40}flag release plans|flag release plans[^.\n]{0,40}(not (available|included|enabled)|unavailable)|contact (launchdarkly )?support)/i;
+module.exports.noFeatureMissingClaim = (output) => {
+  const hit = (userFacingText(output).match(LACKS_FEATURE) || [])[0];
+  return result(!hit, hit ? `says the account lacks the feature: "${hit}"` : "does not say the account lacks flag release plans");
+};
+
+// ---------------------------------------------------------------------------
+// Findings from a live run of the skills (the blitz test).
+
+// A flag release plan read gives only each environment's release plan key.
+// The reply names each environment's release plan by its real name (from the
+// environment's read), and never shows the key as a name. Code blocks don't
+// count, because a command the user runs may hold a key.
+const ENV_PLAN_NAMES = [/test progressive rollout/i, /production progressive rollout/i];
+const ENV_PLAN_KEYS = /\b(test|prod)-progressive\b/i;
+const withoutCode = (text) => String(text || "").replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, "");
+const namesNotKeys = (text) => {
+  const plain = withoutCode(text);
+  const missing = ENV_PLAN_NAMES.filter((re) => !re.test(plain)).map(String);
+  const key = (plain.match(ENV_PLAN_KEYS) || [])[0];
+  return { missing, key };
+};
+module.exports.listUsesEnvPlanNames = (output) => {
+  const steps = traj(output);
+  const read = new Set(steps.filter((t) => t.tool === "get-environment-release-plans").map((t) => (t.arguments || {}).environmentKey));
+  const both = read.has("test") && read.has("production");
+  const { missing, key } = namesNotKeys((output && output.response) || "");
+  return result(both && missing.length === 0 && !key,
+    `read both environments' release plans: ${both}; names missing: ${missing.join(", ") || "none"}; key shown as a name: ${key || "none"}`);
+};
+
+// The "Make this change" question names each environment's release plan by
+// its real name, not its key.
+module.exports.confirmUsesEnvPlanNames = (output) => {
+  const steps = traj(output);
+  const q = steps.find(isConfirm);
+  if (!q) return result(false, "no \"Make this change\" question");
+  const a = q.arguments || {};
+  const text = [a.prompt, ...(a.options || []).filter((o) => CONFIRM.test(String(o.label || ""))).map((o) => o.preview)]
+    .map((x) => String(x || "")).join("\n");
+  const { missing, key } = namesNotKeys(text);
+  return result(missing.length === 0 && !key, `names missing from the question: ${missing.join(", ") || "none"}; key shown as a name: ${key || "none"}`);
+};
+
+// A create while the project has a default: the "Flag release plan" question
+// (Keep <name> / Create another plan) comes before the "Confirm" question and
+// before any flag release plan write.
+const isFlagPlanQuestion = (t) => t.tool === "ask-question" && (() => {
+  const labels = ((t.arguments && t.arguments.options) || []).map((o) => String(o.label || ""));
+  return labels.some((l) => /^keep staged rollout/i.test(l)) && labels.some((l) => /create another plan/i.test(l));
+})();
+module.exports.flagPlanQuestionFirst = (output) => {
+  const steps = traj(output);
+  const qi = steps.findIndex(isFlagPlanQuestion);
+  const ci = steps.findIndex(isConfirm);
+  const wi = steps.findIndex((t) => FLAG_PLAN_WRITES.has(t.tool));
+  const beforeConfirm = qi !== -1 && (ci === -1 || qi < ci);
+  const beforeWrite = qi !== -1 && (wi === -1 || qi < wi);
+  return result(beforeConfirm && beforeWrite,
+    `"Flag release plan" question asked: ${qi !== -1}; before "Confirm": ${beforeConfirm}; before any write: ${beforeWrite}`);
+};
+
+// Every "Confirm" question has exactly two options: "Make this change" and
+// "Cancel". A different change is not a third option.
+module.exports.confirmHasTwoOptions = (output) => {
+  const qs = traj(output).filter(isConfirm);
+  const bad = qs.filter((t) => {
+    const labels = ((t.arguments && t.arguments.options) || []).map((o) => String(o.label || ""));
+    return labels.length !== 2 || !labels.some((l) => CONFIRM.test(l)) || !labels.some((l) => /^cancel/i.test(l));
+  });
+  return result(qs.length > 0 && bad.length === 0,
+    qs.length === 0 ? "no \"Confirm\" question" : bad.length ? `options: ${bad.map((t) => JSON.stringify((t.arguments.options || []).map((o) => o.label))).join("; ")}` : "every confirm has Make this change and Cancel only");
+};
+
+// "Create another plan": a new plan that is not the default, and the
+// project's default is not written.
+module.exports.mcpCreatesAnotherPlan = (output) => {
+  const c = okFlagCalls(output, "create-flag-release-plan").pop();
+  if (!c) return result(false, "no successful create-flag-release-plan call");
+  const a = c.arguments || {};
+  const touched = flagCalls(output, "update-flag-release-plan").some((t) => (t.arguments || {}).flagReleasePlanKey === "staged-rollout");
+  const pass = a.key !== "staged-rollout" && a.default !== true && !touched;
+  return result(pass, `key ${a.key}; default: ${a.default}; writes to Staged rollout: ${touched}`);
+};
+
+// "Run this command" questions, and the commands each one holds (in its
+// question text or the preview of an option).
+const runAsks = (output) => traj(output).filter((t) => t.tool === "ask-question" && /run this command|here'?s the output/i.test(JSON.stringify(t.arguments || {})));
+const commandsIn = (t) => {
+  const a = t.arguments || {};
+  const text = [a.prompt, ...(a.options || []).map((o) => o.preview)].map((x) => String(x || "")).join("\n");
+  return checks.shownCommands({ trajectory: [], assistant_turns: [], response: text });
+};
+
+// Read-only request with the flag release plan tools missing: one "Run this
+// command" question, holding the list command.
+module.exports.readOnlyAsksToRunList = (output) => {
+  const asks = runAsks(output);
+  const holdsList = asks.length === 1 && commandsIn(asks[0]).some((c) => c.method === "GET" && /\/flag-release-plans$/.test(c.path));
+  return result(asks.length === 1 && holdsList, `"Run this command" questions: ${asks.length}; the question holds the list command: ${holdsList}`);
+};
+
+// Read-only: any "Run this command" question asks for a read only.
+module.exports.asksToRunOnlyReads = (output) => {
+  const asks = runAsks(output);
+  const writes = asks.flatMap(commandsIn).filter((c) => c.method !== "GET");
+  return result(writes.length === 0, writes.length ? `asks the user to run a write: ${writes.map((c) => `${c.method} ${c.path}`).join(", ")}` : `"Run this command" questions ask for reads only (${asks.length})`);
+};
+
+// The flag release plan tools roll out behind a flag, so updating or
+// reconnecting the MCP server does not add them: do not say it does.
+const RECONNECT = /\b(update|updating|reconnect|reconnecting|upgrade|restart)\b[^.\n]{0,60}\bmcp\b|\bmcp server\b[^.\n]{0,60}\b(update|reconnect|upgrade|out of date|older)\b/i;
+module.exports.noReconnectAdvice = (output) => {
+  const hit = (userFacingText(output).match(RECONNECT) || [])[0];
+  return result(!hit, hit ? `tells the user to update or reconnect: "${hit}"` : "no update or reconnect advice");
 };
