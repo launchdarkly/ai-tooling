@@ -17,6 +17,31 @@ test("excluded tools are hidden", () => {
   assert.deepEqual(filterToolDefs(defs, ["create-feature-flag"]).map((d) => d.name), ["create-flag", "get-flag"]);
 });
 
+test("a comma-separated string hides each named tool", () => {
+  assert.deepEqual(filterToolDefs(defs, "create-feature-flag, get-flag").map((d) => d.name), ["create-flag"]);
+  assert.deepEqual(filterToolDefs(defs, ""), defs);
+});
+
+// promptfoo turns a test var that is a list of strings into one test per
+// item, so a per-test exclude_mcp_tools list would hide nothing.
+test("no test sets exclude_mcp_tools to a list of strings", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const yaml = require("js-yaml");
+  const root = path.join(__dirname, "..");
+  const bad = [];
+  for (const dir of fs.readdirSync(root)) {
+    const file = path.join(root, dir, "promptfooconfig.yaml");
+    if (!fs.existsSync(file)) continue;
+    const cfg = yaml.load(fs.readFileSync(file, "utf8")) || {};
+    for (const t of cfg.tests || []) {
+      const v = t && t.vars && t.vars.exclude_mcp_tools;
+      if (Array.isArray(v) && typeof v[0] === "string") bad.push(`${dir}: ${t.description}`);
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
 test("an unknown name hides nothing", () => {
   assert.deepEqual(filterToolDefs(defs, ["delete-flag"]), defs);
 });

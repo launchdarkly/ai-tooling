@@ -63,7 +63,7 @@ tests:
     vars:
       max_turns: 18
       # The flag release plan tools are not on the server: the REST fallback.
-      exclude_mcp_tools: &no_flag_plan_tools [get-flag-release-plans, create-flag-release-plan, update-flag-release-plan, delete-flag-release-plan]
+      exclude_mcp_tools: &no_flag_plan_tools "get-flag-release-plans,create-flag-release-plan,update-flag-release-plan,delete-flag-release-plan"
       mock_ask_question_match: true
       user_request: "Which flag release plans does LaunchDarkly project default have?"
       mock_overrides:

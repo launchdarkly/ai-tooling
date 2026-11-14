@@ -75,10 +75,12 @@
  *   expose_mcp_tools            - per-test override of the provider config option
  *                                 (true/false), e.g. to run one test with no
  *                                 LaunchDarkly tools
- *   exclude_mcp_tools           - optional array of tool names hidden for this
- *                                 test only, on top of the suite's
- *                                 exclude_mcp_tools, e.g. to run one test on a
- *                                 server that lacks some tools
+ *   exclude_mcp_tools           - optional comma-separated string of tool names
+ *                                 hidden for this test only, on top of the
+ *                                 suite's exclude_mcp_tools, e.g. to run one
+ *                                 test on a server that lacks some tools. Not
+ *                                 a list: promptfoo turns a test var that is a
+ *                                 list of strings into one test per item
  *   mock_ask_question_answers   - optional array of `selected` arrays returned by
  *                                 successive `ask-question` calls; an empty
  *                                 array is a dismissed question (no selection).
@@ -342,10 +344,15 @@ function scrubLdCredentials(baseEnv) {
 }
 
 // Hide the named mock tools from a suite, so the agent sees only the tools its
-// real MCP server offers.
+// real MCP server offers. A test's `exclude_mcp_tools` must be a
+// comma-separated string: promptfoo turns a test var that is a list of
+// strings into one test per item, so a list would hide nothing.
 function filterToolDefs(defs, exclude) {
-  if (!Array.isArray(exclude) || exclude.length === 0) return defs;
-  const hidden = new Set(exclude);
+  const names = typeof exclude === "string"
+    ? exclude.split(",").map((n) => n.trim()).filter(Boolean)
+    : Array.isArray(exclude) ? exclude : [];
+  if (names.length === 0) return defs;
+  const hidden = new Set(names);
   return defs.filter((def) => !hidden.has(def.name));
 }
 

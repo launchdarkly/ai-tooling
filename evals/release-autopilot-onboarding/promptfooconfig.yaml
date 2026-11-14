@@ -1271,7 +1271,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
       max_turns: 22
-      exclude_mcp_tools: ["create-environment-release-plan", "update-default-environment-release-plan"]
+      exclude_mcp_tools: "create-environment-release-plan,update-default-environment-release-plan"
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Add more"]
@@ -1309,7 +1309,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
       max_turns: 30
-      exclude_mcp_tools: [get-flag-release-plans, create-flag-release-plan, update-flag-release-plan, delete-flag-release-plan]
+      exclude_mcp_tools: "get-flag-release-plans,create-flag-release-plan,update-flag-release-plan,delete-flag-release-plan"
       mock_overrides:
         get-metrics: { metrics: [], totalCount: 0 }
       mock_ask_question_match: true
@@ -1368,7 +1368,7 @@ tests:
     vars:
       user_request: "Set up Release Autopilot auto-flagging and auto-releasing for acme/demo in project default, production only."
       max_turns: 28
-      exclude_mcp_tools: [get-flag-release-plans, create-flag-release-plan, update-flag-release-plan, delete-flag-release-plan]
+      exclude_mcp_tools: "get-flag-release-plans,create-flag-release-plan,update-flag-release-plan,delete-flag-release-plan"
       mock_overrides:
         get-metrics: { metrics: [], totalCount: 0 }
       mock_ask_question_match: true
