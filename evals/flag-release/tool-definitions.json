@@ -35,5 +35,288 @@
       ],
       "type": "object"
     }
+  },
+  {
+    "name": "get-flag-release-plans",
+    "description": "Get flag release plans, reusable templates that say how a flag is released across a project's environments. Beta API. Without flagReleasePlanKey: a page in creation order with totalCount; when hasMore is true, pass nextOffset as offset. With flagReleasePlanKey: one plan with its environments (environmentKey, triggerType, environmentReleasePlanKey or isImmediate), executionMode, applicationKeys, maintainer, default, and version. A maintainer reads as {kind: member, memberId, email} or {kind: team, key, name}; to send a team maintainer to update-flag-release-plan, use {kind: team, teamKey: <key>}. The plan with default: true is the project's default, suggested first when starting a release. A project with no stored plans lists one built-in default, key default-release-configuration, which cannot be fetched, updated, or deleted by key; create a plan with default: true to replace it. Flag release plans are project-wide; environment release plans (get-environment-release-plans) are the per-environment rollout recipes they point to.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectKey"
+      ],
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "Project key. If the user hasn't named one, ask; don't guess."
+        },
+        "flagReleasePlanKey": {
+          "type": "string",
+          "description": "Get one plan. Omit to list plans."
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Only without flagReleasePlanKey. Defaults to 20."
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Only without flagReleasePlanKey. Pass nextOffset from the previous page."
+        }
+      }
+    }
+  },
+  {
+    "name": "create-flag-release",
+    "description": "Start a flag release: release a flag across environments by following a flag release plan. Beta API. This changes the flag's targeting as the release runs, so confirm the flag, the plan, and its environments with the user first. A flag can have only one active release; if it already has one, LaunchDarkly returns an error that names it, and that release must be archived first. flagReleasePlanKey names the plan (find one with get-flag-release-plans; use the plan with default: true unless the user picks another). startingVariationId and endingVariationId name the variations to release from and to, by the _id of the flag's variations. Send both or neither: a multi-variate flag needs both, and a boolean flag can omit both to release from false to true. Send pullRequest when the plan has an environment with triggerType webhook, or when the release is for a pull request: repoFullName as owner/name and number; the tool sends the github.com pull request URL built from them. LaunchDarkly rejects a release from a plan with a webhook environment without it. The built-in plan default-release-configuration, listed when the project has no stored plans, cannot start a release; create a flag release plan first. Returns config_id, the release's ID, and the release as read back, with repo_full_name and pr_number when a pull request is linked; inspect or change it later with get-automated-rollout-config, update-automated-rollout-config, and archive-automated-rollout-config. To release without a plan, use create-automated-rollout-config.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectKey",
+        "flagKey",
+        "flagReleasePlanKey",
+        "confirm"
+      ],
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "Project key. If the user hasn't named one, ask; don't guess."
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "flagReleasePlanKey": {
+          "type": "string"
+        },
+        "startingVariationId": {
+          "type": "string",
+          "description": "The _id of the flag variation to release from."
+        },
+        "endingVariationId": {
+          "type": "string",
+          "description": "The _id of the flag variation to release to."
+        },
+        "pullRequest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repoFullName",
+            "number"
+          ],
+          "description": "The pull request this release follows. Required when the plan has an environment with triggerType webhook.",
+          "properties": {
+            "repoFullName": {
+              "type": "string",
+              "pattern": "^[^/\\s]+/[^/\\s]+$",
+              "description": "GitHub repository as owner/name."
+            },
+            "number": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Pull request number."
+            }
+          }
+        },
+        "confirm": {
+          "type": "boolean",
+          "description": "Confirm this destructive operation."
+        }
+      }
+    }
+  },
+  {
+    "name": "create-automated-rollout-config",
+    "description": "Record an automated rollout config for a feature-flagged change. Use it only for AutomatedRollout requests. The guarding flag must already exist. Pass repoFullName, prNumber, and prUrl for the PR the user names or you just filed; omit them when there is none. Each listed environment releases after the merge, pinned in override or by a release plan; to hold one, leave it out (no hold or date field exists). releaseType is only override or policy; immediate, progressive, and guarded are override.releaseMethod values. An immediate release passes only environmentKey, with no releaseType or override. triggerType: flag_eval (default) or webhook, to wait for a CI/CD deploy. Stages have exactly allocation and durationMillis; allocation is thousandths of a percent, so 10% over one hour is {\"allocation\":10000,\"durationMillis\":3600000}. override keys are camelCase: releaseMethod, rolloutContextKindKey, stages, metricKeys, rollbackOnRegression. policy uses the environment's default release plan, or the plan environmentReleasePlanKey names. Surface every warning in generated comments; do not call a warned environment a clean rollout. Returns config_id, the stored config, and warnings.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectKey",
+        "flagKey",
+        "environments"
+      ],
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "LaunchDarkly project key."
+        },
+        "flagKey": {
+          "type": "string",
+          "description": "Key of the guarding flag, which must already exist."
+        },
+        "environments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "environmentKey"
+            ],
+            "properties": {
+              "environmentKey": {
+                "type": "string",
+                "description": "Environment key."
+              },
+              "triggerType": {
+                "type": "string",
+                "enum": [
+                  "flag_eval",
+                  "webhook"
+                ],
+                "description": "flag_eval (default) starts after the flag is seen evaluating; webhook waits for a CI/CD deploy signal."
+              },
+              "waitBeforeReleaseMillis": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Delay after the preceding environment finishes. Applies only to sequential configs and is dropped from the first sequential environment."
+              },
+              "releaseType": {
+                "type": "string",
+                "enum": [
+                  "override",
+                  "policy"
+                ],
+                "description": "Only override or policy. override (default) pins the rollout in override; policy waits for the PR merge and the flag's first evaluation, then releases with the environment's default release plan, or the plan environmentReleasePlanKey names; it releases on merge and never holds. Do not pass override with policy. immediate, progressive, and guarded are override.releaseMethod values."
+              },
+              "environmentReleasePlanKey": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Only with releaseType policy. Key of the environment release plan to release with instead of the environment's default plan; it must be a plan in this environment (see get-environment-release-plans). Omit to use the default plan."
+              },
+              "override": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "releaseMethod"
+                ],
+                "properties": {
+                  "releaseMethod": {
+                    "type": "string",
+                    "enum": [
+                      "immediate",
+                      "progressive",
+                      "guarded"
+                    ],
+                    "description": "immediate turns the flag on and takes no stages or metrics; progressive ramps through stages; guarded ramps through stages gated on metrics."
+                  },
+                  "rolloutContextKindKey": {
+                    "type": "string",
+                    "description": "Context kind the rollout allocates by."
+                  },
+                  "stages": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "allocation",
+                        "durationMillis"
+                      ],
+                      "properties": {
+                        "allocation": {
+                          "type": "number",
+                          "description": "Thousandths of a percent: 100000 is 100%, 10000 is 10%, 1000 is 1%."
+                        },
+                        "durationMillis": {
+                          "type": "number",
+                          "description": "Monitoring window in milliseconds. Must be greater than 0 for every stage, including the last."
+                        }
+                      }
+                    },
+                    "description": "Required for progressive and guarded. Allocations must be positive and strictly increasing. Guarded caps every stage at 50000 and promotes to 100% after the last stage, so do not add a 100000 stage; progressive usually ends at 100000. Each stage has exactly allocation and durationMillis, e.g. {\"allocation\":10000,\"durationMillis\":3600000} for 10% over one hour."
+                  },
+                  "metricKeys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Metrics that gate a guarded rollout. Guarded needs metricKeys or metricGroupKeys."
+                  },
+                  "metricGroupKeys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Metric groups that gate a guarded rollout."
+                  },
+                  "rollbackOnRegression": {
+                    "type": "boolean",
+                    "description": "Roll back automatically when a guarded metric regresses."
+                  }
+                },
+                "description": "Inline rollout for releaseType override. Keys are camelCase exactly as named here (releaseMethod, rolloutContextKindKey, stages, metricKeys, metricGroupKeys, rollbackOnRegression), not the snake_case names get-automated-rollout-config returns. For an immediate release, omit override and releaseType and pass only environmentKey."
+              }
+            }
+          },
+          "description": "Per-environment rollout plan."
+        },
+        "repoFullName": {
+          "type": "string",
+          "description": "GitHub repository as owner/repo."
+        },
+        "prNumber": {
+          "type": "number",
+          "description": "Pull request number."
+        },
+        "prUrl": {
+          "type": "string",
+          "description": "Full pull request URL."
+        },
+        "requiredApplicationKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "SDK-reported application ids that must all evaluate the flag before release, so tests, jobs, and other apps do not trigger it. Pass only ids already instrumented in the repository's SDK configuration; never guess, and omit when there are none. Not a LaunchDarkly application object id."
+        },
+        "executionMode": {
+          "type": "string",
+          "enum": [
+            "parallel",
+            "sequential"
+          ],
+          "description": "parallel (default) starts environments independently; sequential releases them in array order."
+        },
+        "startingVariationId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Variation a multi-variate flag rolls out from. Boolean flags default to false; multi-variate flags need both variation IDs, and setting only one is rejected."
+        },
+        "endingVariationId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Variation a multi-variate flag rolls out to. Boolean flags default to true."
+        }
+      }
+    }
+  },
+  {
+    "name": "get-automated-rollout-config",
+    "description": "Fetch a single automated rollout config by id to verify its state.\n\nUse this after create-automated-rollout-config (which returns config_id) to confirm the rollout was recorded and to check its progress.\n\nLIFECYCLE:\n- pr_state: \"pending\" until the guarding PR merges, then \"merged\".\n- status: \"active\" while releasing, then \"complete\", \"expired\", or \"archived\".\n\nThe config reports its execution_mode. Each environment reports its desired_release_type, environment_release_plan_key (a policy environment that names a plan other than the default), trigger_type, wait_before_release_millis, the pinned override (if any), and release progress via released_at and associated_release_id (both set once the environment's release starts). An environment is editable with update-automated-rollout-config only while its status is \"pending\" and release_lifecycle_status is \"not_started\".\n\nINPUTS:\n- projectKey (required): LaunchDarkly project key (e.g., \"default\").\n- configId (required): The rollout config id returned by create-automated-rollout-config.\n\nRETURNS:\n- found: Boolean; false when no config with that id exists for the project's account.\n- config: The rollout config when found \u2014 { id, project_key, flag_key, repo_full_name, pr_number, pr_url, pr_state, deployment_trigger, merge_position, status, execution_mode, required_application_keys, created_at, updated_at, completed_at, environments: [{ environment_key, desired_release_type, environment_release_plan_key, trigger_type, status, release_lifecycle_status, wait_before_release_millis, associated_release_id, released_at, override: { release_method, rollout_context_kind_key, stages, metric_keys, metric_group_keys, rollback_on_regression } }] }. deployment_trigger is the git SHA stamped when the PR merged (null until the merge is ingested); merge_position is that commit's order on the base branch.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projectKey",
+        "configId"
+      ],
+      "properties": {
+        "projectKey": {
+          "type": "string",
+          "description": "Project key. If the user hasn't named one, ask; don't guess."
+        },
+        "configId": {
+          "type": "string",
+          "description": "Rollout config id returned by create-automated-rollout-config."
+        }
+      }
+    }
   }
 ]

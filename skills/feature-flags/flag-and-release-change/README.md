@@ -1,6 +1,6 @@
 # Flag & Release a PR Change Skill
 
-A portable Agent Skill that drives a pull request's change end to end: decide it needs a flag, create the guarding flag, wire the new code path behind it on the PR branch, and record an automated release so the change ships safely when the PR merges.
+A portable Agent Skill that drives a pull request's change end to end: decide it needs a flag, create the guarding flag, wire the new code path behind it on the PR branch, and start a flag release so the change ships safely when the PR merges.
 
 ## Overview
 
@@ -12,7 +12,7 @@ This skill is a **PR orchestrator**. It composes three focused skills and adds o
 | Create the flag + wire the code | [`launchdarkly-flag-create`](../launchdarkly-flag-create/) |
 | Record the release | [`flag-release`](../flag-release/) |
 
-**The deploy is not the release**: the merge ships the control path (flag OFF); the release is the flag operation the recorded rollout performs afterward. An automation harness can bypass this skill and invoke the three composed skills directly — this is the portable, human-in-the-loop path.
+**The deploy is not the release**: the merge ships the control path (flag OFF); the release is the flag operation the flag release performs afterward. An automation harness can bypass this skill and invoke the three composed skills directly — this is the portable, human-in-the-loop path.
 
 ## Installation (Local)
 
@@ -46,7 +46,7 @@ flag-and-release-change/
 
 - [Should Flag Change](../should-flag-change/): The flag-worthiness decision
 - [LaunchDarkly Flag Create](../launchdarkly-flag-create/): Flag creation + SDK guarding patterns
-- [Flag Release](../flag-release/): Recording the automated rollout
+- [Flag Release](../flag-release/): Starting the flag release
 - [LaunchDarkly Docs](https://docs.launchdarkly.com)
 
 ## License

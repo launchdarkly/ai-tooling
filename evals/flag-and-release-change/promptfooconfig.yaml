@@ -4,7 +4,7 @@
 #   promptfoo eval -c shared/defaults.yaml -c flag-and-release-change/promptfooconfig.yaml
 #
 # flag-and-release-change is the portable PR orchestrator: decide -> create+wire
-# the flag -> record the release, composing should-flag-change,
+# the flag -> start the release, composing should-flag-change,
 # launchdarkly-flag-create, and flag-release. These fixtures test the
 # orchestrator's OWN contract, not the composed skills' internals:
 #
@@ -15,14 +15,18 @@
 #      that doesn't exist. Driven by the mock's projectKey="restricted" hook,
 #      which makes create-flag return a 403.
 #
-#   3. The release plan comes from each environment's default release plan
-#      (get-environment-release-plans), and an environment with no default
-#      release plan is held. The suite hides the retired release policy tools.
+#   3. The release plan comes from the project's flag release plan
+#      (get-flag-release-plans) and the environment release plans it names
+#      (get-environment-release-plans). Without the flag release tools, each
+#      environment's default release plan applies, and an environment with
+#      no default release plan is held. The suite hides the retired release
+#      policy tools.
 #
 # MCP-only (no builtins), so the run can't clone/push; the fixtures reach their
 # assertion before any git step. Reads (list/get) are allowed; the asserts
 # forbid mutating tools. The suite shares flag-release's release plan tool
-# definition and mocks (a guarded default plan in every environment).
+# tool definitions and mocks (a guarded default plan in every environment,
+# and the default flag release plan standard-release).
 description: "Evaluation of the flag-and-release-change orchestrator skill"
 
 prompts:
@@ -82,7 +86,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['create-flag','create-automated-rollout-config','update-flag','toggle-flag','delete-flag'];
+          const forbidden = ['create-flag','create-automated-rollout-config','create-flag-release','update-flag','toggle-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'no mutations during planning' : 'mutated during plan: ' + called.join(', ') };
@@ -116,7 +120,8 @@ tests:
 
   # ==================================================================
   # PLAN PHASE, NO DEFAULT PLAN — production has no default release
-  # plan. The plan must hold production (auto-release can't run there
+  # plan, on a server without the flag release tools (the fallback
+  # path). The plan must hold production (auto-release can't run there
   # yet) and say where to set one up, with no mutation.
   # ==================================================================
   - description: "Plan phase, no default plan: holds production until it has a default release plan"
@@ -155,11 +160,12 @@ tests:
             production:
               items: []
               totalCount: 0
+      exclude_mcp_tools: "create-flag-release,get-flag-release-plans"
     assert:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['create-flag','create-automated-rollout-config','update-flag','toggle-flag','delete-flag','create-environment-release-plan','update-default-environment-release-plan'];
+          const forbidden = ['create-flag','create-automated-rollout-config','create-flag-release','update-flag','toggle-flag','delete-flag','create-environment-release-plan','update-default-environment-release-plan'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'no mutations during planning' : 'mutated during plan: ' + called.join(', ') };
@@ -235,7 +241,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = !tools.includes('create-automated-rollout-config');
+          const pass = !tools.includes('create-automated-rollout-config') && !tools.includes('create-flag-release');
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not record a release after create failed' : 'recorded a release despite the failed create (not fail-closed)' };
         metric: failed_closed
         weight: 4
@@ -282,7 +288,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const mutating = ['create-flag','create-automated-rollout-config','update-flag','toggle-flag','delete-flag'];
+          const mutating = ['create-flag','create-automated-rollout-config','create-flag-release','update-flag','toggle-flag','delete-flag'];
           const called = mutating.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'created/recorded nothing for a non-flag-worthy change' : 'mutated: ' + called.join(', ') };
