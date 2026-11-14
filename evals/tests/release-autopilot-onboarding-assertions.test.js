@@ -222,3 +222,41 @@ test("missingPlanToolsSkipsRelease does not count a flag release plan read as a 
   assert.equal(ra.missingPlanToolsSkipsRelease(out).pass, true);
   assert.equal(ra.missingPlanToolsSkipsRelease({ ...out, trajectory: [frpCreate(), rw] }).pass, false);
 });
+
+const forbidden = 'LaunchDarkly API error: 403: {"code":"forbidden"}';
+const refused = (step) => ({ ...step, mock_response_preview: forbidden });
+
+test("stopsAtFirstRefusedWrite passes when the first write is refused and nothing follows", () => {
+  const out = { trajectory: [refused(repoWrite({ autoFlagging: { enabled: true } }))] };
+  assert.equal(ra.stopsAtFirstRefusedWrite(out).pass, true);
+});
+
+test("stopsAtFirstRefusedWrite fails with no write, an accepted first write, or a write after the refusal", () => {
+  assert.equal(ra.stopsAtFirstRefusedWrite({ trajectory: [] }).pass, false);
+  assert.equal(ra.stopsAtFirstRefusedWrite({ trajectory: [{ ...repoWrite({}), mock_response_preview: "{}" }] }).pass, false);
+  const account = { tool: "update-automations", arguments: { accountWide: true, autoFlagging: { enabled: true } } };
+  assert.equal(ra.stopsAtFirstRefusedWrite({ trajectory: [refused(repoWrite({})), account] }).pass, false);
+});
+
+// get-member-self in the MCP server (internal/tools/api/members.go,
+// pruneMember) returns only these fields. It leaves out `role` on purpose
+// (mcp #360), so a mock with a role would test a branch the real tool
+// cannot reach. latestMcp is the deprecation notice of older servers.
+test("get-member-self mocks match what the MCP tool returns", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const yaml = require("js-yaml");
+  const dir = path.join(__dirname, "..", "release-autopilot-onboarding");
+  const allowed = new Set(["id", "email", "firstName", "lastName", "displayName", "teams", "latestMcp"]);
+  const mocks = [["tool-mocks.json", JSON.parse(fs.readFileSync(path.join(dir, "tool-mocks.json"), "utf8"))["get-member-self"]]];
+  const cfg = yaml.load(fs.readFileSync(path.join(dir, "promptfooconfig.yaml"), "utf8"));
+  for (const t of cfg.tests || []) {
+    const member = t.vars && t.vars.mock_overrides && t.vars.mock_overrides["get-member-self"];
+    if (member) mocks.push([t.description, member]);
+  }
+  assert.ok(mocks.length > 1);
+  for (const [where, member] of mocks) {
+    const extra = Object.keys(member).filter((k) => !allowed.has(k));
+    assert.deepEqual(extra, [], `${where}: get-member-self mock has fields the tool never returns`);
+  }
+});

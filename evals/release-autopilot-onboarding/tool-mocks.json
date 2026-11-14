@@ -2,7 +2,9 @@
   "get-member-self": {
     "id": "member-1",
     "email": "admin@acme.example",
-    "role": "admin",
+    "firstName": "Ada",
+    "lastName": "Admin",
+    "displayName": "Ada Admin",
     "teams": []
   },
   "get-automations": {

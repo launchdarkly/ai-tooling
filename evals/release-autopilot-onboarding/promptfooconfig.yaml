@@ -5,7 +5,8 @@
 #
 # The onboarding wizard for Release Autopilot. These cases lock in the write
 # rules found in dry runs against catamorphic: nothing is written before the
-# user approves, Preview and reader runs never write, a repo never inherits a
+# user approves, Preview runs never write, a member who cannot write
+# stops at the first refused write, a repo never inherits a
 # capability the user did not pick, the release-plans 403 stops release
 # setup with auto-releasing off, and account settings stay untouched when
 # they already match.
@@ -227,16 +228,21 @@ tests:
         weight: 2
 
   # ------------------------------------------------------------------
-  # Reader: Preview mode is forced, so nothing is written even after
-  # every question is answered.
+  # Reader. get-member-self returns no role (the MCP server leaves it
+  # out, because the base role ignores custom roles and teams), so the
+  # skill cannot tell a reader from an admin before it writes. It plans
+  # the writes, and every write returns 403: it stops at the first one
+  # and hands the rest to an admin.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Reader role: forced Preview, zero writes"
+    description: "Reader, no role in the member read: stops at the first refused write"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 20
       mock_overrides:
-        get-member-self: { id: "member-2", email: "reader@acme.example", role: "reader", teams: [] }
+        get-member-self: { id: "member-2", email: "reader@acme.example", firstName: "Rae", lastName: "Reader", displayName: "Rae Reader", teams: [] }
+        update-automations:
+          error: "LaunchDarkly API error: 403: {\"code\":\"forbidden\",\"message\":\"Access to the requested resource was denied\"}"
       mock_ask_question_match: true
       mock_ask_question_answers:
         - ["Add more"]
@@ -247,9 +253,13 @@ tests:
         - ["Looks good"]
     assert:
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:noWrites
-        metric: no_writes
+        value: file://../release-autopilot-onboarding/assertions.js:stopsAtFirstRefusedWrite
+        metric: stops_after_failure
         weight: 5
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:notCalledComplete
+        metric: partly_set_up
+        weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:noRawNames
         metric: no_raw_names
@@ -330,65 +340,6 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:githubQuestionHasLink
         metric: link_in_question
         weight: 3
-
-  # ------------------------------------------------------------------
-  # Writer role on a fresh account: account settings need an admin, so
-  # the account write is never attempted. The repo write may run.
-  # ------------------------------------------------------------------
-  - providers: ["mcp"]
-    description: "Writer role: account write left for an admin"
-    vars:
-      user_request: "Set up Release Autopilot auto-flagging for acme/demo in project default."
-      max_turns: 25
-      mock_overrides:
-        get-member-self: { id: "member-3", email: "writer@acme.example", role: "writer", teams: [] }
-        get-automations:
-          account:
-            autoFlagging: { enabled: false, approvalRequired: false }
-            autoReleasing: { enabled: false }
-            version: 1
-          repos:
-            - { repo: acme/storefront, githubRepoId: 101, mapped: false, visibleOnInstall: true }
-            - { repo: acme/api, githubRepoId: 102, mapped: false, visibleOnInstall: true }
-            - { repo: acme/demo, githubRepoId: 103, mapped: false, visibleOnInstall: true }
-          totalCount: 3
-          hasMore: false
-      mock_ask_question_match: true
-      mock_ask_question_answers:
-        - ["Auto-flagging"]
-        - ["acme/demo"]
-        - ["default"]
-        - ["LaunchDarkly's"]
-        - ["Looks good"]
-    assert:
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
-        metric: never_sends_approval
-        weight: 3
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:noAccountWrite
-        metric: no_account_write
-        weight: 5
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:notCalledComplete
-        metric: partly_set_up
-        weight: 2
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:noProductNameAfterIntro
-        metric: capability_names
-        weight: 1
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:noRawNames
-        metric: no_raw_names
-        weight: 2
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:confirmsBeforeWriting
-        metric: confirms_before_writing
-        weight: 2
-      - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
-        metric: confirm_shows_plan
-        weight: 2
 
   # ------------------------------------------------------------------
   # "Change something" at the confirm step is not approval: no writes.
@@ -520,7 +471,9 @@ tests:
         get-member-self:
           id: "member-1"
           email: "admin@acme.example"
-          role: "admin"
+          firstName: "Ada"
+          lastName: "Admin"
+          displayName: "Ada Admin"
           teams: []
           latestMcp:
             deprecated: true
@@ -594,9 +547,11 @@ tests:
         weight: 3
 
   # ------------------------------------------------------------------
-  # The account write fails with 403 for an admin. The repo write comes
-  # first, nothing is written after the failure, and the account change
-  # is handed to an admin instead of being called complete.
+  # The account write fails with 403, as it does for a writer: the member
+  # read has no role, so the skill plans the account write and finds out
+  # only when it is refused. The repo write comes first, nothing is
+  # written after the failure, and the account change is handed to an
+  # admin instead of being called complete.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
     description: "Account write fails with 403: stop, hand off to an admin"
@@ -631,6 +586,14 @@ tests:
         value: file://../release-autopilot-onboarding/assertions.js:stopsAfterFailedWrite
         metric: stops_after_failure
         weight: 4
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:neverSendsApproval
+        metric: never_sends_approval
+        weight: 3
+      - type: javascript
+        value: file://../release-autopilot-onboarding/assertions.js:confirmShowsPlan
+        metric: confirm_shows_plan
+        weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:notCalledComplete
         metric: partly_set_up

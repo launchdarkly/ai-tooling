@@ -257,6 +257,21 @@ module.exports.stopsAfterFailedWrite = (output) => {
   return result(pass, `repo write at ${repo}, account write at ${acct}, ${after.length} write(s) after`);
 };
 
+// The member read has no role, so a member who cannot write still gets a
+// plan and finds out at the first write. That write is refused with 403,
+// and nothing is written after it. Zero writes fails: the skill guessed
+// read-only access instead of trying.
+module.exports.stopsAtFirstRefusedWrite = (output) => {
+  const steps = traj(output);
+  const first = steps.findIndex(isWriteStep);
+  if (first === -1) return result(false, "never attempted a write");
+  if (!/403|forbidden/i.test(String(steps[first].mock_response_preview || ""))) {
+    return result(false, `first write (${steps[first].tool}) was not refused`);
+  }
+  const after = steps.slice(first + 1).filter(isWriteStep);
+  return result(after.length === 0, `${after.length} write(s) after the refused write`);
+};
+
 // The link must be in the final pause summary, which is what the user forwards
 // to their GitHub org owner.
 module.exports.pauseSummaryHasConnectLink = (output) => {
