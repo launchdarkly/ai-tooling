@@ -968,6 +968,22 @@ test("flag-release default release plan renders as the environment's default", (
   assert.ok(Object.keys(defaults[0].progressiveRelease.metrics).length > 0);
 });
 
+test("flag-release flag release plans: standard-release is the default, production-by-hand holds production", () => {
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  const state = createMockState();
+  const list = renderMockResponse(suiteTemplates["get-flag-release-plans"], { projectKey: "default" }, "get-flag-release-plans", state);
+  assert.deepEqual(list.flagReleasePlans.filter((p) => p.default).map((p) => p.key), ["standard-release"]);
+  const byHand = renderMockResponse(suiteTemplates["get-flag-release-plans#flagReleasePlanKey"],
+    { projectKey: "default", flagReleasePlanKey: "production-by-hand" }, "get-flag-release-plans", state);
+  const prod = byHand.environments.find((e) => e.environmentKey === "production");
+  assert.equal(prod.triggerType, "manual");
+  assert.equal(prod.environmentReleasePlanKey, "guarded-default");
+  const release = renderMockResponse(suiteTemplates["create-flag-release"],
+    { projectKey: "default", flagKey: "search-v2", flagReleasePlanKey: "standard-release", confirm: true }, "create-flag-release", state);
+  assert.equal(release.config_id, "frl_mock_0001");
+  assert.equal(release.flag_key, "search-v2");
+});
+
 // ---------------------------------------------------------------------------
 // Flag release plans (release-autopilot-onboarding tool-mocks, mcp #522)
 // ---------------------------------------------------------------------------

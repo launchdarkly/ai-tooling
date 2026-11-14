@@ -76,5 +76,145 @@
       }
     ],
     "totalCount": 1
+  },
+  "get-flag-release-plans": {
+    "flagReleasePlans": [
+      {
+        "key": "standard-release",
+        "name": "Standard release",
+        "default": true,
+        "version": 1,
+        "executionMode": "sequential",
+        "applicationKeys": [],
+        "environments": [
+          {
+            "environmentKey": "dev",
+            "triggerType": "flag_eval",
+            "isImmediate": true
+          },
+          {
+            "environmentKey": "staging",
+            "triggerType": "promotion",
+            "isImmediate": true
+          },
+          {
+            "environmentKey": "production",
+            "triggerType": "promotion",
+            "environmentReleasePlanKey": "guarded-default"
+          }
+        ]
+      },
+      {
+        "key": "production-by-hand",
+        "name": "Production by hand",
+        "default": false,
+        "version": 1,
+        "executionMode": "sequential",
+        "applicationKeys": [],
+        "environments": [
+          {
+            "environmentKey": "dev",
+            "triggerType": "flag_eval",
+            "isImmediate": true
+          },
+          {
+            "environmentKey": "staging",
+            "triggerType": "promotion",
+            "isImmediate": true
+          },
+          {
+            "environmentKey": "production",
+            "triggerType": "manual",
+            "environmentReleasePlanKey": "guarded-default"
+          }
+        ]
+      }
+    ],
+    "totalCount": 2,
+    "hasMore": false
+  },
+  "get-flag-release-plans#flagReleasePlanKey": {
+    "flagReleasePlans": [
+      {
+        "key": "standard-release",
+        "name": "Standard release",
+        "default": true,
+        "version": 1,
+        "executionMode": "sequential",
+        "applicationKeys": [],
+        "environments": [
+          {
+            "environmentKey": "dev",
+            "triggerType": "flag_eval",
+            "isImmediate": true
+          },
+          {
+            "environmentKey": "staging",
+            "triggerType": "promotion",
+            "isImmediate": true
+          },
+          {
+            "environmentKey": "production",
+            "triggerType": "promotion",
+            "environmentReleasePlanKey": "guarded-default"
+          }
+        ]
+      },
+      {
+        "key": "production-by-hand",
+        "name": "Production by hand",
+        "default": false,
+        "version": 1,
+        "executionMode": "sequential",
+        "applicationKeys": [],
+        "environments": [
+          {
+            "environmentKey": "dev",
+            "triggerType": "flag_eval",
+            "isImmediate": true
+          },
+          {
+            "environmentKey": "staging",
+            "triggerType": "promotion",
+            "isImmediate": true
+          },
+          {
+            "environmentKey": "production",
+            "triggerType": "manual",
+            "environmentReleasePlanKey": "guarded-default"
+          }
+        ]
+      }
+    ],
+    "totalCount": 2,
+    "hasMore": false
+  },
+  "create-flag-release": {
+    "config_id": "frl_mock_0001",
+    "flag_key": "{{flagKey}}",
+    "release": {
+      "id": "frl_mock_0001",
+      "flag_key": "{{flagKey}}",
+      "status": "active",
+      "pr_state": "pending",
+      "execution_mode": "sequential"
+    }
+  },
+  "create-automated-rollout-config": {
+    "created": true,
+    "config_id": "arc_mock_0001",
+    "environments": [],
+    "warnings": []
+  },
+  "get-automated-rollout-config": {
+    "found": true,
+    "config": {
+      "id": "frl_mock_0001",
+      "project_key": "{{projectKey}}",
+      "flag_key": "{{flagKey}}",
+      "status": "active",
+      "pr_state": "pending",
+      "execution_mode": "sequential"
+    }
   }
 }

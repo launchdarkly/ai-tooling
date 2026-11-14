@@ -1,142 +1,105 @@
-# Auto-release: automated rollout configs & release plans
+# Auto-release: flag releases & release plans
 
 This is the mechanism behind the "release" half of the skill. The goal: once the PR
 merges and the guarding flag starts evaluating, the change rolls out **on its own**,
-the way the team has decided changes should roll out in each environment — no human toggling a flag.
+the way the team has decided changes should roll out in each environment, with no human toggling a flag.
 
 ## The pieces
 
-- **Flag** — the boolean gate you created (OFF everywhere). Nothing happens to users until a release turns it on.
-- **Environment release plan** — a reusable recipe for one environment: phases, rollout steps, and metrics. Each environment has at most one **default** release plan, and auto-release uses it. A plan with metrics is guarded, so a regression on a metric can roll the release back. A plan without metrics is progressive.
-- **Flag release plan** — an optional project-level recipe that says, per environment, whether a flag releases immediately or with a named environment release plan. A project can have one default flag release plan. Read and manage these with the [`launchdarkly-release-plans`](../../../release-autopilot/launchdarkly-release-plans/SKILL.md) skill.
-- **Automated rollout config** — the per-flag, per-PR record (created by `create-automated-rollout-config`) that ties the flag to the merge and says, per environment, whether to release immediately or with the environment's release plan (`releaseType: "policy"`).
+- **Flag**: the boolean gate you created (OFF everywhere). Nothing happens to users until a release turns it on.
+- **Environment release plan**: a reusable recipe for one environment: phases, rollout steps, and metrics. A plan with metrics is guarded, so a regression on a metric can roll the release back. A plan without metrics is progressive. Each environment can have one **default** plan.
+- **Flag release plan**: a project-level recipe. It lists environments in release order. For each one it gives a `triggerType` and either an `environmentReleasePlanKey` or `isImmediate: true`. A project can have one default flag release plan. Manage these with the [`launchdarkly-release-plans`](../../../release-autopilot/launchdarkly-release-plans/SKILL.md) skill.
+- **Flag release**: one release of one flag, started by `create-flag-release` from a flag release plan and linked to the PR. Its ID is the `config_id`. Inspect it later with `get-automated-rollout-config`.
 
-## Immediate vs `policy`
+## Triggers: when an environment releases
 
-`create-automated-rollout-config` takes an `environments` array; each entry has an
-`environmentKey` and, for a release-plan release, `releaseType: "policy"`. `releaseType` accepts only
-`override` and `policy`; there is no `simple`. The value name `policy` is historical: it means "release with this environment's default release plan".
+Each environment in the flag release plan has a `triggerType`:
 
-- **Immediate** (`{ environmentKey }`, no `releaseType` or `override`): serve `true` in that environment once the flag begins evaluating — the same trigger `policy` waits for, just with no plan and no steps. Use it for dev/staging environments you want fully enabled without ceremony.
+| `triggerType` | When the environment starts | Held? |
+|---------------|-----------------------------|-------|
+| `flag_eval` | When the flag is first evaluated there (after the change deploys) | No |
+| `webhook` | When the deploy signal for the linked pull request arrives | No |
+| `promotion` | When the previous environment finishes | No, unless the previous environment is held |
+| `manual` | When a person starts it | Yes, until a person starts it |
 
-- **`policy`** (`{ environmentKey, releaseType: "policy" }`): not a hold — it never waits for a date or a sign-off. Wait until the PR merges and the flag begins evaluating, then start the environment's default release plan — progressive or guarded — automatically. Use it for production and any environment where you want a governed, monitored rollout with the safety net the team already defined.
-
-A typical plan: `staging → immediate`, `production → policy`.
-
-An operator can also pin a rollout with `releaseType: "override"` and an `override` object whose
-`releaseMethod` is `immediate`, `progressive`, or `guarded`. Progressive and guarded need `stages`
-(`allocation` and `durationMillis`, allocations strictly increasing; guarded caps each stage at
-`50000` and needs `metricKeys` or `metricGroupKeys`). Never combine `override` with `policy`.
+An environment that the plan leaves out is not released. These are the only two ways to hold an environment in a flag release. `create-flag-release` has no field for a hold, a date, or a subset of the plan's environments.
 
 ## Preview before you propose
 
-Always call `get-environment-release-plans` (with `projectKey` and `environmentKey`) for each environment before you recommend `policy` for it, so you and the user know what `policy` will do. The default plans do not depend on the flag, so the preview works before the flag exists too.
+Always read the flag release plan (`get-flag-release-plans` with `flagReleasePlanKey`) and each environment release plan it names (`get-environment-release-plans` with `environmentKey` and `releasePlanKey`), so you and the user know what each environment will do. The plans do not depend on the flag, so the preview works before the flag exists too.
 
-- The plan with `default: true` is the plan `policy` starts. Show its name, rollout steps (`progressiveRelease.phases[].steps`, allocations per 100,000), advancement mode, and metrics.
+- Show each environment release plan's name, rollout steps (`progressiveRelease.phases[].steps`, allocations per 100,000), advancement mode, and metrics.
 - `progressiveRelease.metrics` keyed by metric key makes the plan **guarded**. Empty metrics make it **progressive**: say so, because nothing rolls it back automatically.
-- Auto-release starts the plan on the flag's default rule. That needs a plan with one phase for everyone (only the randomization unit clause). A default plan with several phases, or with a phase that targets an audience, fails to start. Tell the user before you record it.
-- If a flag release plan applies (the user names one, or the project has a default), read it with `launchdarkly-release-plans`. For each environment it lists, it says either `isImmediate` or an `environmentReleasePlanKey`. Use that choice for the environment, below the human's intent.
+- A release starts the plan on the flag's default rule. That needs a plan with one phase for everyone (only the randomization unit clause). A plan with several phases, or with a phase that targets an audience, fails to start. Tell the user before you start it.
+- An incomplete environment release plan (migrated from a release policy) cannot start a release. Say so when the flag release plan names one.
 
-### No default release plan
+### No usable flag release plan
 
-If no plan in an environment is marked default, auto-release cannot run there. There is no fallback. Do not record that environment as `policy`. Instead:
+- The project lists only the built-in `default-release-configuration`: it has no stored plan, and the built-in plan cannot start a release. Point the user to `launchdarkly-release-plans` (or [`launchdarkly-release-autopilot-onboarding`](../../../release-autopilot/launchdarkly-release-autopilot-onboarding/SKILL.md)) to create one.
+- No listed plan fits the intent: start nothing. Name the environments that conflict, and point the user to `launchdarkly-release-plans` to create or change a plan that fits.
 
-1. Tell the user that the environment has no default release plan, so auto-release can't run there until one exists.
-2. Point them to [`launchdarkly-release-plans`](../../../release-autopilot/launchdarkly-release-plans/SKILL.md) to create a default plan, to [`launchdarkly-release-autopilot-onboarding`](../../../release-autopilot/launchdarkly-release-autopilot-onboarding/SKILL.md), which offers starter plans, or to the environment's release plan settings in LaunchDarkly.
-3. Hold the environment (leave it out of the call), or record it as immediate if the user asks for that.
-
-An environment that has only incomplete plans has no usable default either: an incomplete plan can't start a release or become the default.
-
-**A guarded release is only as good as its metrics.** If a `policy` env's default plan is **guarded**, check that its metrics are relevant to this change — a guarded rollout with no meaningful metric guards nothing. Watch for the **net-new path** case (from `should-flag-change`'s output, if present): when the flag-off control renders nothing, feature-specific before/after comparisons are "one-armed" and can't detect a regression, so a guarded release must lean on existing global/service metrics. If the plan's metrics can't compare treatment vs. control for this change, say so and recommend an immediate release for that env (or point the user at metric setup) rather than presenting a guarded rollout that can't actually guard.
+**A guarded release is only as good as its metrics.** If an environment release plan is **guarded**, check that its metrics are relevant to this change: a guarded rollout with no meaningful metric guards nothing. Watch for the **net-new path** case (from `should-flag-change`'s output, if present): when the flag-off control renders nothing, feature-specific before/after comparisons are "one-armed" and can't detect a regression, so a guarded release must lean on existing global/service metrics. If the plan's metrics can't compare treatment vs. control for this change, say so and offer a plan with an immediate release for that environment (or point the user at metric setup) rather than presenting a guarded rollout that can't actually guard.
 
 ## Precedence
 
 For each environment, precedence is:
 
-**human release intent → explicit override → flag release plan → environment's default release plan**
+**human release intent → flag release plan → environment release plan**
 
-If none of these applies, the environment has no release: hold it and say why.
+The intent picks which environments may release. The flag release plan says how and when each one does. The environment release plan it names gives the steps and metrics. If nothing releases an environment, it is held: say why.
 
-A human's stated intent — captured before recording (release now / hold / `notBefore` / segment /
-prerequisite) — sits *above* every plan: if the user said "hold until August," you don't register a
-config that releases that env on merge, no matter what the plan would do. Below intent, an operator override
-wins over the plans, a flag release plan's choice for the environment wins over the environment's default,
-and the default release plan applies when nothing above it does. You generally don't set
-overrides from this skill; you rely on the default release plan, which is why previewing it matters.
+A human's stated intent, captured before the release starts (release now / hold / `notBefore` / segment /
+prerequisite), sits *above* every plan: if the user said "hold until August," you don't start a release
+whose plan releases that environment on its own, no matter what the plan would do.
 
-**Fail closed.** Intent is honored or explicitly held — never silently dropped. If you can't
-express a piece of intent through the available tools (e.g. a `notBefore` date the rollout config
-can't encode), leave the flag OFF for that env and report it as held with the reason, rather than
-registering a release that ignores the constraint. An unclear intent should *prevent* a release,
+**Fail closed.** Intent is honored or explicitly held, never silently dropped. If you can't
+express a piece of intent through the plans (for example a `notBefore` date, which a `manual`
+environment can only wait for), hold the environment and report the date and reason, rather than
+starting a release that ignores the constraint. An unclear intent should *prevent* a release,
 never cause one.
 
-## Registering the config
+## Starting the release
 
-Call `create-automated-rollout-config` in the implement phase:
+Call `create-flag-release` in the implement phase:
 
 ```json
 {
   "projectKey": "default",
   "flagKey": "new-checkout-flow",
-  "environments": [
-    { "environmentKey": "staging" },
-    { "environmentKey": "production", "releaseType": "policy" }
-  ],
-  "repoFullName": "acme/storefront",
-  "prNumber": 482
+  "flagReleasePlanKey": "standard-release",
+  "pullRequest": { "repoFullName": "acme/storefront", "number": 482 },
+  "confirm": true
 }
 ```
 
-The guarding flag must already exist. Provide the PR reference (`repoFullName` + `prNumber`,
-or `prUrl`) so the rollout is bound to the right merge. The call returns `created`,
-`config_id`, and the normalized per-environment plan — record `config_id` in your report.
+The guarding flag must already exist. A boolean flag releases from `false` to `true` with no variation IDs. A multi-variate flag needs both `startingVariationId` and `endingVariationId` (the variations' `_id`). Always send `pullRequest` for a PR's change; LaunchDarkly rejects a plan with a `webhook` environment without it. A flag can have only one active release: if it has one, the error names it. The call returns `config_id` and the release as read back. Record `config_id` in your report.
 
-The call can return warnings with the codes `missing_policy` or `incomplete_policy`. These codes come from an older release model, not from the release plans. Show them to the user as they are, but base the per-environment plan on the default release plans you read.
+## Fallback without `create-flag-release`
 
-### Releasing with a plan that is not the default
+`create-flag-release` and `get-flag-release-plans` are preview tools on the hosted MCP server. When `create-flag-release` is not listed, or a call returns `tool disabled`, record the release with `create-automated-rollout-config`. Do not say the account lacks flag releases.
 
-The MCP tool can't name an environment release plan, so a `policy` entry always starts the environment's default. When a flag release plan (or the user) picks another environment release plan for an environment, offer these options:
-
-- Release with the default plan through the MCP tool, and say which plan that is.
-- Hold the environment.
-- Record the whole config through the REST API, which takes `environmentReleasePlanKey` on a `policy` environment.
-
-For the REST API, do not run the command yourself. Show it to the user in a code block and say: "Run this in your terminal with your LaunchDarkly API access token in place of `<your-api-access-token>`, then paste the response here with any secrets removed." Do not ask for the token, and do not look for a token on the machine.
-
-```bash
-curl -sS -X POST "https://app.launchdarkly.com/api/v2/projects/default/automated-rollout-configs" \
-  -H "Authorization: <your-api-access-token>" \
-  -H "LD-API-Version: beta" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "flagKey": "new-checkout-flow",
-    "repoFullName": "acme/storefront",
-    "prNumber": 482,
-    "environments": [
-      { "environmentKey": "staging", "desiredReleaseType": "policy" },
-      { "environmentKey": "production", "desiredReleaseType": "policy", "environmentReleasePlanKey": "guarded-prod" }
-    ]
-  }'
-```
-
-The REST field is `desiredReleaseType`, not `releaseType`. The same RELEASE/HOLD rule applies: a held environment is left out of the body. The response has the config `id`. Report the `id` from the response the user pastes.
+- Sort the environments into RELEASE and HOLD as above. List each RELEASE environment once, in release order, and leave every HOLD environment out of `environments`: that is the only way to hold one. Do not add a hold or date field.
+- An environment with an environment release plan: `{ "environmentKey": "production", "releaseType": "policy", "environmentReleasePlanKey": "guarded-prod" }`. Leave out `environmentReleasePlanKey` to use the environment's default release plan. Without `get-flag-release-plans`, read each environment's plans with `get-environment-release-plans` and use the default, or the plan the user names. An environment with no default release plan and no named plan is held.
+- An immediate environment: `{ "environmentKey": "staging" }`, with no `releaseType`.
+- A `manual` environment in the flag release plan is held. Send `executionMode: "sequential"`, and `repoFullName` and `prNumber` for the PR.
+- Show any warnings to the user as they are. `missing_default_release_plan` means the environment has no default release plan: hold it or name a plan. `incomplete_release_plan` and `release_plan_unchecked` mean the plan could not start or was not checked.
 
 ## Coupling to a parent flag (prerequisites)
 
 When the change depends on another feature that isn't live yet, don't leave the ordering as a
-human note — make it structural with a LaunchDarkly **prerequisite**. The dependent flag lists
+human note: make it structural with a LaunchDarkly **prerequisite**. The dependent flag lists
 the parent as a prerequisite (parent must serve its "on" variation) so the dependent can be
 turned on safely: while the parent is off, the dependent stays effectively off; when the parent
 releases, the dependent goes live in lockstep. This is native LaunchDarkly behavior, so it's the
 right way to express "this must not go live before X." Set it via the MCP surface if it exposes
 prerequisite editing; if it doesn't, report the required prerequisite as a manual step and do not
-register a rollout that could release this flag ahead of its parent.
+start a release that could release this flag ahead of its parent.
 
 ## Relationship to guarded rollouts
 
-When a `policy` environment's default release plan is **guarded**, the merge triggers the
+When an environment release plan is **guarded**, the release runs the
 same kind of progressive, metric-monitored rollout described in the
-[`launchdarkly-guarded-rollout`](../../launchdarkly-guarded-rollout/SKILL.md) skill — the
-difference is that here it's driven automatically by the release plan on merge, rather than started
-by hand. If a change needs a *bespoke* rollout that no release plan expresses, record that environment
-as immediate here and drive the guarded rollout manually with that skill after merge.
+[`launchdarkly-guarded-rollout`](../../launchdarkly-guarded-rollout/SKILL.md) skill. The
+difference is that here the release plan drives it automatically, rather than a person starting it
+by hand. If a change needs a *bespoke* rollout that no release plan expresses, hold that environment
+here and drive the guarded rollout manually with that skill after merge.

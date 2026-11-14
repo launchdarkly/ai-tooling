@@ -1,16 +1,16 @@
 ---
 name: launchdarkly-metric-choose
-description: "Choose the right metrics for a LaunchDarkly experiment, guarded rollout, or release policy. Use when the user wants to know which metrics to use, which is the primary metric for an experiment, what guardrails to add, or which events to monitor in a rollout. Surfaces what will auto-attach from existing release policies before making additional recommendations."
+description: "Choose the right metrics for a LaunchDarkly experiment, guarded rollout, or environment release plan. Use when the user wants to know which metrics to use, which is the primary metric for an experiment, what guardrails to add, or which events to monitor in a rollout. Surfaces the metrics that the environment's release plans already use before making additional recommendations."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "1.1.0-experimental"
 ---
 
 # LaunchDarkly Metric Choose
 
-You're using a skill that helps users select the right metrics before setting up an experiment, guarded rollout, or release policy. Your job is to understand the feature context, surface what will auto-attach from existing project policies, inventory what's available and healthy, and produce a clear typed recommendation.
+You're using a skill that helps users select the right metrics before setting up an experiment, guarded rollout, or environment release plan. Your job is to understand the feature context, surface the metrics that the environment's release plans already use, inventory what's available and healthy, and produce a clear typed recommendation.
 
 This skill is advisory. It does not create metrics, attach them to experiments, or configure rollouts. For those tasks, see the related skills at the end of this document.
 
@@ -23,7 +23,7 @@ This skill requires the remotely hosted LaunchDarkly MCP server to be configured
 - `get-metric-events` — check which event keys have recent activity
 
 **Optional MCP tools (enhance workflow):**
-- `get-release-policies` — fetch project-level policies that configure which metrics auto-attach to guarded rollouts. Use this for the guarded rollout and release policy paths.
+- `get-environment-release-plans` — fetch an environment's release plans (`projectKey`, `environmentKey`). Each plan's `progressiveRelease.metrics` are the metrics that a release with that plan is guarded by, and `default: true` marks the plan that releases use unless they name another. Use this for the guarded rollout and release plan paths.
 
 ## Workflow
 
@@ -34,40 +34,39 @@ Ask two questions upfront:
 1. **What is this for?**
    - **(a) Experiment** — testing a hypothesis with a flag variant
    - **(b) Guarded rollout** — progressively rolling out a change with automatic regression detection
-   - **(c) Release policy** — creating or editing a project-wide policy that configures default metrics for all guarded rollouts matching certain conditions
+   - **(c) Environment release plan** — creating or editing an environment's release plan, whose metrics guard every release that uses the plan
 
 2. **What is the change?**
    - Flag key (if applicable)
    - Plain-language description: "Rolling out a new checkout flow" / "Testing a new recommendation algorithm"
 
-### Step 2: Fetch Existing Configuration (Guarded Rollout and Release Policy only)
+### Step 2: Fetch Existing Configuration (Guarded Rollout and Release Plan only)
 
 **For experiments — skip this step.** There is no pre-existing configuration to surface.
 
-**For guarded rollouts and release policy work**, call `get-release-policies` first:
+**For guarded rollouts and release plan work**, ask which environment the rollout or plan is for (if not stated), then call `get-environment-release-plans` first:
 
 ```
-get-release-policies(projectKey)
+get-environment-release-plans(projectKey, environmentKey)
 ```
 
 Surface the results before making any recommendations:
 
 ```
-Your project has 2 release policies:
+production has 2 release plans:
 
-Policy: "Production guardrails" (applies to: environment=production)
-  Auto-attaches to guarded rollouts:
-    ✓ api-error-rate  (count, LowerThanBaseline)
-    ✓ p95-latency     (value, LowerThanBaseline)
-    ✓ [Metric group] Core Platform Health (3 metrics)
+Plan: "Guarded rollout" (default)
+  Guarded by:
+    ✓ api-error-rate  (count, LowerThanBaseline, auto-rollback)
+    ✓ p95-latency     (value, LowerThanBaseline, auto-rollback)
 
-Policy: "Default" (applies to: all environments)
-  No metrics configured.
+Plan: "Progressive"
+  No metrics (progressive only).
 ```
 
-This tells the user what's already covered before they choose anything additional. For a guarded rollout, these metrics will appear automatically — the recommendation is about what to add on top, not rebuild from scratch.
+This tells the user what's already covered before they choose anything additional. A release that uses the default plan is guarded by its metrics, so the recommendation is about what to add on top, not rebuild from scratch. A guarded rollout started by hand takes only the metrics you give it: say so, and offer the plan's metrics as the starting point.
 
-If no policies exist or none have metrics configured, note that all metrics must be selected manually.
+If the environment has no release plans, or none has metrics, note that all metrics must be selected manually. An incomplete plan (migrated from a release policy) cannot start a release; say so when you name one.
 
 ### Step 3: Inventory Available Metrics with Event Health
 
@@ -121,7 +120,7 @@ One of each type is usually the right amount. More secondary metrics add noise a
 
 Guarded rollouts are safety mechanisms, not experiments. Each metric you add is a potential automatic rollback trigger — if it regresses beyond its threshold before the rollout completes, LaunchDarkly can stop and revert the release.
 
-**Start from what auto-attaches.** After surfacing the release policy results in Step 2, ask: "Are the auto-attached metrics enough, or do you want to add more for this specific rollout?"
+**Start from what the release plan already uses.** After surfacing the release plans in Step 2, ask: "Are the default plan's metrics enough, or do you want to add more for this specific rollout?"
 
 **When recommending additional metrics:**
 - Bias toward reliability — engineering metrics (error rate, latency, crash rate) with stable, predictable baselines
@@ -129,26 +128,26 @@ Guarded rollouts are safety mechanisms, not experiments. Each metric you add is 
 - **Fewer is better.** Two or three high-signal metrics is the right size. More than five creates false positive rollback risk.
 - **Only recommend metrics with events actively flowing.** An at-risk metric in a guarded rollout either produces no signal or, worse, triggers a false rollback due to data quality issues, not a real regression.
 
-Suggested starting point for any guarded rollout (if not already covered by a policy):
+Suggested starting point for any guarded rollout (if not already covered by the release plan):
 1. Error rate — are we seeing more errors in the new variation?
 2. Latency / response time — is the new variation slower?
 3. One domain-specific metric tied to the core user action the change affects
 
 ---
 
-#### (c) Release Policy
+#### (c) Environment Release Plan
 
-Release policies apply to every rollout in the project that matches their conditions. This is the highest bar.
+An environment release plan's metrics guard every release that uses the plan, and the default plan is used by most releases in that environment. This is the highest bar.
 
-**Start from the current state.** After surfacing existing policies in Step 2, ask: "Which policy are you editing, or do you want to create a new one? What environments or flag conditions will it apply to?"
+**Start from the current state.** After surfacing the environment's release plans in Step 2, ask: "Which plan are you editing, or do you want to create a new one? Which environments will use it?"
 
-**When recommending metrics for a policy:**
-- **2–3 metrics maximum.** More than that turns the policy into a burden on every rollout, including ones where the metrics don't apply well.
-- **Only recommend metrics with a long, stable event history.** If an event has been flowing reliably for months, it's a safe project-wide default. Occasional gaps will create problems at scale.
+**When recommending metrics for a release plan:**
+- **2–3 metrics maximum.** More than that turns the plan into a burden on every release, including ones where the metrics don't apply well.
+- **Only recommend metrics with a long, stable event history.** If an event has been flowing reliably for months, it's a safe default for every release in the environment. Occasional gaps will create problems at scale.
 - **Push back on additions.** If the user proposes more than 3, ask which ones they'd remove. The discipline of choosing is the point.
-- **Explain scope conditions.** A policy scoped to `environment=production` only applies to production rollouts. Help the user think through whether they want the same metrics in staging (where baselines may differ) or a separate policy.
+- **Explain scope.** A release plan belongs to one environment, so a production plan applies only to production releases. Help the user think through whether they want the same metrics in staging (where baselines may differ), which needs its own plan there.
 
-Typical strong policy candidates: error rate, a core conversion or engagement metric, latency.
+Typical strong release plan candidates: error rate, a core conversion or engagement metric, latency.
 
 ### Step 5: Deliver the Recommendation
 
@@ -157,7 +156,7 @@ Output a clear, named list. Be explicit about what each metric is for and what's
 ```
 Recommended metrics for: new checkout flow guarded rollout (environment: production)
 
-AUTO-ATTACHED (from "Production guardrails" policy):
+ALREADY IN THE DEFAULT RELEASE PLAN ("Guarded rollout", production):
   ✓ api-error-rate    (count, LowerThanBaseline)
   ✓ p95-latency       (value, LowerThanBaseline)
 
@@ -180,9 +179,10 @@ Then close with next steps:
 - **A primary metric with no events is worse than no primary metric.** The experiment produces no statistical output. Event health is a hard requirement for the primary metric.
 - **CUPED and percentile analysis are incompatible.** If the experiment uses CUPED variance reduction, percentile-based metrics (e.g. p95 latency) silently degrade to mean-based analysis. Flag this if the user selects a percentile metric in a CUPED-enabled experiment.
 - **Context kind mismatches cause missing data.** If the metric event is tracked with a `device` context but the experiment randomizes on `user`, the event won't be attributed correctly. Confirm that the context kind in `track()` calls matches the experiment's randomization unit.
-- **Release policy metrics must share the same context kind.** All metrics in a guarded rollout release policy must use the same randomization unit. If the user proposes metrics with mismatched context kinds, flag it before they try to configure the policy.
+- **Release plan metrics must match the plan's randomization unit.** Every metric in a guarded release plan must have an `analysisUnits` entry for the plan's `randomizationUnit`. If the user proposes metrics with mismatched context kinds, flag it before they try to configure the plan.
 
 ## Related Skills
 
 - [`launchdarkly-metric-create`](../launchdarkly-metric-create/SKILL.md) — create a metric that doesn't exist yet
 - [`launchdarkly-metric-instrument`](../launchdarkly-metric-instrument/SKILL.md) — add a `track()` call so events start flowing
+- [`launchdarkly-release-plans`](../../release-autopilot/launchdarkly-release-plans/SKILL.md) — create or change an environment release plan and its metrics
