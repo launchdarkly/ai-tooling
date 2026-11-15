@@ -741,9 +741,9 @@ tests:
         metric: no_commands_shown
         weight: 3
 
-  # The project lists only the built-in plan, so it has no stored default:
-  # the new plan is created as the default after "Make this change".
-  - description: "MCP create: built-in plan only, confirmed with the plan in the question, created as the default"
+  # The project has no flag release plans (an empty list), so it has no
+  # default: the new plan is created as the default after "Make this change".
+  - description: "MCP create: no flag release plans, confirmed with the plan in the question, created as the default"
     vars:
       max_turns: 20
       mock_ask_question_match: true

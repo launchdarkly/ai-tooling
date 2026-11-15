@@ -765,11 +765,13 @@ tests:
         weight: 2
 
   # ==================================================================
-  # FLAG RELEASE, NO STORED PLAN — the project lists only the built-in
-  # default-release-configuration, which cannot start a release. The
-  # skill starts nothing and points to launchdarkly-release-plans.
+  # FLAG RELEASE, NO FLAG RELEASE PLAN — the project has no stored flag
+  # release plan, so get-flag-release-plans returns an empty list
+  # (LaunchDarkly supplies no built-in plan). The skill starts nothing,
+  # and offers to create a plan with launchdarkly-release-plans or to
+  # record the release from each environment's default release plan.
   # ==================================================================
-  - description: "Flag release, no stored plan: starts nothing and points to the release plans skill"
+  - description: "Flag release, no flag release plan: starts nothing and offers to create one or use the environment default plans"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -778,15 +780,8 @@ tests:
         plan.
       mock_overrides:
         get-flag-release-plans:
-          flagReleasePlans:
-            - key: default-release-configuration
-              name: Default release configuration
-              default: true
-              executionMode: sequential
-              applicationKeys: []
-              environments:
-                - { environmentKey: production, triggerType: flag_eval, isImmediate: true }
-          totalCount: 1
+          flagReleasePlans: []
+          totalCount: 0
           hasMore: false
     assert:
       - type: javascript
@@ -802,13 +797,15 @@ tests:
       - type: llm-rubric
         value: |
           The user asked to start the release of `audit-log-v2` with the project's
-          default flag release plan. The project has no stored flag release plan; it
-          lists only the built-in "default-release-configuration", which cannot start a
-          release.
+          default flag release plan. The project has no flag release plan:
+          get-flag-release-plans returned an empty list.
           Evaluate the response:
-          1. Does it say the project has no flag release plan that can start a release?
-          2. Does it point the user to create one (for example with the release plans
-             skill), without creating one itself?
-          Score 1.0 if both. Deduct 0.5 per criterion missed.
+          1. Does it say the project has no flag release plan, and that it started
+             nothing?
+          2. Does it offer to create one (for example with the release plans skill),
+             without creating one itself?
+          3. Does it also offer to release from each environment's default release
+             plan instead, and wait for the user to choose?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
         weight: 3

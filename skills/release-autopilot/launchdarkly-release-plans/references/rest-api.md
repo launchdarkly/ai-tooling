@@ -19,7 +19,7 @@ Prefer the MCP tools. Use a command here only when the connected server has no t
 
 The flag release plan tools may not be on every server yet. When one is missing, use the command below for that operation.
 
-A project with no stored plans lists one built-in plan, key `default-release-configuration`. It is not stored: a get, replace, or delete by its key returns 404, and it cannot start a release. Create a plan with `"default": true` to replace it.
+A project with no stored plans gets an empty list. Create a plan with `"default": true` to make it the project's default.
 
 ### Environment release plans
 
@@ -79,7 +79,7 @@ curl -sS -w '\nHTTP %{http_code}\n' -X POST \
 JSON
 ```
 
-Leave out `"default": true` when the project already has a stored default. The built-in plan does not count.
+Leave out `"default": true` when the project already has a default.
 
 ### Replace a flag release plan
 
@@ -209,10 +209,10 @@ Create takes these fields. Replace takes the same fields without `key`, plus `ve
 | `description` | No | At most 1024 characters |
 | `environments` | Yes | 1 to 50 entries, in release order, each environment once |
 | `environments[].environmentKey` | Yes | An environment in the project |
-| `environments[].triggerType` | Yes | `flag_eval`, `webhook`, `manual`, or `promotion`. `manual` and `promotion` need `sequential`; the first environment cannot use `promotion` |
-| `environments[].environmentReleasePlanKey` | Unless immediate | A complete environment release plan in that environment |
+| `environments[].triggerType` | Yes | `flag_eval`, `webhook`, `manual`, or `promotion`. The first environment cannot use `promotion` |
+| `environments[].environmentReleasePlanKey` | Unless immediate | A complete environment release plan in that environment, with exactly one phase |
 | `environments[].isImmediate` | No | `true` releases at once with no release plan. Do not send a release plan key with it |
-| `executionMode` | No | `sequential` (the default for plans) or `parallel` |
+| `executionMode` | No | `sequential`, the only value LaunchDarkly accepts and the default |
 | `applicationKeys` | No | At most 25 keys. Auto-releasing uses them to choose a plan for an application |
 | `default` | No | Create: only when the project has no stored default. Replace: `true` demotes the current default; left out clears it. (`update-flag-release-plan` keeps the current value when it is left out) |
 | `maintainer` | No | `{ "kind": "member", "memberId": "..." }` or `{ "kind": "team", "teamKey": "..." }` |

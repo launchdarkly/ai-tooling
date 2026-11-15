@@ -1002,17 +1002,18 @@ test("get-flag-release-plans has a template key per mode", () => {
   assert.equal(templateKey("get-flag-release-plans", { projectKey: "default", flagReleasePlanKey: "x" }), "get-flag-release-plans#flagReleasePlanKey");
 });
 
-test("a project with no stored flag release plans lists only the built-in plan, which cannot be read by key", () => {
+test("a project with no stored flag release plans gets an empty list, and a key is not found", () => {
   const state = createMockState();
   const list = renderMockResponse(RA_SUITE["get-flag-release-plans"], { projectKey: "default" }, "get-flag-release-plans", state);
-  assert.deepEqual(list.flagReleasePlans.map((p) => p.key), ["default-release-configuration"]);
-  const one = renderMockResponse(RA_SUITE["get-flag-release-plans#flagReleasePlanKey"], { projectKey: "default", flagReleasePlanKey: "default-release-configuration" }, "get-flag-release-plans", state);
+  assert.deepEqual(list.flagReleasePlans, []);
+  assert.equal(list.totalCount, 0);
+  const one = renderMockResponse(RA_SUITE["get-flag-release-plans#flagReleasePlanKey"], { projectKey: "default", flagReleasePlanKey: "default-release" }, "get-flag-release-plans", state);
   assert.match(one.error, /404/);
-  const upd = renderMockResponse(RA_SUITE["update-flag-release-plan"], { projectKey: "default", flagReleasePlanKey: "default-release-configuration", default: false, confirm: true }, "update-flag-release-plan", state);
+  const upd = renderMockResponse(RA_SUITE["update-flag-release-plan"], { projectKey: "default", flagReleasePlanKey: "default-release", default: false, confirm: true }, "update-flag-release-plan", state);
   assert.match(upd.error, /404/);
 });
 
-test("create-flag-release-plan with default true replaces the built-in plan, and reads reflect it", () => {
+test("create-flag-release-plan with default true in a project with no plans, and reads reflect it", () => {
   const state = createMockState();
   renderMockResponse(RA_SUITE["get-flag-release-plans"], { projectKey: "default" }, "get-flag-release-plans", state);
   const created = renderMockResponse(RA_SUITE["create-flag-release-plan"], { projectKey: "default", key: "default-release", name: "Default release", default: true, environments: frpEnvs }, "create-flag-release-plan", state);

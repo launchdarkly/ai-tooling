@@ -70,7 +70,7 @@ This rule applies to every create path: a direct "create a release plan" request
 
   Ask this question even when the request already says what to do (for example, "make it the default"). Ask it before the "Confirm" question and before any write.
 - **Incomplete plans:** also name any incomplete plans, and say that they cannot start a release or be the default.
-- **The built-in flag release plan:** a project with no stored flag release plans lists one built-in plan, key `default-release-configuration`. It is not a stored plan, and it is not a stored default: the project has no flag release plans yet. It cannot be read by key, changed, deleted, or used to start a release. A new plan can be the default, and it replaces the built-in one.
+- **No flag release plans:** LaunchDarkly does not supply a flag release plan. A project with no stored plans gets an empty list, and it has no default. A new plan can be the default.
 
 Ask this before any other create question, and create nothing until the user answers.
 
@@ -131,9 +131,9 @@ Use the flag release plan tools when the server has them: `get-flag-release-plan
 
 ### How a flag release plan names environment release plans
 
-- Each environment names one environment release plan by key, or releases immediately. The named plan must exist in that environment and be complete, or the write fails with a validation error.
+- Each environment names one environment release plan by key, or releases immediately. The named plan must exist in that environment, be complete, and have exactly one phase, or the write fails with a validation error. A plan with two or more phases cannot be in a flag release plan: choose or create a one-phase plan for that environment.
 - A flag release plan stores each environment's release plan key, so a later change to that environment's default release plan does not update the flag release plan.
-- Environments are in release order. Plans are sequential by default: each environment releases after the one before it. Order non-production before production.
+- Environments are in release order. Plans are sequential: each environment releases after the one before it. Order non-production before production.
 - **Show names, not keys.** A flag release plan read gives only the key of each environment's release plan. Before you report or show a flag release plan (in [List or show](#list-or-show), [Build or update the project's plan](#build-or-update-the-projects-plan), a confirmation, and Record only mode), read each of its environments' release plans with `get-environment-release-plans`, and use each plan's name. Never make up a name, and do not show a key as a name. If the read has no plan with that key, say that the environment names a release plan that was not found.
 - Each environment's trigger decides what starts its release. Use "when the flag evaluates there" (`flag_eval`) unless the user asks for another. [references/rest-api.md](references/rest-api.md) lists the others and their rules.
 
@@ -141,7 +141,7 @@ Use the flag release plan tools when the server has them: `get-flag-release-plan
 
 When auto-releasing knows the change's application, it uses the plans for that application, or the project's default when none is for it. When it does not know the application, every plan is a candidate, and with more than one it asks on the pull request which one to use.
 
-- A new plan can be the default only when the project has no stored default. The built-in plan does not count.
+- A new plan can be the default only when the project has no default.
 - To change what the default does, edit the default plan in place: same key, still the default. Do not create a second plan unless the user asks for one.
 - **With `update-flag-release-plan`:** send only the fields to change. Leave out `default` to keep the plan's default setting. `environments` replaces the whole list, so send every environment to keep, in order. `default: true` makes the plan the default and demotes the current one. `default: false` keeps the plan, and the project then has no default.
 - **With a REST command:** an update is a full replace. Leaving out the default setting clears it. Always start from a fresh read, and send every field to keep.
@@ -151,7 +151,7 @@ When auto-releasing knows the change's application, it uses the plans for that a
 
 `get-flag-release-plans` with `projectKey`. When `hasMore` is true, read the next page with `nextOffset` as `offset`. For one plan, add `flagReleasePlanKey`. Without the tool, show the list command, and read the pasted output (page with `offset` while more remain).
 
-For each plan, report its name, whether it is the default, and its environments in order with the name of the release plan for each, from the environment's read ("production: Production progressive rollout", or "releases immediately"). If the list holds only the built-in plan, say that the project has no flag release plans yet.
+For each plan, report its name, whether it is the default, and its environments in order with the name of the release plan for each, from the environment's read ("production: Production progressive rollout", or "releases immediately"). If the list is empty, say that the project has no flag release plans yet.
 
 ### Build or update the project's plan
 
@@ -171,11 +171,11 @@ If the key is taken, use the next free key, and confirm again (or show the comma
 
 - **Default:** from the read, say what changes ("Staged rollout becomes the project's default flag release plan. It replaces Fast as the default."). With the tool, ask "Confirm" with that change in the question, then `update-flag-release-plan` with `flagReleasePlanKey`, `default: true`, and `confirm: true`, and no other fields. Without the tool, show the replace command with every field from the read, the default setting on, and its `version`. Check the plan as read back, or the pasted response.
 - **Stop using a plan as the default:** the same, with `default: false`. The plan stays, and the project has no default until another plan becomes the default.
-- **Delete:** name the plan and say if it is the default (the project then has no default). Releases already started from it continue. With the tool, ask "Confirm", then `delete-flag-release-plan` with `flagReleasePlanKey` and `confirm: true`, and check that it returns `deleted: true`. Without the tool, show the delete command, and check for `HTTP 204`. The built-in plan cannot be deleted.
+- **Delete:** name the plan and say if it is the default (the project then has no default). Releases already started from it continue. With the tool, ask "Confirm", then `delete-flag-release-plan` with `flagReleasePlanKey` and `confirm: true`, and check that it returns `deleted: true`. Without the tool, show the delete command, and check for `HTTP 204`.
 
 ### Start a flag's release from a plan
 
-This starts a release that can ship the flag's change to users. Name the flag, the plan, and each environment in order with its release plan. With `create-flag-release` on the server, ask "Confirm" with all of that in the question, then call it with `flagKey`, `flagReleasePlanKey`, and `confirm: true`. Without it, show the command that creates the flag release from the plan. The built-in plan cannot start a release: create a flag release plan first. For a release tied to a pull request, use [`flag-release`](../../feature-flags/flag-release/SKILL.md) instead.
+This starts a release that can ship the flag's change to users. Name the flag, the plan, and each environment in order with its release plan. With `create-flag-release` on the server, ask "Confirm" with all of that in the question, then call it with `flagKey`, `flagReleasePlanKey`, and `confirm: true`. Without it, show the command that creates the flag release from the plan. A project with no flag release plan cannot start a release this way: create a flag release plan first. For a release tied to a pull request, use [`flag-release`](../../feature-flags/flag-release/SKILL.md) instead.
 
 ## Write order
 
