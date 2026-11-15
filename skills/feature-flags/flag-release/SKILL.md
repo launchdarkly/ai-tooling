@@ -82,7 +82,8 @@ Only after confirmation (or a request to start the release that already states t
 | No listed plan fits the intent | Start nothing. Say which environments conflict, and point to `launchdarkly-release-plans` to create or change a plan. |
 | `create-flag-release` is not listed, or returns `tool disabled` | Use the [fallback](references/auto-release.md#fallback-without-create-flag-release). |
 | An environment release plan has more than one phase, or targets an audience | A flag release plan accepts only environment release plans with exactly one phase, and a release starts that phase on the flag's default rule, for everyone. Tell the user the plan cannot release there; offer another plan, a hold, or a change to the plan. |
-| User wants to hold, or set a `notBefore` date | Use a plan that leaves the environment out or makes it `manual`; report it as held with the reason. Never silently release against stated intent. |
+| User wants to hold, or set a `notBefore` date | Use a plan that leaves the environment out or makes it `manual`; report it as held with the reason. In the fallback, leave it out of `environments`, and record nothing if every environment is held. Never silently release against stated intent. |
+| In the fallback, an environment has no default release plan | Hold it, unless the user names a plan. Do not use a plan that is not the default, also when it is the only plan. Say that auto-release cannot run there until it has a default release plan, and point to `launchdarkly-release-plans`. |
 | Change depends on a parent flag not yet live | Couple them with a prerequisite (set it if the MCP surface supports it); otherwise report the coupling as a required manual step. Don't let this flag release before its parent. |
 | An environment release plan is guarded but has no relevant metric | Say so: a guarded rollout with no meaningful metric guards nothing. Offer a plan with an immediate release there, or point at metric setup. |
 
