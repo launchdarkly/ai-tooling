@@ -260,3 +260,24 @@ test("get-member-self mocks match what the MCP tool returns", () => {
     assert.deepEqual(extra, [], `${where}: get-member-self mock has fields the tool never returns`);
   }
 });
+
+const accountWrite = { tool: "update-automations", arguments: { accountWide: true, autoFlagging: { enabled: true } } };
+
+test("accountWriteFirst wants the account write before every other write", () => {
+  const rw = repoWrite({ autoFlagging: { enabled: true }, autoReleasing: { enabled: false } });
+  assert.equal(ra.accountWriteFirst({ trajectory: [accountWrite, rw] }).pass, true);
+  assert.equal(ra.accountWriteFirst({ trajectory: [rw, accountWrite] }).pass, false, "repo write first");
+  assert.equal(ra.accountWriteFirst({ trajectory: [rw] }).pass, false, "no account write");
+});
+
+test("stopsAfterFailedWrite wants the refused account write to be the only write", () => {
+  const rw = repoWrite({ autoFlagging: { enabled: true } });
+  assert.equal(ra.stopsAfterFailedWrite({ trajectory: [refused(accountWrite)] }).pass, true);
+  assert.equal(ra.stopsAfterFailedWrite({ trajectory: [rw, refused(accountWrite)] }).pass, false, "repo write before");
+  assert.equal(ra.stopsAfterFailedWrite({ trajectory: [refused(accountWrite), rw] }).pass, false, "repo write after");
+  assert.equal(ra.stopsAfterFailedWrite({ trajectory: [rw] }).pass, false, "no account write");
+});
+
+test("stopsAtFirstRefusedWrite passes when the refused account write comes first", () => {
+  assert.equal(ra.stopsAtFirstRefusedWrite({ trajectory: [refused(accountWrite)] }).pass, true);
+});

@@ -71,11 +71,11 @@ tests:
   # Fresh account, auto-flagging only. The repo mapping must turn
   # auto-flagging on and auto-releasing off for the repo (a repo that
   # leaves a capability unset has it off on accounts that use project
-  # Automations settings), the account write comes after the
+  # Automations settings), the account write comes before the
   # repo write, and no write happens before the confirm question.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
-    description: "Fresh account, auto-flagging only: confirm first, repo auto-flagging on and auto-releasing off, account write last"
+    description: "Fresh account, auto-flagging only: confirm first, repo auto-flagging on and auto-releasing off, account write first"
     vars:
       user_request: "Set up Release Autopilot for acme/demo in project default."
       max_turns: 25
@@ -132,8 +132,8 @@ tests:
         metric: repo_turns_picked_on
         weight: 4
       - type: javascript
-        value: file://../release-autopilot-onboarding/assertions.js:accountWriteLast
-        metric: account_write_last
+        value: file://../release-autopilot-onboarding/assertions.js:accountWriteFirst
+        metric: account_write_first
         weight: 2
       - type: javascript
         value: file://../release-autopilot-onboarding/assertions.js:neverAutoReleasingOn
@@ -549,9 +549,9 @@ tests:
   # ------------------------------------------------------------------
   # The account write fails with 403, as it does for a writer: the member
   # read has no role, so the skill plans the account write and finds out
-  # only when it is refused. The repo write comes first, nothing is
-  # written after the failure, and the account change is handed to an
-  # admin instead of being called complete.
+  # only when it is refused. The account write is the first write, so
+  # nothing is written before or after the failure (no repo write), and
+  # the whole plan is handed to an admin instead of being called complete.
   # ------------------------------------------------------------------
   - providers: ["mcp"]
     description: "Account write fails with 403: stop, hand off to an admin"
