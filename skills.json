@@ -508,7 +508,7 @@
       "path": "skills/release-autopilot/launchdarkly-release-plans",
       "version": "1.1.2",
       "license": "Apache-2.0",
-      "compatibility": "Uses the hosted LaunchDarkly MCP server. When the server has no tool for an operation (flag release plans before their tools reach the account, starting a flag's release, deleting an environment release plan), the user runs the REST API (beta) command that the skill shows in their own terminal.",
+      "compatibility": "Uses the hosted LaunchDarkly MCP server. When the server has no tool for an operation (flag release plans before their tools reach the account, deleting an environment release plan), the user runs the REST API (beta) command that the skill shows in their own terminal.",
       "tags": [
         "launchdarkly",
         "release-autopilot",

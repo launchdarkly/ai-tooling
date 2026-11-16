@@ -823,6 +823,194 @@ tests:
         weight: 2
 
   # ==================================================================
+  # FALLBACK, TRIGGERS — the flag release plan gives staging a webhook
+  # trigger, qa a manual trigger, and production promotion after qa.
+  # The fallback copies webhook into staging's entry (a left-out trigger
+  # is flag_eval), holds manual qa, and holds production, which waits on
+  # qa.
+  # ==================================================================
+  - description: "Flag release, tool disabled: keeps a webhook trigger and holds promotion after a manual environment"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `report-builder` already exists (created OFF) for PR acme/platform#140,
+        project `default`. Start its release with the project's default flag release
+        plan so it releases after the merge.
+      mock_overrides:
+        create-flag-release:
+          error: "tool disabled: create-flag-release"
+        get-flag-release-plans:
+          flagReleasePlans:
+            - key: deploy-gated
+              name: Deploy gated
+              default: true
+              version: 1
+              executionMode: sequential
+              applicationKeys: []
+              environments:
+                - { environmentKey: dev, triggerType: flag_eval, isImmediate: true }
+                - { environmentKey: staging, triggerType: webhook, isImmediate: true }
+                - { environmentKey: qa, triggerType: manual, isImmediate: true }
+                - { environmentKey: production, triggerType: promotion, environmentReleasePlanKey: guarded-default }
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
+          if (!rec) return { pass: false, score: 0, reason: 'did not fall back to create-automated-rollout-config' };
+          const envs = (rec.arguments && rec.arguments.environments) || [];
+          const byKey = Object.fromEntries(envs.map(e => [e.environmentKey, e]));
+          const pass = Boolean(byKey.dev) && Boolean(byKey.staging) && byKey.staging.triggerType === 'webhook';
+          return { pass, score: pass ? 1 : 0, reason: `recorded ${JSON.stringify(envs)} (want dev, and staging with triggerType webhook)` };
+        metric: kept_trigger
+        weight: 4
+
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
+          const keys = rec ? ((rec.arguments && rec.arguments.environments) || []).map(e => e.environmentKey) : [];
+          const pass = !keys.includes('qa') && !keys.includes('production');
+          return { pass, score: pass ? 1 : 0, reason: `recorded envs=[${keys.join(', ')}] (qa and production must be absent)` };
+        metric: held_after_manual
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user asked to start the release of `report-builder` (PR acme/platform#140)
+          with the default flag release plan "Deploy gated". create-flag-release returned
+          "tool disabled". The plan releases dev on first evaluation, staging on a deploy
+          signal (webhook), qa when a person starts it (manual), and production after qa
+          finishes (promotion).
+          Evaluate the response:
+          1. Does it record dev and staging, with staging waiting for the deploy?
+          2. Does it say that qa waits for a person and production waits on qa, so
+             neither releases on merge?
+          3. Did it avoid turning the flag on by hand?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # FLAG RELEASE, PROMOTION AFTER MANUAL — the user wants production on
+  # merge, but the only plan makes staging manual and production
+  # promotion, so production waits for a person. No plan fits: start
+  # nothing and say why.
+  # ==================================================================
+  - description: "Flag release, promotion after manual: production on merge does not fit, so nothing starts"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `team-invites` already exists (created OFF) for PR acme/app#52,
+        project `default`. Start its release so production releases on merge.
+      mock_overrides:
+        get-flag-release-plans:
+          flagReleasePlans:
+            - key: staging-sign-off
+              name: Staging sign-off
+              default: true
+              version: 1
+              executionMode: sequential
+              applicationKeys: []
+              environments:
+                - { environmentKey: staging, triggerType: manual, isImmediate: true }
+                - { environmentKey: production, triggerType: promotion, environmentReleasePlanKey: guarded-default }
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'started nothing' : 'called: ' + called.join(', ') };
+        metric: started_nothing
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user wants production to release on merge. The only flag release plan,
+          "Staging sign-off", makes staging wait for a person (manual) and starts
+          production only after staging finishes (promotion), so production would not
+          release on merge.
+          Evaluate the response:
+          1. Does it start nothing, and say that production would wait for someone to
+             start staging?
+          2. Does it point to launchdarkly-release-plans (or onboarding) to create or
+             change a plan that fits?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # FLAG RELEASE, READ FAILS — get-environment-release-plans returns a
+  # 500. The skill cannot see what each environment will run, so it
+  # starts nothing and records nothing.
+  # ==================================================================
+  - description: "Flag release, release plan read fails: starts nothing and reports the failed read"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `export-csv` already exists (created OFF) for PR acme/web#204,
+        project `default`. Start its release with the project's default flag release
+        plan so it releases after the merge.
+      mock_overrides:
+        get-environment-release-plans:
+          error: 'LaunchDarkly API error: 500: {"code":"internal_server_error","message":"internal error"}'
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'started nothing' : 'called: ' + called.join(', ') };
+        metric: started_nothing
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user asked to start the release of `export-csv`. Reading the environment
+          release plans failed with a 500 error, so the agent cannot know what each
+          environment would run.
+          Evaluate the response:
+          1. Does it start nothing and record nothing?
+          2. Does it tell the user that the release plan read failed?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # FALLBACK, DUPLICATE — a rollout config already exists for this flag
+  # and PR. The fallback must not record a second one.
+  # ==================================================================
+  - description: "Fallback, existing rollout config for the flag and PR: does not record a second one"
+    providers: ["mcp-fallback"]
+    vars:
+      user_request: >
+        Retry: the flag `bulk-import` already exists (created OFF) for PR
+        acme/platform#1204, project `default`. The last run already recorded rollout
+        config arc_mock_0001 for this flag and PR, then timed out before it reported.
+        Record its automated release for staging and production on merge.
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = !tools.includes('create-automated-rollout-config');
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'did not record a second config' : 'recorded a second rollout config' };
+        metric: no_duplicate
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          A rollout config (arc_mock_0001) already exists for `bulk-import` and PR
+          acme/platform#1204. The agent should not record a second one.
+          Evaluate the response:
+          1. Does it avoid recording a second rollout config?
+          2. Does it point the user to the existing config arc_mock_0001 (it may read it
+             with get-automated-rollout-config)?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
   # FLAG RELEASE, NO FLAG RELEASE PLAN — the project has no stored flag
   # release plan, so get-flag-release-plans returns an empty list
   # (LaunchDarkly supplies no built-in plan). The skill starts nothing,

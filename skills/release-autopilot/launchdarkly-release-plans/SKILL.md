@@ -2,7 +2,7 @@
 name: launchdarkly-release-plans
 description: "List, create, edit, make default, and delete LaunchDarkly release plans of both kinds: environment release plans (one environment's phases, rollout steps, and rollback metrics, with starter plans) and flag release plans (a project's environments in release order, each with its environment release plan, which Release Autopilot proposes releases from on pull requests). Also starts a flag's release from a flag release plan. Use when the user wants to see, list, build, change, or remove a release plan (such as 'show me the flag release plans' or 'what release plans does production have'), set an environment's or a project's default plan, or when another skill such as Release Autopilot onboarding needs release plans planned or created. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding, which follows this skill."
 license: Apache-2.0
-compatibility: "Uses the hosted LaunchDarkly MCP server. When the server has no tool for an operation (flag release plans before their tools reach the account, starting a flag's release, deleting an environment release plan), the user runs the REST API (beta) command that the skill shows in their own terminal."
+compatibility: "Uses the hosted LaunchDarkly MCP server. When the server has no tool for an operation (flag release plans before their tools reach the account, deleting an environment release plan), the user runs the REST API (beta) command that the skill shows in their own terminal."
 metadata:
   author: launchdarkly
   version: "1.1.2"
@@ -25,14 +25,16 @@ Releases can ship code to users, so treat every write as production automation w
 - `get-flag-release-plans`: a project's flag release plans, each with `default`, or one plan with `flagReleasePlanKey`. When `hasMore` is true, pass `nextOffset` as `offset`
 - `create-flag-release-plan`, `update-flag-release-plan` (send only the fields to change; `environments` and `applicationKeys` each replace the whole list; leave out `default` to keep it; needs `confirm: true`), and `delete-flag-release-plan` (needs `confirm: true`). Each write returns the plan as read back
 - When the server has them: `create-flag-release` (start a flag's release from a flag release plan; needs `confirm: true`) and `delete-environment-release-plan` (needs `confirm: true`)
+- `create-automated-rollout-config`: records a flag's release when `create-flag-release` is missing or returns `tool disabled`
 - Used for starter plans: `search-contexts` (randomization unit) and `get-metrics` (rollback metrics)
 
-**REST API (beta), for an operation that has no MCP tool on the connected server:** flag release plans when their tools are missing, starting a flag's release without `create-flag-release`, deleting an environment release plan without `delete-environment-release-plan`, and the environment release plan changes whose MCP tool is missing. The user runs these commands, as [User-run commands](#user-run-commands) says. Every request sends `LD-API-Version: beta`. `ldcli` (3.16.0) has no command for these endpoints and no command that sends a raw request with that header, so the commands use curl. They are in [references/rest-api.md](references/rest-api.md).
+**REST API (beta), for an operation that has no MCP tool on the connected server:** flag release plans when their tools are missing, deleting an environment release plan without `delete-environment-release-plan`, and the environment release plan changes whose MCP tool is missing. The user runs these commands, as [User-run commands](#user-run-commands) says. Every request sends `LD-API-Version: beta`. `ldcli` (3.16.0) has no command for these endpoints and no command that sends a raw request with that header, so the commands use curl. They are in [references/rest-api.md](references/rest-api.md).
 
 **When a tool or request is not available:**
 - An environment release plan tool is missing from the server: the MCP server is out of date, not the account. Tell the user to update or reconnect the LaunchDarkly MCP server. The user can run the REST equivalent from [references/rest-api.md](references/rest-api.md) instead.
 - A flag release plan tool is missing from the server: the tools are still reaching accounts, so this does not mean that the account lacks flag release plans. Use the REST command for that operation, as [User-run commands](#user-run-commands) says. Do not say that the account lacks flag release plans, and do not send the user to support. Do not tell the user to update or reconnect the MCP server for these tools: they reach accounts behind a flag, not with a server update.
-- `create-flag-release` or `delete-environment-release-plan` is missing: use the REST command for it.
+- `create-flag-release` is missing, or returns `tool disabled`: record the release with `create-automated-rollout-config`, as [`flag-release`](../../feature-flags/flag-release/references/auto-release.md#fallback-without-create-flag-release) says. Do not show a REST command for it.
+- `delete-environment-release-plan` is missing: use the REST command for it.
 - A read returns 403 `Plan does not allow this operation`, or a tool says the account's plan does not include that kind of release plan: it is not available on the account. Tell the user to contact LaunchDarkly support, and stop work on that kind of plan.
 
 ## Modes
@@ -175,7 +177,7 @@ If the key is taken, use the next free key, and confirm again (or show the comma
 
 ### Start a flag's release from a plan
 
-This starts a release that can ship the flag's change to users. Name the flag, the plan, and each environment in order with its release plan. With `create-flag-release` on the server, ask "Confirm" with all of that in the question, then call it with `flagKey`, `flagReleasePlanKey`, and `confirm: true`. Without it, show the command that creates the flag release from the plan. A project with no flag release plan cannot start a release this way: create a flag release plan first. For a release tied to a pull request, use [`flag-release`](../../feature-flags/flag-release/SKILL.md) instead.
+This starts a release that can ship the flag's change to users. Name the flag, the plan, and each environment in order with its release plan. With `create-flag-release` on the server, ask "Confirm" with all of that in the question, then call it with `projectKey`, `flagKey`, `flagReleasePlanKey`, `pullRequest: { repoFullName, number }` for a pull request's change, and `confirm: true`. A boolean flag sends no variation IDs. A multi-variate flag sends both `startingVariationId` and `endingVariationId` (the variations' `_id`). Without the tool, or when it returns `tool disabled`, record the release with `create-automated-rollout-config`, as the [`flag-release` fallback](../../feature-flags/flag-release/references/auto-release.md#fallback-without-create-flag-release) says. A project with no flag release plan cannot start a release this way: create a flag release plan first. For a release tied to a pull request, use [`flag-release`](../../feature-flags/flag-release/SKILL.md) instead.
 
 ## Write order
 

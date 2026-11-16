@@ -2,7 +2,7 @@
 
 The user runs these commands in their own terminal with their LaunchDarkly API access token in `LD_ACCESS_TOKEN`, and pastes the output back. The agent shows them, filled in, and never runs them. Every endpoint is in beta, so every command sends `LD-API-Version: beta`. Each command prints the response body, then `HTTP <status>` on the last line. Replace `PROJECT_KEY`, `PLAN_KEY`, `ENV_KEY`, `RELEASE_PLAN_KEY`, and `FLAG_KEY`. For an instance other than `https://app.launchdarkly.com`, use that instance's URL.
 
-Prefer the MCP tools. Use a command here only when the connected server has no tool for that operation: for example, flag release plans before their tools reach the account, starting a flag's release without `create-flag-release`, or deleting an environment release plan without `delete-environment-release-plan`. Do not add `-v` or `--trace`: they print the `Authorization` header.
+Prefer the MCP tools. Use a command here only when the connected server has no tool for that operation: for example, flag release plans before their tools reach the account, or deleting an environment release plan without `delete-environment-release-plan`. Do not add `-v` or `--trace`: they print the `Authorization` header.
 
 ## Endpoints
 
@@ -15,7 +15,6 @@ Prefer the MCP tools. Use a command here only when the connected server has no t
 | Create a plan | `POST /api/v2/projects/{projectKey}/flag-release-plans` | `create-flag-release-plan` | 201 |
 | Replace a plan (full update) | `PUT /api/v2/projects/{projectKey}/flag-release-plans/{planKey}` | `update-flag-release-plan` (changed fields only, `confirm: true`) | 200 |
 | Delete a plan | `DELETE /api/v2/projects/{projectKey}/flag-release-plans/{planKey}` | `delete-flag-release-plan` (`confirm: true`) | 204 |
-| Start a flag's release | `POST /api/v2/projects/{projectKey}/flags/{flagKey}/flag-releases` | `create-flag-release`, where the server has it | 201 |
 
 The flag release plan tools may not be on every server yet. When one is missing, use the command below for that operation.
 
@@ -115,21 +114,6 @@ curl -sS -w '\nHTTP %{http_code}\n' -X DELETE \
   -H "LD-API-Version: beta" \
   "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/flag-release-plans/PLAN_KEY"
 ```
-
-### Start a flag's release from a plan
-
-```sh
-curl -sS -w '\nHTTP %{http_code}\n' -X POST \
-  -H "Authorization: $LD_ACCESS_TOKEN" \
-  -H "LD-API-Version: beta" \
-  -H "Content-Type: application/json" \
-  "https://app.launchdarkly.com/api/v2/projects/PROJECT_KEY/flags/FLAG_KEY/flag-releases" \
-  --data @- <<'JSON'
-{ "kind": "plan", "planKey": "default-release" }
-JSON
-```
-
-Optional: `startingVariationId` and `endingVariationId` (for a boolean flag, false to true when left out), and `pullRequest` (`repoFullName`, `number`, optional `url`). The response is `{ "id": "..." }`. An unknown plan key returns 400.
 
 ### List an environment's release plans
 
