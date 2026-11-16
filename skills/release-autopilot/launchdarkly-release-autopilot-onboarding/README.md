@@ -1,6 +1,6 @@
 # LaunchDarkly Release Autopilot Onboarding Skill
 
-An Agent Skill that walks a user through setting up Release Autopilot: pick capabilities, connect the GitHub App, map repositories, choose Vega inference, and set up environment release plans.
+An Agent Skill that walks a user through setting up Release Autopilot: pick capabilities, connect the GitHub App, map repositories, choose which AI model account runs the agents, set up environment release plans (with starter plans) and the project's flag release plan, set auto-cleanup, and guide turning on auto-archival.
 
 ## Overview
 
@@ -9,9 +9,10 @@ This skill teaches agents how to:
 - Ask which capabilities the user wants (auto-flagging, auto-releasing) and set up only what those need
 - Hand the user the GitHub App install or authorize link, and continue after they finish
 - Map chosen `owner/name` repos to LaunchDarkly projects
-- Offer auto-cleanup and auto-archival, and guide the project's Automations settings for each
+- Set auto-cleanup through the MCP, and guide turning on auto-archival on the project's Automations page
 - Explain whose AI model account runs the agents (LaunchDarkly's by default, or the user's own Anthropic or OpenAI key) and guide bring-your-own-key setup
-- Review or create environment release plans for auto-releasing, or show release policies where plans are not available
+- Set up environment release plans (with starter plans) and the project's flag release plan for auto-releasing, with the `launchdarkly-release-plans` skill, or give the flag release plan commands as a follow-up
+- Confirm GitHub works, list exactly which repos were set up, and offer a test pull request and next steps
 - Confirm one plan that lists every write before making any change, then verify
 
 ## Installation
@@ -27,7 +28,7 @@ The skill is in Claude Code plugin 1.0.3 and Cursor plugin 1.0.4 and later. With
 
 ## Prerequisites
 
-The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot tools (`get-automations`, `update-automations`), and `get-release-policies` and `get-metrics` for auto-releasing (`get-release-plans` and `create-release-plan` when the account has environment release plans). Accounts without the Release Autopilot add-on enabled get 404s.
+The remotely hosted LaunchDarkly MCP server must expose the Release Autopilot tools (`get-automations`, `update-automations`), and `get-environment-release-plans`, `create-environment-release-plan`, `update-default-environment-release-plan`, and `get-metrics` for auto-releasing. The flag release plan has no MCP tool: the agent shows its REST commands, you run them in your own terminal with your LaunchDarkly API access token, and you paste the output back. Never paste a token into the chat. Accounts without the Release Autopilot add-on enabled get 404s.
 
 ## Usage
 
@@ -42,6 +43,7 @@ Onboard us to Release Autopilot with auto-flagging and auto-releasing
 ## Related
 
 - [LaunchDarkly Release Autopilot Settings](../launchdarkly-release-autopilot-settings/): single settings changes and "why didn't my PR get classified?"
+- [LaunchDarkly Release Plans](../launchdarkly-release-plans/): read, create, and edit environment and flag release plans
 - [LaunchDarkly Metric Choose](../../metrics/launchdarkly-metric-choose/): pick metrics for guarded release plans
 - [LaunchDarkly MCP Server](https://github.com/launchdarkly/mcp-server)
 

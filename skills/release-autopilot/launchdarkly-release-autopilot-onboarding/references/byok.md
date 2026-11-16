@@ -2,7 +2,7 @@
 
 Release Autopilot's agents use an AI model to read pull requests. Bring your own key is optional: a project that does not set it up uses LaunchDarkly's model account (the product calls this "LaunchDarkly managed inference"). No MCP tool reads or writes inference settings, so this is a browser step.
 
-For each project, give the user `/projects/{projectKey}/settings/automations` on their LaunchDarkly instance (for example `https://app.launchdarkly.com`, or their EU or federal URL). This is the project's **Settings > Automations** page. If the link opens the general project settings page instead, the account does not have the Automations page yet, and they use `/projects/{projectKey}/settings/vega`. In the **Inference** section they:
+For each project, give the user `/projects/{projectKey}/settings/automations` on their LaunchDarkly instance (for example `https://app.launchdarkly.com`, or their EU or federal URL). This is the project's **Settings > Automations** page. If the link opens the general project settings page instead, the account uses the older settings pages, and they use `/projects/{projectKey}/settings/vega`. In the **Inference** section they:
 
 1. Select bring your own key. If the account has no Anthropic or OpenAI key yet, the page links to the integration form to add one. Keys are account-wide, so later projects can reuse them.
 2. Keep or change the suggested default and small models.

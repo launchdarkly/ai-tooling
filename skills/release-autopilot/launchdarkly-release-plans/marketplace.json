@@ -1,0 +1,20 @@
+{
+  "name": "launchdarkly-release-plans",
+  "description": "List, create, edit, make default, and delete LaunchDarkly environment release plans and flag release plans, with starter plans, and start a flag's release from a plan",
+  "version": "1.0.1",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "release-autopilot",
+    "auto-releasing",
+    "release-plans",
+    "guarded-rollouts",
+    "mcp",
+    "rest-api"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}

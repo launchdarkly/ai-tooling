@@ -42,7 +42,7 @@ Up to five `series` (each with an `id` a to e, its own `query` and an aggregator
 - `rate`: `per_second`, `per_minute` or `per_hour` for `Count` or `Sum`; not with `formulas`.
 - `includeOther`: adds an "Other" series so groups add up to the total; `Count`, `Sum`, `Min` and `Max` only.
 - `populationFunctionType`: aggregate per group, then across groups (the Max across pods of each pod's Avg).
-- First and last seen per group: `expressions` `Min` and `Max` of `timestamp`, `bucketCount: 1`; values are Unix seconds.
+- First and last seen per group: `expressions` `Min` and `Max` of `timestamp`, `bucketCount: 1`; values are ISO 8601 UTC times (Unix seconds on an older server).
 
 ## Sampling
 

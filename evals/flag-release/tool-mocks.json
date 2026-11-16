@@ -22,5 +22,59 @@
         "mobileKey": "mob-prod-abcdef12-3456-7890-abcd-ef1234567890"
       }
     ]
+  },
+  "get-environment-release-plans": {
+    "items": [
+      {
+        "key": "guarded-default",
+        "name": "Guarded rollout",
+        "environmentKey": "{{environmentKey}}",
+        "default": true,
+        "progressiveRelease": {
+          "randomizationUnit": "user",
+          "advancementMode": "automatic",
+          "cleanupBehavior": "remove_rules_and_update_default_rule",
+          "phases": [
+            {
+              "clauses": [
+                {
+                  "attribute": "kind",
+                  "op": "in",
+                  "values": [
+                    "user"
+                  ],
+                  "contextKind": "user"
+                }
+              ],
+              "steps": [
+                {
+                  "allocation": 10000,
+                  "durationMillis": 14400000
+                },
+                {
+                  "allocation": 25000,
+                  "durationMillis": 14400000
+                },
+                {
+                  "allocation": 50000,
+                  "durationMillis": 14400000
+                }
+              ]
+            }
+          ],
+          "metrics": {
+            "error-rate": {
+              "isGroup": false,
+              "autoRollback": true
+            },
+            "latency-p95": {
+              "isGroup": false,
+              "autoRollback": true
+            }
+          }
+        }
+      }
+    ],
+    "totalCount": 1
   }
 }

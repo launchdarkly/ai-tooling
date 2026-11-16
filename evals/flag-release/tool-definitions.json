@@ -1,0 +1,39 @@
+[
+  {
+    "name": "get-environment-release-plans",
+    "description": "Get environment release plans, reusable progressive-release recipes. Beta API. Without releasePlanKey: a page ordered by creation time with totalCount; when hasMore is true, pass nextOffset as offset. With releasePlanKey: one plan with its phases (clauses and steps), metrics, randomizationUnit, advancementMode, and cleanupBehavior.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Only without releasePlanKey. Defaults to 20.",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Only without releasePlanKey. Pass nextOffset from the previous page.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "releasePlanKey": {
+          "description": "Get one plan. Omit to list plans.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey"
+      ],
+      "type": "object"
+    }
+  }
+]

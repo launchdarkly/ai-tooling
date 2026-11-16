@@ -16,7 +16,7 @@ const ORCH_TEMPLATES = require("../experiment-orchestration/mocks.json");
 test("createMockState returns fresh empty state each call", () => {
   const a = createMockState();
   const b = createMockState();
-  assert.deepEqual(a, { configs: {}, flags: {}, targeting: {}, raSettings: null, raRepos: {}, raPlans: {} });
+  assert.deepEqual(a, { configs: {}, flags: {}, targeting: {}, raSettings: null, raRepos: {}, raPlans: {}, raDefaults: {}, raCleanup: {}, raArchival: {} });
   a.configs["x"] = {};
   assert.deepEqual(b.configs, {}); // independent
 });
@@ -865,4 +865,105 @@ test("get-agent-configs section=status is unchanged for a different config", () 
     state,
   );
   assert.equal(other.environments.production.on, true);
+});
+
+test("project cleanup write is read back by the cleanup section", () => {
+  const state = createMockState();
+  renderMockResponse({ ok: true }, { projectKey: "default", cleanup: { schedule: "weekly", repositories: ["acme/demo"], maxJobsPerRun: 3 }, confirm: true }, "update-automations", state);
+  const got = renderMockResponse({ settings: { schedule: "disabled" } }, { section: "cleanup", projectKey: "default" }, "get-automations", state);
+  assert.equal(got.settings.schedule, "weekly");
+  assert.deepEqual(got.settings.repositories, ["acme/demo"]);
+});
+
+test("archival cannot be turned on by update-automations", () => {
+  const state = createMockState();
+  const res = renderMockResponse({ ok: true }, { projectKey: "default", archival: { enabled: true }, confirm: true }, "update-automations", state);
+  assert.deepEqual(res.changed, []);
+  assert.ok(res.automationsPage);
+});
+
+test("default environment release plan is reflected in the plan list", () => {
+  const state = createMockState();
+  renderMockResponse({}, { projectKey: "default", environmentKey: "production", key: "progressive", name: "Progressive", progressiveRelease: { phases: [] } }, "create-environment-release-plan", state);
+  renderMockResponse({}, { projectKey: "default", environmentKey: "production", releasePlanKey: "progressive", default: true, confirm: true }, "update-default-environment-release-plan", state);
+  const got = renderMockResponse({ items: [] }, { projectKey: "default", environmentKey: "production" }, "get-environment-release-plans", state);
+  assert.equal(got.items[0].default, true);
+});
+
+test("setting an existing plan as default is reflected in the plan list", () => {
+  const state = createMockState();
+  const existing = { items: [{ key: "gradual", name: "Gradual", environmentKey: "production", default: false }], totalCount: 1 };
+  const args = { projectKey: "default", environmentKey: "production" };
+  renderMockResponse({}, { ...args, releasePlanKey: "gradual", default: true, confirm: true }, "update-default-environment-release-plan", state);
+  const got = renderMockResponse(existing, args, "get-environment-release-plans", state);
+  assert.equal(got.totalCount, 1);
+  assert.equal(got.items[0].key, "gradual");
+  assert.equal(got.items[0].default, true);
+});
+
+test("a created plan is listed beside the existing plans", () => {
+  const state = createMockState();
+  const existing = { items: [{ key: "gradual", name: "Gradual", environmentKey: "production", default: true }], totalCount: 1 };
+  const args = { projectKey: "default", environmentKey: "production" };
+  renderMockResponse({}, { ...args, key: "p", name: "P", progressiveRelease: { phases: [] } }, "create-environment-release-plan", state);
+  const got = renderMockResponse(existing, args, "get-environment-release-plans", state);
+  assert.deepEqual(got.items.map((p) => [p.key, p.default]), [["gradual", true], ["p", false]]);
+  assert.equal(got.totalCount, 2);
+});
+
+test("every release-autopilot-onboarding tool has a mock template", () => {
+  const defs = require("../release-autopilot-onboarding/tool-definitions.json");
+  const shared = require("../mocks/tool-responses.json");
+  const missing = (Array.isArray(defs) ? defs : defs.tools)
+    .map((d) => d.name)
+    .filter((name) => !(name in RA_TEMPLATES) && !(name in shared));
+  assert.deepEqual(missing, []);
+});
+
+const planArgs = (allocations, metrics) => ({
+  projectKey: "default", environmentKey: "production", key: "progressive", name: "Progressive",
+  progressiveRelease: {
+    randomizationUnit: "user",
+    phases: [{ clauses: [{ attribute: "kind", op: "in", values: ["user"], contextKind: "user" }], steps: allocations.map((allocation) => ({ allocation, durationMillis: 14400000 })) }],
+    metrics,
+  },
+});
+
+test("a release plan with metrics is rejected above 50000 per step and not recorded", () => {
+  const state = createMockState();
+  const got = renderMockResponse(RA_TEMPLATES["create-environment-release-plan"], planArgs([99000], { "user-error-rate": { isGroup: false, autoRollback: true } }), "create-environment-release-plan", state);
+  assert.match(got.error, /at most 50000/);
+  assert.equal(state.raPlans.production, undefined);
+  const ok = renderMockResponse(RA_TEMPLATES["create-environment-release-plan"], planArgs([50000], { "user-error-rate": { isGroup: false, autoRollback: true } }), "create-environment-release-plan", state);
+  assert.equal(ok.error, undefined);
+  assert.equal(state.raPlans.production.length, 1);
+});
+
+test("a release plan without metrics allows 99000 but not more", () => {
+  const state = createMockState();
+  assert.equal(renderMockResponse({}, planArgs([99000], {}), "create-environment-release-plan", state).error, undefined);
+  assert.match(renderMockResponse({}, planArgs([100000], {}), "create-environment-release-plan", state).error, /at most 99000/);
+});
+
+// ---------------------------------------------------------------------------
+// flag-release suite: default environment release plans
+// ---------------------------------------------------------------------------
+
+test("flag-release suite owns a template for every suite tool", () => {
+  const suiteDefs = require("../flag-release/tool-definitions.json").map((def) => def.name);
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  for (const name of suiteDefs) assert.ok(suiteTemplates[name], `no template for ${name}`);
+});
+
+test("flag-release default release plan renders as the environment's default", () => {
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  const state = createMockState();
+  const result = renderMockResponse(suiteTemplates["get-environment-release-plans"], {
+    projectKey: "default",
+    environmentKey: "production",
+  }, "get-environment-release-plans", state);
+  const defaults = result.items.filter((p) => p.default === true);
+  assert.equal(defaults.length, 1);
+  assert.equal(defaults[0].environmentKey, "production");
+  assert.ok(Object.keys(defaults[0].progressiveRelease.metrics).length > 0);
 });

@@ -1,18 +1,17 @@
 # Auto-cleanup
 
-Auto-cleanup runs Vega on a schedule to find flags that are ready for code removal and open pull requests that remove their code. It is set per project, in the **Automated flag cleanup** section of the project's **Settings > Automations** page. On an MCP server with `get-automations-cleanup` and `update-automations-cleanup`, the [`launchdarkly-automations-cleanup-settings`](../../launchdarkly-automations-cleanup-settings/SKILL.md) skill can read and change it later; onboarding still has the user turn it on in the browser.
+Auto-cleanup runs the Release Autopilot agents on a schedule to find flags that are ready for code removal and open pull requests that remove their code. It is set per project. Onboarding sets it through the MCP with `update-automations` (`projectKey` plus a `cleanup` object); [`launchdarkly-automations-cleanup-settings`](../../launchdarkly-automations-cleanup-settings/SKILL.md) changes it later.
 
-For each project, give the user `/projects/{projectKey}/settings/automations` on their LaunchDarkly instance (for example `https://app.launchdarkly.com`, or their EU or federal URL). If the link opens the general project settings page instead, the account does not have the Automations page yet: they use `/projects/{projectKey}/settings/lifecycle`, or `/projects/{projectKey}/settings/vega` if that page has no "Automated flag cleanup" section. In the "Automated flag cleanup" section they:
+Read the current settings first with `get-automations` (`section: "cleanup"`, `projectKey`). `settings.schedule` of `disabled` means it is off; `upcoming.flagKeys` and `nextRunAt` preview the next run.
 
-1. Check **Enable automated flag cleanups**.
-2. Choose a **Schedule frequency**: 1 day, 7 days (the default), or 30 days.
-3. Set **Max cleanup jobs per run** (1–20).
-4. Select the **GitHub repositories** to clean up. Suggest the repos mapped in this flow. At least one is required.
-5. Optionally add **Additional context** for the cleanup agent, such as where flags are defined. Vega also follows the repo's `AGENTS.md`.
-6. Click **Save**.
+The onboarding write sends only:
 
-Cleanup jobs run with the permissions of the member who saved the settings. If that member loses access, someone else must save the settings again.
+- `schedule`: `weekly` (recommended), `daily`, or `monthly`
+- `repositories`: the `owner/name` repos cleanup opens pull requests in, all on the GitHub App install
+- `maxJobsPerRun`: pull requests per run (3 is a safe start)
 
-Record the result as reported by the user. Onboarding does not verify it.
+Leave `flagStates` at its default (`readyToArchive`). Lists replace the whole stored list: when adding repositories to a running cleanup, send the existing `repositories` from the read plus the new ones. Saving makes the calling member the one whose permissions cleanup jobs use; if that member loses access, someone else must save the settings again. Any schedule other than `disabled` makes LaunchDarkly open pull requests, so the Step 7 line must state the schedule, repositories, and pull requests per run.
+
+In the UI, the same settings are in the **Automated flag cleanup** section of `/projects/{projectKey}/settings/automations`.
 
 Docs: [Automated flag cleanup](https://launchdarkly.com/docs/home/flags/manage/flag-cleanup-vega#automated-flag-cleanup)

@@ -80,13 +80,84 @@
   "delete-automations-repo-settings": {
     "deleted": true
   },
-  "get-release-plans": {
+  "get-environment-release-plans": {
     "items": [],
     "totalCount": 0
   },
-  "create-release-plan": {
+  "create-environment-release-plan": {
     "key": "new-plan",
     "environmentKey": "{{environmentKey}}",
     "created": true
+  },
+  "update-default-environment-release-plan": {
+    "changed": true,
+    "previousDefaultKey": null
+  },
+  "get-automations#cleanup": {
+    "projectKey": "{{projectKey}}",
+    "settings": {
+      "schedule": "disabled",
+      "repositories": [],
+      "maxJobsPerRun": 3,
+      "flagStates": [
+        "readyToArchive"
+      ]
+    },
+    "upcoming": {
+      "flagKeys": [
+        "old-banner",
+        "legacy-checkout"
+      ],
+      "nextRunAt": null
+    },
+    "automationsPage": "/projects/{{projectKey}}/settings/automations"
+  },
+  "get-automations#archival": {
+    "projectKey": "{{projectKey}}",
+    "settings": {
+      "enabled": false,
+      "graceSeconds": 604800,
+      "requireApproval": false,
+      "maxArchivalsPerRun": 10
+    },
+    "automationsPage": "/projects/{{projectKey}}/settings/automations"
+  },
+  "search-contexts": {
+    "items": [],
+    "totalCount": 0
+  },
+  "get-projects#projectKey": {
+    "key": "{{projectKey}}",
+    "name": "{{projectKey}}",
+    "environments": [
+      {
+        "key": "test",
+        "name": "Test",
+        "clientSideId": "5f0000000000000000000001",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000001",
+        "critical": false
+      },
+      {
+        "key": "dev",
+        "name": "Dev",
+        "clientSideId": "5f0000000000000000000003",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000003",
+        "critical": false
+      },
+      {
+        "key": "staging",
+        "name": "Staging",
+        "clientSideId": "5f0000000000000000000004",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000004",
+        "critical": false
+      },
+      {
+        "key": "production",
+        "name": "Production",
+        "clientSideId": "5f0000000000000000000002",
+        "mobileKey": "mob-00000000-0000-0000-0000-000000000002",
+        "critical": true
+      }
+    ]
   }
 }
