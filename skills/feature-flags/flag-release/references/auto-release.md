@@ -119,6 +119,7 @@ The read is snake_case and the write is camelCase. The write rejects unknown fie
 | `desired_release_type` | `releaseType` (`policy` or `override`). For an immediate release, send no `releaseType` |
 | `environment_release_plan_key` | `environmentReleasePlanKey` |
 | `trigger_type` | `triggerType` |
+| `wait_before_release_millis` | `waitBeforeReleaseMillis` |
 | `override.release_method`, `rollout_context_kind_key`, `stages`, `metric_keys`, `metric_group_keys`, `rollback_on_regression` | `override.releaseMethod`, `rolloutContextKindKey`, `stages`, `metricKeys`, `metricGroupKeys`, `rollbackOnRegression` |
 
 Keep `releaseType: "policy"` and `environmentReleasePlanKey` for each environment that has them. Without them, a non-default plan (such as `guarded-prod`) reverts to the environment's default, or the environment becomes an override. Change only what the user asked.

@@ -1086,3 +1086,14 @@ test("flag release plan list keeps the page fields of a paged template", () => {
   assert.equal(last.hasMore, false);
   assert.deepEqual(last.flagReleasePlans.map((p) => p.key), ["b"]);
 });
+
+test("get-automated-rollout-config echoes the configId it was sent", () => {
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  const state = createMockState();
+  const out = renderMockResponse(suiteTemplates["get-automated-rollout-config"],
+    { projectKey: "default", configId: "arc_mock_0001" }, "get-automated-rollout-config", state);
+  assert.equal(out.config.id, "arc_mock_0001");
+  const upd = renderMockResponse(suiteTemplates["update-automated-rollout-config"],
+    { projectKey: "default", configId: "arc_mock_0042", confirm: true, environments: [] }, "update-automated-rollout-config", state);
+  assert.equal(upd.config.id, "arc_mock_0042");
+});

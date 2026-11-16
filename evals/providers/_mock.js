@@ -22,7 +22,14 @@ const PLACEHOLDER_RE = /\{\{(\w+)\}\}/g;
 
 function buildReplacements(input) {
   const safe = input || {};
+  // Keys that echo only when the call sends them; otherwise the placeholder
+  // stays as written.
+  const echoed = {};
+  for (const key of ["configId", "releasePlanKey", "flagReleasePlanKey"]) {
+    if (typeof safe[key] === "string" && safe[key]) echoed[key] = safe[key];
+  }
   return {
+    ...echoed,
     flagKey: safe.flagKey || safe.key || "unknown-flag",
     flagName: safe.flagName || safe.name || "Unknown Flag",
     configKey: safe.configKey || "unknown-config",
