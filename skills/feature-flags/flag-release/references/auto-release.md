@@ -18,7 +18,7 @@ Each environment in the flag release plan has a `triggerType`:
 | `triggerType` | When the environment starts | Held? |
 |---------------|-----------------------------|-------|
 | `flag_eval` | When the flag is first evaluated there (after the change deploys) | No |
-| `webhook` | When the deploy signal for the linked pull request arrives | No |
+| `webhook` | With a linked pull request, when a deploy that includes the merge arrives. Without one, on the next deploy signal for the environment | No |
 | `promotion` | When the previous environment finishes | No, unless the previous environment is held |
 | `manual` | When a person starts it | Yes, until a person starts it |
 
@@ -72,7 +72,7 @@ Call `create-flag-release` in the implement phase:
 }
 ```
 
-The guarding flag must already exist. A boolean flag releases from `false` to `true` with no variation IDs. A multi-variate flag needs both `startingVariationId` and `endingVariationId` (the variations' `_id`). Always send `pullRequest` for a PR's change; LaunchDarkly rejects a plan with a `webhook` environment without it. A flag can have only one active release: if it has one, the error names it. The call returns `config_id` and the release as read back. Record `config_id` in your report.
+The guarding flag must already exist. A boolean flag releases from `false` to `true` with no variation IDs. A multi-variate flag needs both `startingVariationId` and `endingVariationId` (the variations' `_id`). Always send `pullRequest` for a PR's change. Without it, a `webhook` environment starts on the next deploy signal for that environment, which can be a deploy that does not include the change. A flag can have only one active release: if it has one, the error names it. The call returns `config_id` and the release as read back. Record `config_id` in your report.
 
 ## Fallback without `create-flag-release`
 
