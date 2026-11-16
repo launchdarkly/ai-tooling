@@ -1,5 +1,7 @@
 # Legacy to current AI SDK: before and after
 
+For Go, use [go-api-mapping.md](go-api-mapping.md) instead; Go's signatures, errors, registry, and lifecycle differ from the examples here.
+
 Each section shows the legacy pattern and its replacement in Python and Node.js. All current examples assume `LD_SDK_KEY` and the provider API keys are set in the environment.
 
 Handler factory names follow `create_<provider>_<mode>_handler` (Python) and `create<Provider><Mode>Handler` (Node.js), for example `create_openai_messages_handler`, `create_openai_agents_handler`, `createOpenAIMessagesHandler`, `createOpenAIAgentsHandler`, `createClaudeMessagesHandler`, `createClaudeAgentsHandler`. Some published examples use other names, such as `createOpenAIHandler` or `create_openai_agent_handler`; these are not exported by the current packages.

@@ -40,7 +40,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 |-------|-------------|
 | `agentcontrol/configs-create` | Create configs with variations for agent or completion mode |
 | `agentcontrol/migrate` | Migrate an app with hardcoded LLM prompts (not on AgentControl yet) to the current AI SDKs in five stages |
-| `agentcontrol/legacy-sdk-migrate` | Migrate between LaunchDarkly AI SDKs: from the legacy Python and Node.js AI SDKs to the current handler-based SDKs (packages, init, `config()`, tools, registries, judges, graphs, fallbacks) |
+| `agentcontrol/legacy-sdk-migrate` | Migrate between LaunchDarkly AI SDKs: from the legacy Python, Node.js, and Go AI SDKs to the current handler-based SDKs (packages, init, `config()` / `Config()`, tools, registries, judges, graphs, fallbacks) |
 | `agentcontrol/configs-update` | Update and delete configs, manage lifecycle |
 | `agentcontrol/configs-variations` | Manage config variations for A/B testing |
 | `agentcontrol/tools` | Create and attach tools for function calling |

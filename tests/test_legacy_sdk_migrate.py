@@ -11,6 +11,32 @@ API_MAPPING = (
 
 
 class LegacySdkMigrateTests(unittest.TestCase):
+    def test_go_routing_and_release_sources(self):
+        skill = SKILL.read_text(encoding="utf-8")
+        mapping = API_MAPPING.with_name("go-api-mapping.md").read_text(encoding="utf-8")
+
+        self.assertIn("references/go-api-mapping.md", skill)
+        self.assertIn("go-server-sdk-ai/ldai", skill)
+        self.assertIn("go-server-sdk/ldai", skill)
+        self.assertIn("Go 1.26+", skill)
+        self.assertIn("go-ai-sdk/tree/v1.0.0", mapping)
+        self.assertIn("go-server-sdk-ai/tree/v0.11.0", mapping)
+        self.assertIn("openaimessages.OpenAIMessages", mapping)
+        self.assertIn("aiserver.WithHistory", mapping)
+        self.assertIn("no global registry", mapping)
+
+    def test_go_empty_and_error_paths_are_preserved(self):
+        mapping = API_MAPPING.with_name("go-api-mapping.md").read_text(encoding="utf-8")
+
+        self.assertIn("errors.Is(err, aiserver.ErrConfigDisabled)", mapping)
+        self.assertIn("errors.Is(err, aiserver.ErrConfigNotFound)", mapping)
+        self.assertIn("initialization/evaluation/parse failures return errors", mapping)
+        self.assertIn('res != nil && task.EvaluationMetricKey != ""', mapping)
+        self.assertIn("res.TrackData, res.Score", mapping)
+        self.assertIn("Stream events have no `TrackData`", mapping)
+        self.assertIn("empty input/history/tools", mapping)
+        self.assertNotIn("go runJudgeWorker(ctx", mapping)
+
     def test_background_judge_examples_track_returned_metrics(self):
         mapping = API_MAPPING.read_text(encoding="utf-8")
 
