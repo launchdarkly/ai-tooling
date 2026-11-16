@@ -106,7 +106,7 @@ Work one call site at a time. Full code for each step is in [references/api-mapp
 
 ### Step 4: Verify
 
-1. **No legacy references remain:** re-run the Step 1 search. Expect zero hits for `ldai`, `server-sdk-ai`, `create_tracker`, `createTracker`, `track_metrics_of`, and `trackMetricsOf`. In Go, check imports and receivers: names such as `Config`, `Enabled`, and `Track` also exist in the current SDK and must not be banned by name alone.
+1. **No legacy references remain:** re-run the Step 1 search. Expect zero hits for `ldai`, `server-sdk-ai`, `create_tracker`, `createTracker`, `track_metrics_of`, and `trackMetricsOf`. In Go, check imports and receivers: names such as `Config`, `Enabled`, `Track`, and `AgentGraph` also exist in the current SDK and must not be banned by name alone (`aiserver.Graph()` returns `*aiserver.AgentGraph`).
 2. **Build and tests pass:** run the project's type check, linter, and test suite. Update mocks that patched `LDAIClient` / `initAi` to patch `config` or the convenience function instead.
 3. **Happy path:** with `LD_SDK_KEY` set, run each migrated call and confirm it returns a response from the provider the variation names.
 4. **Fallback path:** with targeting off for the config (or an invalid `LD_SDK_KEY`), confirm the app returns its fallback instead of crashing.

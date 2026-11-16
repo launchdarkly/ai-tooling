@@ -47,6 +47,34 @@ class LegacySdkMigrateTests(unittest.TestCase):
         self.assertNotIn("asyncio.create_task(judge_worker(task))", mapping)
         self.assertNotIn("void runJudge(task, handlers)", mapping)
 
+    def test_go_metric_and_outage_migration_limits(self):
+        mapping = API_MAPPING.with_name("go-api-mapping.md").read_text(encoding="utf-8")
+
+        self.assertIn("No v1.0.0 TTFT event", mapping)
+        self.assertIn("deprecated alias for `TrackTokens`", mapping)
+        self.assertIn("caller-supplied latency/TTFT and token overrides", mapping)
+        self.assertIn("catch-all initialization-error policy", mapping)
+        self.assertIn("does not wrap `ErrNotInitialized`", mapping)
+        self.assertIn("if _, err := aiserver.InitClient", mapping)
+        self.assertIn("Do not apply a catch-all to `Invoke` errors", mapping)
+        self.assertIn("returns nothing and silently does nothing", mapping)
+
+    def test_go_tools_graphs_and_optional_review_guidance(self):
+        mapping = API_MAPPING.with_name("go-api-mapping.md").read_text(encoding="utf-8")
+
+        self.assertIn("model.parameters.tools", mapping)
+        self.assertIn("openaiagents.Options.MaxTurns", mapping)
+        self.assertIn("`max_turns` model parameter, which takes precedence", mapping)
+        self.assertIn("Provider names match exactly, including case", mapping)
+        self.assertIn("NativeGraphOptions.Context", mapping)
+        self.assertIn("`AdapterOptions` has no `Context` field", mapping)
+        self.assertIn("`$ld:ai:graph:path` became `$ld:ai:graph:node`", mapping)
+        self.assertIn("`$ld:ai:graph:redirect` is gone", mapping)
+        self.assertIn("GOTOOLCHAIN=auto", mapping)
+        self.assertIn("raise the `go` line", mapping)
+        self.assertIn("fresh handler on every call", mapping)
+        self.assertIn("`Track`, and `AgentGraph`", SKILL.read_text(encoding="utf-8"))
+
     def test_skill_preserves_tracking_for_background_judges(self):
         skill = SKILL.read_text(encoding="utf-8")
 
