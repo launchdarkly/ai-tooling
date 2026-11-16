@@ -104,8 +104,24 @@ Do these steps in order:
    Copy each environment's `triggerType` from the flag release plan into its entry (`flag_eval`, `webhook`, `manual`, or `promotion`). A left-out `triggerType` means `flag_eval`, so a `webhook` environment without it starts on first evaluation, before the deploy arrives. Without a flag release plan, leave `triggerType` out unless the user names a trigger. Example: `{ "environmentKey": "production", "releaseType": "policy", "triggerType": "webhook" }`.
 
    Never send `releaseType: "override"`, and never copy a plan's steps, stages, or metrics into the call. The plans stay the source.
-5. **Call `create-automated-rollout-config` in the same turn** when the user asked to start or record the release. Call it once. If a rollout config already exists for this flag and PR (from an earlier call in this run, or one that the user or harness names), do not record a second one: point the user to the existing config. Send `executionMode: "sequential"` (LaunchDarkly accepts no other execution mode), and `repoFullName` and `prNumber` for the PR.
+5. **Call `create-automated-rollout-config` in the same turn** when the user asked to start or record the release. Call it once. If a rollout config already exists for this flag and PR (from an earlier call in this run, or one that the user or harness names), do not record a second one: point the user to the existing config. Send `executionMode: "sequential"` (LaunchDarkly accepts no other execution mode), and `repoFullName`, `prNumber`, and `prUrl` for the PR. If you have only the PR URL (`https://github.com/<owner>/<name>/pull/<number>`), take `repoFullName` and `prNumber` from it.
 6. **Show any warnings to the user as they are.** `missing_default_release_plan` means the environment has no default release plan: hold it or name a plan. `incomplete_release_plan` and `release_plan_unchecked` mean the plan could not start or was not checked.
+
+## Change a recorded release
+
+`update-automated-rollout-config` changes a release that has not started releasing. Read it first with `get-automated-rollout-config`. Then send `projectKey`, `configId`, `confirm: true`, and the whole `environments` list: an environment you leave out is removed.
+
+The read is snake_case and the write is camelCase. The write rejects unknown fields, so rebuild each environment from the read:
+
+| Read (`get-automated-rollout-config`) | Write (`update-automated-rollout-config`) |
+|---------------------------------------|-------------------------------------------|
+| `environment_key` | `environmentKey` |
+| `desired_release_type` | `releaseType` (`policy` or `override`). For an immediate release, send no `releaseType` |
+| `environment_release_plan_key` | `environmentReleasePlanKey` |
+| `trigger_type` | `triggerType` |
+| `override.release_method`, `rollout_context_kind_key`, `stages`, `metric_keys`, `metric_group_keys`, `rollback_on_regression` | `override.releaseMethod`, `rolloutContextKindKey`, `stages`, `metricKeys`, `metricGroupKeys`, `rollbackOnRegression` |
+
+Keep `releaseType: "policy"` and `environmentReleasePlanKey` for each environment that has them. Without them, a non-default plan (such as `guarded-prod`) reverts to the environment's default, or the environment becomes an override. Change only what the user asked.
 
 ## Coupling to a parent flag (prerequisites)
 

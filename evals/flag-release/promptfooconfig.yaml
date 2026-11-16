@@ -742,6 +742,17 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
+          const a = (rec && rec.arguments) || {};
+          const pass = a.repoFullName === 'acme/platform' && Number(a.prNumber) === 88
+            && /github\.com\/acme\/platform\/pull\/88\b/.test(String(a.prUrl || ''));
+          return { pass, score: pass ? 1 : 0, reason: `PR fields ${JSON.stringify({ repoFullName: a.repoFullName, prNumber: a.prNumber, prUrl: a.prUrl })} (want acme/platform, 88, and its github.com URL)` };
+        metric: pr_fields
+        weight: 1
+
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
           const calls = traj.filter(t => t.tool === 'create-flag-release').length;
           const pass = calls <= 2;
           return { pass, score: pass ? 1 : 0, reason: `create-flag-release called ${calls} times (a disabled tool should not be retried in a loop)` };
@@ -840,6 +851,14 @@ tests:
       mock_overrides:
         create-flag-release:
           error: "tool disabled: create-flag-release"
+        get-projects#projectKey:
+          key: default
+          name: default
+          environments:
+            - { key: dev, name: Development }
+            - { key: staging, name: Staging }
+            - { key: qa, name: QA }
+            - { key: production, name: Production }
         get-flag-release-plans:
           flagReleasePlans:
             - key: deploy-gated
@@ -1118,6 +1137,152 @@ tests:
           3. Did it avoid turning the flag on by hand?
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # FLAG RELEASE, NO DEFAULT PLAN — the project has flag release plans,
+  # but none is the default. The user asks for the default plan, so the
+  # skill asks which plan to use and never starts the first listed one.
+  # ==================================================================
+  - description: "Flag release, plans but no default: asks which plan, never starts the first listed"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `saved-views` already exists (created OFF) for PR acme/web#415,
+        project `default`. Start its release with the project's default flag release
+        plan so it releases after the merge.
+      mock_overrides:
+        get-flag-release-plans:
+          flagReleasePlans:
+            - { key: fast-lane, name: Fast lane, default: false, version: 1, executionMode: sequential, applicationKeys: [], environments: [{ environmentKey: dev, triggerType: flag_eval, isImmediate: true }, { environmentKey: staging, triggerType: promotion, isImmediate: true }, { environmentKey: production, triggerType: promotion, isImmediate: true }] }
+            - { key: slow-lane, name: Slow lane, default: false, version: 1, executionMode: sequential, applicationKeys: [], environments: [{ environmentKey: dev, triggerType: flag_eval, isImmediate: true }, { environmentKey: staging, triggerType: promotion, isImmediate: true }, { environmentKey: production, triggerType: promotion, environmentReleasePlanKey: guarded-default }] }
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'started nothing' : 'called: ' + called.join(', ') };
+        metric: started_nothing
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user asked for the project's default flag release plan. The project has
+          two flag release plans, "Fast lane" and "Slow lane", and neither is the
+          default.
+          Evaluate the response:
+          1. Does it say that the project has no default flag release plan, and start
+             nothing?
+          2. Does it ask which plan to use (naming Fast lane and Slow lane), rather than
+             picking one?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # FLAG RELEASE, PAGED LIST — the first page of flag release plans has
+  # no default (hasMore: true). The default is on the second page, so the
+  # skill reads it with nextOffset and starts standard-release.
+  # ==================================================================
+  - description: "Flag release, paged plan list: reads every page and starts the default from page 2"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `search-v2` already exists (created OFF) for PR acme/web#77,
+        project `default`. Start its release with the project's default flag
+        release plan so it releases after the merge.
+      mock_overrides:
+        get-flag-release-plans:
+          by_arg: offset
+          cases:
+            "1":
+              flagReleasePlans:
+                - { key: standard-release, name: Standard release, default: true, version: 1, executionMode: sequential, applicationKeys: [], environments: [{ environmentKey: dev, triggerType: flag_eval, isImmediate: true }, { environmentKey: staging, triggerType: promotion, isImmediate: true }, { environmentKey: production, triggerType: promotion, environmentReleasePlanKey: guarded-default }] }
+              totalCount: 2
+              hasMore: false
+          default:
+            flagReleasePlans:
+              - { key: fast-lane, name: Fast lane, default: false, version: 1, executionMode: sequential, applicationKeys: [], environments: [{ environmentKey: dev, triggerType: flag_eval, isImmediate: true }, { environmentKey: staging, triggerType: promotion, isImmediate: true }, { environmentKey: production, triggerType: promotion, isImmediate: true }] }
+            totalCount: 2
+            hasMore: true
+            nextOffset: 1
+        get-flag-release-plans#flagReleasePlanKey:
+          flagReleasePlans:
+            - { key: fast-lane, name: Fast lane, default: false, version: 1, executionMode: sequential, applicationKeys: [], environments: [{ environmentKey: dev, triggerType: flag_eval, isImmediate: true }, { environmentKey: staging, triggerType: promotion, isImmediate: true }, { environmentKey: production, triggerType: promotion, isImmediate: true }] }
+            - { key: standard-release, name: Standard release, default: true, version: 1, executionMode: sequential, applicationKeys: [], environments: [{ environmentKey: dev, triggerType: flag_eval, isImmediate: true }, { environmentKey: staging, triggerType: promotion, isImmediate: true }, { environmentKey: production, triggerType: promotion, environmentReleasePlanKey: guarded-default }] }
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const paged = traj.some(t => t.tool === 'get-flag-release-plans' && Number((t.arguments || {}).offset) === 1);
+          return { pass: paged, score: paged ? 1 : 0, reason: paged ? 'read the second page' : 'never read the second page (offset 1)' };
+        metric: read_every_page
+        weight: 2
+
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const starts = traj.filter(t => t.tool === 'create-flag-release');
+          const keys = starts.map(t => (t.arguments || {}).flagReleasePlanKey);
+          const pass = keys.length > 0 && keys.every(k => k === 'standard-release');
+          return { pass, score: pass ? 1 : 0, reason: `started [${keys.join(', ')}] (want standard-release, never fast-lane)` };
+        metric: started_default
+        weight: 4
+
+  # ==================================================================
+  # CHANGE A RECORDED RELEASE — the user asks to make staging wait for a
+  # deploy in an existing rollout config. The read is snake_case; the
+  # write must be camelCase, keep production's non-default guarded-prod
+  # plan as policy, and send confirm: true.
+  # ==================================================================
+  - description: "Change a recorded release: camelCase write keeps production's non-default plan"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        For flag `bulk-export` (PR acme/platform#88, project `default`), we already
+        recorded rollout config arc_mock_0042 and it has not started. Change it so
+        staging waits for a deploy signal (webhook) instead of the first evaluation.
+        Keep everything else as it is.
+      mock_overrides:
+        get-automated-rollout-config:
+          found: true
+          config:
+            id: arc_mock_0042
+            project_key: default
+            flag_key: bulk-export
+            repo_full_name: acme/platform
+            pr_number: 88
+            pr_state: pending
+            status: active
+            execution_mode: sequential
+            environments:
+              - { environment_key: staging, desired_release_type: immediate, trigger_type: flag_eval, status: pending, release_lifecycle_status: not_started }
+              - { environment_key: production, desired_release_type: policy, environment_release_plan_key: guarded-prod, trigger_type: promotion, status: pending, release_lifecycle_status: not_started }
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const up = traj.find(t => t.tool === 'update-automated-rollout-config');
+          if (!up) return { pass: false, score: 0, reason: 'never called update-automated-rollout-config' };
+          const a = up.arguments || {};
+          const envs = a.environments || [];
+          const byKey = Object.fromEntries(envs.map(e => [e.environmentKey, e]));
+          const prod = byKey.production || {};
+          const snake = envs.some(e => Object.keys(e || {}).some(k => k.includes('_')));
+          const pass = a.confirm === true && a.configId === 'arc_mock_0042' && !snake
+            && byKey.staging && byKey.staging.triggerType === 'webhook'
+            && prod.releaseType === 'policy' && prod.environmentReleasePlanKey === 'guarded-prod' && prod.triggerType === 'promotion';
+          return { pass, score: pass ? 1 : 0, reason: `update ${JSON.stringify(a)} (want confirm, arc_mock_0042, camelCase, staging webhook, production policy guarded-prod promotion)` };
+        metric: kept_plan
+        weight: 4
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const pass = !tools.includes('create-automated-rollout-config') && !tools.includes('create-flag-release');
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'changed the existing release' : 'recorded or started another release' };
+        metric: no_second_release
         weight: 2
 
   # ==================================================================

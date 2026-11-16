@@ -1073,3 +1073,16 @@ test("a failed flag release plan write (an error override) is not recorded", () 
   assert.equal(err.error, "permission denied");
   assert.equal(state.raFlagPlans.default, undefined);
 });
+
+test("flag release plan list keeps the page fields of a paged template", () => {
+  const state = createMockState();
+  const page1 = { flagReleasePlans: [{ key: "a", default: false, environments: [] }], totalCount: 2, hasMore: true, nextOffset: 1 };
+  const out = renderMockResponse(page1, { projectKey: "default" }, "get-flag-release-plans", state);
+  assert.equal(out.hasMore, true);
+  assert.equal(out.nextOffset, 1);
+  assert.equal(out.totalCount, 2);
+  const page2 = { flagReleasePlans: [{ key: "b", default: true, environments: [] }], totalCount: 2, hasMore: false };
+  const last = renderMockResponse(page2, { projectKey: "default", offset: 1 }, "get-flag-release-plans", state);
+  assert.equal(last.hasMore, false);
+  assert.deepEqual(last.flagReleasePlans.map((p) => p.key), ["b"]);
+});

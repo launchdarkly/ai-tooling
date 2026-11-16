@@ -209,7 +209,7 @@
   "get-automated-rollout-config": {
     "found": true,
     "config": {
-      "id": "frl_mock_0001",
+      "id": "{{configId}}",
       "project_key": "{{projectKey}}",
       "flag_key": "{{flagKey}}",
       "status": "active",

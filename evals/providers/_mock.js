@@ -391,6 +391,12 @@ function renderFlagReleasePlans(template, args, toolName, state, replacements) {
       const plan = stored.find((p) => p.key === args.flagReleasePlanKey);
       return plan ? { ...plan } : flagPlanNotFound(args.flagReleasePlanKey);
     }
+    // A paged template (hasMore: true) keeps its page fields, so a test can
+    // serve the plans on more than one page with a by_arg offset override.
+    if (!written && base && base.hasMore === true) {
+      return { flagReleasePlans: stored.map((p) => ({ ...p })), totalCount: base.totalCount ?? stored.length,
+        hasMore: true, nextOffset: base.nextOffset };
+    }
     return { flagReleasePlans: stored.map((p) => ({ ...p })), totalCount: stored.length, hasMore: false };
   }
   if (toolName === "create-flag-release-plan") {
