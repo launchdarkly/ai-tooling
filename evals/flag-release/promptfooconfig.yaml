@@ -926,10 +926,11 @@ tests:
   # FLAG RELEASE, PROMOTION AFTER MANUAL — the user wants production on
   # merge, but the only plan makes staging manual and production
   # promotion, so production waits for a person. The plan does not fit,
-  # so the skill does not start it. It either records production from its
-  # environment release plan (and says staging is not part of it) or asks.
+  # and copying it into create-automated-rollout-config keeps the wait, so
+  # the skill records nothing and asks: release production on merge
+  # without staging, or keep the plan's wait.
   # ==================================================================
-  - description: "Flag release, promotion after manual: production on merge does not fit the plan, so the plan is not started"
+  - description: "Flag release, promotion after manual: production on merge would wait, so the skill asks"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -951,10 +952,10 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const called = ['create-flag-release','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
           const pass = called.length === 0;
-          return { pass, score: pass ? 1 : 0, reason: pass ? 'did not start the plan' : 'called: ' + called.join(', ') };
-        metric: plan_not_started
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing' : 'called: ' + called.join(', ') };
+        metric: asked_first
         weight: 4
 
       - type: llm-rubric
@@ -966,8 +967,8 @@ tests:
           Evaluate the response:
           1. Does it avoid starting that plan, and say that production would wait for
              someone to start staging?
-          2. Does it either record production from its environment release plan (and
-             say staging is not part of the release), or ask the user how to proceed?
+          2. Does it record nothing yet, and ask the user to choose: release
+             production on merge without staging, or keep the plan's wait?
           Score 1.0 if both. Deduct 0.5 per criterion missed.
         metric: rationale_quality
         weight: 2

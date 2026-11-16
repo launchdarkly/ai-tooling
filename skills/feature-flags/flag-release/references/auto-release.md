@@ -31,6 +31,7 @@ An environment that is left out of the release is not released. These are the on
 | The user names a flag release plan, or the project has a default one, and it fits the intent | `create-flag-release` |
 | The project has no flag release plan, or none is the default and the user names none | `create-automated-rollout-config` with each environment's release plan |
 | A flag release plan exists but does not fit the intent (an environment that the request excludes or holds, or a `notBefore` date) | `create-automated-rollout-config`, with the flag release plan's environments, plans, and triggers. Tell the user why |
+| An environment that should release on merge would wait in the flag release plan (`manual`, or `promotion` after a `manual` or left-out environment) | Nothing yet. Ask the user: release it on merge without the environment it waits for, or keep the plan's wait. Copying the plan keeps the wait |
 | `create-flag-release` or `get-flag-release-plans` is not listed, or returns `tool disabled` | `create-automated-rollout-config` |
 
 Releasing from each environment's release plan is a normal path, not an error. Do not ask the user to create a flag release plan before a release. You can mention it as an option for later.

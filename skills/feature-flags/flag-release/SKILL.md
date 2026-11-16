@@ -72,6 +72,8 @@ Full release model, triggers, precedence, previewing, prerequisites, metric adeq
    - A `notBefore` date fits no flag release plan. LaunchDarkly cannot enforce the date.
 
    If the plan does not fit, start from each environment's release plan instead, and tell the user why (which environment the plan would release, or which date it cannot hold). Copy the flag release plan's environments, plans, and triggers, as [references/auto-release.md](references/auto-release.md#release-with-environment-release-plans) says.
+
+   An environment that should release on merge but would wait (`manual`, or `promotion` after a `manual` or left-out environment) is different: copying the plan keeps the wait. Record nothing and ask the user to choose: release that environment on merge without the environment it waits for (the first recorded entry then starts on `flag_eval`), or keep the plan's wait.
 6. **Present the per-environment plan.** Say how the release starts (the flag release plan's name, or "each environment's release plan"). For each environment, state one of these, with the reason:
    - It releases immediately, and when (its trigger).
    - It releases with an environment release plan. Name the plan, its steps, and its metrics.
@@ -80,7 +82,7 @@ Full release model, triggers, precedence, previewing, prerequisites, metric adeq
 
    Wait for confirmation; revise on feedback.
 
-   If the user or harness already asked you to start the release and gave the intent for the environments, that request is the confirmation. Show the plan and go on to the implement phase in the same turn. An environment whose intent the user leaves unclear ("not sure yet") is HOLD.
+   If the user or harness already asked you to start the release and gave the intent for the environments, that request is the confirmation. Show the plan and go on to the implement phase in the same turn. An environment whose intent the user leaves unclear ("not sure yet") is HOLD. Stop for an answer when an environment that should release on merge would wait in the plan.
 
 ## Implement Phase
 
@@ -106,6 +108,7 @@ Only after confirmation (or a request to start the release that already states t
 | The project has no flag release plan (an empty list) | Start from each environment's release plan. Do not ask the user to create a flag release plan first. |
 | The user asks for the default flag release plan, and no plan is the default | Ask which plan to use, or offer to start from each environment's release plan. Never pick the first listed plan. |
 | The flag release plan does not fit the intent (an environment that the request excludes or holds, or a `notBefore` date) | Start from each environment's release plan, with the flag release plan's environments, plans, and triggers. Tell the user why. |
+| An environment that should release on merge would wait in the flag release plan (`manual`, or `promotion` after a `manual` or left-out environment) | Record nothing and ask: release it on merge without the environment it waits for, or keep the plan's wait. Copying the plan keeps the wait. |
 | `create-flag-release` or `get-flag-release-plans` is not listed, or returns `tool disabled` | Start from each environment's release plan. |
 | An environment release plan has more than one phase, or targets an audience | A release starts the plan's one phase on the flag's default rule, for everyone, and a flag release plan accepts only plans with exactly one phase. Tell the user the plan cannot release there; offer another plan, a hold, or a change to the plan. |
 | User wants to hold an environment (no date) | Leave it out of the release, or use a flag release plan that makes it `manual`. Report it as held with the reason. |
