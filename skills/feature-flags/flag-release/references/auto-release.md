@@ -78,15 +78,29 @@ The guarding flag must already exist. A boolean flag releases from `false` to `t
 
 `create-flag-release` and `get-flag-release-plans` are preview tools on the hosted MCP server. When `create-flag-release` is not listed, or a call returns `tool disabled`, record the release with `create-automated-rollout-config`. Use it also when the project has no flag release plan and the user chooses each environment's default release plan. Do not say the account lacks flag releases.
 
-- Only when `get-flag-release-plans` returned an empty list: ask which environments the release covers and in what order (list them with `get-projects`). Leave out every environment that the user does not name. A named environment still goes through RELEASE and HOLD.
-- With a flag release plan, copy each RELEASE environment from it. An `environmentReleasePlanKey` becomes `releaseType: "policy"` with that key, and `isImmediate` becomes an immediate environment. Do not send `releaseType: "override"`, and do not copy the plan's steps or metrics.
-- Sort the environments into RELEASE and HOLD as above. List each RELEASE environment once, in release order, and leave every HOLD environment out of `environments`: that is the only way to hold one. Do not add a hold or date field.
-- A `notBefore` date is a HOLD, also when it is the only environment. If every environment is held, do not call `create-automated-rollout-config`. Report each environment as held, with its date.
-- An environment with an environment release plan: `{ "environmentKey": "production", "releaseType": "policy", "environmentReleasePlanKey": "guarded-prod" }`. Leave out `environmentReleasePlanKey` to use the environment's default release plan. Without `get-flag-release-plans`, read each environment's plans with `get-environment-release-plans` and use the default, or the plan the user names. An environment with no default release plan and no named plan is held. Do not pick another plan for it, also when it is the only plan: use a plan that is not the default only when the user or the flag release plan names it. Say that auto-release cannot run in that environment until it has a default release plan, and point to `launchdarkly-release-plans` to set one.
-- An immediate environment: `{ "environmentKey": "staging" }`, with no `releaseType`.
-- A `manual` environment in the flag release plan is held.
-- Always send `executionMode: "sequential"`, and `repoFullName` and `prNumber` for the PR. LaunchDarkly accepts no other execution mode.
-- Show any warnings to the user as they are. `missing_default_release_plan` means the environment has no default release plan: hold it or name a plan. `incomplete_release_plan` and `release_plan_unchecked` mean the plan could not start or was not checked.
+Do these steps in order:
+
+1. **Find the environments.**
+   - A flag release plan was read: use its environments, in its order.
+   - `get-flag-release-plans` is not listed: use the environments that the user names, in the order given.
+   - `get-flag-release-plans` returned an empty list: ask which environments the release covers and in what order (list them with `get-projects`).
+
+   Leave out every environment that the user does not name and the flag release plan does not list.
+2. **Sort each environment into RELEASE or HOLD.** It is HOLD when one of these is true:
+   - The user holds it, or gives a `notBefore` date for it. This applies also when it is the only environment.
+   - The user's intent for it is unclear ("not sure yet", "not confirmed").
+   - The flag release plan gives it `triggerType: "manual"`.
+   - It has no default release plan, and neither the user nor the flag release plan names a plan for it. Do not pick another plan for it, also when it is the only plan. Say that auto-release cannot run there until it has a default release plan, and point to `launchdarkly-release-plans` to set one.
+
+   Every other environment is RELEASE.
+3. **If every environment is HOLD, record nothing.** Do not call `create-automated-rollout-config`. Report each environment as held, with its date or reason.
+4. **Write one entry for each RELEASE environment**, in release order. Leave every HOLD environment out of `environments`: that is the only way to hold one. Do not add a hold or date field. Each entry has one of these two shapes, and no other field:
+   - An immediate environment (`isImmediate` in the flag release plan, or the user asks for an immediate release): `{ "environmentKey": "staging" }`, with no `releaseType`.
+   - An environment with an environment release plan: `{ "environmentKey": "production", "releaseType": "policy", "environmentReleasePlanKey": "guarded-prod" }`. Use the plan that the user or the flag release plan names. Leave out `environmentReleasePlanKey` to use the environment's default release plan. Without a flag release plan, read each environment's plans with `get-environment-release-plans` to find the default.
+
+   Never send `releaseType: "override"`, and never copy a plan's steps, stages, or metrics into the call. The plans stay the source.
+5. **Call `create-automated-rollout-config` in the same turn** when the user asked to start or record the release. Send `executionMode: "sequential"` (LaunchDarkly accepts no other execution mode), and `repoFullName` and `prNumber` for the PR.
+6. **Show any warnings to the user as they are.** `missing_default_release_plan` means the environment has no default release plan: hold it or name a plan. `incomplete_release_plan` and `release_plan_unchecked` mean the plan could not start or was not checked.
 
 ## Coupling to a parent flag (prerequisites)
 
