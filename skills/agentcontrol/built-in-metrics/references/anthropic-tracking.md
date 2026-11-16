@@ -47,7 +47,7 @@ const result = await config({
 }).invoke(userInput, context);
 ```
 
-`create_claude_agents_handler()` / `createClaudeAgentsHandler()` runs without Claude Code's built-in tools unless the variation attaches a `NativeTool`, and loads no host settings (`setting_sources=[]`). If the app reaches Bedrock, Vertex, or a gateway through `~/.claude/settings.json`, pass `setting_sources=["user"]` or set the environment variables.
+`create_claude_agents_handler()` / `createClaudeAgentsHandler()` runs without Claude Code's built-in tools unless the variation attaches a `NativeTool`, and loads no host settings (`setting_sources=[]` in Python, `settingSources: []` in Node.js). If the app reaches Bedrock, Vertex, or a gateway through `~/.claude/settings.json`, pass `setting_sources=["user"]` / `settingSources: ['user']` or set the environment variables.
 
 ## Tier 3 — Custom handler
 
