@@ -1,14 +1,16 @@
 ---
 name: legacy-sdk-migrate
-description: "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server` plus handler packages). Use when code calls `LDAIClient`, `initAi`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade between LaunchDarkly AI SDKs. For apps with hardcoded LLM prompts that aren't on LaunchDarkly yet, use `migrate` instead."
+description: "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`, Go `go-server-sdk-ai/ldai` or `go-server-sdk/ldai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server`, `github.com/launchdarkly/go-ai-sdk` plus handlers). Use when code calls `LDAIClient`, `initAi`, `ldai.NewClient`, `CompletionConfig`, `AgentConfig`, `AgentGraph`, `CreateTracker`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade between LaunchDarkly AI SDKs. For apps with hardcoded LLM prompts that aren't on LaunchDarkly yet, use `migrate` instead."
 license: Apache-2.0
-compatibility: Python 3.12+ (`launchdarkly-ai-server` 1.0.0+ with `launchdarkly-server-sdk`) or Node.js (`@launchdarkly/ai-node` 1.0.0+). No LaunchDarkly MCP tools needed; the AgentControl configs already exist.
+compatibility: Python 3.12+ (`launchdarkly-ai-server` 1.0.0+ with `launchdarkly-server-sdk`), Node.js (`@launchdarkly/ai-node` 1.0.0+), or Go 1.26+ (`github.com/launchdarkly/go-ai-sdk` v1.0.0). No LaunchDarkly MCP tools needed; the AgentControl configs already exist.
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Migrate from the legacy AI SDKs
+
+**Go routing:** This skill also migrates `github.com/launchdarkly/go-server-sdk-ai/ldai` and older `github.com/launchdarkly/go-server-sdk/ldai` apps to `github.com/launchdarkly/go-ai-sdk` v1.0.0 (Go 1.26+). Read [references/go-api-mapping.md](references/go-api-mapping.md) before editing Go. Follow its assess/execute instructions instead of the Python/Node APIs in Steps 2–3, Core Principles, and Edge Cases below. Keep the same inventory/approval gates and verification workflow. Go uses typed errors, explicit registries, `context.Context` and `ldcontext.Context`, not Python/Node signatures.
 
 You're using a skill that will guide you through moving an application from the legacy LaunchDarkly AI SDKs to the current handler-based AI SDKs. Your job is to inventory every legacy call site, map each one to its current equivalent, rewrite the code, and verify that the app still behaves the same, including when LaunchDarkly is unreachable.
 
@@ -40,6 +42,7 @@ Find every legacy usage. Search for these patterns and record file and line for 
 
 | Language | Imports and packages | Calls |
 |----------|----------------------|-------|
+| Go | `github.com/launchdarkly/go-server-sdk-ai/ldai` (including `/judge`, `/datamodel`), older `github.com/launchdarkly/go-server-sdk/ldai`; inspect `go.mod`, `go.sum`, and aliased imports | `NewClient`, `Config`, `CompletionConfig`, `CompletionConfigTemplate`, `AgentConfig`, `AgentConfigTemplate`, `AgentConfigs`, `JudgeConfig`, `JudgeConfigTemplate`, `AgentGraph`, `CreateTracker`, `CreateGraphTracker`, `GraphTracker`, `TrackMetricsOf`, `TrackRequest`, `TrackDurationOf`, `TrackDuration`, `TrackTokens`, `TrackUsage`, `TrackSuccess`, `TrackError`, `TrackTimeToFirstToken`, `TrackFeedback`, `TrackToolCall`, `TrackToolCalls`, `TrackJudgeResponse`, `ResumptionToken`, `TrackerFromResumptionToken`, `TrackerGraphFromResumptionToken`, `judge.New`, `Enabled`, `Messages`, `ModelName` |
 | Python | `launchdarkly-server-sdk-ai`, `launchdarkly-server-sdk-ai-openai`, `launchdarkly-server-sdk-ai-langchain`; `from ldai`, `from ldai_openai`, `from ldai_langchain` | `LDAIClient(`, `completion_config(`, `agent_config(`, `agent_configs(`, `judge_config(`, `create_judge(`, `create_model(`, `create_agent(`, `agent_graph(`, `create_agent_graph(`, `create_tracker(`, `track_metrics_of`, `track_duration`, `track_tokens`, `track_success`, `track_error`, `track_feedback`, `track_tool_call`, `track_judge_result`, `FeedbackKind`, `AICompletionConfigDefault`, `AIAgentConfigDefault`, `get_ai_metrics_from_response` |
 | Node.js | `@launchdarkly/server-sdk-ai`, `@launchdarkly/server-sdk-ai-openai`, `@launchdarkly/server-sdk-ai-langchain`, `@launchdarkly/server-sdk-ai-vercel` | `initAi(`, `completionConfig(`, `agentConfig(`, `agentConfigs(`, `judgeConfig(`, `createJudge(`, `createModel(`, `createAgent(`, `agentGraph(`, `createTracker(`, `.tracker`, `trackMetricsOf`, `trackStreamMetricsOf`, `trackDuration`, `trackTokens`, `trackSuccess`, `trackError`, `trackFeedback`, `trackToolCall`, `trackToolCalls`, `trackJudgeResult`, `LDFeedbackKind`, `getAIMetricsFromResponse`, `getAIMetricsFromStream`, `createLangChainModel` |
 
@@ -103,7 +106,7 @@ Work one call site at a time. Full code for each step is in [references/api-mapp
 
 ### Step 4: Verify
 
-1. **No legacy references remain:** re-run the Step 1 search. Expect zero hits for `ldai`, `server-sdk-ai`, `create_tracker`, `createTracker`, `track_metrics_of`, and `trackMetricsOf`.
+1. **No legacy references remain:** re-run the Step 1 search. Expect zero hits for `ldai`, `server-sdk-ai`, `create_tracker`, `createTracker`, `track_metrics_of`, and `trackMetricsOf`. In Go, check imports and receivers: names such as `Config`, `Enabled`, `Track`, and `AgentGraph` also exist in the current SDK and must not be banned by name alone (`aiserver.Graph()` returns `*aiserver.AgentGraph`).
 2. **Build and tests pass:** run the project's type check, linter, and test suite. Update mocks that patched `LDAIClient` / `initAi` to patch `config` or the convenience function instead.
 3. **Happy path:** with `LD_SDK_KEY` set, run each migrated call and confirm it returns a response from the provider the variation names.
 4. **Fallback path:** with targeting off for the config (or an invalid `LD_SDK_KEY`), confirm the app returns its fallback instead of crashing.
@@ -138,6 +141,7 @@ Work one call site at a time. Full code for each step is in [references/api-mapp
 
 ## References
 
+- [references/go-api-mapping.md](references/go-api-mapping.md): Go package migration, completion, tools, registries, errors, streaming, feedback, judges, and graphs, verified against release tags
 - [references/api-mapping.md](references/api-mapping.md): before/after code for initialization, completion calls, agent mode and tools, registries, streaming, history, judges, and graphs, in Python and Node.js
 - [Migrate from the legacy AI SDKs](https://launchdarkly.com/docs/sdk/ai/migration)
 - [Python AI SDK reference](https://launchdarkly.com/docs/sdk/ai/python) and [Node.js (server-side) AI SDK reference](https://launchdarkly.com/docs/sdk/ai/node-js)

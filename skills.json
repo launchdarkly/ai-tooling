@@ -110,11 +110,11 @@
     },
     {
       "name": "built-in-metrics",
-      "description": "Instrument an existing codebase with LaunchDarkly config tracking. Walks the four-tier ladder (managed runner \u2192 provider package \u2192 custom extractor + trackMetricsOf \u2192 raw manual) and picks the lowest-ceremony option that still captures duration, tokens, and success/error.",
+      "description": "Instrument an existing codebase so LaunchDarkly records config metrics (duration, tokens, success/error, tool calls). Walks the ladder (convenience function \u2192 config() with a handler package \u2192 custom handler \u2192 manual track()) and picks the lowest-ceremony option that still captures what the Monitoring tab needs.",
       "path": "skills/agentcontrol/built-in-metrics",
-      "version": "1.0.0-experimental",
+      "version": "2.0.0-experimental",
       "license": "Apache-2.0",
-      "compatibility": "Requires the LaunchDarkly server-side AI SDK (`launchdarkly-server-sdk-ai>=0.20.0` for Python or `@launchdarkly/server-sdk-ai>=0.20.0` for Node) and an existing config."
+      "compatibility": "Requires `launchdarkly-ai-server` 1.0.0+ with `launchdarkly-server-sdk` (Python, `pip install \"launchdarkly-ai-server[ld]\"`) or `@launchdarkly/ai-node` 1.0.0+ (Node.js), a handler package for your provider, and an existing config."
     },
     {
       "name": "configs-create",
@@ -521,11 +521,11 @@
     },
     {
       "name": "legacy-sdk-migrate",
-      "description": "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server` plus handler packages). Use when code calls `LDAIClient`, `initAi`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade between LaunchDarkly AI SDKs. For apps with hardcoded LLM prompts that aren't on LaunchDarkly yet, use `migrate` instead.",
+      "description": "Migrate an app from the legacy LaunchDarkly AI SDKs (Python `launchdarkly-server-sdk-ai` / `ldai`, Node.js `@launchdarkly/server-sdk-ai`, Go `go-server-sdk-ai/ldai` or `go-server-sdk/ldai`) to the current handler-based AI SDKs (`launchdarkly-ai-server`, `@launchdarkly/ai-node` / `@launchdarkly/ai-server`, `github.com/launchdarkly/go-ai-sdk` plus handlers). Use when code calls `LDAIClient`, `initAi`, `ldai.NewClient`, `CompletionConfig`, `AgentConfig`, `AgentGraph`, `CreateTracker`, `completion_config` / `completionConfig`, `agent_config` / `agentConfig`, `agent_configs`, `create_tracker` / `trackMetricsOf`, `create_judge`, `create_model`, or `agent_graph`, or when the user asks to upgrade between LaunchDarkly AI SDKs. For apps with hardcoded LLM prompts that aren't on LaunchDarkly yet, use `migrate` instead.",
       "path": "skills/agentcontrol/legacy-sdk-migrate",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "Apache-2.0",
-      "compatibility": "Python 3.12+ (`launchdarkly-ai-server` 1.0.0+ with `launchdarkly-server-sdk`) or Node.js (`@launchdarkly/ai-node` 1.0.0+). No LaunchDarkly MCP tools needed; the AgentControl configs already exist."
+      "compatibility": "Python 3.12+ (`launchdarkly-ai-server` 1.0.0+ with `launchdarkly-server-sdk`), Node.js (`@launchdarkly/ai-node` 1.0.0+), or Go 1.26+ (`github.com/launchdarkly/go-ai-sdk` v1.0.0). No LaunchDarkly MCP tools needed; the AgentControl configs already exist."
     },
     {
       "name": "mcp-configure",
