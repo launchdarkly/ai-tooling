@@ -825,11 +825,12 @@ tests:
   # ==================================================================
   # FALLBACK, TRIGGERS — the flag release plan gives staging a webhook
   # trigger, qa a manual trigger, and production promotion after qa.
-  # The fallback copies webhook into staging's entry (a left-out trigger
-  # is flag_eval), holds manual qa, and holds production, which waits on
-  # qa.
+  # The fallback copies each trigger into its entry (a left-out trigger
+  # is flag_eval), so staging waits for the deploy, qa waits for a
+  # person, and production waits on qa. Leaving qa out would drop the
+  # gate, and production would follow staging.
   # ==================================================================
-  - description: "Flag release, tool disabled: keeps a webhook trigger and holds promotion after a manual environment"
+  - description: "Flag release, tool disabled: keeps the webhook, manual, and promotion triggers"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -869,10 +870,14 @@ tests:
         value: |
           const traj = output.trajectory || [];
           const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
-          const keys = rec ? ((rec.arguments && rec.arguments.environments) || []).map(e => e.environmentKey) : [];
-          const pass = !keys.includes('qa') && !keys.includes('production');
-          return { pass, score: pass ? 1 : 0, reason: `recorded envs=[${keys.join(', ')}] (qa and production must be absent)` };
-        metric: held_after_manual
+          const envs = rec ? ((rec.arguments && rec.arguments.environments) || []) : [];
+          const byKey = Object.fromEntries(envs.map(e => [e.environmentKey, e]));
+          const order = envs.map(e => e.environmentKey);
+          const pass = Boolean(byKey.qa) && byKey.qa.triggerType === 'manual'
+            && Boolean(byKey.production) && byKey.production.triggerType === 'promotion'
+            && order.indexOf('qa') < order.indexOf('production');
+          return { pass, score: pass ? 1 : 0, reason: `recorded ${JSON.stringify(envs)} (want qa with triggerType manual, then production with promotion)` };
+        metric: kept_manual_gate
         weight: 4
 
       - type: llm-rubric
@@ -884,8 +889,8 @@ tests:
           finishes (promotion).
           Evaluate the response:
           1. Does it record dev and staging, with staging waiting for the deploy?
-          2. Does it say that qa waits for a person and production waits on qa, so
-             neither releases on merge?
+          2. Does it record qa and production too, and say that qa waits for a person
+             and production starts only after qa finishes?
           3. Did it avoid turning the flag on by hand?
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
