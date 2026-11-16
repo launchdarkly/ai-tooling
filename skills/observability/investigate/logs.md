@@ -15,7 +15,7 @@ Logs are the best verbatim evidence and the worst overview. For "how many" and "
 
 `search-log-patterns` clusters the matching logs into templates with ids and numbers masked, each with a count and the newest example. One call replaces paging hundreds of lines.
 
-- `query: "level=error environment=<env> service_name=<svc>"` (the level key is `level`, not `severity`; this tool has no `environments` or `services` arguments), plus the slice filter (`host.name=<host>`).
+- `environments` and `services` with the exact values from `get-keys` (step 1 in `SKILL.md`), and `query: "level=error"` (the level key is `level`, not `severity`) plus the slice filter (`host.name=<host>`). An older server rejects `environments` and `services` here: put `environment=<env> service_name=<svc>` in `query` instead.
 - `patternKeys: ["error.message"]` templates an attribute instead of the message; adding `service_name` splits each pattern by service, which shows a failure shared by every service on one host.
 - It scans at most the newest 100,000 matching logs; when `truncated` is true, narrow the window or the filter.
 - One root error can appear as several templates with different wrapper prefixes. Group them by the innermost cause before you count.
@@ -37,7 +37,7 @@ Logs are the best verbatim evidence and the worst overview. For "how many" and "
 ## Typical patterns
 
 1. **Logs of one request:** `query: "trace_id=<id>"`, a window of a few minutes around the span.
-2. **Logs of one host during the incident:** `search-log-patterns` with `host.name=<host> level=error`, then `search-logs` for two or three verbatim examples.
+2. **Logs of one host during the incident:** `search-log-patterns` with `environments`, `services` and `host.name=<host> level=error`, then `search-logs` for two or three verbatim examples.
 3. **Logs of one session:** `query: "secure_session_id=<id>"`, `startDate` at the session's `created_at`, `endDate` three hours later.
 4. **Did this start with a deploy?** Aggregate the message by the version key (from `get-changes`) and compare versions' shares.
 

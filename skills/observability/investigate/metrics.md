@@ -7,7 +7,7 @@ Load this file when you need counts, trends, top-N, ratios or comparisons across
 - `productType` (required): `traces`, `logs`, `errors`, `sessions`, `metrics`, `paevents` or `events`.
 - `startDate` (required) and `endDate`: ISO 8601 with a timezone. `compareTo` needs absolute dates.
 - `query`: the shared filter grammar.
-- `environments` and `services`: pass both on traces, logs and metrics, with the exact values from `get-keys` (`key: "environment"`, `query: "service_name=<svc>"`, for the same `productType`). Name the environment the question is about; listing every one reads as much as listing none, and leaving it out is right only when the question spans all environments. Metrics often carry other `service_name` and `environment` values than spans.
+- `environments` and `services`: pass both on traces, logs and metrics, with the exact values from `get-keys` (`key: "environment"`, `query: "service_name=<svc>"`, for the same `productType`). Name the environment the question is about; listing every environment does not narrow the read, and leaving it out is right only when the question spans all environments. Metrics often carry other `service_name` and `environment` values than spans.
 - Aggregation: `functionType` with `column`, or `expressions` for several at once. `Count` needs no column; trace `duration` is in nanoseconds; for metrics the column is `value`.
 - `bucketCount`: defaults to 10 (a time series). Set `1` for one total per group, the number of hours or days for hourly or daily counts.
 - `groupBy`: one key or an array for a composite group; `groupByLimit` up to 100 (default 5); `rankBy` picks the top groups (rank by `Count` when you report a percentile); `minCount` skips tiny groups.
