@@ -209,7 +209,7 @@
     },
     {
       "name": "flag-release",
-      "description": "Start the release of an existing LaunchDarkly flag that guards a pull request's change, from the project's flag release plan, so the change releases safely after the PR merges. Honors a stated release intent (release now / hold / notBefore / segment / prerequisite): it never starts a release that would release a held environment. Use as the release step once the guarding flag exists and its code is wired. Keywords: start release, flag release, flag release plan, environment release plan, guarded rollout, progressive rollout, release intent, hold release, dark launch.",
+      "description": "Start the release of an existing LaunchDarkly flag that guards a pull request's change, from the project's flag release plan, or from each environment's release plan when the project has none, so the change releases safely after the PR merges. Honors a stated release intent (release now / hold / notBefore / segment / prerequisite): it never starts a release that would release a held environment. Use as the release step once the guarding flag exists and its code is wired. Keywords: start release, flag release, flag release plan, environment release plan, guarded rollout, progressive rollout, release intent, hold release, dark launch.",
       "path": "skills/feature-flags/flag-release",
       "version": "0.3.0",
       "license": "Apache-2.0",

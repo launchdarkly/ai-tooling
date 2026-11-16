@@ -3,7 +3,7 @@
 An Agent Skill for both kinds of LaunchDarkly release plan:
 
 - **Environment release plans**: how a flag releases in one environment (phases, rollout steps, holds, and rollback metrics). Each environment has a default plan.
-- **Flag release plans**: a project's environments in release order, each with its environment release plan. Release Autopilot proposes releases on pull requests from these plans. The `flag-release` skill also starts a flag's release from them, and starts nothing without one.
+- **Flag release plans**: a project's environments in release order, each with its environment release plan. Release Autopilot proposes releases on pull requests from these plans. The `flag-release` skill also starts a flag's release from them, and from each environment's release plan when the project has none.
 
 ## Overview
 

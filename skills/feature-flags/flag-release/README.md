@@ -1,15 +1,14 @@
 # Flag Release Skill
 
-An Agent Skill that starts the release of an **existing** LaunchDarkly flag guarding a pull request's change, from the project's flag release plan, so the change releases safely after the PR merges.
+An Agent Skill that starts the release of an **existing** LaunchDarkly flag guarding a pull request's change, from the project's flag release plan, or from each environment's release plan when the project has none, so the change releases safely after the PR merges.
 
 ## Overview
 
 This skill teaches agents how to:
 - Confirm the guarding flag exists and is OFF
-- Pick the flag release plan with `get-flag-release-plans` (the one the user names, or the project's default), and preview each environment release plan it names with `get-environment-release-plans` (progressive or guarded)
-- Capture the human's **release intent** (release on merge / hold / `notBefore` / segment / prerequisite) and check that the plan honors it: a held environment must be left out of the plan or wait for a person (`manual`)
-- Start the release with `create-flag-release`, linked to the PR
-- Fall back to `create-automated-rollout-config` (with `environmentReleasePlanKey`) when the server does not have `create-flag-release`
+- Choose how to start the release: from the flag release plan that the user names or the project's default (`get-flag-release-plans`), or else from each environment's release plan. Preview each environment release plan with `get-environment-release-plans` (progressive or guarded)
+- Capture the human's **release intent** (release on merge / hold / `notBefore` / segment / prerequisite) and honor it: a held environment is left out of the release or waits for a person (`manual`)
+- Start the release linked to the PR: with `create-flag-release` from a flag release plan, or with `create-automated-rollout-config` from each environment's release plan (a project with no flag release plan, a request that the flag release plan cannot express, or a server without `create-flag-release`)
 
 It operates entirely through the LaunchDarkly MCP tools: it never creates flags or edits code. It's the **release step** of the PR flag workflow — after [`launchdarkly-flag-create`](../launchdarkly-flag-create/) has created and wired the flag.
 

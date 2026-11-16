@@ -1,6 +1,6 @@
 {
   "name": "flag-release",
-  "description": "Start the release of an existing LaunchDarkly flag guarding a PR from the project's flag release plan, honoring release intent",
+  "description": "Start the release of an existing LaunchDarkly flag guarding a PR from the project's flag release plan or each environment's release plan, honoring release intent",
   "version": "0.3.0",
   "author": "LaunchDarkly",
   "repository": "https://github.com/launchdarkly/ai-tooling",
