@@ -227,7 +227,7 @@ The Strands TypeScript SDK ships `BedrockModel` and `OpenAIModel` only, so Anthr
 
 ### Custom ReAct loop
 
-If the loop calls OpenAI or Anthropic and only exists to dispatch tools, **delete it** and use the `openai-messages` or `claude-messages` handler package. It runs the tool loop itself (up to 10 model calls per `invoke()`), calls your `tool_handlers`, and records the whole turn.
+If the loop calls OpenAI or Anthropic and only exists to dispatch tools, **delete it** and use the `openai-messages` or `claude-messages` handler package. It runs the tool loop itself (up to 10 model calls per `invoke()`), calls your `tool_handlers`, and records the whole turn. Before you delete it, check three things: every tool the loop calls is attached to the variation and has a matching key in `tool_handlers` (the handler offers the model only those, so a missing one silently disappears), the loop never needs more than 10 steps, and the variation's model matches what the loop hardcoded. If any of these fails, keep the loop as a custom handler instead.
 
 If the loop does more (custom stopping rules, a provider without a handler package), move it into a custom handler unchanged. Call the wrapped `tool_handlers[name](args)` for each tool call, accumulate usage across iterations, and return the sum:
 

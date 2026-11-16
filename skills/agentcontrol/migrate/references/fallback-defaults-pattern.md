@@ -82,10 +82,13 @@ When a disabled variation means "turn this feature off," the fallback shouldn't 
 
 ```python
 async def summarize(user_id: str, document: str) -> str | None:
+    context = {"kind": "user", "key": user_id}
     try:
-        result = await summaries.invoke(document, {"kind": "user", "key": user_id})
+        result = await summaries.invoke(document, context)
         return result.response
     except RuntimeError:
+        if (await inspect_config("summaries", context))["enabled"]:
+            raise  # The config was served, so the run itself failed
         return None  # The UI hides the summary panel
 ```
 
@@ -112,7 +115,7 @@ const state = await inspectConfig('chat-assistant', context);
 if (!state.enabled) return renderWithoutAssistant();
 ```
 
-Both functions are async. `inspect_config` is an extra evaluation, so don't call it in front of every `invoke()`; the `except RuntimeError` branch already covers the same cases.
+Both functions are async. `inspect_config` is an extra evaluation, so don't call it in front of every `invoke()`. The `except RuntimeError` branch calls it only after a failure.
 
 ## Template placeholders
 
@@ -126,6 +129,8 @@ variables = {"system_time": datetime.now().isoformat()}
 try:
     result = await chat.invoke(user_input, context, variables)
 except RuntimeError:
+    if (await inspect_config("chat-assistant", context))["enabled"]:
+        raise
     return answer_hardcoded(user_input, **variables)  # still uses SYSTEM_PROMPT.format(...)
 ```
 
@@ -133,7 +138,7 @@ Pass the same values to both paths, so a variable added to the served prompt doe
 
 ## Critical rules
 
-1. **Catch `RuntimeError` around every `invoke()` and `stream()` call on a request path.** An uncaught raise turns a LaunchDarkly configuration gap into an outage.
+1. **Catch `RuntimeError` around every `invoke()` and `stream()` call on a request path, and re-raise when `inspect_config` reports the config as enabled.** An uncaught raise turns a LaunchDarkly configuration gap into an outage, and a fallback after a failed run sends the request a second time.
 2. **Don't delete the original call** once LaunchDarkly is wired up. It's the fallback.
 3. **Don't swallow provider errors in the fallback branch.** A failing model call should surface as an error and is recorded as one by the SDK.
 4. **Don't raise at import time for a missing `LD_SDK_KEY`.** Log a warning and let the fallback serve requests.
