@@ -324,5 +324,516 @@
         }
       }
     }
+  },
+  {
+    "name": "update-flag-release-plan",
+    "description": "Update a flag release plan's name, description, maintainer, executionMode, applicationKeys, default, or environments. Beta API. Send only the fields to change; omitted fields keep their current values, including default. environments and applicationKeys are each replaced wholesale when provided, so include every entry to keep. default: true makes this plan the project's default and demotes the current one; default: false unsets this plan as the default and keeps the plan, so the project has no default until another plan is set. To delete a plan, use delete-flag-release-plan. The update is checked against the version that was read, so a concurrent edit returns an error instead of being overwritten; retry to apply it to the current plan. Flag releases already started from the plan are not affected. RULES: 1-50 environments, each listed once, in release order. Each environment needs environmentKey and triggerType, plus environmentReleasePlanKey unless isImmediate is true (never both). The environment release plan must already exist in that environment, be complete, and have exactly one phase; find one with get-environment-release-plans. triggerType: flag_eval starts when the flag is first evaluated there, webhook waits for a deploy signal, manual waits for a person, promotion starts when the previous environment finishes. The first environment cannot use promotion. executionMode is sequential: environments release in the listed order. At most 25 applicationKeys. A project holds at most 100 flag release plans and at most one default. Returns the plan as read back after the update.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "applicationKeys": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 25,
+          "type": "array"
+        },
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "default": {
+          "description": "Omit to keep the current value. true makes this the default and demotes the current default; false unsets this plan as the default and keeps the plan.",
+          "type": "boolean"
+        },
+        "description": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "environments": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "environmentKey": {
+                "type": "string"
+              },
+              "environmentReleasePlanKey": {
+                "description": "The environment release plan to run in this environment. Required unless isImmediate is true.",
+                "type": "string"
+              },
+              "isImmediate": {
+                "description": "true releases to everyone at once, with no environment release plan.",
+                "type": "boolean"
+              },
+              "triggerType": {
+                "enum": [
+                  "flag_eval",
+                  "webhook",
+                  "manual",
+                  "promotion"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "environmentKey",
+              "triggerType"
+            ],
+            "type": "object"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        },
+        "executionMode": {
+          "description": "Environments release in the listed order. sequential is the only mode, and the default.",
+          "enum": [
+            "sequential"
+          ],
+          "type": "string"
+        },
+        "flagReleasePlanKey": {
+          "type": "string"
+        },
+        "maintainer": {
+          "description": "A member ({kind: member, memberId}) or a team ({kind: team, teamKey}).",
+          "oneOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "member"
+                },
+                "memberId": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "memberId"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "team"
+                },
+                "teamKey": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "teamKey"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "name": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagReleasePlanKey",
+        "confirm"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "delete-flag-release-plan",
+    "description": "Permanently delete a flag release plan. Beta API. Flag releases already started from it keep running. Deleting the default plan leaves the project without a default. The key can be reused afterward.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "flagReleasePlanKey": {
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagReleasePlanKey",
+        "confirm"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "update-environment-release-plan",
+    "description": "Update an environment release plan's name, description, or progressive-release configuration. Beta API. Send only the fields to change; omitted fields keep their current values, including inside progressiveRelease, so a single field such as advancementMode or cleanupBehavior can be changed on its own without reading the plan first. progressiveRelease.phases and progressiveRelease.metrics are each replaced wholesale when provided, so include every phase or metric to keep. Editing a plan changes what releases started from it will do. progressiveRelease follows the same rules as in create-environment-release-plan. To change the environment's default plan, use update-default-environment-release-plan. The response lists the fields whose values changed and the plan as read back after the update.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "progressiveRelease": {
+          "additionalProperties": false,
+          "description": "Only the fields to change; omitted fields keep their current values. phases and metrics each replace the whole value when provided.",
+          "properties": {
+            "advancementMode": {
+              "enum": [
+                "manual",
+                "automatic"
+              ],
+              "type": "string"
+            },
+            "cleanupBehavior": {
+              "enum": [
+                "leave_rules_in_place",
+                "remove_rules_and_update_default_rule"
+              ],
+              "type": "string"
+            },
+            "metrics": {
+              "additionalProperties": {
+                "additionalProperties": false,
+                "properties": {
+                  "autoRollback": {
+                    "type": "boolean"
+                  },
+                  "isGroup": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "isGroup"
+                ],
+                "type": "object"
+              },
+              "type": "object"
+            },
+            "phases": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "clauses": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "attribute": {
+                          "type": "string"
+                        },
+                        "contextKind": {
+                          "type": "string"
+                        },
+                        "negate": {
+                          "type": "boolean"
+                        },
+                        "op": {
+                          "enum": [
+                            "in",
+                            "endsWith",
+                            "startsWith",
+                            "matches",
+                            "contains",
+                            "lessThan",
+                            "lessThanOrEqual",
+                            "greaterThan",
+                            "greaterThanOrEqual",
+                            "before",
+                            "after",
+                            "semVerEqual",
+                            "semVerLessThan",
+                            "semVerGreaterThan",
+                            "segmentMatch"
+                          ],
+                          "type": "string"
+                        },
+                        "values": {
+                          "items": {
+                            "maxLength": 1024
+                          },
+                          "maxItems": 25,
+                          "minItems": 1,
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "attribute",
+                        "op",
+                        "values"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 10,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "steps": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "allocation": {
+                          "maximum": 99000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "durationMillis": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "allocation",
+                        "durationMillis"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 10,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "clauses",
+                  "steps"
+                ],
+                "type": "object"
+              },
+              "maxItems": 10,
+              "minItems": 1,
+              "type": "array"
+            },
+            "randomizationUnit": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "releasePlanKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "releasePlanKey",
+        "confirm"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "delete-environment-release-plan",
+    "description": "Permanently delete an environment release plan. Beta API. Releases already started from it keep running, and its key can be reused afterward. Deleting the environment's default plan leaves the environment without a default. A plan that flag release plans still name cannot be deleted; the error names those plans. Point their environment at another plan or set isImmediate, or delete those plans, in LaunchDarkly or with update-flag-release-plan and delete-flag-release-plan when they are available; then delete this plan again. This check does not cover flag releases already running: an environment that a release has not reached yet looks this plan up by key when the release reaches it, and that environment fails if the plan is gone, so check for active releases first.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "environmentKey": {
+          "description": "Environment key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "releasePlanKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "environmentKey",
+        "releasePlanKey",
+        "confirm"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "name": "update-automated-rollout-config",
+    "description": "Modify an automated rollout config that has not started releasing. Pass only what changes: environments, repoFullName, prNumber, or prUrl; omitted fields stay as they are. environments REPLACES the whole ordered plan, so an environment you omit is removed: read the config with get-automated-rollout-config, edit that list, and send it back complete. An environment sent without triggerType keeps its stored trigger_type, including manual and promotion; a newly added one starts on flag_eval. Each environment takes the shape create-automated-rollout-config accepts: releaseType is override (default) or policy, never immediate, so an immediate release passes only environmentKey. The config must be active with an unmerged PR, and an environment is editable only while its status is \"pending\" and release_lifecycle_status is \"not_started\". Otherwise LaunchDarkly returns a conflict, which is terminal: do not retry. Returns updated and the config as stored.",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "configId": {
+          "description": "Id of the rollout config to modify.",
+          "type": "string"
+        },
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "environments": {
+          "description": "Complete replacement plan, in order. An environment you omit is removed.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "environmentKey": {
+                "description": "Environment key.",
+                "type": "string"
+              },
+              "environmentReleasePlanKey": {
+                "description": "Only with releaseType policy. Key of the environment release plan to release with instead of the environment's default plan; it must be a plan in this environment (see get-environment-release-plans). Omit to use the default plan.",
+                "minLength": 1,
+                "type": "string"
+              },
+              "override": {
+                "additionalProperties": false,
+                "description": "Inline rollout for releaseType override. Keys are camelCase exactly as named here (releaseMethod, rolloutContextKindKey, stages, metricKeys, metricGroupKeys, rollbackOnRegression), not the snake_case names get-automated-rollout-config returns. For an immediate release, omit override and releaseType and pass only environmentKey.",
+                "properties": {
+                  "metricGroupKeys": {
+                    "description": "Metric groups that gate a guarded rollout.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "metricKeys": {
+                    "description": "Metrics that gate a guarded rollout. Guarded needs metricKeys or metricGroupKeys.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "releaseMethod": {
+                    "description": "immediate turns the flag on and takes no stages or metrics; progressive ramps through stages; guarded ramps through stages gated on metrics.",
+                    "enum": [
+                      "immediate",
+                      "progressive",
+                      "guarded"
+                    ],
+                    "type": "string"
+                  },
+                  "rollbackOnRegression": {
+                    "description": "Roll back automatically when a guarded metric regresses.",
+                    "type": "boolean"
+                  },
+                  "rolloutContextKindKey": {
+                    "description": "Context kind the rollout allocates by.",
+                    "type": "string"
+                  },
+                  "stages": {
+                    "description": "Required for progressive and guarded. Allocations must be positive and strictly increasing. Guarded caps every stage at 50000 and promotes to 100% after the last stage, so do not add a 100000 stage; progressive usually ends at 100000. Each stage has exactly allocation and durationMillis, e.g. {\"allocation\":10000,\"durationMillis\":3600000} for 10% over one hour.",
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "allocation": {
+                          "description": "Thousandths of a percent: 100000 is 100%, 10000 is 10%, 1000 is 1%.",
+                          "type": "number"
+                        },
+                        "durationMillis": {
+                          "description": "Monitoring window in milliseconds. Must be greater than 0 for every stage, including the last.",
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "allocation",
+                        "durationMillis"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "releaseMethod"
+                ],
+                "type": "object"
+              },
+              "releaseType": {
+                "description": "Only override or policy. override (default) pins the rollout in override; policy waits for the PR merge and the flag's first evaluation, then releases with the environment's default release plan, or the plan environmentReleasePlanKey names; it releases on merge and never holds. Do not pass override with policy. immediate, progressive, and guarded are override.releaseMethod values.",
+                "enum": [
+                  "override",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              "triggerType": {
+                "description": "flag_eval starts after the flag is seen evaluating; webhook waits for a CI/CD deploy signal; manual waits for a person to start it; promotion starts when the previous environment finishes. The first environment cannot use promotion. On create, omitted means flag_eval; on update, omitted keeps the environment's stored trigger_type.",
+                "enum": [
+                  "flag_eval",
+                  "webhook",
+                  "manual",
+                  "promotion"
+                ],
+                "type": "string"
+              },
+              "waitBeforeReleaseMillis": {
+                "description": "Delay after the preceding environment finishes. Dropped from the first environment.",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "environmentKey"
+            ],
+            "type": "object"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
+        },
+        "prNumber": {
+          "description": "Pull request number.",
+          "type": "number"
+        },
+        "prUrl": {
+          "description": "Full pull request URL.",
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "type": "string"
+        },
+        "repoFullName": {
+          "description": "GitHub repository as owner/repo.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "configId",
+        "confirm"
+      ],
+      "type": "object"
+    }
   }
 ]

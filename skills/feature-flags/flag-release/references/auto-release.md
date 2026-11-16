@@ -36,7 +36,7 @@ Always read the flag release plan (`get-flag-release-plans` with `flagReleasePla
 ### No usable flag release plan
 
 - The project has no flag release plan (`get-flag-release-plans` returns an empty list): start nothing. Offer two paths. The user can create one with `launchdarkly-release-plans` (or [`launchdarkly-release-autopilot-onboarding`](../../../release-autopilot/launchdarkly-release-autopilot-onboarding/SKILL.md)). Or, if the user agrees, record the release from each environment's default release plan with the [fallback](#fallback-without-create-flag-release).
-- No listed plan fits the intent: start nothing. Name the environments that conflict, and point the user to `launchdarkly-release-plans` to create or change a plan that fits.
+- No listed plan fits the intent: start nothing. Name the environments that conflict, and offer the [fallback](#fallback-without-create-flag-release) or a plan that fits, which the user can create or change with `launchdarkly-release-plans`.
 
 **A guarded release is only as good as its metrics.** If an environment release plan is **guarded**, check that its metrics are relevant to this change: a guarded rollout with no meaningful metric guards nothing. Watch for the **net-new path** case (from `should-flag-change`'s output, if present): when the flag-off control renders nothing, feature-specific before/after comparisons are "one-armed" and can't detect a regression, so a guarded release must lean on existing global/service metrics. If the plan's metrics can't compare treatment vs. control for this change, say so and offer a plan with an immediate release for that environment (or point the user at metric setup) rather than presenting a guarded rollout that can't actually guard.
 
@@ -53,9 +53,11 @@ prerequisite), sits *above* every plan: if the user said "hold until August," yo
 whose plan releases that environment on its own, no matter what the plan would do.
 
 **Fail closed.** Intent is honored or explicitly held, never silently dropped. If you can't
-express a piece of intent through the plans (for example a `notBefore` date, which a `manual`
-environment can only wait for), hold the environment and report the date and reason, rather than
-starting a release that ignores the constraint. An unclear intent should *prevent* a release,
+express a piece of intent through the plans, start nothing and report the mismatch, rather than
+starting a release that ignores the constraint. A `notBefore` date is such a mismatch: LaunchDarkly
+cannot enforce the date, and anyone can start a `manual` environment before it. So is an environment
+that the request excludes but the plan releases, because `create-flag-release` cannot release a subset
+of the plan. Offer the fallback, which leaves the held environments out, or a flag release plan that fits. An unclear intent should *prevent* a release,
 never cause one.
 
 ## Starting the release

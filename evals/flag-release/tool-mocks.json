@@ -216,5 +216,33 @@
       "pr_state": "pending",
       "execution_mode": "sequential"
     }
+  },
+  "update-flag-release-plan": {
+    "projectKey": "{{projectKey}}",
+    "key": "{{flagReleasePlanKey}}"
+  },
+  "delete-flag-release-plan": {
+    "deleted": true,
+    "flagReleasePlanKey": "{{flagReleasePlanKey}}"
+  },
+  "update-environment-release-plan": {
+    "changed": [],
+    "plan": {
+      "key": "{{releasePlanKey}}",
+      "environmentKey": "{{environmentKey}}"
+    }
+  },
+  "delete-environment-release-plan": {
+    "deleted": true,
+    "releasePlanKey": "{{releasePlanKey}}"
+  },
+  "update-automated-rollout-config": {
+    "updated": true,
+    "config": {
+      "id": "{{configId}}",
+      "project_key": "{{projectKey}}",
+      "status": "active",
+      "pr_state": "pending"
+    }
   }
 }

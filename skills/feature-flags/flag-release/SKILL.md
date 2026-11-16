@@ -37,7 +37,10 @@ By the time this skill runs, the flag exists (OFF) and the guarding code is wire
 - `get-flag-release-plans` — list the project's flag release plans (`default: true` marks the default). Read one with `flagReleasePlanKey` for its environments, each with `triggerType` and `environmentReleasePlanKey` or `isImmediate`.
 - `get-environment-release-plans` — read each environment release plan that the flag release plan names (`environmentKey` and `releasePlanKey`).
 - `get-flags` — confirm the flag exists and is OFF before you start the release.
-- `get-projects` (with `projectKey`) — list the project's environments when you need their keys.
+- `get-projects` — list the projects when the user has not named one, or (with `projectKey`) list the project's environments when you need their keys.
+- `update-automated-rollout-config` — change a release that has not started releasing (read it with `get-automated-rollout-config` first, and send the whole `environments` list back). Use it when the user asks to change a release, instead of recording a second one.
+
+To edit or remove a flag release plan or an environment release plan (`update-` and `delete-` tools), use [`launchdarkly-release-plans`](../../release-autopilot/launchdarkly-release-plans/SKILL.md). This skill does not change plans.
 
 `create-flag-release` and `get-flag-release-plans` are preview tools on the hosted server. If `create-flag-release` is not listed, or a call returns `tool disabled`, use the fallback: [references/auto-release.md](references/auto-release.md#fallback-without-create-flag-release).
 
@@ -47,16 +50,19 @@ Full release model, triggers, precedence, previewing, a missing plan, prerequisi
 
 **Start nothing in this phase.**
 
-1. **Confirm the flag.** `get-flags` to verify the guarding flag exists and is OFF. If it doesn't exist yet, stop: creation is [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md)'s job.
+1. **Confirm the project and the flag.** If the user has not named a project, list the projects with `get-projects`. If exactly one exists, use it, and name it to the user for confirmation before any write. Otherwise ask which project. Do not guess. Then call `get-flags` to verify the guarding flag exists and is OFF. If it doesn't exist yet, stop: creation is [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md)'s job.
 2. **Pick the flag release plan.** Call `get-flag-release-plans` with `projectKey`. Use the plan the user names, or else the plan with `default: true`. Read it with `flagReleasePlanKey` to get its environments in order. If the list is empty, the project has no flag release plan. Start nothing. Tell the user, and offer two paths: create a flag release plan with [`launchdarkly-release-plans`](../../release-autopilot/launchdarkly-release-plans/SKILL.md), or record the release from each environment's default release plan with the [fallback](references/auto-release.md#fallback-without-create-flag-release). For the fallback, ask which environments the release covers and in what order, then capture the intent (step 4). Leave out every environment that the user does not name.
 3. **Preview each environment.** For each environment in the plan, find what it does: `isImmediate` serves the new variation to everyone at once; an `environmentReleasePlanKey` runs that environment release plan. Read each named plan with `get-environment-release-plans` (`projectKey`, `environmentKey`, `releasePlanKey`). A plan with metrics is **guarded** (a regression rolls it back). A plan without metrics is **progressive**. For a guarded plan, check that its metrics can compare this change (see the metric-adequacy note in [references/auto-release.md](references/auto-release.md)). Note each environment's `triggerType`.
 
    If a release plan read fails (for example a 403 or 5xx from `get-flag-release-plans` or `get-environment-release-plans`, or `get-environment-release-plans` is not listed), start nothing and record nothing. Tell the user which read failed. Do not start a release without knowing the plan, steps, and metrics of each environment.
 4. **Capture the human's release intent.** Ask (briefly, only if not already stated): release **on merge**, **hold**, or wait until a **`notBefore`** date? A **cohort/segment** to target first? A **prerequisite** parent flag this must not precede? Intent sits above the plans in precedence and is **honored or explicitly held, never silently dropped**.
-5. **Check that the plan fits the intent.** Sort each environment that the intent names into RELEASE or HOLD, and compare with the plan. An environment that the user does not mention follows the plan; name it in the plan you present.
-   - A HOLD environment fits only if the plan leaves it out, gives it `triggerType: "manual"`, or gives it `promotion` after a held environment.
+5. **Check that the plan fits the intent.** Sort each environment that the intent names into RELEASE or HOLD, and compare with the plan. When the request or harness names the target environments, every other environment is HOLD. When it names none, an environment that the user does not mention follows the plan. Name each environment in the plan you present.
+   - A HOLD environment without a date fits only if the plan leaves it out, gives it `triggerType: "manual"`, or gives it `promotion` after a held environment.
+   - A HOLD environment with a `notBefore` date fits no plan. LaunchDarkly cannot enforce the date: anyone can start a `manual` environment before it.
    - A RELEASE environment fits only if the plan includes it with a trigger that releases it (`flag_eval`, `webhook`, or `promotion` after a released environment). A `promotion` environment after a `manual` or left-out environment waits for that environment, so it does not release on merge.
-   - If the default plan does not fit, look for another listed plan that does, and propose it. If none fits, start nothing. Tell the user which environments the plan would release against the intent (or leave out), and point to [`launchdarkly-release-plans`](../../release-autopilot/launchdarkly-release-plans/SKILL.md) to create or change a plan that fits.
+   - If the default plan does not fit, look for another listed plan that does, and propose it. If none fits, start nothing and report the mismatch. Tell the user which environments the plan would release against the intent (or leave out), and offer two paths:
+     - Record the release with the [fallback](references/auto-release.md#fallback-without-create-flag-release). `create-automated-rollout-config` names only the environments to release, and leaves the held ones out.
+     - Create or change a flag release plan that fits, with [`launchdarkly-release-plans`](../../release-autopilot/launchdarkly-release-plans/SKILL.md).
 6. **Present the per-environment plan and stop.** Name the flag release plan. For each environment, state one of these, with the reason:
    - It releases immediately, and when (its trigger).
    - It releases with an environment release plan. Name the plan, its steps, and its metrics.
@@ -72,7 +78,7 @@ Only after confirmation (or a request to start the release that already states t
 
 1. **Start the release.** Call `create-flag-release` with `projectKey`, `flagKey`, `flagReleasePlanKey`, `pullRequest: { repoFullName, number }`, and `confirm: true`. Do not copy the plans' steps or metrics anywhere: the plans stay the source. If a **prerequisite** parent flag was agreed, wire it if the MCP surface supports it; otherwise report it as a manual step.
 2. **Verify.** The call returns `config_id` and the release as read back. Record `config_id`. If it returns an error that says the release was created but the read-back failed, inspect it with `get-automated-rollout-config` and do not start it again. Report only what you verified.
-3. **Report** the flag release plan and `config_id`; per environment, what releases and how (plan name, steps, metrics), and what is **held** (and why); and what happens after the merge (for example: "staging serves true when the flag is first evaluated there; production then starts `guarded-prod`, 10% → 25% → 50%, and rolls back if `error-rate` regresses; production waits for a person until 2099-09-01").
+3. **Report** the flag release plan and `config_id`; per environment, what releases and how (plan name, steps, metrics), and what is **held** (and why); and what happens after the merge (for example: "staging serves true when the flag is first evaluated there; production then starts `guarded-prod`, 10% → 25% → 50%, and rolls back if `error-rate` regresses; dev is not in the plan, so it does not release").
 
 ## Edge Cases
 
@@ -80,13 +86,15 @@ Only after confirmation (or a request to start the release that already states t
 |-----------|--------|
 | Flag doesn't exist yet | Stop: creation is `launchdarkly-flag-create`. |
 | The flag already has an active release | LaunchDarkly returns an error that names it. Don't archive it yourself. Point the user to the existing release. |
-| A rollout config already exists for this flag + PR (fallback path) | Don't record a second one with `create-automated-rollout-config`: a duplicate confuses the scheduler. Point the user to the existing config. |
+| A rollout config already exists for this flag + PR (fallback path) | Don't record a second one with `create-automated-rollout-config`: a duplicate confuses the scheduler. Point the user to the existing config. To change it before it starts releasing, use `update-automated-rollout-config`. |
 | A release plan read fails (403, 5xx, or `get-environment-release-plans` is not listed) | Start nothing and record nothing. Tell the user which read failed. |
 | The project has no flag release plan (an empty list) | Start nothing. Offer to create one with `launchdarkly-release-plans`, or to record the release from each environment's default release plan with the fallback. |
-| No listed plan fits the intent | Start nothing. Say which environments conflict, and point to `launchdarkly-release-plans` to create or change a plan. |
+| No listed plan fits the intent | Start nothing. Say which environments conflict, and offer the fallback or a plan that fits (`launchdarkly-release-plans` creates or changes one). |
 | `create-flag-release` is not listed, or returns `tool disabled` | Use the [fallback](references/auto-release.md#fallback-without-create-flag-release). |
 | An environment release plan has more than one phase, or targets an audience | A flag release plan accepts only environment release plans with exactly one phase, and a release starts that phase on the flag's default rule, for everyone. Tell the user the plan cannot release there; offer another plan, a hold, or a change to the plan. |
-| User wants to hold, or set a `notBefore` date | Use a plan that leaves the environment out or makes it `manual`; report it as held with the reason. In the fallback, leave it out of `environments`, and record nothing if every environment is held. Never silently release against stated intent. |
+| User wants to hold an environment (no date) | Use a plan that leaves the environment out or makes it `manual`; report it as held with the reason. |
+| User sets a `notBefore` date, or the request excludes an environment that the plan releases | No plan fits: LaunchDarkly cannot enforce a date, and `create-flag-release` cannot release a subset of the plan. Start nothing, report the mismatch, and offer the fallback or a flag release plan that fits. |
+| A held environment, in the fallback | Leave it out of `environments`, and record nothing if every environment is held. Never silently release against stated intent. |
 | In the fallback, an environment has no default release plan, and neither the user nor the flag release plan names one | Hold it. Do not pick another plan, also when it is the only plan. Say that auto-release cannot run there until it has a default release plan, and point to `launchdarkly-release-plans`. |
 | Change depends on a parent flag not yet live | Couple them with a prerequisite (set it if the MCP surface supports it); otherwise report the coupling as a required manual step. Don't let this flag release before its parent. |
 | An environment release plan is guarded but has no relevant metric | Say so: a guarded rollout with no meaningful metric guards nothing. Offer a plan with an immediate release there, or point at metric setup. |

@@ -109,9 +109,12 @@ tests:
           Evaluate the response:
           1. Does it propose a specific guarding flag (a boolean kill-switch around
              the new endpoint, with a key)?
-          2. Does it propose a per-environment release plan (staging / production)
-             and surface release intent (release on merge vs. hold), rather than
-             just creating things?
+          2. Does it propose a per-environment release plan for staging and
+             production and surface release intent (release on merge vs. hold)?
+             The project's default flag release plan also releases dev, which the
+             request leaves out, so a full answer reports that mismatch and offers
+             to record only staging and production or to create a plan that fits.
+             Starting the default plan as is, which would release dev, misses this.
           3. Does it explicitly stop for approval WITHOUT having created the flag or
              recorded a release?
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
