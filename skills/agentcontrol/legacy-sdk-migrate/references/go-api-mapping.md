@@ -122,7 +122,7 @@ cfg := aiserver.Config(aiserver.ConfigArgs{
 })
 ```
 
-Keys must match the variation's tool names exactly, including case. Confirm every old tool and loop limit is represented in the variation or handler before deleting the manual loop and tracking. Do not assume Python/Node Claude host settings or built-ins apply to Go; inspect that handler's documented host-tool security behavior first.
+Keys must match the variation's tool names exactly, including case. A registered tool missing from the variation is silently unavailable to the model; registration alone does not expose it. Before deleting the manual loop and tracking, confirm every old tool exists on each variation, and preserve any loop limit or default model the old loop set in the variation or a custom handler. If any of these cannot be preserved, tell the user before proceeding. Do not assume Python/Node Claude host settings or built-ins apply to Go; inspect that handler's documented host-tool security behavior first.
 
 Move variables to `InvokeOptions.Variables` for convenience calls, or `aiserver.WithVariables(variables)` for `Invoke` / `Stream`. Context template injection is `{{ldContext.*}}`, replacing `{{ldctx.*}}`; use `{{name}}` without spaces. Pass history with `aiserver.WithHistory([]aiserver.Message{...})`, not a fourth positional message array. Convenience `InvokeOptions` does not expose history: use `Config` for history.
 

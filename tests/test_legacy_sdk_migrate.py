@@ -24,6 +24,8 @@ class LegacySdkMigrateTests(unittest.TestCase):
         self.assertIn("openaimessages.OpenAIMessages", mapping)
         self.assertIn("aiserver.WithHistory", mapping)
         self.assertIn("no global registry", mapping)
+        self.assertIn("missing from the variation is silently unavailable", mapping)
+        self.assertIn("loop limit or default model", mapping)
 
     def test_go_empty_and_error_paths_are_preserved(self):
         mapping = API_MAPPING.with_name("go-api-mapping.md").read_text(encoding="utf-8")
