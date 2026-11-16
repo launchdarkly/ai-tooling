@@ -15,7 +15,7 @@ Logs are the best verbatim evidence and the worst overview. For "how many" and "
 
 `search-log-patterns` clusters the matching logs into templates with ids and numbers masked, each with a count and the newest example. One call replaces paging hundreds of lines.
 
-- `query: "level=error service_name=<svc>"` (the level key is `level`, not `severity`), plus the slice filter (`host.name=<host>`).
+- `query: "level=error environment=<env> service_name=<svc>"` (the level key is `level`, not `severity`; this tool has no `environments` or `services` arguments), plus the slice filter (`host.name=<host>`).
 - `patternKeys: ["error.message"]` templates an attribute instead of the message; adding `service_name` splits each pattern by service, which shows a failure shared by every service on one host.
 - It scans at most the newest 100,000 matching logs; when `truncated` is true, narrow the window or the filter.
 - One root error can appear as several templates with different wrapper prefixes. Group them by the innermost cause before you count.
@@ -23,7 +23,7 @@ Logs are the best verbatim evidence and the worst overview. For "how many" and "
 
 ## Count and trend (`search-aggregations`)
 
-- `productType: "logs"`, `query: "level=error ..."`, `groupBy: "service_name"` or `"host.name"`, `compareTo: "1d"` for the baseline.
+- `productType: "logs"`, `environments` and `services`, `query: "level=error ..."`, `groupBy: "service_name"` or `"host.name"`, `compareTo: "1d"` for the baseline.
 - Onset of one message: filter on its bare words, `bucketCount` 24 to 48 over a wide window, or `Min` of `timestamp` with `bucketCount: 1`.
 
 ## Read lines (`search-logs`)
@@ -32,7 +32,7 @@ Logs are the best verbatim evidence and the worst overview. For "how many" and "
 - `query` takes bare words for message text (`connection reset` matches messages with both words, index-assisted) plus attribute filters. `*x*` and quoted phrases scan every message and are slow over long windows.
 - `limit` defaults to 20, at most 50 per page; follow `page.next_cursor` for more, but if you need more than a page or two, aggregate instead.
 - `fields` keeps only the attributes you need; `fullAttributes: ["code.stacktrace"]` reads a long value whole.
-- `services` and `environments` restrict to exact values.
+- Pass `environments` and `services` with the exact values from `get-keys` (step 1 in `SKILL.md`).
 
 ## Typical patterns
 
@@ -49,6 +49,7 @@ Logs are the best verbatim evidence and the worst overview. For "how many" and "
 
 ## Common mistakes
 
+- Leaving out the environment and service, or listing every environment. Name the ones the question is about.
 - Paging `search-logs` to count. Use `search-log-patterns` or `search-aggregations`.
 - Filtering on a key you have not checked with `get-keys`. A bad clause is dropped silently and the result gets wider.
 - Using `message="*x*"` when bare words would do.

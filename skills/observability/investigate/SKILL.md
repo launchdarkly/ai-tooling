@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # Investigate
@@ -34,9 +34,10 @@ Pin down the project, the service and the time the problem started.
 
 - **Project.** If the user did not name one, call `find-o11y-project` with the service name. Ask if there is no single clear match.
 - **Service family.** One system often reports under several names (`production-api`, `staging-api`, `production-api-worker`). Call `get-keys` with `key: "service_name"` and `search: "<name>"` and pick the exact values. Filter with `services: [...]` or `service_name=(a OR b)`, not `service_name=*api*`: a `*` is a contains match and pulls in siblings.
+- **Environment.** Data is stored by project, environment and service, so a query that names both reads less data, and on traces often stays exact instead of sampled. Call `get-keys` with the product type, `key: "environment"` and `query: "service_name=<svc>"` to list the service's exact environment values (case-sensitive; they can differ between products). Pick the one the question is about (`Production` for a production incident). From here on, pass `environments` and `services` on every `search-logs`, `search-traces` and `search-aggregations` call (logs, traces and metrics); `search-log-patterns` and `search-traces` with `view: "traces"` take no such arguments, so put `environment=<env> service_name=<svc>` in `query`. Listing every environment reads as much as listing none; leave it out only when the question really spans all environments. The tools do not require an environment, and you should not guess one: when the question does not name or imply it, ask, or leave it out and group by `environment` to see where the failure is.
 - **Incident.** If the report names an incident (INC-123), call `get-incidents` with `incidentId`. Its `created_at` is when someone noticed, not when it began; start your window at least 2 hours earlier.
 - **Onset.** Run `search-aggregations` on the failing signal (error logs, 5xx spans, error groups) over a window wider than the report, for example 6 to 24 hours, with `bucketCount` 24 to 48. Find the first bucket that departs from the line. That is your **anomaly window**; the same-length window just before it, or the same time a day or week earlier, is your **baseline**. Each series' `values` line up with `bucket_starts`, one ISO 8601 UTC time per position; an older server returns `buckets` with `bucket_min` and `bucket_max` in Unix seconds instead.
-- **Spread.** Before you narrow to the busiest service, see how far the failure reaches. Group the failing signal by `service_name` over the whole family (`bucketCount: 1`, `groupByLimit` 20, `includeOther: true`), and run one `search-log-patterns` with `level=error`, the same family filter and `patternKeys: ["service_name", "message"]`, which splits each message template by the service that logged it. The same message on many services points to something they share (a build, a base image, a certificate, a dependency), not to one service's code. A template masks quoted strings and numbers, so a URL in the message shows only in `example`: when the failing dependency matters, group the failing client spans by the key that holds the callee (`server.address`, `net.peer.name` or `url.full`; confirm it with `get-keys`). Report the services you did not check as unchecked, not as unaffected.
+- **Spread.** Before you narrow to the busiest service, see how far the failure reaches. Group the failing signal by `service_name` over the whole family in the chosen environment (`bucketCount: 1`, `groupByLimit` 20, `includeOther: true`), and run one `search-log-patterns` with `level=error`, the environment, the same family filter and `patternKeys: ["service_name", "message"]`, which splits each message template by the service that logged it. The same message on many services points to something they share (a build, a base image, a certificate, a dependency), not to one service's code. A template masks quoted strings and numbers, so a URL in the message shows only in `example`: when the failing dependency matters, group the failing client spans by the key that holds the callee (`server.address`, `net.peer.name` or `url.full`; confirm it with `get-keys`). Report the services you did not check as unchecked, not as unaffected.
 - **Data completeness.** Before you conclude that data is missing or that a count fell, check what ingest drops. `get-keys` adds an `ingest` block when a non-default setting applies to the product (sampling rate, rate limit, exclusion query, filter rules, quota), and `search-aggregations` adds it with `includeIngest: true`. Its `completeness_note`, when present, names in one line what is reducing the data. A drop in errors right after a quota was exceeded is not a recovery.
 - **Shape.** One spike, a step up, a slow drift, or the same pattern every day? A daily pattern points to traffic or batch jobs, not a regression.
 
@@ -73,6 +74,7 @@ This is the step that finds the cause most often, and the one agents skip. Compa
      "productType": "traces",
      "startDate": "<anomaly start>", "endDate": "<anomaly end>",
      "query": "span_kind=Server has_errors=true",
+     "environments": ["<environment>"],
      "services": ["<service>"],
      "groupBy": "host.name", "groupByLimit": 10, "bucketCount": 1,
      "compareTo": "1d"
@@ -80,7 +82,7 @@ This is the step that finds the cause most often, and the one agents skip. Compa
    ```
 
    For 5xx only, filter on the status-code key instead; services differ (`http.response.status_code`, `http.status_code`), so check which one the service sets with `get-keys search=status_code` and a filtered count before relying on it. Then run the same call without the error filter (all requests) so you can compare each value's share of failures with its share of traffic.
-3. **Dimensions to try, in this order:** `host.name` (or `k8s.pod.name`), the version key from step 3, `http.route` (with `span_kind=Server`), `environment` or region, and for flag-gated code the flag variation (below). For latency, break down `P95` of `duration` the same way and set `rankBy` to `{"aggregator":"Count","column":""}` so busy groups rank first.
+3. **Dimensions to try, in this order:** `host.name` (or `k8s.pod.name`), the version key from step 3, `http.route` (with `span_kind=Server`), region (or `environment`, if you have not scoped to one), and for flag-gated code the flag variation (below). For latency, break down `P95` of `duration` the same way and set `rankBy` to `{"aggregator":"Count","column":""}` so busy groups rank first.
 4. **Error rate per value in one call.** For traces, drop the error filter and use `expressions` `[{"aggregator":"Count","column":""},{"aggregator":"Sum","column":"has_errors"}]` with `rankBy` Count: each row then has its requests and its failed spans side by side. For any other ratio, use `series` and `formulas`: series `a` all requests, series `b` failures, formula `100 * b / a`. Each series ranks its own top groups, so a value outside one series' top groups returns a null formula; raise `groupByLimit` or set `minCount` if rows come back null.
 5. **Read it as shares.** "Host X served 9 % of requests and 94 % of 5xx" is a cause. "Version Y has the most errors" is not, if it also has the most traffic. When one host is bad and a new version is on many hosts, group by `[versionKey, "host.name"]` to see whether the version also runs on healthy hosts. If it does, the version is not the cause.
 
@@ -90,13 +92,13 @@ Do not stop at the first dimension that looks skewed when the conclusion matters
 
 ### 5. Evidence
 
-Now pull specific records from the slice step 4 found. Add that slice to every filter (`host.name=<host>`, the version, the route).
+Now pull specific records from the slice step 4 found. Add that slice to every filter (`host.name=<host>`, the version, the route), and keep the environment and service from step 1.
 
-- **Logs.** `search-log-patterns` with `query: "level=error <slice filter>"` groups thousands of lines into a few templates with counts; read those before paging `search-logs`. Set `patternKeys: ["error.message"]` when the message is generic and the detail sits in an attribute.
+- **Logs.** `search-log-patterns` with `query: "level=error environment=<env> service_name=<svc> <slice filter>"` groups thousands of lines into a few templates with counts; read those before paging `search-logs`. Set `patternKeys: ["error.message"]` when the message is generic and the detail sits in an attribute.
 - **Traces.** `search-traces` with `sortColumn: "duration"` and `sortDirection: "DESC"` for the slowest, or `has_errors=true` for failed spans. Then `get-trace` with the `traceId` and the span's `timestamp` to read the tree: which span owns the time, and which child failed first.
 - **Logs for one request.** `search-logs` with `query: "trace_id=<id>"` and a window of a few minutes around the span.
 - **Errors.** `search-error-groups` with the slice filter and `sort: "spike"` (groups ranked by their count against the previous same-length window, with `spike_ratio` and `new_in_window`) or `sort: "count"`. Then `get-error-group` with the `secureId` and `include: ["distribution", "trend"]` for the stack, one occurrence, the spread across browser, OS, environment, service and version, and the occurrence trend with its peak. Its `_pivots` carry ready `get-trace` and `search-logs` arguments for the occurrence. See `errors.md`.
-- **Metrics on the slice.** For a bad host, `search-aggregations` with `productType: "metrics"`, `query: "host.name=<host>"` (add `metric_name=*pool*`-style words to narrow), `groupBy: "metric_name"` lists what it reports (pool sizes, CPU, memory). Filter metrics by host, not by the trace `service_name`: metric data points often carry a different service name, and the filter then matches nothing. Load the `observability/metrics` guide before reading counters or histograms.
+- **Metrics on the slice.** For a bad host, `search-aggregations` with `productType: "metrics"`, `query: "host.name=<host>"` (add `metric_name=*pool*`-style words to narrow), `groupBy: "metric_name"` lists what it reports (pool sizes, CPU, memory). Metric data points often carry a different `service_name` and `environment` than the service's spans, so a trace value can match nothing: list the metrics' own values with `get-keys` (`productType: "metrics"`, `key: "service_name"`, `query: "host.name=<host>"`, then `key: "environment"`) and pass those, or filter by host. Load the `observability/metrics` guide before reading counters or histograms.
 
 Cite exact identifiers: trace IDs, error group secure IDs, log timestamps, host names, versions.
 
@@ -107,7 +109,7 @@ Quantify who and what was affected, over what window.
 - `search-service-map` with `service: "<service>"` and `include: ["health"]` gives requests, errors, error rate and p50/p95/p99 for the service and per `http.route`. Run it for the anomaly window and for the baseline window to compare. Use `include: ["dependencies"]` to see callers that inherited the failure.
 - Users and sessions: `search-error-groups` with `sort: "sessions"`, or `search-aggregations` with `CountDistinct` of a user key such as `identifier` (sessions) and `exact: true`.
 - Time: first and last bad record, using `Min` and `Max` of `timestamp` with `bucketCount: 1` (values are ISO 8601 UTC times; an older server returns Unix seconds, which you must convert).
-- Reach: the services and dependencies from the spread check in step 1, each with its count, and whether the suspect build reached other environments (group by `environment` with the version filter).
+- Reach: the services and dependencies from the spread check in step 1, each with its count, and whether the suspect build reached other environments (group by `environment` with the version filter; this is the one call that drops `environments`).
 
 ## Sampling and percentiles
 

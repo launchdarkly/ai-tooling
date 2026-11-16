@@ -22,9 +22,10 @@ Size the problem with `search-aggregations` (`productType: "traces"`) or `search
 ## Pull traces (`search-traces`)
 
 - `startDate` is required; a raw search covers at most 24 hours.
+- Pass `environments` and `services` (exact values from `get-keys`, see step 1 in `SKILL.md`), on `search-aggregations` too. `view: "traces"` rejects them: put `environment=<env> service_name=<svc>` in `query` instead.
 - **Slowest:** `sortColumn: "duration"`, `sortDirection: "DESC"`, `limit` 5 to 10. It reads a sample; for the true slowest, get `Max` of `duration` with `exact: true` from `search-aggregations`, then search `duration>=<that value>`.
 - **Failing:** `has_errors=true` plus the slice filter.
-- **One row per trace:** `view: "traces"` (takes only `query`, the window, `limit` and `cursor`).
+- **One row per trace:** `view: "traces"` (takes only `query`, the window, `limit` and `cursor`, so scope it in `query`).
 - `fields` picks attributes and keeps rows small; `fullAttributes` reads long values whole.
 - Pages are at most 50 rows; follow `page.next_cursor` (not available with `sortColumn`).
 - **Within one trace:** `span(A) THEN span(B)` and `span(A) THEN no_span(B)` match order and absence; `parent_span(...)`, `child_span(...)`, `root_span(...)` and `any_span(...)` match other spans in the same trace. `parent_span_id NOT EXISTS` selects root spans.
@@ -58,6 +59,7 @@ Pass `traceId` and, whenever you know a span time, `timestamp` (the span's times
 ## Common mistakes
 
 - Searching raw traces over more than 24 hours. Aggregate instead.
+- Passing `services` without `environments`, or listing every environment. Name the one the question is about; the query then reads the service's rows in that environment and is less often sampled.
 - Quoting a sampled P99 over a few dozen rows. See "Sampling and percentiles" in `SKILL.md`.
 - Blaming the child span with the longest duration when the parent's own time is larger.
 - Guessing the version or status-code key. Take the version key from `get-changes` and check status keys with `get-keys`.

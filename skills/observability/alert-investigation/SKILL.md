@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Alert investigation
@@ -80,7 +80,7 @@ If the firing has an `investigation_conversation_id`, call `get-investigation` w
 
 ### 5. Investigate the cause
 
-Run steps 3 to 6 of the first five minutes in [investigate](../investigate/SKILL.md), scoped to the alert's query and the onset window:
+Run steps 3 to 6 of the first five minutes in [investigate](../investigate/SKILL.md), scoped to the alert's query and the onset window. Keep the replay as it is, but pass `environments` and `services` on every other `search-logs`, `search-traces` and `search-aggregations` call (in `query` for `search-log-patterns`): take the service from the alert's query or firing group, and list its exact environment values with `get-keys` (`key: "environment"`, `query: "service_name=<svc>"`). Use the environment the alert covers; if its query does not name one, use the one the firing came from (group by `environment` on the replay) rather than guessing.
 
 - **What changed:** `get-changes` for the service the alert's query names, from 1 to 2 hours before the onset. Pass the alert's ID in `alertIds` to see its own `alert_episode` rows on the same timeline.
 - **What is over-represented:** break the alert's own signal down by `host.name`, the version key, `http.route`, and the flag variation, each with `compareTo`. If the alert is grouped, compare the firing group with its sibling groups too.
