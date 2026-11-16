@@ -974,6 +974,55 @@ tests:
         weight: 2
 
   # ==================================================================
+  # FLAG RELEASE, MANUAL ON MERGE — the user wants staging on merge, but
+  # the only plan makes staging wait for a person (manual). Copying the
+  # plan keeps the wait, so the skill records nothing and asks: release
+  # staging on merge, or keep it waiting for a person. Staging waits for
+  # no earlier environment, so dropping one is not an answer.
+  # ==================================================================
+  - description: "Flag release, manual on merge: staging would wait for a person, so the skill asks"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `team-invites` already exists (created OFF) for PR acme/app#52,
+        project `default`. Start its release so staging releases on merge.
+      mock_overrides:
+        get-flag-release-plans:
+          flagReleasePlans:
+            - key: staging-sign-off
+              name: Staging sign-off
+              default: true
+              version: 1
+              executionMode: sequential
+              applicationKeys: []
+              environments:
+                - { environmentKey: staging, triggerType: manual, isImmediate: true }
+                - { environmentKey: production, triggerType: promotion, environmentReleasePlanKey: guarded-default }
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing' : 'called: ' + called.join(', ') };
+        metric: asked_first
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user wants staging to release on merge. The only flag release plan,
+          "Staging sign-off", makes staging wait for a person (manual), and starts
+          production after staging finishes.
+          Evaluate the response:
+          1. Does it record nothing yet, and say that the plan makes staging wait for
+             a person?
+          2. Does it ask whether to release staging on merge or keep it waiting for a
+             person, without offering to drop another environment?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
   # FLAG RELEASE, READ FAILS — get-environment-release-plans returns a
   # 500. The skill cannot see what each environment will run, so it
   # starts nothing and records nothing.
