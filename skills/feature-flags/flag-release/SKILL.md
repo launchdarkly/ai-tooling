@@ -38,7 +38,7 @@ By the time this skill runs, the flag exists (OFF) and the guarding code is wire
 - `get-environment-release-plans` — read each environment release plan that the flag release plan names (`environmentKey` and `releasePlanKey`).
 - `get-flags` — confirm the flag exists and is OFF before you start the release.
 - `get-projects` — list the projects when the user has not named one, or (with `projectKey`) list the project's environments when you need their keys.
-- `update-automated-rollout-config` — change a release that has not started releasing (read it with `get-automated-rollout-config` first, and send the whole `environments` list back). Use it when the user asks to change a release, instead of recording a second one.
+- `update-automated-rollout-config` — change a release that has not started releasing (read it with `get-automated-rollout-config` first, then send `projectKey`, `configId`, the whole `environments` list, and `confirm: true`). Use it when the user asks to change a release, instead of recording a second one.
 
 To edit or remove a flag release plan or an environment release plan (`update-` and `delete-` tools), use [`launchdarkly-release-plans`](../../release-autopilot/launchdarkly-release-plans/SKILL.md). This skill does not change plans.
 
@@ -86,7 +86,7 @@ Only after confirmation (or a request to start the release that already states t
 |-----------|--------|
 | Flag doesn't exist yet | Stop: creation is `launchdarkly-flag-create`. |
 | The flag already has an active release | LaunchDarkly returns an error that names it. Don't archive it yourself. Point the user to the existing release. |
-| A rollout config already exists for this flag + PR (fallback path) | Don't record a second one with `create-automated-rollout-config`: a duplicate confuses the scheduler. Point the user to the existing config. To change it before it starts releasing, use `update-automated-rollout-config`. |
+| A rollout config already exists for this flag + PR (fallback path) | Don't record a second one with `create-automated-rollout-config`: a duplicate confuses the scheduler. Point the user to the existing config. To change it before it starts releasing, use `update-automated-rollout-config` with `confirm: true`. |
 | A release plan read fails (403, 5xx, or `get-environment-release-plans` is not listed) | Start nothing and record nothing. Tell the user which read failed. |
 | The project has no flag release plan (an empty list) | Start nothing. Offer to create one with `launchdarkly-release-plans`, or to record the release from each environment's default release plan with the fallback. |
 | No listed plan fits the intent | Start nothing. Say which environments conflict, and offer the fallback or a plan that fits (`launchdarkly-release-plans` creates or changes one). |

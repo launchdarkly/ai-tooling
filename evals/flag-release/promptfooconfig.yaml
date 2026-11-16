@@ -1058,6 +1058,69 @@ tests:
         weight: 2
 
   # ==================================================================
+  # FALLBACK, EXCLUDED ENVIRONMENT — create-flag-release is disabled, and
+  # the request targets staging and production only. The plan also
+  # releases dev, so the fallback holds dev and records only staging and
+  # production.
+  # ==================================================================
+  - description: "Flag release, tool disabled: the fallback never records an environment that the request excludes"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `audit-export` already exists (created OFF) for PR acme/web#310,
+        project `default`. create-flag-release is not available here, so record the
+        release on merge with the fallback. Target environments: `staging` and
+        `production` only.
+      mock_overrides:
+        create-flag-release:
+          error: "tool disabled: create-flag-release"
+        get-flag-release-plans:
+          flagReleasePlans:
+            - key: parallel-start
+              name: Parallel start
+              default: true
+              version: 1
+              executionMode: sequential
+              applicationKeys: []
+              environments:
+                - { environmentKey: dev, triggerType: flag_eval, isImmediate: true }
+                - { environmentKey: staging, triggerType: flag_eval, isImmediate: true }
+                - { environmentKey: production, triggerType: promotion, environmentReleasePlanKey: guarded-default }
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const recs = traj.filter(t => t.tool === 'create-automated-rollout-config');
+          const keys = recs.flatMap(t => (((t.arguments || {}).environments) || []).map(e => e.environmentKey));
+          const pass = !keys.includes('dev');
+          return { pass, score: pass ? 1 : 0, reason: `recorded envs=[${keys.join(', ')}] (dev must be absent)` };
+        metric: honored_targets
+        weight: 4
+
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
+          const keys = rec ? ((rec.arguments && rec.arguments.environments) || []).map(e => e.environmentKey) : [];
+          const pass = keys.includes('staging') && keys.includes('production');
+          return { pass, score: pass ? 1 : 0, reason: `recorded envs=[${keys.join(', ')}] (want staging and production)` };
+        metric: recorded_targets
+        weight: 2
+
+      - type: llm-rubric
+        value: |
+          The user asked to record the release of `audit-export` (PR acme/web#310)
+          with the fallback, in staging and production only. The flag release plan
+          also releases dev.
+          Evaluate the response:
+          1. Does it record staging and production, and leave dev out?
+          2. Does it say that dev is not released because the user left it out?
+          3. Did it avoid turning the flag on by hand?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
   # FLAG RELEASE, NO FLAG RELEASE PLAN — the project has no stored flag
   # release plan, so get-flag-release-plans returns an empty list
   # (LaunchDarkly supplies no built-in plan). The skill starts nothing,

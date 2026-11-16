@@ -90,6 +90,7 @@ Do these steps in order:
    Leave out every environment that the user does not name and the flag release plan does not list.
 2. **Sort each environment into RELEASE or HOLD.** It is HOLD when one of these is true:
    - The user holds it, or gives a `notBefore` date for it. This applies also when it is the only environment.
+   - The request or harness names the target environments, and this environment is not one of them.
    - The user's intent for it is unclear ("not sure yet", "not confirmed").
    - The flag release plan gives it `triggerType: "promotion"`, and the environment before it is HOLD. A `promotion` environment starts only when the previous environment finishes, and a HOLD environment is not in the call, so the `promotion` environment would follow the wrong one.
    - It needs an environment release plan (it is not immediate), it has no default release plan, and neither the user nor the flag release plan names a plan for it. An immediate environment (`isImmediate` in the flag release plan, or the user asks for an immediate release) needs no release plan, so this rule does not hold it. Do not pick another plan for it, also when it is the only plan. Say that auto-release cannot run there until it has a default release plan, and point to `launchdarkly-release-plans` to set one.
