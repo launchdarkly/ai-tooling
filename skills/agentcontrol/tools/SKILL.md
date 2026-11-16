@@ -134,7 +134,7 @@ Rules for tool functions:
 
 - **Keys must match exactly.** The key in `tool_handlers` must equal the tool key on the variation, including case. The handlers offer the model only the variation's tools that have a function, so a tool whose key doesn't match is silently left out of the call.
 - **One argument.** The function receives a single dict (Python) or object (Node.js) of arguments, not keyword arguments. It can be sync or async. The handler sends the return value back to the model as a string.
-- **The loop is bounded.** The handler packages stop after 10 tool steps and raise `Tool loop exceeded the maximum number of steps (10)`. A runaway loop is almost always a prompt or schema bug.
+- **The loop is bounded.** The handler packages stop after 10 tool steps and raise an error (the messages handlers say `Tool loop exceeded the maximum number of steps (10)`). A runaway loop is almost always a prompt or schema bug.
 
 To share tools across call sites, put them in a `Registry` (`Registry(handlers=..., tools=...)` in Python, `new Registry({ handlers, tools })` in Node.js) and pass `registry=` instead. A call receives only the tools its variation names. Some providers have built-in tools, such as `ClaudeWebSearch` from `launchdarkly-ai-claude-agents`. Assign one as the value for a tool key instead of a function, and its calls are tracked the same way.
 
@@ -148,37 +148,46 @@ Only write provider-specific tool code when no handler package covers your provi
 | OpenAI Responses API | `{type: "function", name, description, parameters}` | top-level `tools=[...]` |
 | Anthropic | `{name, description, input_schema}`, renaming `parameters` to `input_schema` | top-level `tools=[...]` |
 | Bedrock Converse | `{toolSpec: {name, description, inputSchema: {json: parameters}}}` | inside `toolConfig.tools=[...]` |
-| Gemini (`google-genai`) | `{function_declarations: [{name, description, parameters}]}` | `GenerateContentConfig.tools=[...]` |
+| Gemini (`google-genai`) | `{function_declarations: [{name, description, parameters}]}` (Python) / `{functionDeclarations: [...]}` (Node) | `GenerateContentConfig.tools=[...]` |
 
 The tool functions the SDK passes in are already wrapped to record `$ld:ai:tool_call`, so call them directly. Return the final text and the token usage. Here's a bounded loop against Anthropic:
 
 ```python
 from anthropic import AsyncAnthropic
-from launchdarkly_ai_server import compose_history, create_handler, parse_template, tool_result_string
+from launchdarkly_ai_server import (
+    compose_history, create_handler, is_function_tool, parse_template, tool_result_string,
+)
 
 anthropic_client = AsyncAnthropic()
 MAX_STEPS = 5
-ANTHROPIC_PARAMS = {"max_tokens", "stop_sequences", "metadata", "tool_choice", "thinking"}
+ANTHROPIC_PARAMS = {"max_tokens", "stop_sequences", "tool_choice", "thinking"}
+SAMPLING_PARAMS = {"temperature", "top_p", "top_k"}
 
 class ToolLoopLimitError(Exception):
     pass
 
 async def call_anthropic(ld_config, user_input, tool_handlers, variables, history):
-    # Name each tool by its config key, which is also its key in tool_handlers
+    # Name each tool by its config key, which is also its key in tool_handlers. Offer only tools
+    # with a function, as the handler packages do; native tools and unmatched keys are skipped.
     tools = [
         {"name": key, "description": t.get("description", ""), "input_schema": t["parameters"]}
         for key, t in (ld_config.get("tools") or {}).items()
+        if is_function_tool(tool_handlers.get(key), key)
     ]
     # Handler packages fill {{name}} placeholders; custom handlers must do it themselves
     rendered = [{**m, "content": parse_template(m["content"], variables)} for m in ld_config.get("messages") or []]
     system = "\n".join(m["content"] for m in rendered if m["role"] == "system")
+    # Agent-mode and UI-created variations often use instructions instead of a system message
+    system = system or parse_template(ld_config.get("instructions") or "", variables)
     # Allowlist, not denylist: any other key on the variation (OpenAI-shaped fields, app knobs)
-    # makes messages.create fail. anthropic 2.x no longer accepts temperature, top_p, or top_k,
-    # and tools come from ld_config["tools"].
-    params = {
-        k: v for k, v in (ld_config["model"].get("parameters") or {}).items()
-        if k in ANTHROPIC_PARAMS
-    }
+    # makes messages.create fail, and tools come from ld_config["tools"].
+    model_params = ld_config["model"].get("parameters") or {}
+    params = {k: v for k, v in model_params.items() if k in ANTHROPIC_PARAMS}
+    # anthropic 2.x rejects temperature, top_p, and top_k as keyword arguments, but the API still
+    # honours them, so send them in extra_body like the claude-messages handler does
+    sampling = {k: v for k, v in model_params.items() if k in SAMPLING_PARAMS}
+    if sampling:
+        params["extra_body"] = sampling
     max_tokens = params.pop("max_tokens", 1024)
     # Config turns (few-shot examples), then history, then the new input
     messages = compose_history(
