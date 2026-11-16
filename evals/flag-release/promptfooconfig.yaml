@@ -985,7 +985,8 @@ tests:
     vars:
       user_request: >
         The flag `team-invites` already exists (created OFF) for PR acme/app#52,
-        project `default`. Start its release so staging releases on merge.
+        project `default`. Start its release so staging and production release on
+        merge.
       mock_overrides:
         get-flag-release-plans:
           flagReleasePlans:
@@ -1010,14 +1011,15 @@ tests:
 
       - type: llm-rubric
         value: |
-          The user wants staging to release on merge. The only flag release plan,
-          "Staging sign-off", makes staging wait for a person (manual), and starts
-          production after staging finishes.
+          The user wants staging and production to release on merge. The only flag
+          release plan, "Staging sign-off", makes staging wait for a person (manual),
+          and starts production after staging finishes (promotion).
           Evaluate the response:
           1. Does it record nothing yet, and say that the plan makes staging wait for
              a person?
-          2. Does it ask whether to release staging on merge or keep it waiting for a
-             person, without offering to drop another environment?
+          2. Does it ask one question about staging (release it on merge, or keep it
+             waiting for a person), and say that production follows staging, rather
+             than also offering to release production without staging?
           Score 1.0 if both. Deduct 0.5 per criterion missed.
         metric: rationale_quality
         weight: 2
@@ -1423,10 +1425,15 @@ tests:
           const forbidden = ['create-flag-release','toggle-flag','update-flag','create-flag-release-plan'];
           const called = forbidden.filter(f => tools.includes(f));
           const traj = output.trajectory || [];
-          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
-          const keys = rec ? ((rec.arguments && rec.arguments.environments) || []).map(e => e.environmentKey) : [];
-          const pass = called.length === 0 && keys.includes('staging') && keys.includes('production');
-          return { pass, score: pass ? 1 : 0, reason: `called [${called.join(', ')}]; recorded envs=[${keys.join(', ')}] (want staging and production with create-automated-rollout-config, no plan writes)` };
+          const at = traj.findIndex(t => t.tool === 'create-automated-rollout-config');
+          const rec = at >= 0 ? traj[at] : null;
+          const envs = rec ? ((rec.arguments && rec.arguments.environments) || []) : [];
+          const byKey = Object.fromEntries(envs.map(e => [e.environmentKey, e]));
+          const usesPlan = (e) => Boolean(e) && e.releaseType === 'policy' && e.override === undefined && e.stages === undefined;
+          const readBefore = (env) => traj.slice(0, Math.max(at, 0)).some(t => t.tool === 'get-environment-release-plans' && (t.arguments || {}).environmentKey === env);
+          const pass = called.length === 0 && usesPlan(byKey.staging) && usesPlan(byKey.production)
+            && readBefore('staging') && readBefore('production');
+          return { pass, score: pass ? 1 : 0, reason: `called [${called.join(', ')}]; recorded ${JSON.stringify(envs)}; read staging=${readBefore('staging')} production=${readBefore('production')} (want both as policy with no override or stages, plans read before the write)` };
         metric: recorded_env_plans
         weight: 4
 
