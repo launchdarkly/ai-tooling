@@ -238,7 +238,7 @@ class AgentStepLimitError(Exception):
 async def run_loop(ld_config, user_input, tool_handlers, variables, history):
     system = parse_template(ld_config.get("instructions", ""), variables)
     tool_specs = ld_config.get("tools") or {}
-    messages = [*history, {"role": "user", "content": user_input}]
+    messages = [*(history or []), {"role": "user", "content": user_input}]
     usage = {"input": 0, "output": 0}
     for _ in range(MAX_STEPS):
         response = await my_provider.complete(model=ld_config["model"]["name"], system=system, messages=messages, tools=to_provider_tools(tool_specs))

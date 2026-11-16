@@ -91,14 +91,18 @@ Both are async and need `handlers` passed to `resolve_graph()`. The framework-na
 
 ## Fallback
 
-A disabled or missing graph raises `ValueError` (`Agent graph "support-graph" is disabled`), not the `RuntimeError` that `config().invoke()` raises. Check `(await resolve_graph("support-graph", context=context)).enabled` in the error handler so a mid-walk node failure isn't mistaken for an unavailable graph:
+A disabled or missing graph raises `ValueError` (`Agent graph "support-graph" is disabled`), not the `RuntimeError` that `config().invoke()` raises. Check `(await resolve_graph("support-graph", context=context)).enabled` in the error handler so a mid-walk node failure isn't mistaken for an unavailable graph. Unlike `inspect_config`, `resolve_graph` can raise (it calls `init_client()`, which raises when `LD_SDK_KEY` is missing or rejected), so guard the check too:
 
 ```python
 try:
     result = await support.invoke(user_input, context)
     return result.response
 except (RuntimeError, ValueError) as err:
-    if (await resolve_graph("support-graph", context=context)).enabled:
+    try:
+        enabled = (await resolve_graph("support-graph", context=context)).enabled
+    except Exception:
+        enabled = False
+    if enabled:
         raise
     logger.warning("support-graph unavailable (%s); using hardcoded pipeline", err)
     return await legacy_pipeline(user_input)

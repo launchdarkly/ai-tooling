@@ -21,7 +21,7 @@ You're using a skill that will guide you through migrating an application from h
 > **⚠️ Three first-run failure modes to avoid.**
 >
 > 1. **Placeholders with spaces.** The SDK fills `{{name}}` and `{{user.name}}` only. `{{ name }}` with spaces is sent to the model as literal text. Rewrite every placeholder without spaces in Stage 2.
-> 2. **No fallback.** `invoke()` has no fallback argument. It raises `RuntimeError` when the variation is disabled, the config key doesn't exist, or LaunchDarkly is unreachable. Keep the original hardcoded call and run it from an `except RuntimeError` branch after checking `if (await inspect_config(key, context))["enabled"]: raise` (so mid-run handler errors still propagate), or the app goes down with LaunchDarkly.
+> 2. **No fallback.** `invoke()` has no fallback argument. It raises `RuntimeError` (a plain `Error` in Node.js) when the variation is disabled, the config key doesn't exist, or LaunchDarkly is unreachable. Keep the original hardcoded call and run it from an `except RuntimeError` branch after checking `if (await inspect_config(key, context))["enabled"]: raise` (so mid-run handler errors still propagate), or the app goes down with LaunchDarkly.
 > 3. **Fallthrough not flipped after `/configs-create`.** A freshly created config's fallthrough points at an auto-generated disabled variation, so every `invoke()` raises until `/configs-targeting` runs. Flip it before Stage 2 verification.
 
 ## How the current SDK changes the migration
@@ -179,7 +179,7 @@ This is the first stage that writes code. It has eight sub-steps.
    await shutdown();
    ```
 
-   Without a key, `init_client()` and every `invoke()` raise `RuntimeError`. Don't let that crash startup: log a warning and let the fallback in sub-step 6 handle requests.
+   Without a key, `init_client()` and every `invoke()` raise `RuntimeError` (a plain `Error` in Node.js). Don't let that crash startup: log a warning and let the fallback in sub-step 6 handle requests.
 
 4. **Hand off to `configs-create`, then `configs-targeting`.** Print the extracted model, prompt/instructions, parameters, and mode from the Stage 1 manifest, then tell the user: *"Run `/configs-create` with these inputs, then `/configs-targeting` to serve the new variation, then come back here."* Supply the config key the code will call (e.g. `chat-assistant`). Wait for the user to finish.
 
