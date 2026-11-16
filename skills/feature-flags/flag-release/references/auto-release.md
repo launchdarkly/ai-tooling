@@ -90,7 +90,7 @@ Do these steps in order:
    - The user holds it, or gives a `notBefore` date for it. This applies also when it is the only environment.
    - The user's intent for it is unclear ("not sure yet", "not confirmed").
    - The flag release plan gives it `triggerType: "manual"`.
-   - It has no default release plan, and neither the user nor the flag release plan names a plan for it. Do not pick another plan for it, also when it is the only plan. Say that auto-release cannot run there until it has a default release plan, and point to `launchdarkly-release-plans` to set one.
+   - It needs an environment release plan (it is not immediate), it has no default release plan, and neither the user nor the flag release plan names a plan for it. An immediate environment (`isImmediate` in the flag release plan, or the user asks for an immediate release) needs no release plan, so this rule does not hold it. Do not pick another plan for it, also when it is the only plan. Say that auto-release cannot run there until it has a default release plan, and point to `launchdarkly-release-plans` to set one.
 
    Every other environment is RELEASE.
 3. **If every environment is HOLD, record nothing.** Do not call `create-automated-rollout-config`. Report each environment as held, with its date or reason.

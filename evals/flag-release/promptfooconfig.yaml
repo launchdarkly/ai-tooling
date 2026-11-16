@@ -765,6 +765,64 @@ tests:
         weight: 2
 
   # ==================================================================
+  # FLAG RELEASE, TOOL DISABLED, IMMEDIATE ENVIRONMENTS WITH NO RELEASE
+  # PLAN — dev and staging are isImmediate in the flag release plan and
+  # have no environment release plans at all. An immediate environment
+  # needs no default release plan, so the fallback still records dev and
+  # staging as immediate entries (no releaseType), with production as
+  # policy.
+  # ==================================================================
+  - description: "Flag release, tool disabled: immediate environments with no release plan are still recorded"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `usage-alerts` already exists (created OFF) for PR acme/platform#91,
+        project `default`. Start its release with the project's default flag release
+        plan so it releases after the merge.
+      mock_overrides:
+        create-flag-release:
+          error: "tool disabled: create-flag-release"
+        get-environment-release-plans:
+          by_arg: environmentKey
+          cases:
+            dev:
+              items: []
+              totalCount: 0
+            staging:
+              items: []
+              totalCount: 0
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
+          if (!rec) return { pass: false, score: 0, reason: 'did not fall back to create-automated-rollout-config' };
+          const envs = (rec.arguments && rec.arguments.environments) || [];
+          const byKey = Object.fromEntries(envs.map(e => [e.environmentKey, e]));
+          const immediate = (e) => Boolean(e) && e.releaseType === undefined;
+          const pass = immediate(byKey.dev) && immediate(byKey.staging) && Boolean(byKey.production) && byKey.production.releaseType === 'policy';
+          return { pass, score: pass ? 1 : 0, reason: `recorded ${JSON.stringify(envs)} (want dev and staging immediate, production as policy)` };
+        metric: recorded_immediate
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user asked to start the release of `usage-alerts` (PR acme/platform#91)
+          with the project's default flag release plan. create-flag-release returned
+          "tool disabled", so the agent should record the release with
+          create-automated-rollout-config. In the plan, dev and staging release
+          immediately and have no environment release plan, which they do not need.
+          Production uses its guarded release plan.
+          Evaluate the response:
+          1. Did it record dev and staging as immediate releases, without holding them
+             for a missing release plan?
+          2. Did it record production on its guarded release plan?
+          3. Did it avoid turning the flag on by hand?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
   # FLAG RELEASE, NO FLAG RELEASE PLAN — the project has no stored flag
   # release plan, so get-flag-release-plans returns an empty list
   # (LaunchDarkly supplies no built-in plan). The skill starts nothing,
