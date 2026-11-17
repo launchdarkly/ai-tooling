@@ -334,8 +334,9 @@ module.exports.mcpListReportsPlans = (output) => {
     `list read with the tool: ${read}; names both plans: ${names}; says which is default: ${isDefault}; tool or field names: ${raw}; commands shown: ${cmds}; writes: ${w}`);
 };
 
-// The project lists only the built-in plan: the list is read first, and the
-// new plan is created with test, then production, as the project's default.
+// The project has no flag release plans (an empty list): the list is read
+// first, and the new plan is created with test, then production, as the
+// project's default. No other flag release plan write happens.
 module.exports.mcpCreatesDefaultPlan = (output) => {
   const steps = traj(output);
   const li = steps.findIndex((t) => t.tool === "get-flag-release-plans");
@@ -345,9 +346,9 @@ module.exports.mcpCreatesDefaultPlan = (output) => {
   const a = c.arguments || {};
   const envs = JSON.stringify(envList(a.environments));
   const ci = steps.indexOf(c);
-  const touchesBuiltin = flagWrites(output).some((t) => (t.arguments || {}).flagReleasePlanKey === "default-release-configuration");
-  const pass = li !== -1 && li < ci && envs === TEST_THEN_PROD && a.default === true && !touchesBuiltin;
-  return result(pass, `list read first: ${li !== -1 && li < ci}; environments ${envs}; default: ${a.default}; writes to the built-in plan: ${touchesBuiltin}`);
+  const otherWrites = flagWrites(output).some((t) => t.tool !== "create-flag-release-plan");
+  const pass = li !== -1 && li < ci && envs === TEST_THEN_PROD && a.default === true && !otherWrites;
+  return result(pass, `list read first: ${li !== -1 && li < ci}; environments ${envs}; default: ${a.default}; update or delete writes: ${otherWrites}`);
 };
 
 // The project's default is edited in place: same key, confirm sent, test

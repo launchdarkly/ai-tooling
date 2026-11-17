@@ -22,7 +22,14 @@ const PLACEHOLDER_RE = /\{\{(\w+)\}\}/g;
 
 function buildReplacements(input) {
   const safe = input || {};
+  // Keys that echo only when the call sends them; otherwise the placeholder
+  // stays as written.
+  const echoed = {};
+  for (const key of ["configId", "releasePlanKey", "flagReleasePlanKey"]) {
+    if (typeof safe[key] === "string" && safe[key]) echoed[key] = safe[key];
+  }
   return {
+    ...echoed,
     flagKey: safe.flagKey || safe.key || "unknown-flag",
     flagName: safe.flagName || safe.name || "Unknown Flag",
     configKey: safe.configKey || "unknown-config",
@@ -364,11 +371,9 @@ function releasePlanStepError(progressiveRelease) {
 
 // Flag release plans, like the hosted MCP tools (mcp #522). The template (or a
 // test's override) is the project's list: { flagReleasePlans: [...] }. A
-// project with no stored plans lists the built-in default-release-configuration,
-// which is not stored: a get, update, or delete by its key is a 404. Writes
-// start from the stored plans the agent last saw (the first list read), and
-// later reads reflect them.
-const BUILTIN_FLAG_RELEASE_PLAN = "default-release-configuration";
+// project with no stored plans gets an empty list: LaunchDarkly supplies no
+// built-in plan (releases#230). Writes start from the stored plans the agent
+// last saw (the first list read), and later reads reflect them.
 const FLAG_RELEASE_PLAN_FIELDS = ["name", "description", "maintainer", "executionMode", "applicationKeys", "default", "environments"];
 const flagPlanNotFound = (key) => ({ error: `LaunchDarkly API error: 404: {"code":"not_found","message":"flag release plan ${key} not found"}` });
 
@@ -378,7 +383,6 @@ function flagPlanItems(base) {
   if (Array.isArray(base.items)) return base.items;
   return base.key ? [base] : [];
 }
-const storedFlagPlans = (items) => items.filter((p) => p.key !== BUILTIN_FLAG_RELEASE_PLAN);
 
 function renderFlagReleasePlans(template, args, toolName, state, replacements) {
   const project = args.projectKey;
@@ -388,15 +392,19 @@ function renderFlagReleasePlans(template, args, toolName, state, replacements) {
     const base = walk(template, replacements);
     if (base && base.error) return base;
     const items = flagPlanItems(base);
-    if (!state.raFlagSeen[project]) state.raFlagSeen[project] = storedFlagPlans(items).map((p) => ({ ...p }));
-    const stored = written || storedFlagPlans(items);
+    if (!state.raFlagSeen[project]) state.raFlagSeen[project] = items.map((p) => ({ ...p }));
+    const stored = written || items;
     if (args.flagReleasePlanKey) {
-      const plan = args.flagReleasePlanKey === BUILTIN_FLAG_RELEASE_PLAN ? undefined : stored.find((p) => p.key === args.flagReleasePlanKey);
+      const plan = stored.find((p) => p.key === args.flagReleasePlanKey);
       return plan ? { ...plan } : flagPlanNotFound(args.flagReleasePlanKey);
     }
-    const builtin = items.filter((p) => p.key === BUILTIN_FLAG_RELEASE_PLAN);
-    const list = stored.length ? stored : (builtin.length ? builtin : [{ key: BUILTIN_FLAG_RELEASE_PLAN, name: "Default release configuration", default: true, environments: [] }]);
-    return { flagReleasePlans: list.map((p) => ({ ...p })), totalCount: list.length, hasMore: false };
+    // A paged template (hasMore: true) keeps its page fields, so a test can
+    // serve the plans on more than one page with a by_arg offset override.
+    if (!written && base && base.hasMore === true) {
+      return { flagReleasePlans: stored.map((p) => ({ ...p })), totalCount: base.totalCount ?? stored.length,
+        hasMore: true, nextOffset: base.nextOffset };
+    }
+    return { flagReleasePlans: stored.map((p) => ({ ...p })), totalCount: stored.length, hasMore: false };
   }
   if (toolName === "create-flag-release-plan") {
     const plans = current();
@@ -422,7 +430,7 @@ function renderFlagReleasePlans(template, args, toolName, state, replacements) {
     }
     const key = args.flagReleasePlanKey;
     const plans = current().map((p) => ({ ...p }));
-    const at = key === BUILTIN_FLAG_RELEASE_PLAN ? -1 : plans.findIndex((p) => p.key === key);
+    const at = plans.findIndex((p) => p.key === key);
     if (at === -1) return flagPlanNotFound(key);
     if (toolName === "delete-flag-release-plan") {
       plans.splice(at, 1);

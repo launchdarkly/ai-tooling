@@ -3,7 +3,7 @@
 An Agent Skill for both kinds of LaunchDarkly release plan:
 
 - **Environment release plans**: how a flag releases in one environment (phases, rollout steps, holds, and rollback metrics). Each environment has a default plan.
-- **Flag release plans**: a project's environments in release order, each with its environment release plan. Release Autopilot proposes releases on pull requests from these plans. A rollout recorded for a flag (the `flag-release` skill) uses each environment's default release plan instead.
+- **Flag release plans**: a project's environments in release order, each with its environment release plan. Release Autopilot proposes releases on pull requests from these plans. The `flag-release` skill also starts a flag's release from them, and from each environment's release plan when the project has none.
 
 ## Overview
 
@@ -23,7 +23,7 @@ This skill teaches agents how to:
 ## Prerequisites
 
 - The hosted LaunchDarkly MCP server, for both kinds of plan. Its flag release plan tools are still reaching accounts.
-- When the server has no tool for an operation (flag release plans without their tools, starting a flag's release, deleting an environment release plan): the agent shows the REST command, and you run it in your own terminal with your LaunchDarkly API access token in `LD_ACCESS_TOKEN`, then paste the output back. The agent never runs these commands. Never paste a token into the chat.
+- When the server has no tool for an operation (flag release plans without their tools, deleting an environment release plan): the agent shows the REST command, and you run it in your own terminal with your LaunchDarkly API access token in `LD_ACCESS_TOKEN`, then paste the output back. The agent never runs these commands. Never paste a token into the chat.
 
 These REST endpoints are in beta, and every command sends `LD-API-Version: beta`. `ldcli` has no command for these endpoints, so the commands use curl.
 

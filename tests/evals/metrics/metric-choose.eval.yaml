@@ -29,13 +29,13 @@ tests:
         value: "The response must ask the user a direct question about the experiment's success hypothesis before listing any specific metric recommendations. If the response contains a labelled metric recommendation (e.g. 'Primary metric:', 'Guardrail:', 'Recommended metrics:') without first containing such a question, it fails this check."
         metric: asks-for-hypothesis
 
-  - description: "Guarded rollout path — must call get-release-policies"
+  - description: "Guarded rollout path — must call get-environment-release-plans"
     vars:
       user_message: "I'm doing a guarded rollout of my new auth service. Which metrics should I use? Project is my-app."
     assert:
       - type: llm-rubric
-        value: "The response calls get-release-policies (or explicitly states it would) to surface which metrics auto-attach from the project's release policies before recommending additional ones. A response that jumps straight to metric recommendations without checking release policies does NOT satisfy this."
-        metric: checks-release-policies
+        value: "The response calls get-environment-release-plans (or explicitly states it would, or asks which environment so that it can) to surface the metrics that the environment's release plans already use before recommending additional ones. A response that jumps straight to metric recommendations without checking the release plans does NOT satisfy this. A response that calls get-release-policies or match-release-policies does NOT satisfy this."
+        metric: checks-release-plans
 
   - description: "At-risk metric warning — must check event health before recommending"
     vars:
@@ -64,12 +64,12 @@ tests:
         value: "The response calls get-metrics (or explicitly states it would) to inventory the project's available metrics before making any recommendation. A response that names specific metrics to use without first checking what exists does NOT satisfy this."
         metric: calls-get-metrics
 
-  - description: "Context disambiguation — must ask experiment vs rollout vs policy"
+  - description: "Context disambiguation — must ask experiment vs rollout vs release plan"
     vars:
       user_message: "I need to pick some metrics for my feature launch."
     assert:
       - type: llm-rubric
-        value: "The response must contain a direct question asking the user whether this is for an experiment, a guarded rollout, or a release policy. A response that states 'I'll treat this as...' or assumes a context type without explicitly asking the user to confirm fails this check."
+        value: "The response must contain a direct question asking the user whether this is for an experiment, a guarded rollout, or a release plan. A response that states 'I'll treat this as...' or assumes a context type without explicitly asking the user to confirm fails this check."
         metric: asks-for-context
 
   # ─── Mutation tests ──────────────────────────────────────────────────────────
@@ -111,8 +111,8 @@ tests:
         value: "The response must ask the user a direct question about the experiment's success hypothesis before listing any specific metric recommendations. If the response contains a labelled metric recommendation (e.g. 'Primary metric:', 'Guardrail:', 'Recommended metrics:') without first containing such a question, it fails this check."
         metric: asks-for-hypothesis
 
-  # [NEG] 2 — mirrors positive test 2 (checks-release-policies)
-  - description: "[NEG] Rollout metrics recommended without checking release policies"
+  # [NEG] 2 — mirrors positive test 2 (checks-release-plans)
+  - description: "[NEG] Rollout metrics recommended without checking release plans"
     provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
       canned_output: |
@@ -134,8 +134,8 @@ tests:
         Would you like to proceed with these?
     assert:
       - type: llm-rubric
-        value: "The response calls get-release-policies (or explicitly states it would) to surface which metrics auto-attach from the project's release policies before recommending additional ones. A response that jumps straight to metric recommendations without checking release policies does NOT satisfy this."
-        metric: checks-release-policies
+        value: "The response calls get-environment-release-plans (or explicitly states it would, or asks which environment so that it can) to surface the metrics that the environment's release plans already use before recommending additional ones. A response that jumps straight to metric recommendations without checking the release plans does NOT satisfy this. A response that calls get-release-policies or match-release-policies does NOT satisfy this."
+        metric: checks-release-plans
 
   # [NEG] 3 — mirrors positive test 3 (checks-event-health + warns-at-risk)
   - description: "[NEG] Metric recommended as primary without checking event health"
@@ -233,7 +233,7 @@ tests:
         metric: calls-get-metrics
 
   # [NEG] 6 — mirrors positive test 6 (asks-for-context)
-  - description: "[NEG] Context assumed without asking experiment vs rollout vs policy"
+  - description: "[NEG] Context assumed without asking experiment vs rollout vs release plan"
     provider: file://{{env.PROVIDER_ROOT}}/echo-output.mjs
     vars:
       canned_output: |
@@ -246,10 +246,10 @@ tests:
         get-metrics(projectKey="my-app")
         ```
 
-        And check release policies:
+        And check the release plans in production:
 
         ```
-        get-release-policies(projectKey="my-app")
+        get-environment-release-plans(projectKey="my-app", environmentKey="production")
         ```
 
         Recommended rollout metrics:
@@ -261,5 +261,5 @@ tests:
         Want to add any domain-specific metrics on top of these?
     assert:
       - type: llm-rubric
-        value: "The response must contain a direct question asking the user whether this is for an experiment, a guarded rollout, or a release policy. A response that states 'I'll treat this as...' or assumes a context type without explicitly asking the user to confirm fails this check."
+        value: "The response must contain a direct question asking the user whether this is for an experiment, a guarded rollout, or a release plan. A response that states 'I'll treat this as...' or assumes a context type without explicitly asking the user to confirm fails this check."
         metric: asks-for-context
