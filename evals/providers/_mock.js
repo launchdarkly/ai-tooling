@@ -146,7 +146,7 @@ function createMockState() {
     raCleanup: {},    // projectKey -> auto-cleanup settings written this run
     raArchival: {},   // projectKey -> auto-archival settings written this run
     raFlagPlans: {},  // projectKey -> stored flag release plans after a write this run
-    raFlagSeen: {},   // projectKey -> stored flag release plans from the first list read
+    raFlagSeen: {},   // projectKey -> stored flag release plans from every page read
   };
 }
 
@@ -372,8 +372,8 @@ function releasePlanStepError(progressiveRelease) {
 // Flag release plans, like the hosted MCP tools (mcp #522). The template (or a
 // test's override) is the project's list: { flagReleasePlans: [...] }. A
 // project with no stored plans gets an empty list: LaunchDarkly supplies no
-// built-in plan (releases#230). Writes start from the stored plans the agent
-// last saw (the first list read), and later reads reflect them.
+// built-in plan (releases#230). Writes start from every stored plan the agent
+// has read (all pages), and later reads return the full list.
 const FLAG_RELEASE_PLAN_FIELDS = ["name", "description", "maintainer", "executionMode", "applicationKeys", "default", "environments"];
 const flagPlanNotFound = (key) => ({ error: `LaunchDarkly API error: 404: {"code":"not_found","message":"flag release plan ${key} not found"}` });
 
@@ -392,19 +392,28 @@ function renderFlagReleasePlans(template, args, toolName, state, replacements) {
     const base = walk(template, replacements);
     if (base && base.error) return base;
     const items = flagPlanItems(base);
-    if (!state.raFlagSeen[project]) state.raFlagSeen[project] = items.map((p) => ({ ...p }));
-    const stored = written || items;
+    // Remember every plan from every page read, so a write after a paged
+    // read starts from the full list, not page 1 only.
+    if (!written) {
+      const seen = state.raFlagSeen[project] || (state.raFlagSeen[project] = []);
+      for (const p of items) if (!seen.some((s) => s.key === p.key)) seen.push({ ...p });
+    }
     if (args.flagReleasePlanKey) {
-      const plan = stored.find((p) => p.key === args.flagReleasePlanKey);
+      const pool = written || items;
+      const plan = pool.find((p) => p.key === args.flagReleasePlanKey)
+        || (!written && state.raFlagSeen[project].find((p) => p.key === args.flagReleasePlanKey));
       return plan ? { ...plan } : flagPlanNotFound(args.flagReleasePlanKey);
+    }
+    if (written) {
+      return { flagReleasePlans: written.map((p) => ({ ...p })), totalCount: written.length, hasMore: false };
     }
     // A paged template (hasMore: true) keeps its page fields, so a test can
     // serve the plans on more than one page with a by_arg offset override.
-    if (!written && base && base.hasMore === true) {
-      return { flagReleasePlans: stored.map((p) => ({ ...p })), totalCount: base.totalCount ?? stored.length,
-        hasMore: true, nextOffset: base.nextOffset };
-    }
-    return { flagReleasePlans: stored.map((p) => ({ ...p })), totalCount: stored.length, hasMore: false };
+    // Every page reports the full totalCount.
+    const totalCount = Number.isInteger(base && base.totalCount) ? base.totalCount : items.length;
+    const page = { flagReleasePlans: items.map((p) => ({ ...p })), totalCount, hasMore: false };
+    if (base && base.hasMore === true) Object.assign(page, { hasMore: true, nextOffset: base.nextOffset });
+    return page;
   }
   if (toolName === "create-flag-release-plan") {
     const plans = current();

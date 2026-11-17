@@ -1087,6 +1087,21 @@ test("flag release plan list keeps the page fields of a paged template", () => {
   assert.deepEqual(last.flagReleasePlans.map((p) => p.key), ["b"]);
 });
 
+test("paged flag release plan list reports the full totalCount and keeps every page for later writes", () => {
+  const state = createMockState();
+  const page1 = { flagReleasePlans: [{ key: "a", default: false, environments: [] }], totalCount: 2, hasMore: true, nextOffset: 1 };
+  const page2 = { flagReleasePlans: [{ key: "b", default: true, environments: [] }], totalCount: 2, hasMore: false };
+  assert.equal(renderMockResponse(page1, { projectKey: "default" }, "get-flag-release-plans", state).totalCount, 2);
+  assert.equal(renderMockResponse(page2, { projectKey: "default", offset: 1 }, "get-flag-release-plans", state).totalCount, 2);
+  const created = renderMockResponse({}, { projectKey: "default", key: "c", name: "C", environments: [{ environmentKey: "dev", triggerType: "flag_eval" }] },
+    "create-flag-release-plan", state);
+  assert.equal(created.key, "c");
+  const after = renderMockResponse(page1, { projectKey: "default" }, "get-flag-release-plans", state);
+  assert.deepEqual(after.flagReleasePlans.map((p) => p.key), ["a", "b", "c"]);
+  assert.equal(after.totalCount, 3);
+  assert.equal(after.hasMore, false);
+});
+
 test("get-automated-rollout-config echoes the configId it was sent", () => {
   const suiteTemplates = require("../flag-release/tool-mocks.json");
   const state = createMockState();
