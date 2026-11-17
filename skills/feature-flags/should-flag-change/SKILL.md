@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Advisory and read-only. Needs a git checkout with the change committed (shallow is fine; a --filter partial clone is filled in from its remote), a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run (no shell, no checkout), it decides by judgment instead, from references/NO_CHECKOUT.md. Returns a structured verdict as a `recommend-flag` block."
 metadata:
   author: launchdarkly
-  version: "0.5.0"
+  version: "0.5.1"
   graph: "07355490e985"
 ---
 
