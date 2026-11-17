@@ -21,7 +21,7 @@
           "type": "integer"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
           "type": "string"
         },
         "releasePlanKey": {
@@ -40,50 +40,47 @@
     "name": "get-flag-release-plans",
     "description": "Get flag release plans, reusable templates that say how a flag is released across a project's environments. Beta API. Without flagReleasePlanKey: a page in creation order with totalCount; when hasMore is true, pass nextOffset as offset. With flagReleasePlanKey: one plan with its environments (environmentKey, triggerType, environmentReleasePlanKey or isImmediate), executionMode, applicationKeys, maintainer, default, and version. A maintainer reads as {kind: member, memberId, email} or {kind: team, key, name}; to send a team maintainer to update-flag-release-plan, use {kind: team, teamKey: <key>}. The plan with default: true is the project's default, suggested first when starting a release. A project with no stored plans has no default; create a plan with default: true. Flag release plans are project-wide; environment release plans (get-environment-release-plans) are the per-environment rollout recipes they point to.",
     "input_schema": {
-      "type": "object",
       "additionalProperties": false,
+      "properties": {
+        "flagReleasePlanKey": {
+          "description": "Get one plan. Omit to list plans.",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Only without flagReleasePlanKey. Defaults to 20.",
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "offset": {
+          "description": "Only without flagReleasePlanKey. Pass nextOffset from the previous page.",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "type": "string"
+        }
+      },
       "required": [
         "projectKey"
       ],
-      "properties": {
-        "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
-        },
-        "flagReleasePlanKey": {
-          "type": "string",
-          "description": "Get one plan. Omit to list plans."
-        },
-        "limit": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 50,
-          "description": "Only without flagReleasePlanKey. Defaults to 20."
-        },
-        "offset": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Only without flagReleasePlanKey. Pass nextOffset from the previous page."
-        }
-      }
+      "type": "object"
     }
   },
   {
     "name": "create-flag-release",
-    "description": "Start a flag release: release a flag across environments by following a flag release plan. Beta API. This changes the flag's targeting as the release runs, so confirm the flag, the plan, and its environments with the user first. A flag can have only one active release; if it already has one, LaunchDarkly returns an error that names it, and that release must be archived first. flagReleasePlanKey names the plan (find one with get-flag-release-plans; use the plan with default: true unless the user picks another). startingVariationId and endingVariationId name the variations to release from and to, by the _id of the flag's variations. Send both or neither: a multi-variate flag needs both, and a boolean flag can omit both to release from false to true. Send pullRequest when the release is for a pull request: repoFullName as owner/name and number; the tool sends the github.com pull request URL built from them. A webhook environment in a release with a pull request waits for a deploy that includes the merge. Without a pull request, it starts on the next deploy signal for that environment. Returns config_id, the release's ID, and the release as read back, with repo_full_name and pr_number when a pull request is linked; inspect or change it later with get-automated-rollout-config, update-automated-rollout-config, and archive-automated-rollout-config. To release without a plan, use create-automated-rollout-config.",
+    "description": "Start a flag release: release a flag across environments by following a flag release plan. Beta API. When the user names no project, call get-projects before you ask anything: when it returns one project, name that project in the confirmation question. This changes the flag's targeting as the release runs, so confirm the project, the flag, the plan, and its environments with the user first. When the user did not name the project, name the one you picked and wait for their reply before you send confirm: true. A flag can have only one active release; if it already has one, LaunchDarkly returns an error that names it, and that release must be archived first. flagReleasePlanKey names the plan (find one with get-flag-release-plans; use the plan with default: true unless the user picks another). startingVariationId and endingVariationId name the variations to release from and to, by the _id of the flag's variations. Send both or neither: a multi-variate flag needs both, and a boolean flag can omit both to release from false to true. Send pullRequest when the release is for a pull request: repoFullName as owner/name and number; the tool sends the github.com pull request URL built from them. A webhook environment in a release with a pull request waits for a deploy that includes the merge. Without a pull request, it starts on the next deploy signal for that environment. Returns config_id, the release's ID, and the release as read back, with repo_full_name and pr_number when a pull request is linked; inspect or change it later with get-automated-rollout-config, update-automated-rollout-config, and archive-automated-rollout-config. To release without a plan, use create-automated-rollout-config.\nOne example per flag type:\n- boolean flag, no pull request: {\"projectKey\":\"default\",\"flagKey\":\"new-checkout\",\"flagReleasePlanKey\":\"standard\",\"confirm\":true}\n- multi-variate flag for a pull request: {\"projectKey\":\"default\",\"flagKey\":\"checkout-theme\",\"flagReleasePlanKey\":\"standard\",\"startingVariationId\":\"<_id to release from>\",\"endingVariationId\":\"<_id to release to>\",\"pullRequest\":{\"repoFullName\":\"acme/web\",\"number\":42},\"confirm\":true}",
     "input_schema": {
-      "type": "object",
       "additionalProperties": false,
-      "required": [
-        "projectKey",
-        "flagKey",
-        "flagReleasePlanKey",
-        "confirm"
-      ],
       "properties": {
-        "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "endingVariationId": {
+          "description": "The _id of the flag variation to release to.",
+          "type": "string"
         },
         "flagKey": {
           "type": "string"
@@ -91,40 +88,43 @@
         "flagReleasePlanKey": {
           "type": "string"
         },
-        "startingVariationId": {
-          "type": "string",
-          "description": "The _id of the flag variation to release from."
-        },
-        "endingVariationId": {
-          "type": "string",
-          "description": "The _id of the flag variation to release to."
+        "projectKey": {
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "type": "string"
         },
         "pullRequest": {
-          "type": "object",
           "additionalProperties": false,
+          "description": "The pull request this release follows.",
+          "properties": {
+            "number": {
+              "description": "Pull request number.",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "repoFullName": {
+              "description": "GitHub repository as owner/name.",
+              "pattern": "^[^/\\s]+/[^/\\s]+$",
+              "type": "string"
+            }
+          },
           "required": [
             "repoFullName",
             "number"
           ],
-          "description": "The pull request this release follows.",
-          "properties": {
-            "repoFullName": {
-              "type": "string",
-              "pattern": "^[^/\\s]+/[^/\\s]+$",
-              "description": "GitHub repository as owner/name."
-            },
-            "number": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Pull request number."
-            }
-          }
+          "type": "object"
         },
-        "confirm": {
-          "type": "boolean",
-          "description": "Confirm this destructive operation."
+        "startingVariationId": {
+          "description": "The _id of the flag variation to release from.",
+          "type": "string"
         }
-      }
+      },
+      "required": [
+        "projectKey",
+        "flagKey",
+        "flagReleasePlanKey",
+        "confirm"
+      ],
+      "type": "object"
     }
   },
   {
@@ -141,7 +141,7 @@
           ]
         },
         "environments": {
-          "description": "Per-environment rollout plan.",
+          "description": "Per-environment rollout plan. One example entry per release type. Omit triggerType unless the user says when the release starts.\n- immediate: {\"environmentKey\":\"production\"}\n- progressive: {\"environmentKey\":\"production\",\"releaseType\":\"override\",\"override\":{\"releaseMethod\":\"progressive\",\"rolloutContextKindKey\":\"user\",\"stages\":[{\"allocation\":10000,\"durationMillis\":3600000},{\"allocation\":100000,\"durationMillis\":3600000}]}}\n- guarded: {\"environmentKey\":\"production\",\"releaseType\":\"override\",\"override\":{\"releaseMethod\":\"guarded\",\"rolloutContextKindKey\":\"user\",\"stages\":[{\"allocation\":10000,\"durationMillis\":3600000}],\"metricKeys\":[\"error-rate\"],\"rollbackOnRegression\":true}}\n- policy with a named environment release plan, which always needs releaseType policy: {\"environmentKey\":\"production\",\"releaseType\":\"policy\",\"environmentReleasePlanKey\":\"prod-ramp\"}",
           "items": {
             "additionalProperties": false,
             "properties": {
@@ -272,7 +272,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "LaunchDarkly project key.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
           "type": "string"
         },
         "repoFullName": {
@@ -307,27 +307,27 @@
     "name": "get-automated-rollout-config",
     "description": "Fetch a single automated rollout config by id to verify its state.\n\nUse this after create-automated-rollout-config (which returns config_id) to confirm the rollout was recorded and to check its progress.\n\nLIFECYCLE:\n- pr_state: \"pending\" until the guarding PR merges, then \"merged\".\n- status: \"active\" while releasing, then \"complete\", \"expired\", or \"archived\".\n\nThe config reports its execution_mode. Each environment reports its desired_release_type, environment_release_plan_key (a policy environment that names a plan other than the default), trigger_type, wait_before_release_millis, the pinned override (if any), and release progress via released_at and associated_release_id (both set once the environment's release starts). An environment is editable with update-automated-rollout-config only while its status is \"pending\" and release_lifecycle_status is \"not_started\".\n\nINPUTS:\n- projectKey (required): LaunchDarkly project key (e.g., \"default\").\n- configId (required): The rollout config id returned by create-automated-rollout-config.\n\nRETURNS:\n- found: Boolean; false when no config with that id exists for the project's account.\n- config: The rollout config when found — { id, project_key, flag_key, repo_full_name, pr_number, pr_url, pr_state, status, execution_mode, required_application_keys, created_at, updated_at, completed_at, environments: [{ environment_key, desired_release_type, environment_release_plan_key, trigger_type, status, release_lifecycle_status, wait_before_release_millis, associated_release_id, released_at, override: { release_method, rollout_context_kind_key, stages, metric_keys, metric_group_keys, rollback_on_regression } }] }.",
     "input_schema": {
-      "type": "object",
       "additionalProperties": false,
+      "properties": {
+        "configId": {
+          "description": "Rollout config id returned by create-automated-rollout-config.",
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "type": "string"
+        }
+      },
       "required": [
         "projectKey",
         "configId"
       ],
-      "properties": {
-        "projectKey": {
-          "type": "string",
-          "description": "Project key. If the user hasn't named one, ask; don't guess."
-        },
-        "configId": {
-          "type": "string",
-          "description": "Rollout config id returned by create-automated-rollout-config."
-        }
-      }
+      "type": "object"
     }
   },
   {
     "name": "update-flag-release-plan",
-    "description": "Update a flag release plan's name, description, maintainer, executionMode, applicationKeys, default, or environments. Beta API. Send only the fields to change; omitted fields keep their current values, including default. environments and applicationKeys are each replaced wholesale when provided, so include every entry to keep. default: true makes this plan the project's default and demotes the current one; default: false unsets this plan as the default and keeps the plan, so the project has no default until another plan is set. To delete a plan, use delete-flag-release-plan. The update is checked against the version that was read, so a concurrent edit returns an error instead of being overwritten; retry to apply it to the current plan. Flag releases already started from the plan are not affected. RULES: 1-50 environments, each listed once, in release order. Each environment needs environmentKey and triggerType, plus environmentReleasePlanKey unless isImmediate is true (never both). The environment release plan must already exist in that environment, be complete, and have exactly one phase; find one with get-environment-release-plans. triggerType: flag_eval starts when the flag is first evaluated there, webhook waits for a deploy signal, manual waits for a person, promotion starts when the previous environment finishes. The first environment cannot use promotion. executionMode is sequential: environments release in the listed order. At most 25 applicationKeys. A project holds at most 100 flag release plans and at most one default. Returns the plan as read back after the update.",
+    "description": "Update a flag release plan's name, description, maintainer, executionMode, applicationKeys, default, or environments. Beta API. Send only the fields to change; omitted fields keep their current values, including default. environments and applicationKeys are each replaced wholesale when provided, so include every entry to keep. default: true makes this plan the project's default and demotes the current one; default: false unsets this plan as the default and keeps the plan, so the project has no default until another plan is set. To delete a plan, use delete-flag-release-plan. The update is checked against the version that was read, so a concurrent edit returns an error instead of being overwritten; retry to apply it to the current plan. Flag releases already started from the plan are not affected. RULES: 1-50 environments, each listed once, in release order. Each environment needs environmentKey and triggerType, plus environmentReleasePlanKey unless isImmediate is true (never both). The environment release plan must already exist in that environment, be complete, and have exactly one phase; find one with get-environment-release-plans. triggerType: flag_eval starts when the flag is first evaluated there, webhook waits for a deploy signal, manual waits for a person, promotion starts when the previous environment finishes. The first environment cannot use promotion. executionMode is sequential: environments release in the listed order. At most 25 applicationKeys. A project holds at most 100 flag release plans and at most one default.\nOne example environments entry per trigger for an environment release plan:\n- environment release plan, on a CI/CD deploy: {\"environmentKey\":\"staging\",\"triggerType\":\"webhook\",\"environmentReleasePlanKey\":\"staging-ramp\"}\n- environment release plan, when a person starts it: {\"environmentKey\":\"production\",\"triggerType\":\"manual\",\"environmentReleasePlanKey\":\"prod-guarded\"}\n- environment release plan, after the previous environment finishes: {\"environmentKey\":\"production\",\"triggerType\":\"promotion\",\"environmentReleasePlanKey\":\"prod-ramp\"}\nReturns the plan as read back after the update.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -440,7 +440,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
           "type": "string"
         }
       },
@@ -466,7 +466,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
           "type": "string"
         }
       },
@@ -637,7 +637,7 @@
           "type": "object"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
           "type": "string"
         },
         "releasePlanKey": {
@@ -668,7 +668,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
           "type": "string"
         },
         "releasePlanKey": {
@@ -699,7 +699,7 @@
           "type": "boolean"
         },
         "environments": {
-          "description": "Complete replacement plan, in order. An environment you omit is removed.",
+          "description": "Complete replacement plan, in order. An environment you omit is removed. One example entry per release type. Omit triggerType unless the user says when the release starts.\n- immediate: {\"environmentKey\":\"production\"}\n- progressive: {\"environmentKey\":\"production\",\"releaseType\":\"override\",\"override\":{\"releaseMethod\":\"progressive\",\"rolloutContextKindKey\":\"user\",\"stages\":[{\"allocation\":10000,\"durationMillis\":3600000},{\"allocation\":100000,\"durationMillis\":3600000}]}}\n- guarded: {\"environmentKey\":\"production\",\"releaseType\":\"override\",\"override\":{\"releaseMethod\":\"guarded\",\"rolloutContextKindKey\":\"user\",\"stages\":[{\"allocation\":10000,\"durationMillis\":3600000}],\"metricKeys\":[\"error-rate\"],\"rollbackOnRegression\":true}}\n- policy with a named environment release plan, which always needs releaseType policy: {\"environmentKey\":\"production\",\"releaseType\":\"policy\",\"environmentReleasePlanKey\":\"prod-ramp\"}",
           "items": {
             "additionalProperties": false,
             "properties": {
@@ -820,7 +820,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named one, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
           "type": "string"
         },
         "repoFullName": {
