@@ -7,9 +7,9 @@ mechanically from each flag's current state in LaunchDarkly.
 
 - **With `LAUNCHDARKLY_API_KEY` set** (a read-only API access token),
   `ld-factory.pyz` reads LaunchDarkly itself. Nothing to do here.
-- **Otherwise** `ld-factory.pyz` exits 7 and lists the flags it needs in
-  `RUN/launchdarkly-needed.txt`, one `<project>  <key>` per line, with the
-  environments to read. Fetch each with whatever LaunchDarkly tools you have
+- **Otherwise** `ld-factory.pyz` exits 7 and prints the list of flags it needs,
+  one `<project>  <key>` per line, with the environments to read. The same
+  list is in `RUN/launchdarkly-needed.txt`. Fetch each with whatever LaunchDarkly tools you have
   and write it as below, then run the same command again. It may ask for a
   few more on the next run (a flag's prerequisites, or a flag an answer
   pointed at); repeat until it stops asking.
@@ -24,7 +24,8 @@ When the repo's profile doesn't say which environments serve real users
 LaunchDarkly marks **critical**: of those, the ones with `prod` in their key
 when there are any (a critical environment that isn't, such as a dogfood
 instance, is still read but doesn't count as real users), else all of them. With an API key it lists them itself.
-Otherwise the first `launchdarkly-needed.txt` asks for them too: list the
+Otherwise the first request for a flag asks for them too (a change that
+needs no flag never asks): list the
 project's environments with your LaunchDarkly tools and write
 `RUN/launchdarkly/environments.json`, every environment with its key and
 whether it's critical:
