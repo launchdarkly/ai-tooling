@@ -125,15 +125,15 @@ Do these steps in order:
 
    A `promotion` environment after an EXCLUDED environment needs no question: step 5 starts the first entry on `flag_eval`. After each answer, check the later environments again. A `promotion` environment after an environment that now releases on merge follows it, and needs no question. An environment that the user did not ask to release on merge keeps the plan's trigger.
 4. **If no environment is RELEASE, record nothing.** Do not call `create-flag-release` or `create-automated-rollout-config`. Report each environment as held or not part of the release, with its date or reason.
-5. **Write one entry for each RELEASE environment**, in release order. Leave every HOLD and EXCLUDED environment out of `environments`. Do not add a hold or date field. Each entry has one of these two shapes, plus `triggerType`, and no other field:
-   - An immediate environment (`isImmediate` in the flag release plan, or the user asks for an immediate release): `{ "environmentKey": "staging", "desiredReleaseType": "override", "override": { "releaseMethod": "immediate" } }`.
-   - An environment with an environment release plan: `{ "environmentKey": "production", "desiredReleaseType": "policy", "environmentReleasePlanKey": "guarded-prod" }`. Use the plan that the user or the flag release plan names. Leave out `environmentReleasePlanKey` to use the environment's default release plan. Without a flag release plan, read each environment's plans with `get-environment-release-plans` to find the default.
+5. **Write one entry for each RELEASE environment**, in release order. Leave every HOLD and EXCLUDED environment out of `environments`. Do not add a hold or date field. Each entry has one of these two shapes, plus `triggerType`, and no other field. The entries take the same shape as in `create-automated-rollout-config`:
+   - An immediate environment (`isImmediate` in the flag release plan, or the user asks for an immediate release): `{ "environmentKey": "staging" }`, with no `releaseType` and no `override`.
+   - An environment with an environment release plan: `{ "environmentKey": "production", "releaseType": "policy", "environmentReleasePlanKey": "guarded-prod" }`. Use the plan that the user or the flag release plan names. Leave out `environmentReleasePlanKey` to use the environment's default release plan. Without a flag release plan, read each environment's plans with `get-environment-release-plans` to find the default.
 
-   Copy each environment's `triggerType` from the flag release plan into its entry (`flag_eval`, `webhook`, `manual`, or `promotion`). A left-out `triggerType` means `flag_eval`, so a `webhook` environment without it starts on first evaluation, before the deploy arrives. Without a flag release plan, leave `triggerType` out unless the user names a trigger. Example: `{ "environmentKey": "production", "desiredReleaseType": "policy", "triggerType": "webhook" }`.
+   Copy each environment's `triggerType` from the flag release plan into its entry (`flag_eval`, `webhook`, `manual`, or `promotion`). A left-out `triggerType` means `flag_eval`, so a `webhook` environment without it starts on first evaluation, before the deploy arrives. Without a flag release plan, leave `triggerType` out unless the user names a trigger. Example: `{ "environmentKey": "production", "releaseType": "policy", "triggerType": "webhook" }`.
 
    If the first entry has `triggerType: "promotion"` because an environment before it is left out of the call (EXCLUDED or HOLD), send `flag_eval` for it instead: the first environment cannot use `promotion`. Never send `promotion` for the first entry. Later entries keep `promotion`, so each one follows the entry before it. Tell the user about the changed trigger.
 
-   Never send an `override` with stages or metrics (only `releaseMethod: "immediate"` for an immediate environment), and never copy a plan's steps, stages, or metrics into the call. The plans stay the source.
+   Never send `override` or `releaseType: "override"`, and never copy a plan's steps, stages, or metrics into the call. The plans stay the source.
 6. **Check the pull request.** If no PR reference is known and any entry uses `webhook` or `flag_eval` (including a left-out trigger), stop and ask for the PR. A release whose entries all wait for a person (`manual`, or `promotion` after a `manual` entry) can start without one.
 7. **Call `create-flag-release` with `kind: "custom"` in the same turn** when the user asked to start or record the release, unless step 3 is waiting for an answer, or `create-flag-release` returned `tool disabled` for the flag release plan and the user has not confirmed this version yet. Call it once. If a flag release or rollout config already exists for this flag and PR (from an earlier call in this run, or one that the user or harness names), do not start a second one: point the user to the existing one. Send `projectKey`, `flagKey`, `kind: "custom"`, `executionMode: "sequential"` (LaunchDarkly accepts no other execution mode), the `environments` from step 5, `pullRequest: { repoFullName, number }`, `startingVariationId` and `endingVariationId` as [Variations](#variations) says, and `confirm: true`. If you have only the PR URL (`https://github.com/<owner>/<name>/pull/<number>`), take `repoFullName` and the number from it.
 
@@ -144,8 +144,8 @@ Do these steps in order:
      "kind": "custom",
      "executionMode": "sequential",
      "environments": [
-       { "environmentKey": "staging", "desiredReleaseType": "override", "override": { "releaseMethod": "immediate" }, "triggerType": "flag_eval" },
-       { "environmentKey": "production", "desiredReleaseType": "policy", "environmentReleasePlanKey": "guarded-prod", "triggerType": "promotion" }
+       { "environmentKey": "staging", "triggerType": "flag_eval" },
+       { "environmentKey": "production", "releaseType": "policy", "environmentReleasePlanKey": "guarded-prod", "triggerType": "promotion" }
      ],
      "pullRequest": { "repoFullName": "acme/storefront", "number": 482 },
      "confirm": true
@@ -159,9 +159,7 @@ Use it only when `create-flag-release` is not listed, its schema does not offer 
 
 | `create-flag-release` (`kind: "custom"`) | `create-automated-rollout-config` |
 |------------------------------------------|-----------------------------------|
-| `{ "desiredReleaseType": "override", "override": { "releaseMethod": "immediate" } }` | `{ "environmentKey": "staging" }`, with no `releaseType` and no `override` |
-| `"desiredReleaseType": "policy"` | `"releaseType": "policy"` |
-| `environmentReleasePlanKey`, `triggerType` | the same |
+| `environments` entries | the same |
 | `pullRequest: { repoFullName, number }` | `repoFullName`, `prNumber`, and `prUrl` (`https://github.com/<owner>/<name>/pull/<number>`) |
 | `executionMode`, `startingVariationId`, `endingVariationId` | the same |
 

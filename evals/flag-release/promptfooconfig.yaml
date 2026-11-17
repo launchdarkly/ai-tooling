@@ -28,9 +28,9 @@
 #                  the release from each environment's release plan
 #                  (create-automated-rollout-config)
 #
-# The kind custom argument names (kind, executionMode, environments with
-# desiredReleaseType) follow gonfalon's
-# POST /api/v2/projects/{projectKey}/flags/{flagKey}/flag-releases body.
+# The kind custom arguments (kind, executionMode, and environments in the
+# create-automated-rollout-config shape) follow create-flag-release in
+# launchdarkly/mcp#580.
 # The mocks return the guarding flag as existing and OFF, a guarded default
 # release plan for every environment, and two flag release plans: the default
 # "standard-release" (dev, then staging, then production on promotion) and
@@ -1158,7 +1158,7 @@ tests:
           const prod = envs.find(e => e.environmentKey === 'production') || {};
           const pass = order.join(',') === 'staging,production'
             && (first.triggerType === undefined || first.triggerType === 'flag_eval')
-            && prod.triggerType === 'promotion' && prod.desiredReleaseType === 'policy';
+            && prod.triggerType === 'promotion' && prod.releaseType === 'policy';
           return { pass, score: pass ? 1 : 0, reason: `custom ${JSON.stringify(envs)} (want staging first on flag_eval, then production as policy on promotion)` };
         metric: first_entry_flag_eval
         weight: 4
@@ -1458,7 +1458,7 @@ tests:
           const a = (rec && rec.arguments) || {};
           const envs = a.environments || [];
           const byKey = Object.fromEntries(envs.map(e => [e.environmentKey, e]));
-          const usesPlan = (e) => Boolean(e) && e.desiredReleaseType === 'policy' && e.override === undefined && e.stages === undefined;
+          const usesPlan = (e) => Boolean(e) && e.releaseType === 'policy' && e.override === undefined && e.stages === undefined;
           const pr = a.pullRequest || {};
           if (rec && !(a.confirm === true && pr.repoFullName === 'acme/api' && Number(pr.number) === 12 && (a.executionMode === undefined || a.executionMode === 'sequential')))
             return { pass: false, score: 0, reason: `custom flag release ${JSON.stringify(a)} (want confirm true, pullRequest acme/api#12, sequential)` };
