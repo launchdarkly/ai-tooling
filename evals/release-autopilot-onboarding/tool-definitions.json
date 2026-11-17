@@ -202,7 +202,7 @@
   },
   {
     "name": "get-environment-release-plans",
-    "description": "Get environment release plans, reusable progressive-release recipes. Without releasePlanKey: a page of plans, each marked default when it is the environment's default. With releasePlanKey: one plan.",
+    "description": "Get environment release plans, reusable progressive-release recipes. Beta API. Without releasePlanKey: a page ordered by creation time with totalCount; when hasMore is true, pass nextOffset as offset. With releasePlanKey: one plan with its phases (clauses and steps), metrics, randomizationUnit, advancementMode, and cleanupBehavior.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -239,7 +239,7 @@
   },
   {
     "name": "create-environment-release-plan",
-    "description": "Create an environment release plan, a reusable progressive-release recipe. Does not start a release. Check existing plans with get-environment-release-plans first: an active key returns 409. PHASES: 1-10, each with 1-10 clauses and 1-10 steps. Every phase's clauses must include the randomization unit clause {attribute: \"kind\", op: \"in\", values: [<randomizationUnit>], contextKind: <randomizationUnit>}. STEPS: {allocation, durationMillis}; allocation is per-100k, greater than 0, at most 99000, increasing. Do not add a 100% step. METRICS: keyed object, each value { isGroup, autoRollback? }; {} = progressive.",
+    "description": "Create an environment release plan, a reusable progressive-release recipe. Does not start a release on a flag. Check existing plans with get-environment-release-plans first: an active key returns 409. Beta API.\n\nGATHERING CONFIG: ask the user about each setting as its own question, in its own step. Never bundle randomizationUnit, advancementMode and cleanupBehavior into one prompt or offer pre-mixed combinations. Ask (1) randomizationUnit: the context kind to randomize by (e.g. user, account); (2) advancementMode: manual or automatic; (3) cleanupBehavior: leave_rules_in_place or remove_rules_and_update_default_rule, stating each outcome. Then make one create call with the complete config.\n\nprogressiveRelease: randomizationUnit, optional advancementMode (manual or automatic, default manual) and cleanupBehavior, phases, and optional metrics. cleanupBehavior sets what happens when a release finishes: leave_rules_in_place keeps the rules, so the release stays limited to the audience in them; remove_rules_and_update_default_rule removes the rules and releases to everyone through the default rule (the API default).\n\nPHASES: 1-10, each with 1-10 clauses and 1-10 steps. A flag release plan can use this plan only if it has exactly one phase. Every phase's clauses must include the randomization unit clause {attribute: \"kind\", op: \"in\", values: [<randomizationUnit>], contextKind: <randomizationUnit>}; alone it releases to every context of that kind. randomizationUnit must be an existing, unarchived context kind in the project. Clauses use the flag targeting shape {attribute, op, values, contextKind?, negate?}: contextKind defaults to user, and attribute and contextKind may be empty only for segmentMatch, whose values are segment keys. values holds 1-25 entries, each string at most 1,024 bytes.\n\nSTEPS: {allocation, durationMillis}. allocation is per-100k (5000 = 5%): greater than 0, at most 99000 (99%), and greater than the previous step's. Do not add a 100% step; completing the release reaches everyone. durationMillis is the hold before the next step and must be greater than 0 (14400000 = 4h).\n\nMETRICS: object keyed by metric or metric group key, each {isGroup, autoRollback?}. Empty makes a progressive release; any keys make releases from the plan guarded, which caps every step at 50000 (50%) and requires the randomizationUnit to be enabled for guarded rollouts. Max 10 metrics and 5 groups; keys must exist in the project and each metric must support the randomizationUnit.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -251,10 +251,14 @@
           "type": "string"
         },
         "key": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "^[a-zA-Z0-9][._a-zA-Z0-9-]*$"
         },
         "name": {
-          "type": "string"
+          "type": "string",
+          "maxLength": 256
         },
         "progressiveRelease": {
           "additionalProperties": false,
@@ -275,7 +279,6 @@
             },
             "metrics": {
               "type": "object",
-              "description": "Keyed by metric key. {} = progressive. Any key makes releases from this plan guarded. Each value is { isGroup, autoRollback? }.",
               "additionalProperties": {
                 "type": "object",
                 "properties": {
@@ -330,8 +333,12 @@
                           "type": "string"
                         },
                         "values": {
-                          "items": true,
-                          "type": "array"
+                          "items": {
+                            "maxLength": 1024
+                          },
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 25
                         }
                       },
                       "required": [
@@ -410,24 +417,28 @@
   },
   {
     "name": "update-default-environment-release-plan",
-    "description": "Set or clear an environment release plan as the environment's default, the plan suggested first when starting a release. default true makes this plan the default; default false clears it only when this plan is the default.",
+    "description": "Set or clear an environment release plan as the environment's default, the plan suggested first when starting a release. Beta API. default: true makes this plan the default and replaces any current default; the response names it as previousDefaultKey. The plan's configuration must be complete. default: false clears the environment's default only when this plan currently is it; the plan itself is kept. Returns changed and the plan as read back after the change; changed is false when the plan was already in the requested state.",
     "input_schema": {
       "type": "object",
       "properties": {
         "projectKey": {
-          "type": "string"
+          "type": "string",
+          "description": "Project key. If the user hasn't named one, ask; don't guess."
         },
         "environmentKey": {
-          "type": "string"
+          "type": "string",
+          "description": "Environment key. If the user hasn't named one, ask; don't guess."
         },
         "releasePlanKey": {
           "type": "string"
         },
         "default": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "true makes this plan the environment's default; false clears the default only when this plan currently is it."
         },
         "confirm": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "Confirm this destructive operation."
         }
       },
       "required": [
@@ -436,7 +447,8 @@
         "releasePlanKey",
         "default",
         "confirm"
-      ]
+      ],
+      "additionalProperties": false
     }
   },
   {
@@ -472,7 +484,7 @@
   },
   {
     "name": "get-flag-release-plans",
-    "description": "Get flag release plans, reusable templates that say how a flag is released across a project's environments. Beta API. Without flagReleasePlanKey: a page in creation order with totalCount; when hasMore is true, pass nextOffset as offset. With flagReleasePlanKey: one plan with its environments (environmentKey, triggerType, environmentReleasePlanKey or isImmediate), executionMode, applicationKeys, maintainer, default, and version. A maintainer reads as {kind: member, memberId, email} or {kind: team, key, name}; to send a team maintainer to update-flag-release-plan, use {kind: team, teamKey: <key>}. The plan with default: true is the project's default, suggested first when starting a release. A project with no stored plans lists one built-in default, key default-release-configuration, which cannot be fetched, updated, or deleted by key; create a plan with default: true to replace it. Flag release plans are project-wide; environment release plans (get-environment-release-plans) are the per-environment rollout recipes they point to.",
+    "description": "Get flag release plans, reusable templates that say how a flag is released across a project's environments. Beta API. Without flagReleasePlanKey: a page in creation order with totalCount; when hasMore is true, pass nextOffset as offset. With flagReleasePlanKey: one plan with its environments (environmentKey, triggerType, environmentReleasePlanKey or isImmediate), executionMode, applicationKeys, maintainer, default, and version. A maintainer reads as {kind: member, memberId, email} or {kind: team, key, name}; to send a team maintainer to update-flag-release-plan, use {kind: team, teamKey: <key>}. The plan with default: true is the project's default, suggested first when starting a release. A project with no stored plans has no default; create a plan with default: true. Flag release plans are project-wide; environment release plans (get-environment-release-plans) are the per-environment rollout recipes they point to.",
     "input_schema": {
       "type": "object",
       "additionalProperties": false,
@@ -504,7 +516,7 @@
   },
   {
     "name": "create-flag-release-plan",
-    "description": "Create a flag release plan, a reusable project-wide template for releasing flags across environments. Does not start a release on a flag. Beta API. Requires key, name, and environments. A key already in use returns an error; check get-flag-release-plans first. RULES: 1-50 environments, each listed once, in release order. Each environment needs environmentKey and triggerType, plus environmentReleasePlanKey unless isImmediate is true (never both). The environment release plan must already exist in that environment and be complete; find one with get-environment-release-plans. triggerType: flag_eval starts when the flag is first evaluated there, webhook waits for a deploy signal, manual waits for a person, promotion starts when the previous environment finishes. manual and promotion need executionMode sequential (the default), and the first environment cannot use promotion. executionMode parallel starts every environment independently. At most 25 applicationKeys. A project holds at most 100 flag release plans and at most one default. When another plan is already the project's default, do not send default: true: LaunchDarkly rejects the create. Create the plan without default, then set default: true with update-flag-release-plan, which demotes the current default; say so to the user first. Send default: true only when the project has no stored default.",
+    "description": "Create a flag release plan, a reusable project-wide template for releasing flags across environments. Does not start a release on a flag; use create-flag-release for that. Beta API. Requires key, name, and environments. A key already in use returns an error; check get-flag-release-plans first. RULES: 1-50 environments, each listed once, in release order. Each environment needs environmentKey and triggerType, plus environmentReleasePlanKey unless isImmediate is true (never both). The environment release plan must already exist in that environment, be complete, and have exactly one phase; find one with get-environment-release-plans. triggerType: flag_eval starts when the flag is first evaluated there, webhook waits for a deploy signal, manual waits for a person, promotion starts when the previous environment finishes. The first environment cannot use promotion. executionMode is sequential: environments release in the listed order. At most 25 applicationKeys. A project holds at most 100 flag release plans and at most one default. When another plan is already the project's default, do not send default: true: LaunchDarkly rejects the create. Create the plan without default, then set default: true with update-flag-release-plan, which demotes the current default; say so to the user first. Send default: true only when the project has no stored default.",
     "input_schema": {
       "type": "object",
       "additionalProperties": false,
@@ -576,10 +588,9 @@
         "executionMode": {
           "type": "string",
           "enum": [
-            "sequential",
-            "parallel"
+            "sequential"
           ],
-          "description": "Defaults to sequential."
+          "description": "Environments release in the listed order. sequential is the only mode, and the default."
         },
         "applicationKeys": {
           "type": "array",
@@ -632,7 +643,7 @@
   },
   {
     "name": "update-flag-release-plan",
-    "description": "Update a flag release plan's name, description, maintainer, executionMode, applicationKeys, default, or environments. Beta API. Send only the fields to change; omitted fields keep their current values, including default. environments and applicationKeys are each replaced wholesale when provided, so include every entry to keep. default: true makes this plan the project's default and demotes the current one; default: false unsets this plan as the default and keeps the plan, so the project has no default until another plan is set. To delete a plan, use delete-flag-release-plan. The update is checked against the version that was read, so a concurrent edit returns an error instead of being overwritten; retry to apply it to the current plan. Flag releases already started from the plan are not affected. RULES: 1-50 environments, each listed once, in release order. Each environment needs environmentKey and triggerType, plus environmentReleasePlanKey unless isImmediate is true (never both). The environment release plan must already exist in that environment and be complete; find one with get-environment-release-plans. triggerType: flag_eval starts when the flag is first evaluated there, webhook waits for a deploy signal, manual waits for a person, promotion starts when the previous environment finishes. manual and promotion need executionMode sequential (the default), and the first environment cannot use promotion. executionMode parallel starts every environment independently. At most 25 applicationKeys. A project holds at most 100 flag release plans and at most one default. Returns the plan as read back after the update.",
+    "description": "Update a flag release plan's name, description, maintainer, executionMode, applicationKeys, default, or environments. Beta API. Send only the fields to change; omitted fields keep their current values, including default. environments and applicationKeys are each replaced wholesale when provided, so include every entry to keep. default: true makes this plan the project's default and demotes the current one; default: false unsets this plan as the default and keeps the plan, so the project has no default until another plan is set. To delete a plan, use delete-flag-release-plan. The update is checked against the version that was read, so a concurrent edit returns an error instead of being overwritten; retry to apply it to the current plan. Flag releases already started from the plan are not affected. RULES: 1-50 environments, each listed once, in release order. Each environment needs environmentKey and triggerType, plus environmentReleasePlanKey unless isImmediate is true (never both). The environment release plan must already exist in that environment, be complete, and have exactly one phase; find one with get-environment-release-plans. triggerType: flag_eval starts when the flag is first evaluated there, webhook waits for a deploy signal, manual waits for a person, promotion starts when the previous environment finishes. The first environment cannot use promotion. executionMode is sequential: environments release in the listed order. At most 25 applicationKeys. A project holds at most 100 flag release plans and at most one default. Returns the plan as read back after the update.",
     "input_schema": {
       "type": "object",
       "additionalProperties": false,
@@ -700,10 +711,9 @@
         "executionMode": {
           "type": "string",
           "enum": [
-            "sequential",
-            "parallel"
+            "sequential"
           ],
-          "description": "Defaults to sequential."
+          "description": "Environments release in the listed order. sequential is the only mode, and the default."
         },
         "applicationKeys": {
           "type": "array",

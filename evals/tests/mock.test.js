@@ -968,6 +968,22 @@ test("flag-release default release plan renders as the environment's default", (
   assert.ok(Object.keys(defaults[0].progressiveRelease.metrics).length > 0);
 });
 
+test("flag-release flag release plans: standard-release is the default, production-by-hand holds production", () => {
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  const state = createMockState();
+  const list = renderMockResponse(suiteTemplates["get-flag-release-plans"], { projectKey: "default" }, "get-flag-release-plans", state);
+  assert.deepEqual(list.flagReleasePlans.filter((p) => p.default).map((p) => p.key), ["standard-release"]);
+  const byHand = renderMockResponse(suiteTemplates["get-flag-release-plans#flagReleasePlanKey"],
+    { projectKey: "default", flagReleasePlanKey: "production-by-hand" }, "get-flag-release-plans", state);
+  const prod = byHand.environments.find((e) => e.environmentKey === "production");
+  assert.equal(prod.triggerType, "manual");
+  assert.equal(prod.environmentReleasePlanKey, "guarded-default");
+  const release = renderMockResponse(suiteTemplates["create-flag-release"],
+    { projectKey: "default", flagKey: "search-v2", flagReleasePlanKey: "standard-release", confirm: true }, "create-flag-release", state);
+  assert.equal(release.config_id, "frl_mock_0001");
+  assert.equal(release.flag_key, "search-v2");
+});
+
 // ---------------------------------------------------------------------------
 // Flag release plans (release-autopilot-onboarding tool-mocks, mcp #522)
 // ---------------------------------------------------------------------------
@@ -986,17 +1002,18 @@ test("get-flag-release-plans has a template key per mode", () => {
   assert.equal(templateKey("get-flag-release-plans", { projectKey: "default", flagReleasePlanKey: "x" }), "get-flag-release-plans#flagReleasePlanKey");
 });
 
-test("a project with no stored flag release plans lists only the built-in plan, which cannot be read by key", () => {
+test("a project with no stored flag release plans gets an empty list, and a key is not found", () => {
   const state = createMockState();
   const list = renderMockResponse(RA_SUITE["get-flag-release-plans"], { projectKey: "default" }, "get-flag-release-plans", state);
-  assert.deepEqual(list.flagReleasePlans.map((p) => p.key), ["default-release-configuration"]);
-  const one = renderMockResponse(RA_SUITE["get-flag-release-plans#flagReleasePlanKey"], { projectKey: "default", flagReleasePlanKey: "default-release-configuration" }, "get-flag-release-plans", state);
+  assert.deepEqual(list.flagReleasePlans, []);
+  assert.equal(list.totalCount, 0);
+  const one = renderMockResponse(RA_SUITE["get-flag-release-plans#flagReleasePlanKey"], { projectKey: "default", flagReleasePlanKey: "default-release" }, "get-flag-release-plans", state);
   assert.match(one.error, /404/);
-  const upd = renderMockResponse(RA_SUITE["update-flag-release-plan"], { projectKey: "default", flagReleasePlanKey: "default-release-configuration", default: false, confirm: true }, "update-flag-release-plan", state);
+  const upd = renderMockResponse(RA_SUITE["update-flag-release-plan"], { projectKey: "default", flagReleasePlanKey: "default-release", default: false, confirm: true }, "update-flag-release-plan", state);
   assert.match(upd.error, /404/);
 });
 
-test("create-flag-release-plan with default true replaces the built-in plan, and reads reflect it", () => {
+test("create-flag-release-plan with default true in a project with no plans, and reads reflect it", () => {
   const state = createMockState();
   renderMockResponse(RA_SUITE["get-flag-release-plans"], { projectKey: "default" }, "get-flag-release-plans", state);
   const created = renderMockResponse(RA_SUITE["create-flag-release-plan"], { projectKey: "default", key: "default-release", name: "Default release", default: true, environments: frpEnvs }, "create-flag-release-plan", state);
@@ -1055,4 +1072,28 @@ test("a failed flag release plan write (an error override) is not recorded", () 
   const err = renderMockResponse({ error: "permission denied" }, { projectKey: "default", key: "x", name: "X", environments: frpEnvs }, "create-flag-release-plan", state);
   assert.equal(err.error, "permission denied");
   assert.equal(state.raFlagPlans.default, undefined);
+});
+
+test("flag release plan list keeps the page fields of a paged template", () => {
+  const state = createMockState();
+  const page1 = { flagReleasePlans: [{ key: "a", default: false, environments: [] }], totalCount: 2, hasMore: true, nextOffset: 1 };
+  const out = renderMockResponse(page1, { projectKey: "default" }, "get-flag-release-plans", state);
+  assert.equal(out.hasMore, true);
+  assert.equal(out.nextOffset, 1);
+  assert.equal(out.totalCount, 2);
+  const page2 = { flagReleasePlans: [{ key: "b", default: true, environments: [] }], totalCount: 2, hasMore: false };
+  const last = renderMockResponse(page2, { projectKey: "default", offset: 1 }, "get-flag-release-plans", state);
+  assert.equal(last.hasMore, false);
+  assert.deepEqual(last.flagReleasePlans.map((p) => p.key), ["b"]);
+});
+
+test("get-automated-rollout-config echoes the configId it was sent", () => {
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  const state = createMockState();
+  const out = renderMockResponse(suiteTemplates["get-automated-rollout-config"],
+    { projectKey: "default", configId: "arc_mock_0001" }, "get-automated-rollout-config", state);
+  assert.equal(out.config.id, "arc_mock_0001");
+  const upd = renderMockResponse(suiteTemplates["update-automated-rollout-config"],
+    { projectKey: "default", configId: "arc_mock_0042", confirm: true, environments: [] }, "update-automated-rollout-config", state);
+  assert.equal(upd.config.id, "arc_mock_0042");
 });
