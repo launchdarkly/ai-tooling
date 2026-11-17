@@ -32,11 +32,11 @@ Logs are the best verbatim evidence and the worst overview. For "how many" and "
 - `query` takes bare words for message text (`connection reset` matches messages with both words, index-assisted) plus attribute filters. `*x*` and quoted phrases scan every message and are slow over long windows.
 - `limit` defaults to 20, at most 50 per page; follow `page.next_cursor` for more, but if you need more than a page or two, aggregate instead.
 - `fields` keeps only the attributes you need; `fullAttributes: ["code.stacktrace"]` reads a long value whole.
-- Pass `environments` and `services` with the exact values from `get-keys` (step 1 in `SKILL.md`).
+- Pass `environments` and `services` with the exact values from `get-keys` (step 1 in `SKILL.md`). A `trace_id` lookup is the exception: drop `services`, keep `environments`, because one request crosses services and the downstream services' lines must appear.
 
 ## Typical patterns
 
-1. **Logs of one request:** `query: "trace_id=<id>"`, a window of a few minutes around the span.
+1. **Logs of one request:** `query: "trace_id=<id>"`, `environments` only (no `services`: the request crosses services), a window of a few minutes around the span.
 2. **Logs of one host during the incident:** `search-log-patterns` with `environments`, `services` and `host.name=<host> level=error`, then `search-logs` for two or three verbatim examples.
 3. **Logs of one session:** `query: "secure_session_id=<id>"`, `startDate` at the session's `created_at`, `endDate` three hours later.
 4. **Did this start with a deploy?** Aggregate the message by the version key (from `get-changes`) and compare versions' shares.

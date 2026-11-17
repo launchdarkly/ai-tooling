@@ -46,7 +46,7 @@ Pass `traceId` and, whenever you know a span time, `timestamp` (the span's times
 
 ## Logs and errors for a trace
 
-- `search-logs` with `query: "trace_id=<id>"` and a window of a few minutes around the span returns every log line of the request.
+- `search-logs` with `query: "trace_id=<id>"`, `environments` only (no `services`: the request crosses services, and the downstream services' lines must appear) and a window of a few minutes around the span returns every log line of the request.
 - The trace's error groups come back from `get-trace`; open one with `get-error-group`.
 
 ## Interpreting results
