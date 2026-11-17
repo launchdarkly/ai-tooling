@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 // Suite-level provider config: `tool_definitions` adds or replaces mock tools,
 // `exclude_mcp_tools` hides ones the skill's real MCP server doesn't offer, and `inline_skill` puts SKILL.md in the
 // agent's instructions.
-const { filterToolDefs, mergeToolDefs, skillInstructions } = require("../providers/claude-skill-agent-sdk");
+const { filterToolDefs, mergeToolDefs, suiteToolDefs, skillInstructions } = require("../providers/claude-skill-agent-sdk");
 
 const defs = [{ name: "create-flag" }, { name: "create-feature-flag" }, { name: "get-flag" }];
 
@@ -51,6 +51,18 @@ test("suite definitions replace shared ones by name and add new tools", () => {
   assert.deepEqual(merged.map((d) => d.name), ["create-flag", "create-feature-flag", "get-flag", "update-rollout"]);
   assert.equal(merged.find((d) => d.name === "get-flag").description, "suite");
   assert.deepEqual(mergeToolDefs(defs, []), defs);
+});
+
+test("a list of suite definition files applies each file in order", () => {
+  const read = (rel) => JSON.parse(require("node:fs").readFileSync(require("node:path").join(__dirname, "..", rel), "utf-8"));
+  const one = suiteToolDefs([], "flag-release/tool-definitions.json");
+  const both = suiteToolDefs([], ["flag-release/tool-definitions.json", "flag-release/create-flag-release-plan-only.json"]);
+  const kind = (list) => Boolean(list.find((d) => d.name === "create-flag-release").input_schema.properties.kind);
+  assert.equal(kind(one), true);
+  assert.equal(kind(both), false);
+  assert.deepEqual(both.map((d) => d.name), one.map((d) => d.name));
+  assert.deepEqual(suiteToolDefs(defs, undefined), defs);
+  assert.equal(read("flag-release/create-flag-release-plan-only.json").length, 1);
 });
 
 test("skillInstructions drops the frontmatter and wraps the body", () => {

@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server and a git CLI with access to the PR's repository
 metadata:
   author: launchdarkly
-  version: "0.3.1"
+  version: "0.4.0"
 ---
 
 # Flag & Release a PR Change
@@ -34,7 +34,7 @@ You work in two phases — **plan**, then **implement** — and you check in wit
 - A `git` CLI that can read and push to the PR's repository.
 - The composed skills available: [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md) (flag creation + code wiring) and [`flag-release`](../flag-release/SKILL.md) (starting the release). [`should-flag-change`](../should-flag-change/SKILL.md) is used if the flag decision hasn't been made.
 
-MCP tools are used *via the composed skills* — `create-flag`/`get-flags` through flag-create, `get-flag-release-plans`/`get-environment-release-plans`/`create-flag-release`/`create-automated-rollout-config` through flag-release. `create-flag-release` starts the release from a flag release plan, and `create-automated-rollout-config` starts it from each environment's release plan. The second is a normal path: a project without a flag release plan is not blocked. This skill calls none directly.
+MCP tools are used *via the composed skills* — `create-flag`/`get-flags` through flag-create, `get-flag-release-plans`/`get-environment-release-plans`/`create-flag-release`/`create-automated-rollout-config` through flag-release. `create-flag-release` starts a flag release, from a flag release plan (`kind: "plan"`) or from each environment's release plan (`kind: "custom"`). The second is a normal path: a project without a flag release plan is not blocked. `create-automated-rollout-config` is only the fallback for a server whose `create-flag-release` does not offer `kind: "custom"`. This skill calls none directly.
 
 ## Working With the Pull Request
 

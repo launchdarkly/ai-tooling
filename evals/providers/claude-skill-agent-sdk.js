@@ -43,6 +43,9 @@
  *                            Each replaces the shared definition of the same
  *                            name or adds a tool, so a suite can match its
  *                            skill's MCP server without changing other suites.
+ *                            A list of paths applies each file in order, so a
+ *                            provider can replace one tool of the suite's set,
+ *                            e.g. an older version of a tool.
  *   tool_mocks             - Optional path, relative to evals/, of a JSON
  *                            object of mock templates for this suite only,
  *                            merged over mocks/tool-responses.json.
@@ -366,6 +369,12 @@ function mergeToolDefs(base, extra) {
   return merged.concat(extra.filter((def) => !known.has(def.name)));
 }
 
+// Apply a suite's tool definition files in order: one path or a list of paths.
+function suiteToolDefs(base, relPaths) {
+  const paths = Array.isArray(relPaths) ? relPaths : relPaths ? [relPaths] : [];
+  return paths.reduce((defs, relPath) => mergeToolDefs(defs, readSuiteJson(relPath, [])), base);
+}
+
 // Read a suite-owned JSON file named in the provider config, relative to evals/.
 function readSuiteJson(relPath, fallback) {
   if (!relPath) return fallback;
@@ -405,7 +414,7 @@ class ClaudeSkillAgentSdk {
     this.forceSkillInvocation = Boolean(config.force_skill_invocation);
     this.exposeAskQuestion = Boolean(config.expose_ask_question);
     this.toolDefs = filterToolDefs(
-      mergeToolDefs(toolDefs, readSuiteJson(config.tool_definitions, [])),
+      suiteToolDefs(toolDefs, config.tool_definitions),
       config.exclude_mcp_tools,
     );
     // When set, expose ONLY these LaunchDarkly tools (by name), e.g. read-only
@@ -857,6 +866,7 @@ module.exports.stripRawWrapper = stripRawWrapper;
 module.exports.resolveExposeMcpTools = resolveExposeMcpTools;
 module.exports.filterToolDefs = filterToolDefs;
 module.exports.mergeToolDefs = mergeToolDefs;
+module.exports.suiteToolDefs = suiteToolDefs;
 module.exports.skillInstructions = skillInstructions;
 module.exports.readReferences = readReferences;
 module.exports.overrideFor = overrideFor;

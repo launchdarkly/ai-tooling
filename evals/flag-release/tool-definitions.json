@@ -70,7 +70,7 @@
   },
   {
     "name": "create-flag-release",
-    "description": "Start a flag release: release a flag across environments by following a flag release plan. Beta API. When the user names no project, call get-projects before you ask anything: when it returns one project, name that project in the confirmation question. This changes the flag's targeting as the release runs, so confirm the project, the flag, the plan, and its environments with the user first. When the user did not name the project, name the one you picked and wait for their reply before you send confirm: true. A flag can have only one active release; if it already has one, LaunchDarkly returns an error that names it, and that release must be archived first. flagReleasePlanKey names the plan (find one with get-flag-release-plans; use the plan with default: true unless the user picks another). startingVariationId and endingVariationId name the variations to release from and to, by the _id of the flag's variations. Send both or neither: a multi-variate flag needs both, and a boolean flag can omit both to release from false to true. Send pullRequest when the release is for a pull request: repoFullName as owner/name and number; the tool sends the github.com pull request URL built from them. A webhook environment in a release with a pull request waits for a deploy that includes the merge. Without a pull request, it starts on the next deploy signal for that environment. Returns config_id, the release's ID, and the release as read back, with repo_full_name and pr_number when a pull request is linked; inspect or change it later with get-automated-rollout-config, update-automated-rollout-config, and archive-automated-rollout-config. To release without a plan, use create-automated-rollout-config.\nOne example per flag type:\n- boolean flag, no pull request: {\"projectKey\":\"default\",\"flagKey\":\"new-checkout\",\"flagReleasePlanKey\":\"standard\",\"confirm\":true}\n- multi-variate flag for a pull request: {\"projectKey\":\"default\",\"flagKey\":\"checkout-theme\",\"flagReleasePlanKey\":\"standard\",\"startingVariationId\":\"<_id to release from>\",\"endingVariationId\":\"<_id to release to>\",\"pullRequest\":{\"repoFullName\":\"acme/web\",\"number\":42},\"confirm\":true}",
+    "description": "Start a flag release: release a flag across environments, from a flag release plan (kind plan) or from each environment's release plan (kind custom). Beta API. When the user names no project, call get-projects before you ask anything: when it returns one project, name that project in the confirmation question. This changes the flag's targeting as the release runs, so confirm the project, the flag, the plan or environments, and their triggers with the user first. When the user did not name the project, name the one you picked and wait for their reply before you send confirm: true. A flag can have only one active release; if it already has one, LaunchDarkly returns an error that names it, and that release must be archived first. kind plan: flagReleasePlanKey names the plan (find one with get-flag-release-plans; use the plan with default: true unless the user picks another). kind custom: environments lists the environments in release order, each with environmentKey and desiredReleaseType. desiredReleaseType policy releases with the environment's default release plan, or the plan environmentReleasePlanKey names. An immediate release is desiredReleaseType override with override {releaseMethod: immediate}. triggerType: flag_eval (default), webhook, manual, or promotion; the first environment cannot use promotion. To hold an environment, leave it out or give it triggerType manual (no hold or date field exists). executionMode is only sequential. startingVariationId and endingVariationId name the variations to release from and to, by the _id of the flag's variations. Send both or neither: a multi-variate flag needs both, and a boolean flag can omit both to release from false to true. Send pullRequest when the release is for a pull request: repoFullName as owner/name and number; the tool sends the github.com pull request URL built from them. A webhook environment in a release with a pull request waits for a deploy that includes the merge. Without a pull request, it starts on the next deploy signal for that environment. Returns config_id, the release's ID, and the release as read back, with repo_full_name and pr_number when a pull request is linked; inspect or change it later with get-automated-rollout-config, update-automated-rollout-config, and archive-automated-rollout-config.\nOne example per kind:\n- plan, boolean flag, no pull request: {\"projectKey\":\"default\",\"flagKey\":\"new-checkout\",\"kind\":\"plan\",\"flagReleasePlanKey\":\"standard\",\"confirm\":true}\n- custom, for a pull request: {\"projectKey\":\"default\",\"flagKey\":\"new-checkout\",\"kind\":\"custom\",\"executionMode\":\"sequential\",\"environments\":[{\"environmentKey\":\"staging\",\"desiredReleaseType\":\"override\",\"override\":{\"releaseMethod\":\"immediate\"}},{\"environmentKey\":\"production\",\"desiredReleaseType\":\"policy\",\"environmentReleasePlanKey\":\"prod-ramp\",\"triggerType\":\"promotion\"}],\"pullRequest\":{\"repoFullName\":\"acme/web\",\"number\":42},\"confirm\":true}",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -82,10 +82,128 @@
           "description": "The _id of the flag variation to release to.",
           "type": "string"
         },
+        "environments": {
+          "description": "Only with kind custom, and required with it. The environments to release, in release order. Leave a held environment out.",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "environmentKey": {
+                "description": "Environment key.",
+                "type": "string"
+              },
+              "desiredReleaseType": {
+                "description": "policy releases with an environment release plan. override with override.releaseMethod immediate releases at once.",
+                "enum": [
+                  "policy",
+                  "override"
+                ],
+                "type": "string"
+              },
+              "environmentReleasePlanKey": {
+                "description": "Only with desiredReleaseType policy. Key of the environment release plan to release with instead of the environment's default plan (see get-environment-release-plans). Omit to use the default plan.",
+                "minLength": 1,
+                "type": "string"
+              },
+              "triggerType": {
+                "description": "What starts this environment: flag_eval (default, first evaluation), webhook (a deploy that includes the merge), manual (a person), or promotion (the previous environment finishes; not for the first environment).",
+                "enum": [
+                  "flag_eval",
+                  "webhook",
+                  "manual",
+                  "promotion"
+                ],
+                "type": "string"
+              },
+              "waitBeforeReleaseMillis": {
+                "description": "Delay after the preceding environment finishes.",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "override": {
+                "additionalProperties": false,
+                "description": "Only with desiredReleaseType override.",
+                "properties": {
+                  "releaseMethod": {
+                    "enum": [
+                      "immediate",
+                      "progressive",
+                      "guarded"
+                    ],
+                    "type": "string"
+                  },
+                  "rolloutContextKindKey": {
+                    "type": "string"
+                  },
+                  "stages": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "allocation": {
+                          "type": "number"
+                        },
+                        "durationMillis": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "allocation",
+                        "durationMillis"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "metricKeys": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "metricGroupKeys": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "rollbackOnRegression": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "releaseMethod"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "environmentKey",
+              "desiredReleaseType"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "executionMode": {
+          "description": "Only with kind custom. sequential releases the environments in array order. No other mode is accepted.",
+          "enum": [
+            "sequential"
+          ],
+          "type": "string"
+        },
         "flagKey": {
           "type": "string"
         },
         "flagReleasePlanKey": {
+          "description": "Only with kind plan. Key of the flag release plan to follow.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "plan starts from the flag release plan flagReleasePlanKey names. custom starts from the environments listed in environments.",
+          "enum": [
+            "plan",
+            "custom"
+          ],
           "type": "string"
         },
         "projectKey": {
@@ -121,7 +239,7 @@
       "required": [
         "projectKey",
         "flagKey",
-        "flagReleasePlanKey",
+        "kind",
         "confirm"
       ],
       "type": "object"
