@@ -31,12 +31,16 @@ An environment that is left out of the release is not released. These are the on
 | The user names a flag release plan, or the project has a default one, and it fits the intent | `create-flag-release` |
 | The project has no flag release plan, or none is the default and the user names none | `create-automated-rollout-config` with each environment's release plan |
 | A flag release plan exists but does not fit the intent (an environment that the request excludes or holds, or a `notBefore` date) | `create-automated-rollout-config`, with the flag release plan's environments, plans, and triggers. Tell the user why |
-| An environment that should release on merge would wait in the flag release plan (`manual`, or `promotion` after a held or `manual` environment) | Nothing yet. Ask the user first, as [step 3 below](#release-with-environment-release-plans) says. Copying the plan keeps the wait |
-| `create-flag-release` or `get-flag-release-plans` is not listed, or returns `tool disabled` | `create-automated-rollout-config` |
+| An environment that should release on merge would wait in the flag release plan | Nothing yet. Ask the user first, as [step 3 below](#release-with-environment-release-plans) says. Copying the plan keeps the wait |
+| `create-flag-release` or `get-flag-release-plans` is not listed, or `get-flag-release-plans` returns `tool disabled` | `create-automated-rollout-config` |
+| A `get-flag-release-plans` read fails (a 403, including "Plan does not allow this operation", or a 5xx) | `create-automated-rollout-config`. Tell the user that the flag release plans could not be read |
+| `create-flag-release` returns `tool disabled` after the user approved the flag release plan | Nothing yet. Show the environment release plan version (steps 2, 3, and 6 below), and ask the user to confirm it before you record it |
 
 Releasing from each environment's release plan is a normal path, not an error. Do not ask the user to create a flag release plan before a release. You can mention it as an option for later.
 
-If the user asks for "the default flag release plan" and the list has plans but none is the default, ask which plan to use, or offer to start from each environment's release plan. Never pick the first listed plan.
+If the user asks for "the default flag release plan" and the list has plans but none is the default, ask which plan to use, or offer to start from each environment's release plan. Put each plan's name, environments, and triggers in the question. Never pick the first listed plan.
+
+Only a failed environment release plan read stops the release. A failed flag release plan read does not.
 
 ## Preview before you propose
 
@@ -82,16 +86,26 @@ Call `create-flag-release` in the implement phase:
 }
 ```
 
-The guarding flag must already exist. A boolean flag releases from `false` to `true` with no variation IDs. A multi-variate flag needs both `startingVariationId` and `endingVariationId` (the variations' `_id`). Always send `pullRequest` for a PR's change. Without it, a `webhook` environment starts on the next deploy signal for that environment, which can be a deploy that does not include the change. A flag can have only one active release: if it has one, the error names it. The call returns `config_id` and the release as read back. Record `config_id` in your report.
+The guarding flag must already exist. Send the variation IDs as [Variations](#variations) says. Always send `pullRequest` for a PR's change. Without it, a `webhook` environment starts on the next deploy signal for that environment, which can be a deploy that does not include the change. A flag can have only one active release: if it has one, the error names it. The call returns `config_id` and the release as read back. Record `config_id` in your report.
+
+## Variations
+
+`create-flag-release` and `create-automated-rollout-config` take the same variation IDs: `startingVariationId` (the variation to release from) and `endingVariationId` (the variation to release to). Each is a variation's `_id` from `get-flags`.
+
+- A boolean flag, and the user did not choose variations: send neither. The release goes from `false` to `true`.
+- The user chose the variations: send both.
+- The flag is not boolean, and the user did not say which variations to release from and to: ask before you start or record the release. Put the flag's variations (name and value) in the question. Then send both.
+
+Never send only one of the two.
 
 ## Release with environment release plans
 
-Use `create-automated-rollout-config` when the project has no flag release plan to use, when a flag release plan does not fit the intent, or when the flag release plan tools are not available. Do not say the account lacks flag releases.
+Use `create-automated-rollout-config` when the project has no flag release plan to use, when a flag release plan does not fit the intent, or when the flag release plan tools are not available or their read fails. Do not say the account lacks flag releases.
 
 Do these steps in order:
 
 1. **Find the environments.**
-   - A flag release plan was read (it does not fit, or `create-flag-release` is not available): use its environments, in its order.
+   - A flag release plan was read (it does not fit, or `create-flag-release` is not available or returns `tool disabled`): use its environments, in its order.
    - No flag release plan: use the environments that the user or harness names, in the order given. If none are named, list the project's environments with `get-projects` and ask which ones the release covers and in what order.
 2. **Sort each environment into RELEASE, HOLD, or EXCLUDED.**
    - EXCLUDED: the request or harness names the target environments, and this environment is not one of them. It is not part of the release.
@@ -102,9 +116,9 @@ Do these steps in order:
      - It needs an environment release plan (it is not immediate), it has no default release plan, and neither the user nor the flag release plan names a plan for it. An immediate environment (`isImmediate` in the flag release plan, or the user asks for an immediate release) needs no release plan, so this rule does not hold it. Do not pick another plan for it, also when it is the only plan. Say that auto-release cannot run there until it has a default release plan, and point to `launchdarkly-release-plans` to set one.
    - RELEASE: every other environment. This includes a `manual` environment in the flag release plan and a `promotion` environment after it: record them with their triggers, so they wait for a person as the plan says.
    - A `notBefore` date: RELEASE with `triggerType: "manual"`. LaunchDarkly does not enforce the date. Tell the user that a person must start the environment on or after the date, and that a scheduled start is a planned follow-up. A `promotion` environment after it waits for it.
-3. **Ask before you record a wait the user did not want.** If the user wants an environment to release on merge, but the flag release plan makes it wait, record nothing yet. Ask about the first such environment in release order:
+3. **Ask before you record a wait the user did not want.** If the user wants an environment to release on merge, but the flag release plan makes it wait, record nothing yet. Ask about the first such environment in release order. Put the flag release plan's name and its environments in release order, each with its trigger, in the question:
    - The plan gives it `triggerType: "manual"` (it waits for a person): release it on merge (`flag_eval`), or keep it waiting for a person.
-   - The plan gives it `promotion` after a HOLD environment, or after a `manual` environment that the user does not want on merge (it waits for that environment): release it on merge without the environment it waits for (the first recorded entry then starts on `flag_eval`), or keep the plan's wait.
+   - The plan gives it `promotion` after a HOLD environment, or after a `manual` environment that the user does not want on merge (it waits for that environment): release it on merge without the environment it waits for, or keep the plan's wait. If it is then the first recorded entry, it starts on `flag_eval` (step 5).
 
    A `promotion` environment after an EXCLUDED environment needs no question: step 5 starts the first entry on `flag_eval`. After each answer, check the later environments again. A `promotion` environment after an environment that now releases on merge follows it, and needs no question. An environment that the user did not ask to release on merge keeps the plan's trigger.
 4. **If no environment is RELEASE, record nothing.** Do not call `create-automated-rollout-config`. Report each environment as held or not part of the release, with its date or reason.
@@ -114,11 +128,11 @@ Do these steps in order:
 
    Copy each environment's `triggerType` from the flag release plan into its entry (`flag_eval`, `webhook`, `manual`, or `promotion`). A left-out `triggerType` means `flag_eval`, so a `webhook` environment without it starts on first evaluation, before the deploy arrives. Without a flag release plan, leave `triggerType` out unless the user names a trigger. Example: `{ "environmentKey": "production", "releaseType": "policy", "triggerType": "webhook" }`.
 
-   If the first entry has `triggerType: "promotion"` because the environments before it are EXCLUDED, send `flag_eval` for it instead: the first environment cannot use `promotion`. Later entries keep `promotion`, so each one follows the entry before it. Tell the user about the changed trigger.
+   If the first entry has `triggerType: "promotion"` because an environment before it is left out of the call (EXCLUDED, or HOLD that the user agreed to release without), send `flag_eval` for it instead: the first environment cannot use `promotion`. Never send `promotion` for the first entry. Later entries keep `promotion`, so each one follows the entry before it. Tell the user about the changed trigger.
 
    Never send `releaseType: "override"`, and never copy a plan's steps, stages, or metrics into the call. The plans stay the source.
 6. **Check the pull request.** If no PR reference is known and any entry uses `webhook` or `flag_eval` (including a left-out trigger), stop and ask for the PR. A release whose entries all wait for a person (`manual`, or `promotion` after a `manual` entry) can start without one.
-7. **Call `create-automated-rollout-config` in the same turn** when the user asked to start or record the release, unless step 3 is waiting for an answer. Call it once. If a rollout config already exists for this flag and PR (from an earlier call in this run, or one that the user or harness names), do not record a second one: point the user to the existing config. Send `executionMode: "sequential"` (LaunchDarkly accepts no other execution mode), and `repoFullName`, `prNumber`, and `prUrl` for the PR. If you have only the PR URL (`https://github.com/<owner>/<name>/pull/<number>`), take `repoFullName` and `prNumber` from it.
+7. **Call `create-automated-rollout-config` in the same turn** when the user asked to start or record the release, unless step 3 is waiting for an answer. Call it once. If a rollout config already exists for this flag and PR (from an earlier call in this run, or one that the user or harness names), do not record a second one: point the user to the existing config. Send `executionMode: "sequential"` (LaunchDarkly accepts no other execution mode), `repoFullName`, `prNumber`, and `prUrl` for the PR, and `startingVariationId` and `endingVariationId` as [Variations](#variations) says. If you have only the PR URL (`https://github.com/<owner>/<name>/pull/<number>`), take `repoFullName` and `prNumber` from it.
 8. **Show any warnings to the user as they are.** `missing_default_release_plan` means the environment has no default release plan: hold it or name a plan. `incomplete_release_plan` and `release_plan_unchecked` mean the plan could not start or was not checked.
 
 ## Change a recorded release

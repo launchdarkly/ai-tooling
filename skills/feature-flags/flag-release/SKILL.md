@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server. Operates on a flag that already exists; does not create flags or edit code.
 metadata:
   author: launchdarkly
-  version: "0.3.0"
+  version: "0.3.1"
 ---
 
 # Start a Flag's Release
@@ -38,8 +38,8 @@ By the time this skill runs, the flag exists (OFF) and the guarding code is wire
 - A pull-request reference (`repoFullName` + PR number) so the release follows the right merge. If you have only the PR URL (`https://github.com/<owner>/<name>/pull/<number>`), take `repoFullName` and the number from it. Without a PR reference, see [No pull request](#edge-cases).
 
 **MCP tools this skill uses:**
-- `create-flag-release` — start the release from a flag release plan. Send `projectKey`, `flagKey`, `flagReleasePlanKey`, `pullRequest: { repoFullName, number }`, and `confirm: true`. A boolean flag sends no variation IDs. A multi-variate flag sends both `startingVariationId` and `endingVariationId`. Returns `config_id`.
-- `create-automated-rollout-config` — start the release from each environment's release plan: the environments in order, each with its environment release plan and trigger. See [references/auto-release.md](references/auto-release.md#release-with-environment-release-plans). Returns `config_id`.
+- `create-flag-release` — start the release from a flag release plan. Send `projectKey`, `flagKey`, `flagReleasePlanKey`, `pullRequest: { repoFullName, number }`, and `confirm: true`. Send the variation IDs as [references/auto-release.md](references/auto-release.md#variations) says. Returns `config_id`.
+- `create-automated-rollout-config` — start the release from each environment's release plan: the environments in order, each with its environment release plan and trigger, and the variation IDs as for `create-flag-release`. See [references/auto-release.md](references/auto-release.md#release-with-environment-release-plans). Returns `config_id`.
 - `get-flag-release-plans` — list the project's flag release plans (`default: true` marks the default). Read one with `flagReleasePlanKey` for its environments, each with `triggerType` and `environmentReleasePlanKey` or `isImmediate`.
 - `get-environment-release-plans` — read an environment's release plans (`environmentKey`), or one plan (`releasePlanKey`).
 - `get-flags` — confirm the flag exists and is OFF before you start the release.
@@ -48,7 +48,7 @@ By the time this skill runs, the flag exists (OFF) and the guarding code is wire
 
 To edit or remove a flag release plan or an environment release plan (`update-` and `delete-` tools), use [`launchdarkly-release-plans`](../../release-autopilot/launchdarkly-release-plans/SKILL.md). This skill does not change plans.
 
-`create-flag-release` and `get-flag-release-plans` are preview tools on the hosted server. If either is not listed, or a call returns `tool disabled`, start the release from each environment's release plan. Do not say the account lacks flag releases.
+`create-flag-release` and `get-flag-release-plans` are preview tools on the hosted server. If either is not listed, or a `get-flag-release-plans` read returns `tool disabled` or fails (a 403, including "Plan does not allow this operation", or a 5xx), start the release from each environment's release plan. If `create-flag-release` returns `tool disabled`, follow [Implement Phase](#implement-phase) step 1. Do not say the account lacks flag releases.
 
 Full release model, triggers, precedence, previewing, prerequisites, metric adequacy: [references/auto-release.md](references/auto-release.md).
 
@@ -56,14 +56,21 @@ Full release model, triggers, precedence, previewing, prerequisites, metric adeq
 
 **Start nothing in this phase.**
 
-1. **Confirm the project and the flag.** If the user has not named a project, list the projects with `get-projects`. If exactly one exists, use it, and name it to the user for confirmation before any write. Otherwise ask which project. Do not guess. Then call `get-flags` to verify the guarding flag exists and is OFF. If it doesn't exist yet, stop: creation is [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md)'s job.
+**Every question carries what it asks about.** While a question is open, the user may see only the question, not your message. Put the plan that the question is about in the question: the environments in release order, each one's trigger, and the flag release plan names. Use the `preview` of the option that accepts it, or the question text if the question tool has no preview.
+
+1. **Confirm the project and the flag.** If the user has not named a project, list the projects with `get-projects`. If more than one exists, ask which project. Do not guess. If exactly one exists:
+   - The request or harness already states the full intent (the flag and the PR) and asks to start the release: use that project, and do not stop to ask. Name the project in the plan and in the report.
+   - Otherwise (an interactive run): name the project and ask the user to confirm it before any write.
+
+   Then call `get-flags` to verify the guarding flag exists and is OFF. If it doesn't exist yet, stop: creation is [`launchdarkly-flag-create`](../launchdarkly-flag-create/SKILL.md)'s job.
 2. **Choose how to start the release.** Call `get-flag-release-plans` with `projectKey`. When `hasMore` is true, read the next page with `nextOffset` as `offset`, until `hasMore` is false.
    - The user names a flag release plan, or the project has one with `default: true`: use it. Read it with `flagReleasePlanKey` to get its environments in order.
-   - The user asks for "the default flag release plan", the list is not empty, and no plan has `default: true`: ask which plan to use, or offer to start from each environment's release plan. Never pick the first listed plan.
+   - The user asks for "the default flag release plan", the list is not empty, and no plan has `default: true`: ask which plan to use, or offer to start from each environment's release plan. Put each plan's name, environments, and triggers in the question. Never pick the first listed plan.
+   - The read fails (a 403, including "Plan does not allow this operation", or a 5xx): start from each environment's release plan, as for `tool disabled`. Tell the user that the flag release plans could not be read.
    - Otherwise (an empty list, no default and no named plan, or the tools are not listed): start from each environment's release plan. This is a normal path. Do not ask the user to create a flag release plan first. You can mention that a flag release plan can be set up later with [`launchdarkly-release-plans`](../../release-autopilot/launchdarkly-release-plans/SKILL.md).
 3. **Preview each environment.** Find what each environment will do: `isImmediate` serves the new variation to everyone at once; an environment release plan runs its steps. Read each plan with `get-environment-release-plans` (`projectKey`, `environmentKey`, and `releasePlanKey` for a named plan). To find an environment's default plan, list its plans and read every page (`hasMore`, `nextOffset`). A plan with metrics is **guarded** (a regression rolls it back). A plan without metrics is **progressive**. For a guarded plan, check that its metrics can compare this change (see the metric-adequacy note in [references/auto-release.md](references/auto-release.md)). Note each environment's `triggerType`.
 
-   If a release plan read fails (for example a 403 or 5xx from `get-flag-release-plans` or `get-environment-release-plans`, or `get-environment-release-plans` is not listed), start nothing and record nothing. Tell the user which read failed. Do not start a release without knowing the plan, steps, and metrics of each environment.
+   If an environment release plan read fails (a 403 or 5xx from `get-environment-release-plans`, or the tool is not listed), start nothing and record nothing. Tell the user which read failed. Do not start a release without knowing the plan, steps, and metrics of each environment. A failed `get-flag-release-plans` read does not stop the release (step 2).
 4. **Capture the human's release intent.** Ask (briefly, only if not already stated): release **on merge**, **hold**, or wait until a **`notBefore`** date? A **cohort/segment** to target first? A **prerequisite** parent flag this must not precede? Intent sits above the plans in precedence and is **honored or explicitly held, never silently dropped**.
 5. **Check that the flag release plan fits the intent** (only when step 2 chose one). Sort each environment into RELEASE, HOLD, or EXCLUDED. When the request or harness names the target environments, every other environment is EXCLUDED. When it names none, an environment that the user does not mention follows the plan.
    - A HOLD environment fits only if the plan leaves it out, gives it `triggerType: "manual"`, or gives it `promotion` after a held environment.
@@ -73,14 +80,14 @@ Full release model, triggers, precedence, previewing, prerequisites, metric adeq
 
    If the plan does not fit, start from each environment's release plan instead, and tell the user why (which environment the plan would release, or which date it cannot hold). Copy the flag release plan's environments, plans, and triggers, as [references/auto-release.md](references/auto-release.md#release-with-environment-release-plans) says.
 
-   An environment that should release on merge but would wait in the plan is different: copying the plan keeps the wait. Record nothing and ask first, as [references/auto-release.md](references/auto-release.md#release-with-environment-release-plans) step 3 says. Ask about the first such environment in release order. For a `manual` environment, ask whether to release it on merge or keep it waiting for a person. For a `promotion` environment after a held or `manual` environment, ask whether to release it on merge without the environment it waits for, or keep the wait. A `promotion` environment after an EXCLUDED environment needs no question: the first recorded entry starts on `flag_eval`.
+   An environment that should release on merge but would wait in the plan is different: copying the plan keeps the wait. Record nothing and ask first, as [references/auto-release.md](references/auto-release.md#release-with-environment-release-plans) step 3 says.
 6. **Present the per-environment plan.** Say how the release starts (the flag release plan's name, or "each environment's release plan"). For each environment, state one of these, with the reason:
    - It releases immediately, and when (its trigger).
    - It releases with an environment release plan. Name the plan, its steps, and its metrics.
    - It is **held**: left out, or waiting for a person (`manual`). Give the date or the reason. For a date, say that LaunchDarkly does not enforce it: a person must start the environment on or after the date. A scheduled start is a planned follow-up.
    - It is not part of this release (EXCLUDED).
 
-   Wait for confirmation; revise on feedback.
+   Wait for confirmation; revise on feedback. Put the per-environment plan in the confirmation question.
 
    If the user or harness already asked you to start the release and gave the intent for the environments, that request is the confirmation. Show the plan and go on to the implement phase in the same turn. An environment whose intent the user leaves unclear ("not sure yet") is HOLD. Stop for an answer when an environment that should release on merge would wait in the plan.
 
@@ -89,7 +96,7 @@ Full release model, triggers, precedence, previewing, prerequisites, metric adeq
 Only after confirmation (or a request to start the release that already states the intent):
 
 1. **Start the release.**
-   - From a flag release plan: call `create-flag-release` with `projectKey`, `flagKey`, `flagReleasePlanKey`, `pullRequest: { repoFullName, number }`, and `confirm: true`. If the call returns `tool disabled`, start from each environment's release plan instead.
+   - From a flag release plan: call `create-flag-release` with `projectKey`, `flagKey`, `flagReleasePlanKey`, `pullRequest: { repoFullName, number }`, and `confirm: true`. If the call returns `tool disabled`, record nothing yet. The user approved the flag release plan, not this version. Build the environment release plan version from the flag release plan's environments, through [references/auto-release.md](references/auto-release.md#release-with-environment-release-plans) steps 2, 3, and 6 (sort the environments, ask about a wait, check the PR). Show it, say that the flag release plan could not start, and ask the user to confirm it, with the plan in the question. Call `create-automated-rollout-config` only after the user confirms.
    - From each environment's release plan: call `create-automated-rollout-config` as [references/auto-release.md](references/auto-release.md#release-with-environment-release-plans) says.
 
    Do not copy the plans' steps or metrics anywhere: the plans stay the source. If a **prerequisite** parent flag was agreed, wire it if the MCP surface supports it; otherwise report it as a manual step.
@@ -104,12 +111,16 @@ Only after confirmation (or a request to start the release that already states t
 | No pull request | If any environment to record uses `webhook` or `flag_eval` (including a left-out trigger, which means `flag_eval`), stop and ask for the PR: without one, the release can start before the change is deployed. A release whose environments all wait for a person (`manual`, or `promotion` after a `manual` environment) can start without one. |
 | The flag already has an active release | LaunchDarkly returns an error that names it. Don't archive it yourself. Point the user to the existing release. |
 | A rollout config already exists for this flag + PR | Don't record a second one with `create-automated-rollout-config`: a duplicate confuses the scheduler. Point the user to the existing config. To change it before it starts releasing, use `update-automated-rollout-config` with `confirm: true`. |
-| A release plan read fails (403, 5xx, or `get-environment-release-plans` is not listed) | Start nothing and record nothing. Tell the user which read failed. |
+| The project is not named, and exactly one project exists | Interactive run: name it, and confirm it before any write. A request or harness that already states the flag and the PR: use it without a question, and name it in the report. |
+| An environment release plan read fails (403, 5xx, or `get-environment-release-plans` is not listed) | Start nothing and record nothing. Tell the user which read failed. |
+| A `get-flag-release-plans` read fails (403, including "Plan does not allow this operation", or 5xx) | Start from each environment's release plan, as for `tool disabled`. Tell the user that the flag release plans could not be read. |
 | The project has no flag release plan (an empty list) | Start from each environment's release plan. Do not ask the user to create a flag release plan first. |
-| The user asks for the default flag release plan, and no plan is the default | Ask which plan to use, or offer to start from each environment's release plan. Never pick the first listed plan. |
+| The user asks for the default flag release plan, and no plan is the default | Ask which plan to use, with each plan's environments and triggers in the question, or offer to start from each environment's release plan. Never pick the first listed plan. |
 | The flag release plan does not fit the intent (an environment that the request excludes or holds, or a `notBefore` date) | Start from each environment's release plan, with the flag release plan's environments, plans, and triggers. Tell the user why. |
-| An environment that should release on merge would wait in the flag release plan (`manual`, or `promotion` after a held or `manual` environment) | Record nothing and ask about the first such environment. `manual`: release it on merge, or keep it waiting for a person. `promotion` after a held or `manual` environment: release it on merge without the environment it waits for, or keep the wait. Copying the plan keeps the wait. A `promotion` environment after an excluded environment needs no question. |
-| `create-flag-release` or `get-flag-release-plans` is not listed, or returns `tool disabled` | Start from each environment's release plan. |
+| An environment that should release on merge would wait in the flag release plan | Record nothing and ask first, as [references/auto-release.md](references/auto-release.md#release-with-environment-release-plans) step 3 says. Copying the plan keeps the wait. |
+| `create-flag-release` or `get-flag-release-plans` is not listed, or `get-flag-release-plans` returns `tool disabled` | Start from each environment's release plan. |
+| `create-flag-release` returns `tool disabled` after the user approved the flag release plan | Record nothing yet. Show the environment release plan version (auto-release steps 2, 3, and 6), and record it only after the user confirms. |
+| The flag is not boolean, and the user did not say which variations to release from and to | Ask, with the flag's variations in the question. See [references/auto-release.md](references/auto-release.md#variations). |
 | An environment release plan has more than one phase, or targets an audience | A release starts the plan's one phase on the flag's default rule, for everyone, and a flag release plan accepts only plans with exactly one phase. Tell the user the plan cannot release there; offer another plan, a hold, or a change to the plan. |
 | User wants to hold an environment (no date) | Leave it out of the release, or use a flag release plan that makes it `manual`. Report it as held with the reason. |
 | User sets a `notBefore` date for an environment | Record it with `triggerType: "manual"`. Say that LaunchDarkly does not enforce the date: a person must start it on or after the date. A scheduled start is a planned follow-up. |
