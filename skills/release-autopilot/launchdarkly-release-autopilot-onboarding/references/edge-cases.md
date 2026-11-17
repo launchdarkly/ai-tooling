@@ -5,9 +5,7 @@
 | Situation | Action |
 |-----------|--------|
 | Every Release Autopilot tool returns 404 | The account does not have the Release Autopilot add-on enabled. Tell the user and stop |
-| Member role is `reader` or `no_access` | Preview mode. End with the plan as a checklist for an admin |
-| Member role is `writer` or a custom role | Account writes are marked "needs an admin" and left out of Step 8; repo writes still run |
-| A write returns 403 | Report which write failed, list the remaining writes for an admin, and stop |
+| A write returns 403 | The member lacks that permission (the member read does not show it). Report which write failed, list it and the remaining writes for an admin, and stop |
 | `githubConnectUrl` with `flow=install` | Step 3. The user needs a GitHub org owner to install the App |
 | Repo not on the install list | Same owner as listed repos: the user grants the App access to it. New owner: an org owner installs the App on that organization. Then list again |
 | Mapped repo ID not on the install list | Mapped-repo reads return only repository IDs, so join them to the install list. An ID with no match is a repo the App can no longer see, or one this member cannot see. Show it by ID with its project. Do not change it |

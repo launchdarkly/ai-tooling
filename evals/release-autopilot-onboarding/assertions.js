@@ -103,12 +103,14 @@ const mapsRepoWithOverrides = (repo, project, caps) => (output) => {
   return result(bad.length === 0, bad.length ? `missing ${caps.join("/")} enabled:false` : `${repo} written with ${caps.join("/")} off`);
 };
 
-module.exports.accountWriteLast = (output) => {
+// The account settings are the first write, so a member who cannot change
+// them is stopped before anything else is written.
+module.exports.accountWriteFirst = (output) => {
   const steps = traj(output);
   const acct = steps.findIndex(isAccountWrite);
   if (acct === -1) return result(false, "no account write");
-  const laterWrite = steps.slice(acct + 1).some(isWriteStep);
-  return result(!laterWrite, laterWrite ? "a write came after the account write" : "account write was last");
+  const earlier = steps.slice(0, acct).filter(isWriteStep);
+  return result(earlier.length === 0, earlier.length ? `${earlier.map((t) => t.tool).join(", ")} came before the account write` : "account write was first");
 };
 
 module.exports.neverAutoReleasingOn = (output) => {
@@ -252,9 +254,25 @@ module.exports.stopsAfterFailedWrite = (output) => {
   const acct = steps.findIndex(isAccountWrite);
   const repo = steps.findIndex(isRepoUpdate);
   if (acct === -1) return result(false, "never attempted the account write");
+  const before = steps.slice(0, acct).filter(isWriteStep);
   const after = steps.slice(acct + 1).filter(isWriteStep);
-  const pass = repo !== -1 && repo < acct && after.length === 0;
-  return result(pass, `repo write at ${repo}, account write at ${acct}, ${after.length} write(s) after`);
+  const pass = repo === -1 && before.length === 0 && after.length === 0;
+  return result(pass, `account write at ${acct}, ${before.length} write(s) before, ${after.length} write(s) after (repo write at ${repo})`);
+};
+
+// The member read has no role, so a member who cannot write still gets a
+// plan and finds out at the first write. That write is refused with 403,
+// and nothing is written after it. Zero writes fails: the skill guessed
+// read-only access instead of trying.
+module.exports.stopsAtFirstRefusedWrite = (output) => {
+  const steps = traj(output);
+  const first = steps.findIndex(isWriteStep);
+  if (first === -1) return result(false, "never attempted a write");
+  if (!/403|forbidden/i.test(String(steps[first].mock_response_preview || ""))) {
+    return result(false, `first write (${steps[first].tool}) was not refused`);
+  }
+  const after = steps.slice(first + 1).filter(isWriteStep);
+  return result(after.length === 0, `${after.length} write(s) after the refused write`);
 };
 
 // The link must be in the final pause summary, which is what the user forwards
