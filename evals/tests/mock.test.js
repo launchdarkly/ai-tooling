@@ -1102,6 +1102,19 @@ test("paged flag release plan list reports the full totalCount and keeps every p
   assert.equal(after.hasMore, false);
 });
 
+test("create-automated-rollout-config echoes the request's environments in the read-back", () => {
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  const state = createMockState();
+  const out = renderMockResponse(suiteTemplates["create-automated-rollout-config"], { projectKey: "default", flagKey: "f",
+    environments: [{ environmentKey: "staging" }, { environmentKey: "production", releaseType: "policy", environmentReleasePlanKey: "guarded-prod", triggerType: "promotion" }] },
+    "create-automated-rollout-config", state);
+  assert.equal(out.config_id, "arc_mock_0001");
+  assert.deepEqual(out.environments, [
+    { environment_key: "staging", trigger_type: "flag_eval" },
+    { environment_key: "production", desired_release_type: "policy", environment_release_plan_key: "guarded-prod", trigger_type: "promotion" },
+  ]);
+});
+
 test("get-automated-rollout-config echoes the configId it was sent", () => {
   const suiteTemplates = require("../flag-release/tool-mocks.json");
   const state = createMockState();

@@ -459,9 +459,27 @@ function renderFlagReleasePlans(template, args, toolName, state, replacements) {
   return undefined;
 }
 
+function rolloutEnvReadBack(env) {
+  const out = { environment_key: env.environmentKey };
+  if (env.releaseType !== undefined) out.desired_release_type = env.releaseType;
+  if (env.environmentReleasePlanKey !== undefined) out.environment_release_plan_key = env.environmentReleasePlanKey;
+  out.trigger_type = env.triggerType || "flag_eval";
+  if (env.waitBeforeReleaseMillis !== undefined) out.wait_before_release_millis = env.waitBeforeReleaseMillis;
+  return out;
+}
+
 function renderReleaseAutopilot(template, input, toolName, state, replacements) {
   const args = input || {};
   if (/flag-release-plan/.test(toolName)) return renderFlagReleasePlans(template, args, toolName, state, replacements);
+  // The release as read back: a template with an empty environments list
+  // echoes the request's environments, in the read's snake_case.
+  if (toolName === "create-automated-rollout-config") {
+    const out = walk(template, replacements);
+    if (out && !out.error && Array.isArray(out.environments) && out.environments.length === 0 && Array.isArray(args.environments)) {
+      out.environments = args.environments.map(rolloutEnvReadBack);
+    }
+    return out;
+  }
   if (toolName === "update-automations") {
     const { accountWide, repo, githubRepoId, confirm, ...rest } = args;
     // A project's auto-cleanup or auto-archival (projectKey with a cleanup or
