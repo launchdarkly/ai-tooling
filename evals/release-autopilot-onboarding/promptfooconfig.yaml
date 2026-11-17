@@ -1377,7 +1377,7 @@ tests:
 
   # ------------------------------------------------------------------
   # Flag release plan through the MCP tools: the list is read with the tool
-  # in Release setup (only the built-in plan, so no stored default), and
+  # in Release setup (an empty list, so no default), and
   # the plan is created after "Looks good", after production's starter plan
   # and its default. It names that plan, becomes the project's default, and
   # is read back in the verification. No command is shown.

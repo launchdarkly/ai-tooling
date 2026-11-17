@@ -260,7 +260,7 @@ test("mcpCreatesDefaultPlan wants the list first, test then production, and the 
   assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [frpList(), confirm(), frpCreate({ default: undefined })] }).pass, false, "not the default");
   assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [frpList(), confirm(), frpCreate({ environments: [...envs2].reverse() })] }).pass, false, "order");
   assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [frpList(), confirm(), frpCreate({}, "{\"error\":\"already has a default\"}")] }).pass, false, "failed create");
-  assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [frpList(), frpUpdate({ flagReleasePlanKey: "default-release-configuration", default: false }), confirm(), frpCreate()] }).pass, false, "writes the built-in plan");
+  assert.equal(frp.mcpCreatesDefaultPlan({ trajectory: [frpList(), frpUpdate({ flagReleasePlanKey: "default-release", default: false }), confirm(), frpCreate()] }).pass, false, "an update write");
 });
 
 test("mcpUpdatesInPlace wants staged-rollout updated with confirm, the new environments, the default kept, and no create", () => {

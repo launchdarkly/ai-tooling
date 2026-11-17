@@ -2,10 +2,10 @@
 name: launchdarkly-release-plans
 description: "List, create, edit, make default, and delete LaunchDarkly release plans of both kinds: environment release plans (one environment's phases, rollout steps, and rollback metrics, with starter plans) and flag release plans (a project's environments in release order, each with its environment release plan, which Release Autopilot proposes releases from on pull requests). Also starts a flag's release from a flag release plan. Use when the user wants to see, list, build, change, or remove a release plan (such as 'show me the flag release plans' or 'what release plans does production have'), set an environment's or a project's default plan, or when another skill such as Release Autopilot onboarding needs release plans planned or created. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding, which follows this skill."
 license: Apache-2.0
-compatibility: "Uses the hosted LaunchDarkly MCP server. When the server has no tool for an operation (flag release plans before their tools reach the account, starting a flag's release, deleting an environment release plan), the user runs the REST API (beta) command that the skill shows in their own terminal."
+compatibility: "Uses the hosted LaunchDarkly MCP server. When the server has no tool for an operation (flag release plans before their tools reach the account, deleting an environment release plan), the user runs the REST API (beta) command that the skill shows in their own terminal."
 metadata:
   author: launchdarkly
-  version: "1.1.1"
+  version: "1.1.2"
 ---
 
 # LaunchDarkly Release Plans
@@ -13,7 +13,7 @@ metadata:
 You're using a skill that reads and changes LaunchDarkly release plans. There are two kinds:
 
 - An **environment release plan** releases a flag in one environment: its phases, rollout steps, holds, and rollback metrics. A plan with metrics is guarded, so a regression can roll the release back. A plan without metrics is progressive. Each environment can have one default plan.
-- A **flag release plan** is project-level. It lists the project's environments in release order, and names the environment release plan each one releases with (or says the environment releases immediately). When Release Autopilot proposes a release on a pull request, it uses the project's flag release plans, and it proposes none when the project has none. A rollout recorded for a flag (the `flag-release` skill, `create-automated-rollout-config` with `policy`) uses each environment's default release plan and does not need a flag release plan. A project can have one default flag release plan.
+- A **flag release plan** is project-level. It lists the project's environments in release order, and names the environment release plan each one releases with (or says the environment releases immediately). When Release Autopilot proposes a release on a pull request, it uses the project's flag release plans, and it proposes none when the project has none. A project can have one default flag release plan. A project does not need one to release: the `flag-release` skill starts a flag's release from the flag release plan with `create-flag-release` when there is one to use, and otherwise from each environment's release plan with `create-automated-rollout-config` (the environment's default, or the plan that `environmentReleasePlanKey` names).
 
 Releases can ship code to users, so treat every write as production automation with a blast radius.
 
@@ -24,15 +24,18 @@ Releases can ship code to users, so treat every write as production automation w
 - `create-environment-release-plan`, `update-environment-release-plan` (send only the fields to change; `phases` and `metrics` each replace the whole value), and `update-default-environment-release-plan` (`default: true` sets it, `default: false` clears it; needs `confirm: true`)
 - `get-flag-release-plans`: a project's flag release plans, each with `default`, or one plan with `flagReleasePlanKey`. When `hasMore` is true, pass `nextOffset` as `offset`
 - `create-flag-release-plan`, `update-flag-release-plan` (send only the fields to change; `environments` and `applicationKeys` each replace the whole list; leave out `default` to keep it; needs `confirm: true`), and `delete-flag-release-plan` (needs `confirm: true`). Each write returns the plan as read back
-- When the server has them: `create-flag-release` (start a flag's release from a flag release plan) and `delete-environment-release-plan` (needs `confirm: true`)
+- When the server has them: `create-flag-release` (start a flag's release from a flag release plan; needs `confirm: true`) and `delete-environment-release-plan` (needs `confirm: true`)
+- `create-automated-rollout-config`: starts a flag's release from each environment's release plan, when there is no flag release plan to use, the request does not fit it, or `create-flag-release` is missing or returns `tool disabled`. `update-automated-rollout-config` changes a release that has not started releasing (needs `confirm: true`)
+- `get-projects`: list the projects when the user has not named one
 - Used for starter plans: `search-contexts` (randomization unit) and `get-metrics` (rollback metrics)
 
-**REST API (beta), for an operation that has no MCP tool on the connected server:** flag release plans when their tools are missing, starting a flag's release without `create-flag-release`, deleting an environment release plan without `delete-environment-release-plan`, and the environment release plan changes whose MCP tool is missing. The user runs these commands, as [User-run commands](#user-run-commands) says. Every request sends `LD-API-Version: beta`. `ldcli` (3.16.0) has no command for these endpoints and no command that sends a raw request with that header, so the commands use curl. They are in [references/rest-api.md](references/rest-api.md).
+**REST API (beta), for an operation that has no MCP tool on the connected server:** flag release plans when their tools are missing, deleting an environment release plan without `delete-environment-release-plan`, and the environment release plan changes whose MCP tool is missing. The user runs these commands, as [User-run commands](#user-run-commands) says. Every request sends `LD-API-Version: beta`. `ldcli` (3.16.0) has no command for these endpoints and no command that sends a raw request with that header, so the commands use curl. They are in [references/rest-api.md](references/rest-api.md).
 
 **When a tool or request is not available:**
 - An environment release plan tool is missing from the server: the MCP server is out of date, not the account. Tell the user to update or reconnect the LaunchDarkly MCP server. The user can run the REST equivalent from [references/rest-api.md](references/rest-api.md) instead.
 - A flag release plan tool is missing from the server: the tools are still reaching accounts, so this does not mean that the account lacks flag release plans. Use the REST command for that operation, as [User-run commands](#user-run-commands) says. Do not say that the account lacks flag release plans, and do not send the user to support. Do not tell the user to update or reconnect the MCP server for these tools: they reach accounts behind a flag, not with a server update.
-- `create-flag-release` or `delete-environment-release-plan` is missing: use the REST command for it.
+- `create-flag-release` is missing, or returns `tool disabled`: start the release from each environment's release plan with `create-automated-rollout-config`, as [`flag-release`](../../feature-flags/flag-release/references/auto-release.md#release-with-environment-release-plans) says. Do not show a REST command for it.
+- `delete-environment-release-plan` is missing: use the REST command for it.
 - A read returns 403 `Plan does not allow this operation`, or a tool says the account's plan does not include that kind of release plan: it is not available on the account. Tell the user to contact LaunchDarkly support, and stop work on that kind of plan.
 
 ## Modes
@@ -70,7 +73,7 @@ This rule applies to every create path: a direct "create a release plan" request
 
   Ask this question even when the request already says what to do (for example, "make it the default"). Ask it before the "Confirm" question and before any write.
 - **Incomplete plans:** also name any incomplete plans, and say that they cannot start a release or be the default.
-- **The built-in flag release plan:** a project with no stored flag release plans lists one built-in plan, key `default-release-configuration`. It is not a stored plan, and it is not a stored default: the project has no flag release plans yet. It cannot be read by key, changed, deleted, or used to start a release. A new plan can be the default, and it replaces the built-in one.
+- **No flag release plans:** LaunchDarkly does not supply a flag release plan. A project with no stored plans gets an empty list, and it has no default. A new plan can be the default.
 
 Ask this before any other create question, and create nothing until the user answers.
 
@@ -81,19 +84,20 @@ Ask this before any other create question, and create nothing until the user ans
 3. **Confirm before every write** (Apply mode). State the current and the proposed plan in words. For an MCP write, of either kind of plan, ask header "Confirm" with exactly two options, "Make this change" and "Cancel", and write only after "Make this change" in this turn. Do not add an option for another change (such as "Make it the default instead"). A different change needs its own "Confirm" question, with that change shown. For a REST write, the user runs the command, so show the change in words with the command. A detailed request is not approval, and neither is a yes from an earlier turn. A retry after a failed write needs its own confirmation.
 4. **Prefer MCP tools.** Use the REST API only for an operation that has no MCP tool on the connected server.
 5. **Only touch what the user named.** Never delete, demote, or edit a plan the user did not name.
-6. **Speak in product words.** Say "release plan", "flag release plan", "default", and environment names. Do not show tool names, field names, HTTP status codes, or JSON to the user, except inside a command the user runs. Never mention this skill, or any skill, to the user: say what you do and why, not that a skill requires it.
+6. **Find the project.** If the user has not named a project, list the projects with `get-projects`. If exactly one exists, use it, and name it to the user for confirmation before any write. Otherwise ask which project. Do not guess.
+7. **Speak in product words.** Say "release plan", "flag release plan", "default", and environment names. Do not show tool names, field names, HTTP status codes, or JSON to the user, except inside a command the user runs. Never mention this skill, or any skill, to the user: say what you do and why, not that a skill requires it.
 
 ## Environment release plans
 
 ### Read
 
-`get-environment-release-plans` with `projectKey` and `environmentKey`. Report each plan's name, whether it is the default, and its phases, rollout steps, holds, and metrics. An incomplete plan (migrated from a release policy) cannot start a release or become the default: say so when you name one.
+`get-environment-release-plans` with `projectKey` and `environmentKey`. When `hasMore` is true, read the next page with `nextOffset` as `offset`, until `hasMore` is false. Report each plan's name, whether it is the default, and its phases, rollout steps, holds, and metrics. An incomplete plan (migrated from a release policy) cannot start a release or become the default: say so when you name one.
 
 ### Choose an environment's release plan
 
 Do this for every environment that needs a plan: for the user's own request, for a flag release plan, and for onboarding in Record only mode.
 
-1. Read the environment's plans. Use only complete plans.
+1. Read the environment's plans. Use only complete plans. For a flag release plan, use only complete plans with exactly one phase. If the default has two or more phases, do not propose it. Offer the complete one-phase plans or a starter plan, name the chosen plan in the flag release plan only, and record no default change for the environment.
 2. **The environment has complete plans, and one is the default.** Propose its default plan, unless the user named another. Show it with its phases, rollout steps, and metrics. Ask header "Plan": "Use this plan" ("Keep it as this environment's default") or "Choose another" (offer the other complete plans, or a starter plan). If the plan the user keeps is not the default yet, record setting it as the default. If another plan is the default now, say that the new one replaces it as the default. The exception is a plan that a flag release plan already names for this environment: keeping it there does not change the environment's default. Record no default change for it, and do not say that it becomes the default.
 3. **The environment has complete plans, and none is the default.** Show each complete plan with its phases, rollout steps, and metrics. Ask header "Plan" with one option per complete plan ("Make it this environment's default") and "Create a starter plan". Record setting the chosen plan as the default.
 4. **The environment has no complete plan.** Tell the user it needs a release plan first, and offer a starter plan as [Create](#create) says. "Not now" is how the user declines. For a flag release plan, add the environment only after its plan exists (or is recorded, in Record only mode).
@@ -131,9 +135,9 @@ Use the flag release plan tools when the server has them: `get-flag-release-plan
 
 ### How a flag release plan names environment release plans
 
-- Each environment names one environment release plan by key, or releases immediately. The named plan must exist in that environment and be complete, or the write fails with a validation error.
+- Each environment names one environment release plan by key, or releases immediately. The named plan must exist in that environment, be complete, and have exactly one phase, or the write fails with a validation error. A plan with two or more phases cannot be in a flag release plan: choose or create a one-phase plan for that environment.
 - A flag release plan stores each environment's release plan key, so a later change to that environment's default release plan does not update the flag release plan.
-- Environments are in release order. Plans are sequential by default: each environment releases after the one before it. Order non-production before production.
+- Environments are in release order. Plans are sequential: each environment releases after the one before it. Order non-production before production.
 - **Show names, not keys.** A flag release plan read gives only the key of each environment's release plan. Before you report or show a flag release plan (in [List or show](#list-or-show), [Build or update the project's plan](#build-or-update-the-projects-plan), a confirmation, and Record only mode), read each of its environments' release plans with `get-environment-release-plans`, and use each plan's name. Never make up a name, and do not show a key as a name. If the read has no plan with that key, say that the environment names a release plan that was not found.
 - Each environment's trigger decides what starts its release. Use "when the flag evaluates there" (`flag_eval`) unless the user asks for another. [references/rest-api.md](references/rest-api.md) lists the others and their rules.
 
@@ -141,7 +145,7 @@ Use the flag release plan tools when the server has them: `get-flag-release-plan
 
 When auto-releasing knows the change's application, it uses the plans for that application, or the project's default when none is for it. When it does not know the application, every plan is a candidate, and with more than one it asks on the pull request which one to use.
 
-- A new plan can be the default only when the project has no stored default. The built-in plan does not count.
+- A new plan can be the default only when the project has no default.
 - To change what the default does, edit the default plan in place: same key, still the default. Do not create a second plan unless the user asks for one.
 - **With `update-flag-release-plan`:** send only the fields to change. Leave out `default` to keep the plan's default setting. `environments` replaces the whole list, so send every environment to keep, in order. `default: true` makes the plan the default and demotes the current one. `default: false` keeps the plan, and the project then has no default.
 - **With a REST command:** an update is a full replace. Leaving out the default setting clears it. Always start from a fresh read, and send every field to keep.
@@ -151,7 +155,7 @@ When auto-releasing knows the change's application, it uses the plans for that a
 
 `get-flag-release-plans` with `projectKey`. When `hasMore` is true, read the next page with `nextOffset` as `offset`. For one plan, add `flagReleasePlanKey`. Without the tool, show the list command, and read the pasted output (page with `offset` while more remain).
 
-For each plan, report its name, whether it is the default, and its environments in order with the name of the release plan for each, from the environment's read ("production: Production progressive rollout", or "releases immediately"). If the list holds only the built-in plan, say that the project has no flag release plans yet.
+For each plan, report its name, whether it is the default, and its environments in order with the name of the release plan for each, from the environment's read ("production: Production progressive rollout", or "releases immediately"). If the list is empty, say that the project has no flag release plans yet.
 
 ### Build or update the project's plan
 
@@ -171,11 +175,11 @@ If the key is taken, use the next free key, and confirm again (or show the comma
 
 - **Default:** from the read, say what changes ("Staged rollout becomes the project's default flag release plan. It replaces Fast as the default."). With the tool, ask "Confirm" with that change in the question, then `update-flag-release-plan` with `flagReleasePlanKey`, `default: true`, and `confirm: true`, and no other fields. Without the tool, show the replace command with every field from the read, the default setting on, and its `version`. Check the plan as read back, or the pasted response.
 - **Stop using a plan as the default:** the same, with `default: false`. The plan stays, and the project has no default until another plan becomes the default.
-- **Delete:** name the plan and say if it is the default (the project then has no default). Releases already started from it continue. With the tool, ask "Confirm", then `delete-flag-release-plan` with `flagReleasePlanKey` and `confirm: true`, and check that it returns `deleted: true`. Without the tool, show the delete command, and check for `HTTP 204`. The built-in plan cannot be deleted.
+- **Delete:** name the plan and say if it is the default (the project then has no default). Releases already started from it continue. With the tool, ask "Confirm", then `delete-flag-release-plan` with `flagReleasePlanKey` and `confirm: true`, and check that it returns `deleted: true`. Without the tool, show the delete command, and check for `HTTP 204`.
 
 ### Start a flag's release from a plan
 
-This starts a release that can ship the flag's change to users. Name the flag, the plan, and each environment in order with its release plan. With `create-flag-release` on the server, ask "Confirm" with all of that in the question, then call it with `flagKey` and `flagReleasePlanKey`. Without it, show the command that creates the flag release from the plan. The built-in plan cannot start a release: create a flag release plan first. For a release tied to a pull request, use [`flag-release`](../../feature-flags/flag-release/SKILL.md) instead.
+This starts a release that can ship the flag's change to users. Name the flag, the plan, and each environment in order with its release plan. With `create-flag-release` on the server, ask "Confirm" with all of that in the question, then call it with `projectKey`, `flagKey`, `flagReleasePlanKey`, `pullRequest: { repoFullName, number }` for a pull request's change, and `confirm: true`. A boolean flag sends no variation IDs. A multi-variate flag sends both `startingVariationId` and `endingVariationId` (the variations' `_id`). Without the tool, or when it returns `tool disabled`, start the release from each environment's release plan with `create-automated-rollout-config`, as [`flag-release`](../../feature-flags/flag-release/references/auto-release.md#release-with-environment-release-plans) says. A project with no flag release plan does the same: it does not need a flag release plan to release. For a release tied to a pull request, use [`flag-release`](../../feature-flags/flag-release/SKILL.md) instead. To change a release that has not started releasing, use `update-automated-rollout-config` (read it with `get-automated-rollout-config`, then send `projectKey`, `configId`, the whole `environments` list, and `confirm: true`, rebuilt as [`flag-release`](../../feature-flags/flag-release/references/auto-release.md#change-a-recorded-release) says). Editing a flag release plan does not change releases already started from it, but editing an environment release plan changes what those releases do there.
 
 ## Write order
 

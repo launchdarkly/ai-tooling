@@ -1487,7 +1487,7 @@
   },
   {
     "name": "create-automated-rollout-config",
-    "description": "Record an automated rollout config for a feature-flagged change. Use it only for AutomatedRollout requests. The guarding flag must already exist. Pass repoFullName, prNumber, and prUrl for the PR the user names or you just filed; omit them when there is none. Each listed environment releases after the merge, pinned in override or by its release policy; to hold one, leave it out (no hold or date field exists). releaseType is only override or policy; immediate, progressive, and guarded are override.releaseMethod values. An immediate release passes only environmentKey, with no releaseType or override. triggerType: flag_eval (default) or webhook, to wait for a CI/CD deploy. Stages have exactly allocation and durationMillis; allocation is thousandths of a percent, so 10% over one hour is {\"allocation\":10000,\"durationMillis\":3600000}. override keys are camelCase: releaseMethod, rolloutContextKindKey, stages, metricKeys, rollbackOnRegression. Policy environments can return missing or incomplete policy warnings: surface them in generated comments, do not call the release a clean policy rollout, and do not add tags to make a policy match. Returns config_id, the stored config, and warnings.",
+    "description": "Record an automated rollout config for a feature-flagged change. Use it only for AutomatedRollout requests. The guarding flag must already exist. Pass repoFullName, prNumber, and prUrl for the PR the user names or you just filed; omit them when there is none. Each listed environment releases after the merge, pinned in override or by a release plan; to hold one, leave it out (no hold or date field exists). releaseType is only override or policy; immediate, progressive, and guarded are override.releaseMethod values. An immediate release passes only environmentKey, with no releaseType or override. triggerType: flag_eval (default), webhook (CI/CD deploy), manual, or promotion. Stages have exactly allocation and durationMillis; allocation is thousandths of a percent, so 10% over one hour is {\"allocation\":10000,\"durationMillis\":3600000}. override keys are camelCase: releaseMethod, rolloutContextKindKey, stages, metricKeys, rollbackOnRegression. policy uses the environment's default release plan, or the plan environmentReleasePlanKey names. Surface every warning in generated comments; do not call a warned environment a clean rollout. Returns config_id, the stored config, and warnings.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -1516,14 +1516,16 @@
                     "items": {
                       "type": "string"
                     },
-                    "type": "array"
+                    "type": "array",
+                    "maxItems": 100
                   },
                   "metricKeys": {
                     "description": "Metrics that gate a guarded rollout. Guarded needs metricKeys or metricGroupKeys.",
                     "items": {
                       "type": "string"
                     },
-                    "type": "array"
+                    "type": "array",
+                    "maxItems": 100
                   },
                   "releaseMethod": {
                     "description": "immediate turns the flag on and takes no stages or metrics; progressive ramps through stages; guarded ramps through stages gated on metrics.",
@@ -1562,7 +1564,8 @@
                       ],
                       "type": "object"
                     },
-                    "type": "array"
+                    "type": "array",
+                    "maxItems": 100
                   }
                 },
                 "required": [
@@ -1571,7 +1574,7 @@
                 "type": "object"
               },
               "releaseType": {
-                "description": "Only override or policy. override (default) pins the rollout in override; policy waits for the PR merge and the flag's first evaluation, then applies the environment's release policy; it releases on merge and never holds. Do not pass override with policy. immediate, progressive, and guarded are override.releaseMethod values.",
+                "description": "Only override or policy. override (default) pins the rollout in override; policy waits for the PR merge and the flag's first evaluation, then releases with the environment's default release plan, or the plan environmentReleasePlanKey names; it releases on merge and never holds. Do not pass override with policy. immediate, progressive, and guarded are override.releaseMethod values.",
                 "enum": [
                   "override",
                   "policy"
@@ -1579,17 +1582,24 @@
                 "type": "string"
               },
               "triggerType": {
-                "description": "flag_eval (default) starts after the flag is seen evaluating; webhook waits for a CI/CD deploy signal.",
+                "description": "flag_eval starts after the flag is seen evaluating; webhook waits for a CI/CD deploy signal; manual waits for a person to start it; promotion starts when the previous environment finishes. The first environment cannot use promotion. On create, omitted means flag_eval; on update, omitted keeps the environment's stored trigger_type.",
                 "enum": [
                   "flag_eval",
-                  "webhook"
+                  "webhook",
+                  "manual",
+                  "promotion"
                 ],
                 "type": "string"
               },
               "waitBeforeReleaseMillis": {
-                "description": "Delay after the preceding environment finishes. Applies only to sequential configs and is dropped from the first sequential environment.",
+                "description": "Delay after the preceding environment finishes. Dropped from the first environment.",
                 "minimum": 0,
                 "type": "integer"
+              },
+              "environmentReleasePlanKey": {
+                "type": "string",
+                "description": "Only with releaseType policy. Key of the environment release plan to release with instead of the environment's default plan; it must be a plan in this environment (see get-environment-release-plans). Omit to use the default plan.",
+                "minLength": 1
               }
             },
             "required": [
@@ -1597,12 +1607,12 @@
             ],
             "type": "object"
           },
-          "type": "array"
+          "type": "array",
+          "maxItems": 100
         },
         "executionMode": {
-          "description": "parallel (default) starts environments independently; sequential releases them in array order.",
+          "description": "Environments release in array order. sequential is the only mode, and the default.",
           "enum": [
-            "parallel",
             "sequential"
           ],
           "type": "string"
@@ -1632,7 +1642,8 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": "array",
+          "maxItems": 100
         },
         "startingVariationId": {
           "description": "Variation a multi-variate flag rolls out from. Boolean flags default to false; multi-variate flags need both variation IDs, and setting only one is rejected.",
