@@ -264,7 +264,7 @@
           "type": "integer"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         },
         "releasePlanKey": {
@@ -443,7 +443,7 @@
           "type": "object"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         }
       },
@@ -476,7 +476,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         },
         "releasePlanKey": {
@@ -495,7 +495,7 @@
   },
   {
     "name": "search-contexts",
-    "description": "Search for stored LaunchDarkly contexts in an environment by kind, key, or attribute value. Returns context records including their stored attributes (e.g., merchantCountryCode, disbursementRail) and when the context was last seen.\n\nConvenience param:\n- `kind`: filter to a specific context kind (e.g. `Merchant`, `user`, `organization`). Emitted as the filter clause `kind equals \"<kind>\"`.\n\nRaw filter syntax (passed in `filter`) uses `field operator value` clauses. Operators: `equals`, `notEquals`, `anyOf`, `startsWith`, `exists`, `before`, `after`; `contains` and `notContains` are not supported. Combine clauses with `,` (AND) or `|` (OR); group with `()`. Supported fields: `kind`, `key`, `kindKey`, `name`, `applicationId`, `q` (fuzzy), and `<kind>.<attribute>` for context attributes.\nExamples:\n- `kind equals \"Merchant\"` — contexts of a specific kind\n- `Merchant.merchantCountryCode equals \"US\"` — Merchant contexts whose attribute matches\n- `key startsWith \"merchant-\"` — contexts whose key has a prefix\n- `applicationId equals \"GoSDK/1.2\"` — contexts reported by a specific SDK/application\n\nExample combining both params: set `kind=Merchant` and `filter=Merchant.disbursementRail equals \"PIX\"` to find Merchant contexts on the PIX rail.\n\nNote: the contexts API cannot filter by which flag a context evaluated; there is no `flagEvaluated` field. Filter by kind, key, applicationId, or attribute values instead.\n\nOrdering is fixed by the API; there is no sort parameter.\n\nPagination: responses include `totalCount`. When hasMore is true, pass continuationToken from the response to get the next page.",
+    "description": "Search for stored LaunchDarkly contexts in an environment by kind, key, or attribute value. Returns context records including their stored attributes (e.g., merchantCountryCode, disbursementRail) and when the context was last seen. Kind keys and attribute names differ per project: find them with get-context-kinds and get-context-attributes instead of guessing.\n\nConvenience param:\n- `kind`: filter to a specific context kind (e.g. `Merchant`, `user`, `organization`). Emitted as the filter clause `kind equals \"<kind>\"`.\n\nRaw filter syntax (passed in `filter`) uses `field operator value` clauses. Operators: `equals`, `notEquals`, `anyOf`, `startsWith`, `exists`, `before`, `after`; `contains` and `notContains` are not supported. Combine clauses with `,` (AND) or `|` (OR); group with `()`. Supported fields: `kind`, `key`, `kindKey`, `applicationId`, `q`, `<kind>.<attribute>` for one kind's attribute, `*.<attribute>` for any kind, and bare `name` for `*.name`.\n\nAttribute rules: only top-level attributes can be filtered, and the name must start with a letter or underscore followed by letters, digits, `_` or `-`. Nested paths such as `user.address.city` and JSON pointers are rejected; find those contexts by kind or key and read their attributes with get-context-instances. A filter may hold at most 10 attribute clauses. `startsWith` is case-sensitive. `q` takes only `equals` with one non-empty string and prefix-matches the context key and the `name`, `firstName`, `lastName`, and `email` attributes.\n\nExamples:\n- `kind equals \"Merchant\"` — contexts of a specific kind\n- `Merchant.merchantCountryCode equals \"US\"` — Merchant contexts whose attribute matches\n- `key startsWith \"merchant-\"` — contexts whose key has a prefix\n- `applicationId equals \"GoSDK/1.2\"` — contexts reported by a specific SDK/application\n\nExample combining both params: set `kind=Merchant` and `filter=Merchant.disbursementRail equals \"PIX\"` to find Merchant contexts on the PIX rail.\n\nNote: the contexts API cannot filter by which flag a context evaluated; there is no `flagEvaluated` field. Filter by kind, key, applicationId, or attribute values instead.\n\nOrdering is fixed by the API; there is no sort parameter.\n\nPagination: responses include `totalCount`. When hasMore is true, pass continuationToken from the response to get the next page.",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -549,7 +549,7 @@
           "type": "integer"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         }
       },
@@ -673,7 +673,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         }
       },
@@ -801,7 +801,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         }
       },
@@ -827,7 +827,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         }
       },

@@ -21,7 +21,7 @@
           "type": "integer"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         },
         "releasePlanKey": {
@@ -58,7 +58,7 @@
           "type": "integer"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         }
       },
@@ -70,7 +70,7 @@
   },
   {
     "name": "create-flag-release",
-    "description": "Start a flag release: release a flag across environments, by following a flag release plan (kind \"plan\") or by listing the environments (kind \"custom\"). Beta API. When the user names no project, call get-projects before you ask anything: when it returns one project, name that project in the confirmation question. This changes the flag's targeting as the release runs, so confirm the project, the flag, the plan or the environments, and how each environment releases with the user first. When the user did not name the project, name the one you picked and wait for their reply before you send confirm: true. A flag can have only one active release; if it already has one, LaunchDarkly returns an error that names it, and that release must be archived first. With kind \"plan\", flagReleasePlanKey names the plan (find one with get-flag-release-plans; use the plan with default: true unless the user picks another). Use kind \"custom\" when the project has no flag release plan, or when the release the user asks for does not fit a plan: environments lists each environment in release order, in the shape create-automated-rollout-config takes. An immediate environment is only environmentKey: releaseType is only override or policy, never immediate. startingVariationId and endingVariationId name the variations to release from and to, by the _id of the flag's variations. Send both or neither: a multi-variate flag needs both, and a boolean flag can omit both to release from false to true. Send pullRequest when the release is for a pull request: repoFullName as owner/name and number; the tool sends the github.com pull request URL built from them. A webhook environment in a release with a pull request waits for a deploy that includes the merge. Without a pull request, it starts on the next deploy signal for that environment. Returns config_id, the release's ID, and the release as read back, with repo_full_name and pr_number when a pull request is linked; inspect or change it later with get-automated-rollout-config, update-automated-rollout-config, and archive-automated-rollout-config.\nExamples:\n- plan, boolean flag, no pull request: {\"projectKey\":\"default\",\"flagKey\":\"new-checkout\",\"kind\":\"plan\",\"flagReleasePlanKey\":\"standard\",\"confirm\":true}\n- plan, multi-variate flag for a pull request: {\"projectKey\":\"default\",\"flagKey\":\"checkout-theme\",\"kind\":\"plan\",\"flagReleasePlanKey\":\"standard\",\"startingVariationId\":\"<_id to release from>\",\"endingVariationId\":\"<_id to release to>\",\"pullRequest\":{\"repoFullName\":\"acme/web\",\"number\":42},\"confirm\":true}\n- custom, staging immediate and then production with its default environment release plan: {\"projectKey\":\"default\",\"flagKey\":\"new-checkout\",\"kind\":\"custom\",\"environments\":[{\"environmentKey\":\"staging\"},{\"environmentKey\":\"production\",\"releaseType\":\"policy\"}],\"confirm\":true}",
+    "description": "Start a flag release: release a flag across environments, by following a flag release plan (kind \"plan\") or by listing the environments (kind \"custom\"). Beta API. When the user names no project, call get-projects before you ask anything. projectKey says when to confirm the project and when to use it without asking. This changes the flag's targeting as the release runs. In an interactive run, confirm the project, the flag, the plan or the environments, and how each environment releases with the user before you send confirm: true. A flag can have only one active release; if it already has one, LaunchDarkly returns an error that names it, and that release must be archived first. With kind \"plan\", flagReleasePlanKey names the plan (find one with get-flag-release-plans; use the plan with default: true unless the user picks another). Prefer kind \"plan\" when a flag release plan fits the request. Prefer kind \"custom\" when the project has no flag release plan, or when the user asks for environments, an order, or release methods that no plan has. With kind \"custom\", environments lists each environment in release order, in the shape create-automated-rollout-config takes. An immediate environment is only environmentKey: releaseType is only override or policy, never immediate. startingVariationId and endingVariationId name the variations to release from and to, by the _id of the flag's variations. Send both or neither: a multi-variate flag needs both, and a boolean flag can omit both to release from false to true. Send pullRequest when the release is for a pull request: repoFullName as owner/name and number; the tool sends the github.com pull request URL built from them. A webhook environment in a release with a pull request waits for a deploy that includes the merge. Without a pull request, it starts on the next deploy signal for that environment. Returns config_id, the release's ID, and the release as read back, with repo_full_name and pr_number when a pull request is linked; inspect or change it later with get-automated-rollout-config, update-automated-rollout-config, and archive-automated-rollout-config. With kind \"custom\", it also returns warnings for a policy environment whose environment release plan is missing or incomplete. Report every warning to the user, and do not call that environment a clean release.\nExamples:\n- plan, boolean flag, no pull request: {\"projectKey\":\"default\",\"flagKey\":\"new-checkout\",\"kind\":\"plan\",\"flagReleasePlanKey\":\"standard\",\"confirm\":true}\n- plan, multi-variate flag for a pull request: {\"projectKey\":\"default\",\"flagKey\":\"checkout-theme\",\"kind\":\"plan\",\"flagReleasePlanKey\":\"standard\",\"startingVariationId\":\"<_id to release from>\",\"endingVariationId\":\"<_id to release to>\",\"pullRequest\":{\"repoFullName\":\"acme/web\",\"number\":42},\"confirm\":true}\n- custom, staging immediate and then production with its default environment release plan: {\"projectKey\":\"default\",\"flagKey\":\"new-checkout\",\"kind\":\"custom\",\"environments\":[{\"environmentKey\":\"staging\"},{\"environmentKey\":\"production\",\"releaseType\":\"policy\"}],\"confirm\":true}",
     "input_schema": {
       "additionalProperties": false,
       "properties": {
@@ -218,7 +218,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         },
         "pullRequest": {
@@ -408,7 +408,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         },
         "repoFullName": {
@@ -450,7 +450,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         }
       },
@@ -576,7 +576,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         }
       },
@@ -602,7 +602,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         }
       },
@@ -773,7 +773,7 @@
           "type": "object"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         },
         "releasePlanKey": {
@@ -804,7 +804,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         },
         "releasePlanKey": {
@@ -956,7 +956,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If exactly one exists, use it, but name it and confirm it with the user before any write. If there are more, ask; don't guess.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
           "type": "string"
         },
         "repoFullName": {
