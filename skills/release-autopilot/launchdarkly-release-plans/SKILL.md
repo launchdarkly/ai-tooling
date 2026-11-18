@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Uses the hosted LaunchDarkly MCP server. When the server has no tool for an operation (flag release plans before their tools reach the account, deleting an environment release plan), the user runs the REST API (beta) command that the skill shows in their own terminal."
 metadata:
   author: launchdarkly
-  version: "1.1.2"
+  version: "1.2.0"
 ---
 
 # LaunchDarkly Release Plans
@@ -139,7 +139,13 @@ Use the flag release plan tools when the server has them: `get-flag-release-plan
 - A flag release plan stores each environment's release plan key, so a later change to that environment's default release plan does not update the flag release plan.
 - Environments are in release order. Plans are sequential: each environment releases after the one before it. Order non-production before production.
 - **Show names, not keys.** A flag release plan read gives only the key of each environment's release plan. Before you report or show a flag release plan (in [List or show](#list-or-show), [Build or update the project's plan](#build-or-update-the-projects-plan), a confirmation, and Record only mode), read each of its environments' release plans with `get-environment-release-plans`, and use each plan's name. Never make up a name, and do not show a key as a name. If the read has no plan with that key, say that the environment names a release plan that was not found.
-- Each environment's trigger decides what starts its release. Use "when the flag evaluates there" (`flag_eval`) unless the user asks for another. [references/rest-api.md](references/rest-api.md) lists the others and their rules.
+- Each environment's trigger decides what starts its release. Use "when the flag evaluates there" (`flag_eval`) unless the user asks for another:
+  - `flag_eval` starts when the flag is first evaluated in that environment.
+  - `webhook` waits for a deploy signal from CI/CD. In a release for a pull request, it waits for a deploy that includes the merge.
+  - `manual` waits for a person to start it.
+  - `promotion` starts when the previous environment finishes. The first environment cannot use it.
+
+  [references/rest-api.md](references/rest-api.md) has the field rules.
 
 ### The project's default flag release plan
 
@@ -179,7 +185,7 @@ If the key is taken, use the next free key, and confirm again (or show the comma
 
 ### Start a flag's release from a plan
 
-This starts a release that can ship the flag's change to users. Name the flag, the plan, and each environment in order with its release plan. With `create-flag-release` on the server, ask "Confirm" with all of that in the question, then call it with `projectKey`, `flagKey`, `flagReleasePlanKey`, `pullRequest: { repoFullName, number }` for a pull request's change, and `confirm: true`. A boolean flag sends no variation IDs. A multi-variate flag sends both `startingVariationId` and `endingVariationId` (the variations' `_id`). Without the tool, or when it returns `tool disabled`, start the release from each environment's release plan with `create-automated-rollout-config`, as [`flag-release`](../../feature-flags/flag-release/references/auto-release.md#release-with-environment-release-plans) says. A project with no flag release plan does the same: it does not need a flag release plan to release. For a release tied to a pull request, use [`flag-release`](../../feature-flags/flag-release/SKILL.md) instead. To change a release that has not started releasing, use `update-automated-rollout-config` (read it with `get-automated-rollout-config`, then send `projectKey`, `configId`, the whole `environments` list, and `confirm: true`, rebuilt as [`flag-release`](../../feature-flags/flag-release/references/auto-release.md#change-a-recorded-release) says). Editing a flag release plan does not change releases already started from it, but editing an environment release plan changes what those releases do there.
+This starts a release that can ship the flag's change to users. Use the project's default flag release plan unless the user picks another. A flag can have only one active release: if it already has one, the create fails with an error that names it, and that release must be archived before a new one starts. Ask before archiving it, then call `archive-automated-rollout-config` with `projectKey`, the release's `configId`, and `confirm: true`. Name the flag, the plan, and each environment in order with its release plan. With `create-flag-release` on the server, ask "Confirm" with all of that in the question, then call it with `projectKey`, `flagKey`, `flagReleasePlanKey`, `pullRequest: { repoFullName, number }` for a pull request's change, and `confirm: true`. A boolean flag sends no variation IDs. A multi-variate flag sends both `startingVariationId` and `endingVariationId` (the variations' `_id`). Without the tool, or when it returns `tool disabled`, start the release from each environment's release plan with `create-automated-rollout-config`, as [`flag-release`](../../feature-flags/flag-release/references/auto-release.md#release-with-environment-release-plans) says. A project with no flag release plan does the same: it does not need a flag release plan to release. For a release tied to a pull request, use [`flag-release`](../../feature-flags/flag-release/SKILL.md) instead. To change a release that has not started releasing, use `update-automated-rollout-config` (read it with `get-automated-rollout-config`, then send `projectKey`, `configId`, the whole `environments` list, and `confirm: true`, rebuilt as [`flag-release`](../../feature-flags/flag-release/references/auto-release.md#change-a-recorded-release) says). Editing a flag release plan does not change releases already started from it, but editing an environment release plan changes what those releases do there.
 
 ## Write order
 
