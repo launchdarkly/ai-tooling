@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Uses the hosted LaunchDarkly MCP server. When the server has no tool for an operation (flag release plans before their tools reach the account, deleting an environment release plan), the user runs the REST API (beta) command that the skill shows in their own terminal."
 metadata:
   author: launchdarkly
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # LaunchDarkly Release Plans
