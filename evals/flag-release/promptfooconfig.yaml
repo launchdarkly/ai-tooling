@@ -1285,6 +1285,44 @@ tests:
         weight: 2
 
   # ==================================================================
+  # NO PULL REQUEST, EVERY ENVIRONMENT WAITS FOR A PERSON — a release
+  # whose environments all wait for a person can start without a PR, so
+  # the skill starts a custom flag release with no pullRequest and never
+  # invents one.
+  # ==================================================================
+  - description: "No pull request, every environment manual: custom flag release without pullRequest"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `usage-export` already exists (created OFF) in project `default`.
+        There is no pull request for it. Start its release in staging and then
+        production, and make each environment wait for a person to start it.
+        Release only those two environments. I confirm.
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
+          const args = rec ? (rec.arguments || {}) : {};
+          const envs = args.environments || [];
+          const keys = envs.map(e => e.environmentKey);
+          const waits = envs.every((e, i) => e.triggerType === 'manual' || (i > 0 && e.triggerType === 'promotion'));
+          const pass = Boolean(rec) && !('pullRequest' in args) && keys.join(',') === 'staging,production' && waits;
+          return { pass, score: pass ? 1 : 0, reason: rec ? `custom ${JSON.stringify(envs)}, pullRequest ${JSON.stringify(args.pullRequest)} (want staging then production, each waiting for a person, and no pullRequest)` : 'never started a custom flag release' };
+        metric: started_without_pr
+        weight: 4
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const forbidden = ['toggle-flag','update-flag','delete-flag','create-automated-rollout-config'];
+          const called = forbidden.filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'no manual toggle and no fallback' : 'called: ' + called.join(', ') };
+        metric: no_manual_toggle
+        weight: 2
+
+  # ==================================================================
   # FLAG RELEASE, NO DEFAULT PLAN — the project has flag release plans,
   # but none is the default. The user asks for the default plan, so the
   # skill asks which plan to use and never starts the first listed one.
