@@ -97,7 +97,7 @@ Input:
 
 After applying, verify the change with `get-flags`.
 
-**Important:** The agent can apply already-approved requests but must NEVER approve requests itself. Approval is a human decision.
+**Important:** The agent applies an approved request only when the user asks for it, and must NEVER approve requests itself. Approval is a human decision.
 
 ## What the Agent Should NOT Do
 
@@ -115,5 +115,5 @@ After applying, verify the change with `get-flags`.
 5. If the user agrees, agent creates the request with `create-approval-request`
 6. Agent shares the approval request details (ID, approval URL if available)
 7. A human reviewer approves or declines the request (outside the agent)
-8. If approved, the user or agent can apply it with `apply-approval-request`
+8. If approved, and only when the user asks, apply it with `apply-approval-request`
 9. Agent verifies the change with `get-flags`
