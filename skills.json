@@ -240,7 +240,7 @@
       "name": "launchdarkly-approval-requests",
       "description": "Request, follow up on, and apply LaunchDarkly approval requests for flag, segment, and AgentControl Config changes. Use when a change needs approval, when the user asks whether a request was approved or declined, which requests are waiting on them, or to apply an approved request. The agent never approves or declines a request.",
       "path": "skills/feature-flags/launchdarkly-approval-requests",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -436,7 +436,7 @@
       "name": "launchdarkly-flag-targeting",
       "description": "Control LaunchDarkly feature flag targeting including toggling flags on/off, percentage rollouts, targeting rules, individual targets, and copying flag configurations between environments. Use when the user wants to change who sees a flag, roll out to a percentage, add targeting rules, or promote config between environments.",
       "path": "skills/feature-flags/launchdarkly-flag-targeting",
-      "version": "1.1.0-experimental",
+      "version": "1.1.1-experimental",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
