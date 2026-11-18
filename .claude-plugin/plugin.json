@@ -1,6 +1,6 @@
 {
   "name": "launchdarkly",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "LaunchDarkly agent skills and MCP servers for feature flag management, AgentControl, and metrics",
   "author": {
     "name": "LaunchDarkly",
@@ -45,6 +45,7 @@
     "./skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
     "./skills/release-autopilot/launchdarkly-automations-cleanup-settings",
     "./skills/release-autopilot/launchdarkly-automations-archival-settings",
-    "./skills/release-autopilot/launchdarkly-release-plans"
+    "./skills/release-autopilot/launchdarkly-release-plans",
+    "./skills/feature-flags/launchdarkly-approval-requests"
   ]
 }
