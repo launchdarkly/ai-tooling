@@ -480,6 +480,14 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
     }
     return out;
   }
+  // A custom flag release reads back the request's environments too.
+  if (toolName === "create-flag-release") {
+    const out = walk(template, replacements);
+    if (out && !out.error && out.release && args.kind === "custom" && Array.isArray(args.environments)) {
+      out.release = { ...out.release, environments: args.environments.map(rolloutEnvReadBack) };
+    }
+    return out;
+  }
   if (toolName === "update-automations") {
     const { accountWide, repo, githubRepoId, confirm, ...rest } = args;
     // A project's auto-cleanup or auto-archival (projectKey with a cleanup or

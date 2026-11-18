@@ -19,7 +19,9 @@
 # Cases from a live run check that environment release plans are named by
 # their real names, that a read-only request without the tools still asks
 # the user to run the list, and that a create while a default exists asks
-# "Flag release plan" before a two-option "Confirm".
+# "Flag release plan" before a two-option "Confirm". A project with no flag
+# release plan starts a flag's release with create-flag-release and kind
+# custom, from each environment's release plan.
 description: "Evaluation of the release plans skill"
 
 prompts:
@@ -36,7 +38,9 @@ providers:
       expose_ask_question: true
       # Environment release plans come from the MCP tools, with the
       # onboarding suite's definitions and stateful mocks.
-      tool_definitions: release-autopilot-onboarding/tool-definitions.json
+      # create-flag-release comes from launchdarkly/mcp#580
+      # (launchdarkly-release-plans/tool-definitions.json).
+      tool_definitions: [release-autopilot-onboarding/tool-definitions.json, launchdarkly-release-plans/tool-definitions.json]
       tool_mocks: release-autopilot-onboarding/tool-mocks.json
       mcp_tool_allowlist:
         - get-environment-release-plans
@@ -48,6 +52,7 @@ providers:
         - create-flag-release-plan
         - update-flag-release-plan
         - delete-flag-release-plan
+        - create-flag-release
       # force_skill_invocation interrupted every MCP call in CI (the agent
       # reported the MCP server as unreachable), so the skill and its
       # references go into the instructions instead.
@@ -993,3 +998,65 @@ tests:
         value: file://../launchdarkly-release-plans/assertions.js:confirmsBeforeWrite
         metric: confirms_before_write
         weight: 3
+
+  # No flag release plan: the release starts with create-flag-release and
+  # kind custom, from each environment's default release plan. Both
+  # environments wait for a person (manual), so no pull request is needed.
+  - description: "MCP start a release with no flag release plan: create-flag-release kind custom, after Confirm"
+    vars:
+      max_turns: 16
+      mock_ask_question_match: true
+      user_request: >
+        Start the release of flag `bulk-export` in LaunchDarkly project default:
+        test first, then production, each on its default environment release plan.
+        A person starts each environment by hand (manual trigger). There is no pull
+        request for this flag.
+      mock_overrides:
+        get-environment-release-plans: *both_envs
+        get-flag-release-plans:
+          flagReleasePlans: []
+          totalCount: 0
+          hasMore: false
+        create-flag-release:
+          config_id: frl_mock_0001
+          flag_key: bulk-export
+          release: { id: frl_mock_0001, flag_key: bulk-export, status: active, pr_state: pending, execution_mode: sequential }
+      mock_ask_question_answers:
+        - ["Confirm"]
+        - ["Start"]
+        - ["Yes"]
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-flag-release');
+          if (!rec) return { pass: false, score: 0, reason: 'never called create-flag-release' };
+          const a = rec.arguments || {};
+          const envs = a.environments || [];
+          const order = envs.map(e => e.environmentKey).join(',');
+          const manual = envs.every(e => e.triggerType === 'manual');
+          const policy = envs.every(e => e.releaseType === 'policy' && e.override === undefined);
+          const pass = a.kind === 'custom' && a.flagKey === 'bulk-export' && a.confirm === true && order === 'test,production' && manual && policy;
+          return { pass, score: pass ? 1 : 0, reason: `create-flag-release ${JSON.stringify(a)} (want kind custom, test then production, each policy and manual, confirm true)` };
+        metric: custom_flag_release
+        weight: 4
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const bad = ['create-flag-release-plan','update-flag-release-plan','create-automated-rollout-config'].filter(t => tools.includes(t));
+          const pass = bad.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'created no flag release plan and used no fallback' : 'called: ' + bad.join(', ') };
+        metric: no_plan_needed
+        weight: 3
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const at = traj.findIndex(t => t.tool === 'create-flag-release');
+          const asked = at > 0 && traj.slice(0, at).some(t => t.tool === 'ask-question');
+          return { pass: asked, score: asked ? 1 : 0, reason: asked ? 'asked before the write' : 'started the release without a question' };
+        metric: confirms_before_write
+        weight: 3
+      - type: javascript
+        value: file://../launchdarkly-release-plans/assertions.js:noCommandsShown
+        metric: no_commands_shown
+        weight: 2

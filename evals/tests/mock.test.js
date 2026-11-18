@@ -1115,6 +1115,23 @@ test("create-automated-rollout-config echoes the request's environments in the r
   ]);
 });
 
+test("create-flag-release kind custom echoes the request's environments in the read-back", () => {
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  const state = createMockState();
+  const out = renderMockResponse(suiteTemplates["create-flag-release"], { projectKey: "default", flagKey: "f", kind: "custom",
+    environments: [{ environmentKey: "staging" }, { environmentKey: "production", releaseType: "policy", environmentReleasePlanKey: "guarded-prod", triggerType: "promotion" }],
+    confirm: true }, "create-flag-release", state);
+  assert.equal(out.config_id, "frl_mock_0001");
+  assert.equal(out.release.flag_key, "f");
+  assert.deepEqual(out.release.environments, [
+    { environment_key: "staging", trigger_type: "flag_eval" },
+    { environment_key: "production", desired_release_type: "policy", environment_release_plan_key: "guarded-prod", trigger_type: "promotion" },
+  ]);
+  const plan = renderMockResponse(suiteTemplates["create-flag-release"], { projectKey: "default", flagKey: "f", flagReleasePlanKey: "standard-release", confirm: true },
+    "create-flag-release", state);
+  assert.equal(plan.release.environments, undefined);
+});
+
 test("get-automated-rollout-config echoes the configId it was sent", () => {
   const suiteTemplates = require("../flag-release/tool-mocks.json");
   const state = createMockState();
