@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.1.0-experimental"
+  version: "1.1.1-experimental"
 ---
 
 # LaunchDarkly Flag Targeting & Rollout
@@ -117,7 +117,7 @@ When any mutation tool returns `requiresApproval: true`, the direct change was b
 1. **Create an approval request** with `create-approval-request` using the `instructions` from the blocked response
 2. **Inform the user** about the pending approval and share the approval request details
 3. **Check on approval status** later with `get-approval-requests` if requested
-4. **Apply the request** with `apply-approval-request` once a reviewer has approved it (reviewStatus is "approved")
+4. **Apply the request** with `apply-approval-request` only when the user asks for it and a reviewer has approved it (reviewStatus is "approved")
 5. **Verify the result** with `get-flags` after applying
 
 ## Important Context

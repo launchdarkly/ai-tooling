@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # LaunchDarkly Approval Requests
@@ -60,7 +60,7 @@ Each request has two states. Report both:
 
 Each request lists its reviews with `kind`, `comment`, `creationDate`, and the `memberId` or `serviceTokenId` that left it. When a request is declined, give the reviewer and their reason.
 
-For an integration-managed approval with auto-apply on, reading a request can make LaunchDarkly apply it once it is approved. Read `status` again before you offer to apply it.
+For an integration-managed approval with auto-apply on, LaunchDarkly can apply the request itself once it is approved, so the one read can already show `status` as `scheduled` or `completed`. Do not read again to find out, and do not apply a request that is no longer `pending`.
 
 ### 4. Apply an approved request
 
@@ -69,16 +69,19 @@ When the user asks you to apply a request:
 - `reviewStatus` is `approved` and `status` is `pending`: apply it with `confirm: true` and an optional comment. The flag and segment tool takes `projectKey` and `id`. The AgentControl Config tool takes only `id`.
 - `reviewStatus` is `pending` or `declined`: do not apply it. Tell the user where it stands.
 - `status` is already `completed` or `scheduled`: nothing is left to apply. Say so.
+- `status` is `failed`: the change did not go live. Tell the user the apply failed and give the request's `description`. Do not apply it again unless the user asks.
 
 An applied request with `scheduled: true` is not live until its `executionDate`. Say when it takes effect.
 
-After applying, read the resource back (`get-flags`, `get-segments`, or `get-agent-configs`) to confirm the change.
+The apply tool reads the request back and returns `applied`. Report the change as live only when `applied` is `true` and you have read the resource back (`get-flags`, `get-segments`, or `get-agent-configs`) to confirm it.
+
+When `applied` is `false` and there is no `scheduled: true`, the change is not confirmed. Say that, repeat the `message`, and do not call the apply tool again. Two cases return it: LaunchDarkly accepted the apply but the read-back failed, or the read-back shows a `status` other than `completed`. Call the check tool once and report the `status`, then leave the next step to the user.
 
 ## Finding requests
 
 - **One flag or segment:** `get-approval-requests` with `projectKey`, `env`, and `flagKey` or `segmentKey` (never both).
-- **Waiting on the user:** call `get-member-self`, then `get-approval-requests` with `projectKey`, `assignedToMemberIds` set to that id, and `reviewStatus: ["pending"]`.
-- **The whole project:** `get-approval-requests` with only `projectKey` lists what the project's Approvals page shows, across flags, segments, and AgentControl Configs, newest first. Narrow it by `env`, `requestedByMemberId`, `resourceKind`, `status`, or `reviewStatus`.
+- **Waiting on the user:** call `get-member-self`, then `get-approval-requests` with `projectKey`, `assignedToMemberIds` set to that id, and `reviewStatus: ["pending"]`. That filter finds only requests sent to the user by member id, so also list the project's pending requests without `assignedToMemberIds` and add each one whose `notifyTeamKeys` holds a team key from `get-member-self`'s `teams`. Both lists are paged (20 by default, up to 200): while `nextOffset` is set, call again with it as `offset`, and read every page before you report the list as complete, because a team request on a later page is otherwise missed. Combine the two lists without repeating a request `id`, and say that the result includes requests sent to the user's teams.
+- **The whole project:** `get-approval-requests` with only `projectKey` lists what the project's Approvals page shows, across flags, segments, and AgentControl Configs, newest first. Narrow it by `env`, `requestedByMemberId`, `resourceKind`, `status`, or `reviewStatus`. The list is paged (20 by default, up to 200). While `nextOffset` is set, call again with it as `offset`. Read every page before you report the list as complete.
 - **One AgentControl Config:** `get-agent-config-approvals` with `projectKey` and `configKey`.
 
 Timestamps in results are UTC.
