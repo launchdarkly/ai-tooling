@@ -80,7 +80,7 @@ When `applied` is `false` and there is no `scheduled: true`, the change is not c
 ## Finding requests
 
 - **One flag or segment:** `get-approval-requests` with `projectKey`, `env`, and `flagKey` or `segmentKey` (never both).
-- **Waiting on the user:** call `get-member-self`, then `get-approval-requests` with `projectKey`, `assignedToMemberIds` set to that id, and `reviewStatus: ["pending"]`. That filter finds only requests sent to the user by member id. Requests sent to one of the user's teams are not in it. To include them, list the project's pending requests without `assignedToMemberIds` and also keep each one whose `notifyTeamKeys` holds a team key from `get-member-self`'s `teams`. Say which of the two you did.
+- **Waiting on the user:** call `get-member-self`, then `get-approval-requests` with `projectKey`, `assignedToMemberIds` set to that id, and `reviewStatus: ["pending"]`. That filter finds only requests sent to the user by member id, so also list the project's pending requests without `assignedToMemberIds` and add each one whose `notifyTeamKeys` holds a team key from `get-member-self`'s `teams`. Combine the two lists without repeating a request `id`, and say that the result includes requests sent to the user's teams.
 - **The whole project:** `get-approval-requests` with only `projectKey` lists what the project's Approvals page shows, across flags, segments, and AgentControl Configs, newest first. Narrow it by `env`, `requestedByMemberId`, `resourceKind`, `status`, or `reviewStatus`. The list is paged (20 by default, up to 200). While `nextOffset` is set, call again with it as `offset`. Read every page before you report the list as complete.
 - **One AgentControl Config:** `get-agent-config-approvals` with `projectKey` and `configKey`.
 
