@@ -264,7 +264,7 @@
           "type": "integer"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used. A run is interactive unless the request says that no one can answer.",
           "type": "string"
         },
         "releasePlanKey": {
@@ -443,7 +443,7 @@
           "type": "object"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used. A run is interactive unless the request says that no one can answer.",
           "type": "string"
         }
       },
@@ -476,7 +476,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used. A run is interactive unless the request says that no one can answer.",
           "type": "string"
         },
         "releasePlanKey": {
@@ -549,7 +549,7 @@
           "type": "integer"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used. A run is interactive unless the request says that no one can answer.",
           "type": "string"
         }
       },
@@ -673,7 +673,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used. A run is interactive unless the request says that no one can answer.",
           "type": "string"
         }
       },
@@ -801,7 +801,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used. A run is interactive unless the request says that no one can answer.",
           "type": "string"
         }
       },
@@ -827,7 +827,7 @@
           "type": "string"
         },
         "projectKey": {
-          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used.",
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used. A run is interactive unless the request says that no one can answer.",
           "type": "string"
         }
       },
