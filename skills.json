@@ -237,6 +237,22 @@
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server"
     },
     {
+      "name": "launchdarkly-approval-requests",
+      "description": "Request, follow up on, and apply LaunchDarkly approval requests for flag, segment, and AgentControl Config changes. Use when a change needs approval, when the user asks whether a request was approved or declined, which requests are waiting on them, or to apply an approved request. The agent never approves or declines a request.",
+      "path": "skills/feature-flags/launchdarkly-approval-requests",
+      "version": "0.1.0",
+      "license": "Apache-2.0",
+      "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
+      "tags": [
+        "launchdarkly",
+        "feature-flags",
+        "approvals",
+        "change-management",
+        "devops",
+        "mcp"
+      ]
+    },
+    {
       "name": "launchdarkly-automations-archival-settings",
       "description": "Read and change a LaunchDarkly project's Automations auto-archival settings via the hosted MCP. Auto-archival archives flags that are ready to archive after a grace period, or creates approval requests for them. Use when the user wants to see or change the grace period, approval requirement, run limit, recheck cadence, or notification recipients, turn automatic archival off or on, or asks why a flag was or was not archived automatically. For first-time setup of every Release Autopilot capability, use launchdarkly-release-autopilot-onboarding.",
       "path": "skills/release-autopilot/launchdarkly-automations-archival-settings",

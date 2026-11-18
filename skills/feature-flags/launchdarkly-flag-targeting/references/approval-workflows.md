@@ -1,5 +1,7 @@
 # Approval Workflows
 
+The `launchdarkly-approval-requests` skill covers the whole approval flow, including segments, AgentControl Configs, reviewers, and approval integrations. This page covers the flag targeting case.
+
 Some LaunchDarkly environments require approval before changes take effect. This is an Enterprise feature configured per environment. When this happens, mutation tools like `toggle-flag`, `update-rollout`, `update-targeting-rules`, `update-flag-targeting`, and `copy-flag-config` return `requiresApproval: true` instead of making the change directly.
 
 ## Detecting Approval Requirements
