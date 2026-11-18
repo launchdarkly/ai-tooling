@@ -1,0 +1,19 @@
+{
+  "name": "launchdarkly-approval-requests",
+  "description": "Request, follow up on, and apply LaunchDarkly approval requests for flag, segment, and AgentControl Config changes",
+  "version": "0.1.0",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": ["./"],
+  "tags": [
+    "launchdarkly",
+    "feature-flags",
+    "approvals",
+    "change-management",
+    "devops",
+    "mcp"
+  ],
+  "requirements": {
+    "mcp-servers": ["@launchdarkly/mcp-server"]
+  }
+}
