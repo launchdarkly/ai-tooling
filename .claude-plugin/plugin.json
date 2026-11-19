@@ -1,6 +1,6 @@
 {
   "name": "launchdarkly",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "LaunchDarkly agent skills and MCP servers for feature flag management, AgentControl, and metrics",
   "author": {
     "name": "LaunchDarkly",
@@ -33,6 +33,7 @@
     "./skills/feature-flags/launchdarkly-flag-command",
     "./skills/feature-flags/launchdarkly-flag-drift",
     "./skills/feature-flags/should-flag-change",
+    "./skills/feature-flags/should-auto-approve",
     "./skills/feature-flags/flag-release",
     "./skills/feature-flags/flag-and-release-change",
     "./skills/metrics/launchdarkly-metric-choose",
