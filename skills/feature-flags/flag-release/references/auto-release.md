@@ -157,7 +157,7 @@ Do these steps in order:
      "confirm": true
    }
    ```
-8. **Show any warnings to the user as they are.** `missing_default_release_plan` means the environment has no default release plan: hold it or name a plan. `incomplete_release_plan` and `release_plan_unchecked` mean the plan could not start or was not checked.
+8. **Show any warnings to the user as they are.** `missing_default_release_plan` means the environment has no default release plan: hold it or name a plan. `create-flag-release` does not warn in that case: it creates nothing and returns an error. Then ask the user which environment release plan to use, or hold the environment, and call it again. `incomplete_release_plan` and `release_plan_unchecked` mean the plan could not start or was not checked.
 
 ### Fallback: `create-automated-rollout-config`
 
