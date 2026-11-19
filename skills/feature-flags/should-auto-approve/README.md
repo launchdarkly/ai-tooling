@@ -1,4 +1,4 @@
-# should-i-auto-approve
+# should-auto-approve
 
 Rates a committed code change's review risk as **low** (can merge on an
 automated approval), **medium** or **high** (needs a person). A fixed decision
@@ -11,7 +11,7 @@ rating.
   request, never changes a flag, and never edits the repository it checks.
 - **Needs** a git checkout with the change committed and its merge base,
   `python3` (3.10+, standard library only) and `git`.
-- **Output:** a short report ending in a `should-i-auto-approve` JSON block (`rating`,
+- **Output:** a short report ending in a `should-auto-approve` JSON block (`rating`,
   `terminal`, `steps`, `values`, `graph`, and the approval `gates` with
   `auto_approve`).
 - **Shadow mode:** told to run in shadow mode, the agent prints the report and
@@ -19,9 +19,9 @@ rating.
 
 ## Command line
 
-`should-i-auto-approve.pyz` is the whole program in one file (a Python zip application: the walk,
+`should-auto-approve.pyz` is the whole program in one file (a Python zip application: the walk,
 the graph and its questions). `start`, `flag`, `answer`, `decide`;
-`python3 should-i-auto-approve.pyz --help` lists them. SKILL.md gives the order, and
+`python3 should-auto-approve.pyz --help` lists them. SKILL.md gives the order, and
 [references/QUESTIONS.md](references/QUESTIONS.md) every question.
 
 ## Settings
@@ -31,6 +31,6 @@ the graph and its questions). `start`, `flag`, `answer`, `decide`;
 | `LAUNCHDARKLY_API_KEY` | unset | Read flag state directly; without it the agent reads flags with its own LaunchDarkly tools. |
 | `LAUNCHDARKLY_BASE_URI` | `https://app.launchdarkly.com` | The LaunchDarkly instance. |
 | `LAUNCHDARKLY_PROJECT` | `default` | The project whose flags the change may name. |
-| `SHOULD_I_AUTO_APPROVE_RUNS` | `~/.cache/should-i-auto-approve/` | Where run folders go. |
+| `SHOULD_AUTO_APPROVE_RUNS` | `~/.cache/should-auto-approve/` | Where run folders go. |
 
 Built from the risk graph at version 0.12 (graph `e6cc6fe7a229`).

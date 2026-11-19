@@ -616,6 +616,23 @@
       "compatibility": "Requires a supported language/framework in the project. SDK credentials are required by [Apply](apply/SKILL.md), not for [Detect](detect/SKILL.md) / [Plan](plan/SKILL.md) alone (see parent onboarding **Prerequisites**)."
     },
     {
+      "name": "should-auto-approve",
+      "description": "Rates a committed code change's review risk as low, medium or high by a fixed decision graph (low can be approved without a human; medium and high need one), from checked answers to narrow questions about the change. Use only when your instructions or the user name should-auto-approve. Advisory and read-only: it never approves, comments on, or changes a pull request.",
+      "path": "skills/feature-flags/should-auto-approve",
+      "version": "0.7.0",
+      "license": "Apache-2.0",
+      "compatibility": "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-auto-approve` JSON block.",
+      "tags": [
+        "launchdarkly",
+        "code-review",
+        "pull-request",
+        "ci",
+        "advisory",
+        "risk-assessment",
+        "auto-approval"
+      ]
+    },
+    {
       "name": "should-flag-change",
       "description": "Decide whether a committed code change should ship behind a LaunchDarkly feature flag. Use when a developer asks whether a change should be behind a flag, when reviewing a diff or pull request, or when running in CI on a PR. Runs a fixed decision tree over the change and the code around it, with checked evidence, and emits a structured advisory recommendation. Run it on every change, including test-only, docs, dependency and already-flagged ones: those finish in a minute or two, and its verdict, not your own read of the diff, is the decision. Read-only: it never creates or modifies flags.",
       "path": "skills/feature-flags/should-flag-change",
@@ -631,23 +648,6 @@
         "ci",
         "advisory",
         "risk-assessment"
-      ]
-    },
-    {
-      "name": "should-i-auto-approve",
-      "description": "Rates a committed code change's review risk as low, medium or high by a fixed decision graph (low can be approved without a human; medium and high need one), from checked answers to narrow questions about the change. Use only when your instructions or the user name should-i-auto-approve. Advisory and read-only: it never approves, comments on, or changes a pull request.",
-      "path": "skills/feature-flags/should-i-auto-approve",
-      "version": "0.6.4",
-      "license": "Apache-2.0",
-      "compatibility": "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-i-auto-approve` JSON block.",
-      "tags": [
-        "launchdarkly",
-        "code-review",
-        "pull-request",
-        "ci",
-        "advisory",
-        "risk-assessment",
-        "auto-approval"
       ]
     },
     {

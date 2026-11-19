@@ -1,11 +1,11 @@
 ---
-name: should-i-auto-approve
-description: "Rates a committed code change's review risk as low, medium or high by a fixed decision graph (low can be approved without a human; medium and high need one), from checked answers to narrow questions about the change. Use only when your instructions or the user name should-i-auto-approve. Advisory and read-only: it never approves, comments on, or changes a pull request."
+name: should-auto-approve
+description: "Rates a committed code change's review risk as low, medium or high by a fixed decision graph (low can be approved without a human; medium and high need one), from checked answers to narrow questions about the change. Use only when your instructions or the user name should-auto-approve. Advisory and read-only: it never approves, comments on, or changes a pull request."
 license: Apache-2.0
-compatibility: "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-i-auto-approve` JSON block."
+compatibility: "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-auto-approve` JSON block."
 metadata:
   author: launchdarkly
-  version: "0.6.4"
+  version: "0.7.0"
   graph: "e6cc6fe7a229"
 ---
 
@@ -18,8 +18,8 @@ narrow yes/no questions about the change. The changed paths answer some
 mechanically, and you answer the rest, each by its written procedure, from the
 code. The same answers always give the same rating.
 
-Every command below is this skill's command line, `should-i-auto-approve.pyz`:
-one file, beside this one. Run it as `python3 SKILL_DIR/should-i-auto-approve.pyz`
+Every command below is this skill's command line, `should-auto-approve.pyz`:
+one file, beside this one. Run it as `python3 SKILL_DIR/should-auto-approve.pyz`
 (`SKILL_DIR` is the directory this file is in). It needs `python3` and `git`.
 
 **Finish in one run.** Don't stop partway to ask anyone something and wait.
@@ -29,8 +29,8 @@ one file, beside this one. Run it as `python3 SKILL_DIR/should-i-auto-approve.py
 - **Advisory and read-only.** Never approve, comment on, label or change a
   pull request, never create or change a flag, and never edit, check out,
   commit or push in the repository being checked. Everything the skill writes
-  goes to its run folder under `~/.cache/should-i-auto-approve/` (or
-  `SHOULD_I_AUTO_APPROVE_RUNS`).
+  goes to its run folder under `~/.cache/should-auto-approve/` (or
+  `SHOULD_AUTO_APPROVE_RUNS`).
 - **Committed changes only**: the branch's commits against its merge base,
   the same change a pull request shows.
 - **Judge the code, not the conversation.** Don't read PR comments, reviews,
@@ -62,7 +62,7 @@ instead.
 ### 1. Prepare
 
 ```bash
-python3 SKILL_DIR/should-i-auto-approve.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
+python3 SKILL_DIR/should-auto-approve.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
     [--pr-title "<title>"] [--pr-body-file <file>] [--pr-author <login>]
 ```
 
@@ -119,7 +119,7 @@ git -C <REPO_PATH> grep -n <pattern> <head>
   analysis. Check in the code that a listed flag really withholds the changed
   behavior, and look for a flag check the file missed (a wrapper, a constant, a
   flag passed in from a caller, a route gated elsewhere). Read such a flag's
-  state with `python3 SKILL_DIR/should-i-auto-approve.pyz flag RUN <flag-key>`.
+  state with `python3 SKILL_DIR/should-auto-approve.pyz flag RUN <flag-key>`.
   When `start` printed `LAUNCHDARKLY: not read`, or `flag` exits 9, read the
   flags with your LaunchDarkly tools instead. If you can't read flag state at
   all, a question that depends on it is unresolved.
@@ -127,7 +127,7 @@ git -C <REPO_PATH> grep -n <pattern> <head>
 Then record the answers, all in one JSON object on stdin:
 
 ```bash
-python3 SKILL_DIR/should-i-auto-approve.pyz answer RUN <<'JSON'
+python3 SKILL_DIR/should-auto-approve.pyz answer RUN <<'JSON'
 {
   "answers": {
     "<question id>": {"value": true, "evidence": "..."}
@@ -146,7 +146,7 @@ JSON
 ### 3. Decide
 
 ```bash
-python3 SKILL_DIR/should-i-auto-approve.pyz decide RUN
+python3 SKILL_DIR/should-auto-approve.pyz decide RUN
 ```
 
 Run it as is, with its whole output: don't pipe it through `grep`, `sed`,
@@ -157,7 +157,7 @@ can merge on an automated approval, and any approval gate not met or unclear),
 and a fenced block:
 
 ````
-```json should-i-auto-approve
+```json should-auto-approve
 {"rating": "low", "escalated": false, "terminal": "...", "graph": "...", ..., "gates": {...}, "auto_approve": true}
 ```
 ````
@@ -180,7 +180,7 @@ Print, in a few short lines, using only what `decide` printed:
 5. A defect you found while answering (a bug, a missing test for changed
    behavior), in one line, if any. It doesn't change the rating.
 
-Then copy the `should-i-auto-approve` block **verbatim** as the last thing in
+Then copy the `should-auto-approve` block **verbatim** as the last thing in
 your output. Never edit its fields.
 
 ## Talking to people
@@ -195,4 +195,4 @@ needs to decide". Refer to questions by what they ask.
 - Don't approve, comment on, or change the pull request, or any flag.
 - Don't answer from your own view of the change's risk. Follow each procedure.
 - Don't read reviews, comments or other bots' ratings of the PR.
-- Don't change the `should-i-auto-approve` block.
+- Don't change the `should-auto-approve` block.

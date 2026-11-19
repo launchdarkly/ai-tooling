@@ -14,7 +14,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 |-------|-------------|
 | `feature-flags/launchdarkly-flag-command` | Resolve `/flag` style requests into fast flag lookup, detail, and disambiguation |
 | `feature-flags/should-flag-change` | Advisory, read-only call on whether a committed change (PR) should ship behind a feature flag, by a fixed decision tree with checked evidence; decides by judgment when it can't run on a checkout |
-| `feature-flags/should-i-auto-approve` | Advisory, read-only rating of a committed change's review risk (low, medium, high) by a fixed decision graph with checked answers |
+| `feature-flags/should-auto-approve` | Advisory, read-only rating of a committed change's review risk (low, medium, high) by a fixed decision graph with checked answers |
 | `feature-flags/launchdarkly-flag-discovery` | Audit flags, find stale/launched flags, and assess removal readiness |
 | `feature-flags/launchdarkly-flag-create` | Create new feature flags in a way that fits existing codebase patterns |
 | `feature-flags/launchdarkly-flag-targeting` | Control targeting, rollouts, rules, and cross-environment config |
