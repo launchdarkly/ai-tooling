@@ -20,8 +20,9 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `feature-flags/launchdarkly-flag-cleanup` | Safely remove flags from code using LaunchDarkly as the source of truth |
 | `feature-flags/launchdarkly-flag-drift` | Detect and reconcile drift between an in-code SDK fallback default and the LaunchDarkly default rule |
 | `feature-flags/launchdarkly-guarded-rollout` | Configure guarded rollouts with progressive traffic, metric monitoring, and rollback |
-| `feature-flags/flag-release` | Record a flag's automated release for a PR, honoring release intent and per-environment release policies |
-| `feature-flags/flag-and-release-change` | End-to-end PR orchestrator: decide → create + wire the flag → record its release (composes the skills above) |
+| `feature-flags/launchdarkly-approval-requests` | Request, follow up on, and apply approval requests for flag, segment, and AgentControl Config changes |
+| `feature-flags/flag-release` | Start a flag's release for a PR from the project's flag release plan, honoring release intent |
+| `feature-flags/flag-and-release-change` | End-to-end PR orchestrator: decide → create + wire the flag → start its release (composes the skills above) |
 | `feature-flags/launchdarkly-flag-qualitative-feedback-setup` | Add a qualitative user feedback widget tied to a flag, adapting to the project's framework and design system |
 
 ### Release Autopilot
@@ -31,6 +32,7 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | `release-autopilot/launchdarkly-release-autopilot-onboarding` | Step-by-step setup: pick capabilities, connect the GitHub App, map repos, choose inference, review release setup |
 | `release-autopilot/launchdarkly-release-autopilot-settings` | Turn on GitHub App auto-flagging / auto-releasing, map `owner/name` repos, or diagnose why a PR was not classified (confirm before every write) |
 | `release-autopilot/launchdarkly-automations-cleanup-settings` | Read or change a project's auto-cleanup schedule, repositories, and limits, or explain why cleanup did not open a PR (confirm before every write) |
+| `release-autopilot/launchdarkly-release-plans` | List, create, edit, make default, or delete environment release plans (with starter plans) and flag release plans, and start a flag's release from a plan (confirm before every write) |
 | `release-autopilot/launchdarkly-automations-archival-settings` | Read or change a project's auto-archival grace period, approvals, and limits, or turn it off; a person turns it on (confirm before every write) |
 
 ### AgentControl
@@ -38,7 +40,8 @@ Agent Skills are modular, text-based playbooks that teach an agent how to perfor
 | Skill | Description |
 |-------|-------------|
 | `agentcontrol/configs-create` | Create configs with variations for agent or completion mode |
-| `agentcontrol/migrate` | Migrate an app with hardcoded LLM prompts to AgentControl in five stages (extract, wrap, tools, tracking, evals) |
+| `agentcontrol/migrate` | Migrate an app with hardcoded LLM prompts (not on AgentControl yet) to the current AI SDKs in five stages |
+| `agentcontrol/legacy-sdk-migrate` | Migrate between LaunchDarkly AI SDKs: from the legacy Python, Node.js, and Go AI SDKs to the current handler-based SDKs (packages, init, `config()` / `Config()`, tools, registries, judges, graphs, fallbacks) |
 | `agentcontrol/configs-update` | Update and delete configs, manage lifecycle |
 | `agentcontrol/configs-variations` | Manage config variations for A/B testing |
 | `agentcontrol/tools` | Create and attach tools for function calling |

@@ -10,7 +10,7 @@ Load this file for a trace alert: latency (a percentile or average of `duration`
 
 ## Investigation shape
 
-1. **Slowest or failing spans in the window:** `search-traces` with the alert's query, `sortColumn: "duration"`, `sortDirection: "DESC"`, `limit` 5; or `has_errors=true` for error-rate alerts.
+1. **Slowest or failing spans in the window:** `search-traces` with the alert's query, `environments` and `services`, `sortColumn: "duration"`, `sortDirection: "DESC"`, `limit` 5; or `has_errors=true` for error-rate alerts.
 2. **Read the slowest trace** with `get-trace` (pass `timestamp`). `top_self_time` and `critical_path` name the span that owns the time (`self_ms`, `share_of_root`); without them, subtract the children's durations from the parent's. For errors, find the lowest error span.
 3. **Is that span the pattern?** Aggregate `Sum` and `P95` of `duration` for the parent and its child span names with `exact: true` and `compareTo: "1w"`. "Child X is 65 % of the operation's time, as it was last week" is a cause and a verdict at once.
 4. **What is over-represented:** break the alert's signal down by `host.name`, the version key and `http.route` with `compareTo` (step 4 of the first five minutes in `investigate`).
