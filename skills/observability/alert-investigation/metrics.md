@@ -11,7 +11,7 @@ Load this file for an OpenTelemetry metric alert (a threshold on `metric_name` v
 ## Investigation shape
 
 1. **Which series moved:** group the replay by the metric's attributes (`host.name`, `service_name`, `k8s.pod.name`; list them with `get-keys`) with `bucketCount: 1` and `compareTo`. One host or pod off its peers is the usual cause.
-2. **What else that host or service reports:** `search-aggregations` with `productType: "metrics"`, the slice filter and `groupBy: "metric_name"` lists its metrics, such as pool sizes, memory and queue depth.
+2. **What else that host or service reports:** `search-aggregations` with `productType: "metrics"`, `environments` and `services` (the metric's own values, from `get-keys` with `productType: "metrics"`), the slice filter and `groupBy: "metric_name"` lists its metrics, such as pool sizes, memory and queue depth.
 3. **Tie it to requests:** traces and error logs for the same service and host in the window (see `investigate`).
 4. **What changed:** `get-changes` for the service.
 
