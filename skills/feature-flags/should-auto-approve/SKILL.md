@@ -2,10 +2,10 @@
 name: should-auto-approve
 description: "Rates a committed code change's review risk as low, medium or high by a fixed decision graph (low can be approved without a human; medium and high need one), from checked answers to narrow questions about the change. Use only when your instructions or the user name should-auto-approve. Advisory and read-only: it never approves, comments on, or changes a pull request."
 license: Apache-2.0
-compatibility: "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state with LAUNCHDARKLY_API_KEY, or through your LaunchDarkly tools. Ends with a `should-auto-approve` JSON block."
+compatibility: "Advisory and read-only. Needs a git checkout with the change committed and its merge base present, a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools. Ends with a `should-auto-approve` JSON block."
 metadata:
   author: launchdarkly
-  version: "0.7.0"
+  version: "0.7.1"
   graph: "e6cc6fe7a229"
 ---
 

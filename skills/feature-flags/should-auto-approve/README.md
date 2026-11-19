@@ -28,7 +28,6 @@ the graph and its questions). `start`, `flag`, `answer`, `decide`;
 
 | Variable | Default | What it sets |
 |---|---|---|
-| `LAUNCHDARKLY_API_KEY` | unset | Read flag state directly; without it the agent reads flags with its own LaunchDarkly tools. |
 | `LAUNCHDARKLY_BASE_URI` | `https://app.launchdarkly.com` | The LaunchDarkly instance. |
 | `LAUNCHDARKLY_PROJECT` | `default` | The project whose flags the change may name. |
 | `SHOULD_AUTO_APPROVE_RUNS` | `~/.cache/should-auto-approve/` | Where run folders go. |
