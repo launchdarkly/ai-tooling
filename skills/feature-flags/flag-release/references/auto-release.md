@@ -131,7 +131,7 @@ Do these steps in order:
    - The plan gives it `promotion` after a HOLD environment: release it on merge, or keep the plan's wait. To release it on merge, give it `triggerType: "flag_eval"`. It still starts only after the entry before it in the call, if there is one. Tell the user about the changed trigger.
    - An earlier entry waits for a person (`manual`, or a `notBefore` date), and the user does not want that environment on merge. A later entry cannot start before it ([Order](#order) in step 5), so ask:
      1. Keep the plan's order and the wait. This environment follows the waiting one.
-     2. Leave the earlier environment out of the release. This environment becomes the first entry, on `flag_eval`. A flag can have only one active release, so a person changes the left-out environment's targeting by hand.
+     2. Leave the earlier environments that wait for a person out of the release. A flag can have only one active release, so a person changes their targeting by hand. This environment gets `triggerType: "flag_eval"`. When no entry comes before it, it is the first entry and starts on merge. Otherwise it still starts only after the entries before it complete, and the question says so, with those entries named.
 
    Never reorder the plan's environments. A release whose environments differ from the plan's is a `kind: "custom"` release, as for any request that the plan cannot express.
 
