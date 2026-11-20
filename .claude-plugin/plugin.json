@@ -22,6 +22,7 @@
     "mcp"
   ],
   "skills": [
+    "./skills/agentcontrol/agentcontrol-onboarding",
     "./skills/agentcontrol/configs-create",
     "./skills/agentcontrol/configs-targeting",
     "./skills/agentcontrol/configs-update",
