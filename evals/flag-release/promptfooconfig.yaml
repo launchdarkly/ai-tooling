@@ -1781,10 +1781,12 @@ tests:
   # ==================================================================
   # DATE HOLD BEFORE AN ON-MERGE ENVIRONMENT — the user holds staging
   # until a date and wants production on merge. Staging is recorded as
-  # manual, and a later entry waits for it whatever its trigger, so the
-  # skill puts production first and says that the order changed.
+  # manual, and a later entry waits for the entry before it whatever its
+  # trigger, so production cannot start before staging. The skill never
+  # reorders: it records nothing and asks whether to keep the wait or
+  # leave staging out.
   # ==================================================================
-  - description: "Date hold before an on-merge environment: production moves ahead of the dated staging"
+  - description: "Date hold before an on-merge environment: asks to keep the wait or leave staging out, records nothing"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -1794,30 +1796,65 @@ tests:
     assert:
       - type: javascript
         value: |
-          const traj = output.trajectory || [];
-          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
-          if (!rec) return { pass: false, score: 0, reason: 'did not start a custom flag release' };
-          const envs = (rec.arguments && rec.arguments.environments) || [];
-          const order = envs.map(e => e.environmentKey).join(',');
-          const prod = envs[0] || {};
-          const staging = envs[1] || {};
-          const pass = order === 'production,staging'
-            && (prod.triggerType === undefined || prod.triggerType === 'flag_eval') && staging.triggerType === 'manual';
-          return { pass, score: pass ? 1 : 0, reason: `custom ${JSON.stringify(envs)} (want production first on flag_eval, then staging manual)` };
-        metric: on_merge_first
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing before the answer' : 'called: ' + called.join(', ') };
+        metric: asked_before_recording
         weight: 4
 
       - type: llm-rubric
         value: |
           The user holds staging until 2099-09-01 and wants production on merge.
-          LaunchDarkly does not enforce dates, so staging waits for a person, and a
-          later entry waits for the entry before it to complete.
+          Staging would wait for a person, and a later entry starts only after the
+          entry before it completes, so production cannot start before staging.
           Evaluate the response:
-          1. Does it say that production now comes before staging, and why?
-          2. Does it say that a person must start staging on or after 2099-09-01?
+          1. Does it record nothing and ask the user to choose between keeping the
+             order (production waits for staging) and leaving staging out of the
+             release (production starts first, on merge)?
+          2. Does the question show the environments in order with each trigger,
+             and never offer to put production before staging in the same release?
           Score 1.0 if both. Deduct 0.5 per criterion missed.
         metric: rationale_quality
         weight: 2
+
+  # ==================================================================
+  # LEAVE STAGING OUT — the request already says to leave staging out
+  # and release production on merge, so the skill does not ask. It
+  # records a custom release with production alone, on flag_eval.
+  # ==================================================================
+  - description: "Leave staging out: records production alone on flag_eval without asking"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `team-invites` already exists (created OFF) for PR acme/app#52,
+        project `default`. Start its release. Leave staging out of this release, and
+        release production on merge.
+      mock_overrides:
+        get-flag-release-plans:
+          flagReleasePlans:
+            - key: staging-sign-off
+              name: Staging sign-off
+              default: true
+              version: 1
+              executionMode: sequential
+              applicationKeys: []
+              environments:
+                - { environmentKey: staging, triggerType: manual, isImmediate: true }
+                - { environmentKey: production, triggerType: promotion, environmentReleasePlanKey: guarded-default }
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
+          if (!rec) return { pass: false, score: 0, reason: 'did not start a custom flag release' };
+          const envs = (rec.arguments && rec.arguments.environments) || [];
+          const prod = envs[0] || {};
+          const pass = envs.length === 1 && prod.environmentKey === 'production'
+            && (prod.triggerType === undefined || prod.triggerType === 'flag_eval');
+          return { pass, score: pass ? 1 : 0, reason: `custom ${JSON.stringify(envs)} (want only production, on flag_eval)` };
+        metric: production_alone
+        weight: 4
 
   # ==================================================================
   # FLAG RELEASE PLANS UNREADABLE — get-flag-release-plans returns
@@ -1965,12 +2002,11 @@ tests:
   # RELEASE ON MERGE WITHOUT THE WAIT — the plan makes staging manual and
   # production promotion after it. The user keeps staging waiting for a
   # person, but wants production on merge without waiting for staging.
-  # LaunchDarkly starts a later sequential entry only after the entry
-  # before it completes, whatever its trigger. So the skill moves
-  # production ahead of staging, starts it on flag_eval, keeps staging
-  # manual, and tells the user that the order changed.
+  # A later entry starts only after the entry before it completes, so the
+  # skill never reorders: it records nothing and asks whether to keep the
+  # wait or leave staging out.
   # ==================================================================
-  - description: "Release on merge without the wait: production moves ahead of a manual staging and starts on flag_eval"
+  - description: "Release on merge without the wait: asks to keep the wait or leave staging out, records nothing"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -1992,31 +2028,26 @@ tests:
     assert:
       - type: javascript
         value: |
-          const traj = output.trajectory || [];
-          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
-          if (!rec) return { pass: false, score: 0, reason: 'did not start a custom flag release' };
-          const envs = (rec.arguments && rec.arguments.environments) || [];
-          const order = envs.map(e => e.environmentKey).join(',');
-          const byKey = Object.fromEntries(envs.map(e => [e.environmentKey, e]));
-          const prod = byKey.production || {};
-          const pass = order === 'production,staging' && byKey.staging.triggerType === 'manual'
-            && (prod.triggerType === undefined || prod.triggerType === 'flag_eval');
-          return { pass, score: pass ? 1 : 0, reason: `custom ${JSON.stringify(envs)} (want production first on flag_eval, then staging manual)` };
-        metric: production_on_merge
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing before the answer' : 'called: ' + called.join(', ') };
+        metric: asked_before_recording
         weight: 4
 
       - type: llm-rubric
         value: |
           The plan "Staging sign-off" makes staging wait for a person and starts
           production after staging finishes. The user keeps the staging wait, and
-          wants production on merge without waiting for staging. LaunchDarkly starts
-          a later entry only after the entry before it completes, so production must
-          come before staging.
+          wants production on merge without waiting for staging. A later entry
+          starts only after the entry before it completes, so both cannot hold.
           Evaluate the response:
-          1. Does it start the release with production first, starting on the
-             flag's first evaluation, and staging after it, waiting for a person?
-          2. Does it tell the user that the order changed (production now comes
-             before staging) and that production's trigger changed?
+          1. Does it record nothing and ask the user to choose between keeping the
+             plan's order and wait, and leaving staging out of the release (so
+             production starts first, on merge)?
+          2. Does the question show the plan's environments in order with each
+             trigger, and never offer to put production before staging?
           Score 1.0 if both. Deduct 0.5 per criterion missed.
         metric: rationale_quality
         weight: 2
+
