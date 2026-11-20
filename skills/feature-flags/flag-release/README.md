@@ -8,7 +8,7 @@ This skill teaches agents how to:
 - Confirm the guarding flag exists and is OFF
 - Choose how to start the release: from the flag release plan that the user names or the project's default (`get-flag-release-plans`), or else from each environment's release plan. Preview each environment release plan with `get-environment-release-plans` (progressive or guarded)
 - Capture the human's **release intent** (release on merge / hold / `notBefore` / segment / prerequisite) and honor it: a held environment is left out of the release or waits for a person (`manual`)
-- Start the release linked to the PR: with `create-flag-release` from a flag release plan, or with `create-automated-rollout-config` from each environment's release plan (a project with no flag release plan, a request that the flag release plan cannot express, or a server without `create-flag-release`)
+- Start a flag release linked to the PR with `create-flag-release`: from a flag release plan (`kind: "plan"`), or from each environment's release plan (`kind: "custom"`) for a project with no flag release plan or a request that the flag release plan cannot express. On a server without `create-flag-release`, or whose `create-flag-release` does not offer `kind: "custom"`, the skill uses `create-automated-rollout-config` instead
 
 It operates entirely through the LaunchDarkly MCP tools: it never creates flags or edits code. It's the **release step** of the PR flag workflow — after [`launchdarkly-flag-create`](../launchdarkly-flag-create/) has created and wired the flag.
 

@@ -8,24 +8,37 @@
 # It reads the project's flag release plans with get-flag-release-plans and
 # the environment release plans with get-environment-release-plans, and
 # captures the human's release intent. With a default or named flag release
-# plan that fits the intent, it starts the release with create-flag-release.
-# Otherwise (no flag release plan, a plan that does not fit, or no flag
-# release tools) it records the release with create-automated-rollout-config
-# from each environment's release plan. A held environment is left out or
-# waits for a person (triggerType manual). It never creates flags or edits
-# code, and the suite hides the retired release policy tools.
+# plan that fits the intent, it starts the release with create-flag-release
+# and kind plan. Otherwise (no flag release plan, or a plan that does not
+# fit) it starts a flag release with kind custom from each environment's
+# release plan. On a server without create-flag-release, or whose
+# create-flag-release has no kind custom, it records the release with
+# create-automated-rollout-config instead. A held environment is left out
+# or waits for a person (triggerType manual). It never creates flags or
+# edits code, and the suite hides the retired release policy tools.
 #
-# Two providers, both MCP-only (no builtins):
-#   mcp           the hosted server with the flag release tools
-#   mcp-env-plans  a server without them, which starts the release from
-#                  each environment's release plan
+# Three providers, all MCP-only (no builtins):
+#   mcp            the hosted server with the flag release tools, and
+#                  create-flag-release with kind plan and kind custom
+#   mcp-plan-only  an older server whose create-flag-release takes only a
+#                  flag release plan (no kind custom), so the skill starts
+#                  from each environment's release plan with
+#                  create-automated-rollout-config
+#   mcp-env-plans  a server without the flag release tools, which starts
+#                  the release from each environment's release plan
 #                  (create-automated-rollout-config)
+#
+# The kind custom arguments (kind, executionMode, and environments in the
+# create-automated-rollout-config shape) follow create-flag-release in
+# launchdarkly/mcp#580.
 # The mocks return the guarding flag as existing and OFF, a guarded default
 # release plan for every environment, and two flag release plans: the default
 # "standard-release" (dev, then staging, then production on promotion) and
 # "production-by-hand" (production waits for a person)
 # (flag-release/tool-mocks.json). The tool definitions match the hosted server
-# (flag-release/tool-definitions.json).
+# (flag-release/tool-definitions.json), and
+# flag-release/create-flag-release-plan-only.json is create-flag-release
+# before kind custom.
 description: "Evaluation of the flag-release skill (starting flag releases)"
 
 prompts:
@@ -38,8 +51,11 @@ providers:
       skill_slug: flag-release
       allow_builtins: false
       # With builtins off, listing the skill does not load its text, so put
-      # SKILL.md in the agent's instructions.
+      # SKILL.md in the agent's instructions. The skill keeps some rules
+      # (the questions about a wait, variations) only in
+      # references/auto-release.md, so put the references in too.
       inline_skill: true
+      inline_references: true
       # The cases name dev, staging, and production; this suite's
       # get-projects (with projectKey) mock returns exactly those, so an agent
       # that checks environments first finds them without a stray test env.
@@ -48,6 +64,19 @@ providers:
       # Release policies are replaced by environment release plans at GA, and
       # these skills no longer use them, so the suites run on a server
       # without the release policy tools.
+      exclude_mcp_tools: ["match-release-policies", "get-release-policies"]
+  # An older server: create-flag-release starts only from a flag release
+  # plan (no kind custom). Without a plan that fits, the skill starts the
+  # release with create-automated-rollout-config.
+  - id: file://../providers/claude-skill-agent-sdk.js
+    label: mcp-plan-only
+    config:
+      skill_slug: flag-release
+      allow_builtins: false
+      inline_skill: true
+      inline_references: true
+      tool_mocks: flag-release/tool-mocks.json
+      tool_definitions: [flag-release/tool-definitions.json, flag-release/create-flag-release-plan-only.json]
       exclude_mcp_tools: ["match-release-policies", "get-release-policies"]
   # A server without the flag release preview tools
   # (enable-flag-release-plans-mcp off): the skill starts the release with
@@ -58,6 +87,7 @@ providers:
       skill_slug: flag-release
       allow_builtins: false
       inline_skill: true
+      inline_references: true
       tool_mocks: flag-release/tool-mocks.json
       tool_definitions: flag-release/tool-definitions.json
       exclude_mcp_tools: ["match-release-policies", "get-release-policies", "create-flag-release", "get-flag-release-plans", "update-flag-release-plan", "delete-flag-release-plan"]
@@ -625,9 +655,9 @@ tests:
           if (!rec) return { pass: false, score: 0, reason: 'never called create-flag-release' };
           const a = rec.arguments || {};
           const pr = a.pullRequest || {};
-          const pass = a.flagKey === 'search-v2' && a.flagReleasePlanKey === 'standard-release' && a.confirm === true
+          const pass = a.kind === 'plan' && a.flagKey === 'search-v2' && a.flagReleasePlanKey === 'standard-release' && a.confirm === true
             && pr.repoFullName === 'acme/web' && Number(pr.number) === 77;
-          return { pass, score: pass ? 1 : 0, reason: `create-flag-release ${JSON.stringify(a)} (want search-v2, standard-release, pullRequest acme/web#77, confirm true)` };
+          return { pass, score: pass ? 1 : 0, reason: `create-flag-release ${JSON.stringify(a)} (want kind plan, search-v2, standard-release, pullRequest acme/web#77, confirm true)` };
         metric: started_flag_release
         weight: 4
 
@@ -659,12 +689,12 @@ tests:
 
   # ==================================================================
   # FLAG RELEASE, HOLD — staging on merge, production held until a date.
-  # A date fits no flag release plan, so the skill records the release
-  # with create-automated-rollout-config from each environment's release
-  # plan: staging releases, production waits for a person (manual), and
-  # the skill says the date is not enforced.
+  # A date fits no flag release plan, so the skill starts a flag release
+  # with kind custom from each environment's release plan: staging
+  # releases, production waits for a person (manual), and the skill says
+  # the date is not enforced.
   # ==================================================================
-  - description: "Flag release, date hold: records with environment release plans, production manual"
+  - description: "Flag release, date hold: custom flag release from environment release plans, production manual"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -676,13 +706,14 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const started = traj.filter(t => t.tool === 'create-flag-release');
-          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
+          const started = traj.filter(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind !== 'custom');
+          const arc = traj.filter(t => t.tool === 'create-automated-rollout-config');
+          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
           const envs = rec ? ((rec.arguments && rec.arguments.environments) || []) : [];
           const prod = envs.find(e => e.environmentKey === 'production');
-          const pass = started.length === 0 && Boolean(rec) && envs.some(e => e.environmentKey === 'staging')
+          const pass = started.length === 0 && arc.length === 0 && Boolean(rec) && envs.some(e => e.environmentKey === 'staging')
             && Boolean(prod) && prod.triggerType === 'manual';
-          return { pass, score: pass ? 1 : 0, reason: `create-flag-release x${started.length}; recorded ${JSON.stringify(envs)} (want no flag release, staging, and production manual)` };
+          return { pass, score: pass ? 1 : 0, reason: `plan release x${started.length}; create-automated-rollout-config x${arc.length}; custom ${JSON.stringify(envs)} (want only a custom flag release, staging, and production manual)` };
         metric: honored_hold
         weight: 4
 
@@ -704,9 +735,9 @@ tests:
           after staging (promotion). Another plan, "Production by hand", releases dev
           and staging the same way and makes production wait for a person (manual).
           Evaluate the response:
-          1. Does it avoid starting a flag release plan, and record the release from
-             each environment's release plan instead, saying why (a flag release plan
-             cannot hold a date)?
+          1. Does it avoid starting a flag release plan, and start the flag release
+             from each environment's release plan instead, saying why (a flag release
+             plan cannot hold a date)?
           2. Does it make production wait for a person, and say that LaunchDarkly
              does not enforce the date, so a person must start production on or after
              2099-09-01?
@@ -716,13 +747,14 @@ tests:
         weight: 3
 
   # ==================================================================
-  # FLAG RELEASE, TOOL DISABLED — create-flag-release is listed but the
-  # preview flag is off, so the call returns "tool disabled". The skill
-  # records the release with create-automated-rollout-config from the same plan:
-  # dev and staging immediate, production as policy (guarded-default is
-  # its default, so environmentReleasePlanKey may be left out).
+  # FLAG RELEASE, TOOL DISABLED AFTER APPROVAL — create-flag-release is
+  # listed but the preview flag is off, so the call returns "tool
+  # disabled". The request approved the flag release plan, not a release
+  # from each environment's release plan, so the skill records nothing
+  # yet. It shows the environment release plan version (dev and staging
+  # immediate, production on guarded-default) and asks to confirm it.
   # ==================================================================
-  - description: "Flag release, tool disabled: records the release with create-automated-rollout-config"
+  - description: "Flag release, tool disabled after approval: shows the environment release plan version and asks before it records"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -735,27 +767,13 @@ tests:
     assert:
       - type: javascript
         value: |
-          const traj = output.trajectory || [];
-          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
-          if (!rec) return { pass: false, score: 0, reason: 'did not fall back to create-automated-rollout-config' };
-          const envs = (rec.arguments && rec.arguments.environments) || [];
-          const prod = envs.find(e => e.environmentKey === 'production') || {};
-          const planOk = prod.environmentReleasePlanKey === undefined || prod.environmentReleasePlanKey === 'guarded-default';
-          const pass = envs.some(e => e.environmentKey === 'staging') && prod.releaseType === 'policy' && planOk;
-          return { pass, score: pass ? 1 : 0, reason: `recorded ${JSON.stringify(envs)} (want staging, and production as policy with guarded-default)` };
-        metric: fell_back
+          const tools = output.tools_called || [];
+          const tried = tools.includes('create-flag-release');
+          const called = ['create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = tried && called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: !tried ? 'never tried create-flag-release' : (pass ? 'recorded nothing after tool disabled' : 'called: ' + called.join(', ')) };
+        metric: asked_before_recording
         weight: 4
-
-      - type: javascript
-        value: |
-          const traj = output.trajectory || [];
-          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
-          const a = (rec && rec.arguments) || {};
-          const pass = a.repoFullName === 'acme/platform' && Number(a.prNumber) === 88
-            && /github\.com\/acme\/platform\/pull\/88\b/.test(String(a.prUrl || ''));
-          return { pass, score: pass ? 1 : 0, reason: `PR fields ${JSON.stringify({ repoFullName: a.repoFullName, prNumber: a.prNumber, prUrl: a.prUrl })} (want acme/platform, 88, and its github.com URL)` };
-        metric: pr_fields
-        weight: 1
 
       - type: javascript
         value: |
@@ -769,37 +787,41 @@ tests:
       - type: llm-rubric
         value: |
           The user asked to start the release of `bulk-export` (PR acme/platform#88)
-          with the project's default flag release plan. create-flag-release returned
-          "tool disabled", so the agent should record the release with
-          create-automated-rollout-config instead, following the same plan.
+          with the project's default flag release plan, "Standard release": dev
+          releases on first evaluation, then staging and production follow
+          (promotion), production on its guarded release plan. create-flag-release
+          returned "tool disabled", so the release can start only from each
+          environment's release plan, which the user did not approve yet.
           Evaluate the response:
-          1. Did it record the release through create-automated-rollout-config, with
-             production on its guarded release plan?
-          2. Does it say what happens in each environment, and avoid claiming the account
-             cannot use flag releases?
-          3. Did it avoid turning the flag on by hand?
+          1. Does it record nothing yet, and say that the flag release plan could not
+             start, without claiming the account cannot use flag releases?
+          2. Does it show the version that starts from each environment's release
+             plan (dev, staging, and production, each with its trigger, production on
+             its guarded release plan)?
+          3. Does it ask the user to confirm that version, with the environments and
+             triggers in the question itself?
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
         weight: 2
 
   # ==================================================================
-  # FLAG RELEASE, TOOL DISABLED, IMMEDIATE ENVIRONMENTS WITH NO RELEASE
-  # PLAN — dev and staging are isImmediate in the flag release plan and
+  # FLAG RELEASE, NO CREATE-FLAG-RELEASE, IMMEDIATE ENVIRONMENTS WITH NO
+  # RELEASE PLAN — the server does not list create-flag-release. dev and
+  # staging are isImmediate in the flag release plan and
   # have no environment release plans at all. An immediate environment
   # needs no default release plan, so the skill still records dev and
   # staging as immediate entries (no releaseType), with production as
   # policy.
   # ==================================================================
-  - description: "Flag release, tool disabled: immediate environments with no release plan are still recorded"
+  - description: "Flag release, no create-flag-release: immediate environments with no release plan are still recorded"
     providers: ["mcp"]
     vars:
       user_request: >
         The flag `usage-alerts` already exists (created OFF) for PR acme/platform#91,
         project `default`. Start its release with the project's default flag release
         plan so it releases after the merge.
+      exclude_mcp_tools: "create-flag-release"
       mock_overrides:
-        create-flag-release:
-          error: "tool disabled: create-flag-release"
         get-environment-release-plans:
           by_arg: environmentKey
           cases:
@@ -826,8 +848,8 @@ tests:
       - type: llm-rubric
         value: |
           The user asked to start the release of `usage-alerts` (PR acme/platform#91)
-          with the project's default flag release plan. create-flag-release returned
-          "tool disabled", so the agent should record the release with
+          with the project's default flag release plan. create-flag-release is not
+          available, so the agent should record the release with
           create-automated-rollout-config. In the plan, dev and staging release
           immediately and have no environment release plan, which they do not need.
           Production uses its guarded release plan.
@@ -841,23 +863,23 @@ tests:
         weight: 2
 
   # ==================================================================
-  # TRIGGERS — the flag release plan gives staging a webhook
+  # TRIGGERS — the server does not list create-flag-release, and the
+  # flag release plan gives staging a webhook
   # trigger, qa a manual trigger, and production promotion after qa.
   # The skill copies each trigger into its entry (a left-out trigger
   # is flag_eval), so staging waits for the deploy, qa waits for a
   # person, and production waits on qa. Leaving qa out would drop the
   # gate, and production would follow staging.
   # ==================================================================
-  - description: "Flag release, tool disabled: keeps the webhook, manual, and promotion triggers"
+  - description: "Flag release, no create-flag-release: keeps the webhook, manual, and promotion triggers"
     providers: ["mcp"]
     vars:
       user_request: >
         The flag `report-builder` already exists (created OFF) for PR acme/platform#140,
         project `default`. Start its release with the project's default flag release
         plan so it releases after the merge.
+      exclude_mcp_tools: "create-flag-release"
       mock_overrides:
-        create-flag-release:
-          error: "tool disabled: create-flag-release"
         get-projects#projectKey:
           key: default
           name: default
@@ -909,8 +931,8 @@ tests:
       - type: llm-rubric
         value: |
           The user asked to start the release of `report-builder` (PR acme/platform#140)
-          with the default flag release plan "Deploy gated". create-flag-release returned
-          "tool disabled". The plan releases dev on first evaluation, staging on a deploy
+          with the default flag release plan "Deploy gated". create-flag-release is not
+          available. The plan releases dev on first evaluation, staging on a deploy
           signal (webhook), qa when a person starts it (manual), and production after qa
           finishes (promotion).
           Evaluate the response:
@@ -969,7 +991,10 @@ tests:
              someone to start staging?
           2. Does it record nothing yet, and ask the user to choose: release
              production on merge without staging, or keep the plan's wait?
-          Score 1.0 if both. Deduct 0.5 per criterion missed.
+          3. Does the question itself name the plan ("Staging sign-off") and its
+             environments with their triggers (staging waits for a person, production
+             follows staging), so a user who sees only the question can answer it?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
         weight: 2
 
@@ -1097,13 +1122,13 @@ tests:
   # ==================================================================
   # FLAG RELEASE, EXCLUDED ENVIRONMENT — the request targets staging and
   # production, but the default plan also releases dev on first
-  # evaluation, and create-flag-release cannot release a subset of the
-  # plan. The skill records staging and production with
-  # create-automated-rollout-config and says why. Staging follows dev
+  # evaluation, and a flag release plan cannot release a subset of it.
+  # The skill starts a custom flag release with staging and production
+  # and says why. Staging follows dev
   # (promotion) in the plan; dev is not recorded, so staging, now the
   # first entry, starts on flag_eval, and production keeps promotion.
   # ==================================================================
-  - description: "Flag release, excluded environment: records staging and production, the first on flag_eval"
+  - description: "Flag release, excluded environment: custom flag release with staging and production, the first on flag_eval"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -1114,8 +1139,8 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const started = traj.filter(t => t.tool === 'create-flag-release');
-          const dev = traj.filter(t => t.tool === 'create-automated-rollout-config'
+          const started = traj.filter(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind !== 'custom');
+          const dev = traj.filter(t => (t.tool === 'create-automated-rollout-config' || t.tool === 'create-flag-release')
             && (((t.arguments || {}).environments) || []).some(e => e.environmentKey === 'dev'));
           const pass = started.length === 0 && dev.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not release dev' : 'released dev: ' + started.concat(dev).map(t => t.tool + ' ' + JSON.stringify(t.arguments || {})).join('; ') };
@@ -1125,16 +1150,16 @@ tests:
       - type: javascript
         value: |
           const traj = output.trajectory || [];
-          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
-          if (!rec) return { pass: false, score: 0, reason: 'did not record staging and production with create-automated-rollout-config' };
+          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
+          if (!rec) return { pass: false, score: 0, reason: 'did not start a custom flag release with staging and production' };
           const envs = (rec.arguments && rec.arguments.environments) || [];
           const order = envs.map(e => e.environmentKey);
           const first = envs[0] || {};
           const prod = envs.find(e => e.environmentKey === 'production') || {};
           const pass = order.join(',') === 'staging,production'
             && (first.triggerType === undefined || first.triggerType === 'flag_eval')
-            && prod.triggerType === 'promotion';
-          return { pass, score: pass ? 1 : 0, reason: `recorded ${JSON.stringify(envs)} (want staging first on flag_eval, then production on promotion)` };
+            && prod.triggerType === 'promotion' && prod.releaseType === 'policy';
+          return { pass, score: pass ? 1 : 0, reason: `custom ${JSON.stringify(envs)} (want staging first on flag_eval, then production as policy on promotion)` };
         metric: first_entry_flag_eval
         weight: 4
 
@@ -1145,10 +1170,10 @@ tests:
           immediately on the flag's first evaluation, and a flag release cannot leave
           an environment of its plan out.
           Evaluate the response:
-          1. Does it start no flag release, and say that the plan would also release
-             dev, which the user left out?
-          2. Does it record staging and production from their environment release
-             plans, and say that staging now starts on the flag's first evaluation
+          1. Does it avoid starting the flag release plan, and say that the plan would
+             also release dev, which the user left out?
+          2. Does it start the flag release with staging and production from their
+             environment release plans, and say that staging now starts on the flag's first evaluation
              because dev, which it followed in the plan, is not part of the release?
           3. Did it avoid turning the flag on by hand?
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
@@ -1156,12 +1181,14 @@ tests:
         weight: 2
 
   # ==================================================================
-  # ENVIRONMENT RELEASE PLANS, EXCLUDED ENVIRONMENT — create-flag-release
-  # is disabled, and the request targets staging and production only.
-  # The plan also releases dev, so dev is left out and only staging and
-  # production are recorded.
+  # TOOL DISABLED, EXCLUDED ENVIRONMENT — the request targets staging and
+  # production only, so the skill tries a custom flag release without dev.
+  # create-flag-release returns "tool disabled". The user approved a flag
+  # release, not the create-automated-rollout-config version, so the skill
+  # records nothing yet. It shows that version (staging and production,
+  # no dev) and asks the user to confirm it.
   # ==================================================================
-  - description: "Flag release, tool disabled: never records an environment that the request excludes"
+  - description: "Flag release, tool disabled: asks before the fallback, and never includes an excluded environment"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -1196,23 +1223,26 @@ tests:
 
       - type: javascript
         value: |
-          const traj = output.trajectory || [];
-          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
-          const keys = rec ? ((rec.arguments && rec.arguments.environments) || []).map(e => e.environmentKey) : [];
-          const pass = keys.includes('staging') && keys.includes('production');
-          return { pass, score: pass ? 1 : 0, reason: `recorded envs=[${keys.join(', ')}] (want staging and production)` };
-        metric: recorded_targets
-        weight: 2
+          const tools = output.tools_called || [];
+          const tried = tools.includes('create-flag-release');
+          const pass = tried && !tools.includes('create-automated-rollout-config');
+          return { pass, score: pass ? 1 : 0, reason: !tried ? 'never tried create-flag-release' : (pass ? 'recorded nothing after tool disabled' : 'recorded the fallback without asking') };
+        metric: asked_before_fallback
+        weight: 4
 
       - type: llm-rubric
         value: |
           The user asked to record the release of `audit-export` (PR acme/web#310)
-          in staging and production only. create-flag-release is disabled, and the flag
-          release plan also releases dev.
+          in staging and production only. The flag release plan also releases dev.
+          create-flag-release returned "tool disabled", so the release can start only
+          with create-automated-rollout-config, which the user did not approve yet.
           Evaluate the response:
-          1. Does it record staging and production, and leave dev out?
-          2. Does it say that dev is not released because the user left it out?
-          3. Did it avoid turning the flag on by hand?
+          1. Does it record nothing yet, and say that the flag release could not start?
+          2. Does it show the version with staging and production (each with its
+             trigger), without dev, and say that dev is left out because the user
+             left it out?
+          3. Does it ask the user to confirm that version, with the environments and
+             triggers in the question itself?
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
         weight: 2
@@ -1255,6 +1285,44 @@ tests:
         weight: 2
 
   # ==================================================================
+  # NO PULL REQUEST, EVERY ENVIRONMENT WAITS FOR A PERSON — a release
+  # whose environments all wait for a person can start without a PR, so
+  # the skill starts a custom flag release with no pullRequest and never
+  # invents one.
+  # ==================================================================
+  - description: "No pull request, every environment manual: custom flag release without pullRequest"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `usage-export` already exists (created OFF) in project `default`.
+        There is no pull request for it. Start its release in staging and then
+        production, and make each environment wait for a person to start it.
+        Release only those two environments. I confirm.
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
+          const args = rec ? (rec.arguments || {}) : {};
+          const envs = args.environments || [];
+          const keys = envs.map(e => e.environmentKey);
+          const waits = envs.every((e, i) => e.triggerType === 'manual' || (i > 0 && e.triggerType === 'promotion'));
+          const pass = Boolean(rec) && !('pullRequest' in args) && keys.join(',') === 'staging,production' && waits;
+          return { pass, score: pass ? 1 : 0, reason: rec ? `custom ${JSON.stringify(envs)}, pullRequest ${JSON.stringify(args.pullRequest)} (want staging then production, each waiting for a person, and no pullRequest)` : 'never started a custom flag release' };
+        metric: started_without_pr
+        weight: 4
+
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const forbidden = ['toggle-flag','update-flag','delete-flag','create-automated-rollout-config'];
+          const called = forbidden.filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'no manual toggle and no fallback' : 'called: ' + called.join(', ') };
+        metric: no_manual_toggle
+        weight: 2
+
+  # ==================================================================
   # FLAG RELEASE, NO DEFAULT PLAN — the project has flag release plans,
   # but none is the default. The user asks for the default plan, so the
   # skill asks which plan to use and never starts the first listed one.
@@ -1291,7 +1359,10 @@ tests:
              nothing?
           2. Does it ask which plan to use (naming Fast lane and Slow lane), rather than
              picking one?
-          Score 1.0 if both. Deduct 0.5 per criterion missed.
+          3. Does the question itself show what each plan does (its environments and
+             triggers, for example that Slow lane releases production on a guarded
+             release plan), so a user who sees only the question can choose?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
         weight: 2
 
@@ -1403,12 +1474,67 @@ tests:
   # ==================================================================
   # FLAG RELEASE, NO FLAG RELEASE PLAN — the project has no stored flag
   # release plan, so get-flag-release-plans returns an empty list
-  # (LaunchDarkly supplies no built-in plan). The skill starts nothing,
-  # and offers to create a plan with launchdarkly-release-plans or to
-  # record the release from each environment's default release plan.
+  # (LaunchDarkly supplies no built-in plan). The skill starts a flag
+  # release with kind custom from each environment's default release
+  # plan, without asking for a flag release plan first.
   # ==================================================================
-  - description: "No flag release plan: records with each environment's release plan, without asking for a plan first"
+  - description: "No flag release plan: custom flag release from each environment's release plan, without asking for a plan first"
     providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `audit-log-v2` already exists (created OFF) for PR acme/api#12,
+        project `default`. Start its release on merge in `staging` and `production`.
+      mock_overrides:
+        get-flag-release-plans:
+          flagReleasePlans: []
+          totalCount: 0
+          hasMore: false
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const forbidden = ['create-automated-rollout-config','toggle-flag','update-flag','create-flag-release-plan'];
+          const called = forbidden.filter(f => tools.includes(f));
+          const traj = output.trajectory || [];
+          const at = traj.findIndex(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
+          const rec = at >= 0 ? traj[at] : null;
+          const a = (rec && rec.arguments) || {};
+          const envs = a.environments || [];
+          const byKey = Object.fromEntries(envs.map(e => [e.environmentKey, e]));
+          const usesPlan = (e) => Boolean(e) && e.releaseType === 'policy' && e.override === undefined && e.stages === undefined;
+          const pr = a.pullRequest || {};
+          if (rec && !(a.confirm === true && pr.repoFullName === 'acme/api' && Number(pr.number) === 12 && (a.executionMode === undefined || a.executionMode === 'sequential')))
+            return { pass: false, score: 0, reason: `custom flag release ${JSON.stringify(a)} (want confirm true, pullRequest acme/api#12, sequential)` };
+          const readBefore = (env) => traj.slice(0, Math.max(at, 0)).some(t => t.tool === 'get-environment-release-plans' && (t.arguments || {}).environmentKey === env);
+          const pass = called.length === 0 && usesPlan(byKey.staging) && usesPlan(byKey.production)
+            && readBefore('staging') && readBefore('production');
+          return { pass, score: pass ? 1 : 0, reason: `called [${called.join(', ')}]; recorded ${JSON.stringify(envs)}; read staging=${readBefore('staging')} production=${readBefore('production')} (want a custom flag release, both as policy with no override or stages, plans read before the write)` };
+        metric: recorded_env_plans
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user asked to start the release of `audit-log-v2` on merge in staging
+          and production. The project has no flag release plan:
+          get-flag-release-plans returned an empty list.
+          Evaluate the response:
+          1. Does it start the flag release from each environment's release plan, in
+             staging and production?
+          2. Does it go ahead without asking the user to create a flag release plan
+             first (mentioning one as an option for later is fine)?
+          3. Does it say what each environment will do?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
+        metric: rationale_quality
+        weight: 3
+
+  # ==================================================================
+  # NO FLAG RELEASE PLAN, OLDER SERVER — as above, but create-flag-release
+  # takes only a flag release plan (no kind custom). The skill falls back
+  # to create-automated-rollout-config with each environment's release
+  # plan.
+  # ==================================================================
+  - description: "No flag release plan, create-flag-release without kind custom: falls back to create-automated-rollout-config"
+    providers: ["mcp-plan-only"]
     vars:
       user_request: >
         The flag `audit-log-v2` already exists (created OFF) for PR acme/api#12,
@@ -1451,3 +1577,477 @@ tests:
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
         weight: 3
+
+  # ==================================================================
+  # FLAG RELEASE PLAN READ FAILS — get-flag-release-plans returns 403
+  # "Plan does not allow this operation" (an account without flag release
+  # plans). Flag release plans are optional, so the skill starts a custom
+  # flag release from each environment's release plan, as for "tool
+  # disabled".
+  # Only a failed environment release plan read stops the release.
+  # ==================================================================
+  - description: "Flag release plan read 403: custom flag release from each environment's release plan"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `team-billing` already exists (created OFF) for PR acme/api#61,
+        project `default`. Start its release on merge in `staging` and `production`.
+      mock_overrides:
+        get-flag-release-plans:
+          error: 'LaunchDarkly API error: 403: {"code":"forbidden","message":"Plan does not allow this operation"}'
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
+          const envs = rec ? ((rec.arguments && rec.arguments.environments) || []) : [];
+          const keys = envs.map(e => e.environmentKey);
+          const pass = !tools.includes('create-automated-rollout-config') && keys.includes('staging') && keys.includes('production');
+          return { pass, score: pass ? 1 : 0, reason: rec ? `custom ${JSON.stringify(envs)} (want staging and production)` : 'did not start a custom flag release' };
+        metric: fell_back
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user asked to start the release of `team-billing` (PR acme/api#61) on
+          merge in staging and production. Reading the project's flag release plans
+          failed with a 403 ("Plan does not allow this operation"). Flag release plans
+          are optional, so the release can start from each environment's release plan.
+          Evaluate the response:
+          1. Does it start the flag release from each environment's release plan, in
+             staging and production, rather than refusing?
+          2. Does it say what each environment will do?
+          3. Does it avoid claiming that the release cannot start without a flag
+             release plan?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # HELD ENVIRONMENT BEFORE THE FIRST ENTRY — the default plan is dev
+  # flag_eval, staging promotion, production promotion. The user holds
+  # dev and asks for staging and production on merge without waiting for
+  # dev. That answers the step 3 question, so the skill does not ask.
+  # Staging releases on merge, so it starts on flag_eval.
+  # ==================================================================
+  - description: "Held environment before the first entry: staging starts on flag_eval, never promotion"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `audit-export` already exists (created OFF) for PR acme/web#311,
+        project `default`. Hold dev for now. Release staging and production on merge,
+        without waiting for dev.
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
+          if (!rec) return { pass: false, score: 0, reason: 'did not start a custom flag release with staging and production' };
+          const envs = (rec.arguments && rec.arguments.environments) || [];
+          const order = envs.map(e => e.environmentKey);
+          const first = envs[0] || {};
+          const prod = envs.find(e => e.environmentKey === 'production') || {};
+          const pass = order.join(',') === 'staging,production'
+            && (first.triggerType === undefined || first.triggerType === 'flag_eval')
+            && prod.triggerType === 'promotion';
+          return { pass, score: pass ? 1 : 0, reason: `custom ${JSON.stringify(envs)} (want staging first on flag_eval, then production on promotion, no dev)` };
+        metric: first_entry_flag_eval
+        weight: 4
+
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const bad = traj.filter(t => (t.tool === 'create-flag-release' && (t.arguments || {}).kind !== 'custom')
+            || t.tool === 'create-automated-rollout-config'
+            || (((t.arguments || {}).environments) || []).some(e => e.environmentKey === 'dev'));
+          const pass = bad.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'started no release of dev' : 'released dev or used another start: ' + bad.map(t => t.tool + ' ' + JSON.stringify(t.arguments || {})).join('; ') };
+        metric: honored_hold
+        weight: 2
+
+  # ==================================================================
+  # VARIATIONS, ENVIRONMENT RELEASE PLANS — the flag is not boolean and
+  # the user names the variations. The environment release plan path
+  # sends startingVariationId and endingVariationId, as the
+  # create-flag-release path does.
+  # ==================================================================
+  - description: "Environment release plans, multi-variate flag: sends both variation IDs"
+    providers: ["mcp-env-plans"]
+    vars:
+      user_request: >
+        The flag `pricing-page` already exists (created OFF) for PR acme/web#520,
+        project `default`. It is a string flag with the variations `control`,
+        `layout-a`, and `layout-b`. Record its release on merge in `staging` and
+        `production`, from `control` to `layout-a`.
+      mock_overrides:
+        get-flags#flagKey: &multi_flag
+          key: pricing-page
+          name: Pricing page
+          kind: multivariate
+          temporary: true
+          tags: []
+          variations:
+            - { _id: var-control, value: control, name: control }
+            - { _id: var-layout-a, value: layout-a, name: layout-a }
+            - { _id: var-layout-b, value: layout-b, name: layout-b }
+          defaults: { onVariation: 1, offVariation: 0 }
+          environment: { on: false, version: 1, rules: [], targets: [], fallthrough: { variation: 0 }, offVariation: 0 }
+        get-flags: &multi_flag_list
+          flags: [*multi_flag]
+          totalCount: 1
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-automated-rollout-config');
+          const a = (rec && rec.arguments) || {};
+          const pass = Boolean(rec) && a.startingVariationId === 'var-control' && a.endingVariationId === 'var-layout-a';
+          return { pass, score: pass ? 1 : 0, reason: rec ? `startingVariationId=${a.startingVariationId} endingVariationId=${a.endingVariationId} (want var-control and var-layout-a)` : 'did not record the release' };
+        metric: sent_variations
+        weight: 4
+
+  # ==================================================================
+  # VARIATIONS, NOT CHOSEN — the flag is not boolean and the user names
+  # no variations. The skill records nothing and asks which variations to
+  # release from and to, with the variations in the question.
+  # ==================================================================
+  - description: "Environment release plans, multi-variate flag with no variations named: asks before it records"
+    providers: ["mcp-env-plans"]
+    vars:
+      user_request: >
+        The flag `pricing-page` already exists (created OFF) for PR acme/web#520,
+        project `default`. Record its release on merge in `staging` and `production`.
+      mock_overrides:
+        get-flags#flagKey: *multi_flag
+        get-flags: *multi_flag_list
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing' : 'called: ' + called.join(', ') };
+        metric: asked_first
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The flag `pricing-page` is not boolean: its variations are control,
+          layout-a, and layout-b. The user did not say which variation to release
+          from and which to release to.
+          Evaluate the response:
+          1. Does it record nothing yet?
+          2. Does it ask which variations the release goes from and to, with the
+             variations (control, layout-a, layout-b) in the question itself?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # SINGLE PROJECT, REQUEST STATES THE INTENT — the request names the
+  # flag and the PR but no project, and the account has one project. The
+  # skill uses it without stalling, and names it in the report.
+  # ==================================================================
+  - description: "Single project, automated run that names the flag and PR: uses the project and reports it"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        Automated release step (no one can answer questions in this run). The flag
+        `search-v2` already exists (created OFF) for PR acme/web#77. Start its
+        release with the default flag release plan so it releases after the merge.
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const listed = traj.some(t => t.tool === 'get-projects');
+          const start = traj.find(t => t.tool === 'create-flag-release' || t.tool === 'create-automated-rollout-config');
+          const pass = listed && Boolean(start) && (start.arguments || {}).projectKey === 'default';
+          return { pass, score: pass ? 1 : 0, reason: !listed ? 'did not list the projects' : (start ? `started in ${(start.arguments || {}).projectKey}` : 'stalled: started no release') };
+        metric: used_single_project
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user asked to start the release of `search-v2` (PR acme/web#77) and
+          named no project. The account has exactly one project, `default`.
+          Evaluate the response:
+          1. Does it start the release in that project without stopping to ask?
+          2. Does it name the project it used (`default`) in its report?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # DATE HOLD BEFORE AN ON-MERGE ENVIRONMENT — the user holds staging
+  # until a date and wants production on merge. Staging is recorded as
+  # manual, and a later entry waits for the entry before it whatever its
+  # trigger, so production cannot start before staging. The skill never
+  # reorders: it records nothing and asks whether to keep the wait or
+  # leave staging out.
+  # ==================================================================
+  - description: "Date hold before an on-merge environment: asks to keep the wait or leave staging out, records nothing"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `usage-alerts` already exists (created OFF) for PR acme/app#64,
+        project `default`. Start its release in staging and production only. Staging
+        must wait until 2099-09-01, but release production on merge.
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing before the answer' : 'called: ' + called.join(', ') };
+        metric: asked_before_recording
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user holds staging until 2099-09-01 and wants production on merge.
+          Staging would wait for a person, and a later entry starts only after the
+          entry before it completes, so production cannot start before staging.
+          Evaluate the response:
+          1. Does it record nothing and ask the user to choose between keeping the
+             order (production waits for staging) and leaving staging out of the
+             release (production starts first, on merge)?
+          2. Does the question show the environments in order with each trigger,
+             and never offer to put production before staging in the same release?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # LEAVE STAGING OUT — the request already says to leave staging out
+  # and release production on merge, so the skill does not ask. It
+  # records a custom release with production alone, on flag_eval.
+  # ==================================================================
+  - description: "Leave staging out: records production alone on flag_eval without asking"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `team-invites` already exists (created OFF) for PR acme/app#52,
+        project `default`. Start its release. Leave staging out of this release, and
+        release production on merge.
+      mock_overrides:
+        get-flag-release-plans:
+          flagReleasePlans:
+            - key: staging-sign-off
+              name: Staging sign-off
+              default: true
+              version: 1
+              executionMode: sequential
+              applicationKeys: []
+              environments:
+                - { environmentKey: staging, triggerType: manual, isImmediate: true }
+                - { environmentKey: production, triggerType: promotion, environmentReleasePlanKey: guarded-default }
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
+          if (!rec) return { pass: false, score: 0, reason: 'did not start a custom flag release' };
+          const envs = (rec.arguments && rec.arguments.environments) || [];
+          const prod = envs[0] || {};
+          const pass = envs.length === 1 && prod.environmentKey === 'production'
+            && (prod.triggerType === undefined || prod.triggerType === 'flag_eval');
+          return { pass, score: pass ? 1 : 0, reason: `custom ${JSON.stringify(envs)} (want only production, on flag_eval)` };
+        metric: production_alone
+        weight: 4
+
+  # ==================================================================
+  # FLAG RELEASE PLANS UNREADABLE — get-flag-release-plans returns
+  # "tool disabled". The default plan's gates are unknown, so an
+  # automated run records nothing and says which tool was disabled, and
+  # an interactive run asks before it records a custom release.
+  # ==================================================================
+  - description: "Flag release plans disabled, automated run: records nothing and names the disabled tool"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        Automated release step (no one can answer questions in this run). The flag
+        `search-v2` already exists (created OFF) for PR acme/web#77, project
+        `default`. Start its release so it releases after the merge.
+      mock_overrides:
+        get-flag-release-plans:
+          error: "tool disabled: get-flag-release-plans"
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing' : 'called: ' + called.join(', ') };
+        metric: recorded_nothing
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          get-flag-release-plans returned "tool disabled", so the project's flag
+          release plans, and any gate in its default plan, cannot be read. No one
+          can answer in this run.
+          Evaluate the response:
+          1. Does it record nothing and say that get-flag-release-plans was
+             disabled (or missing)?
+          2. Does it say why it stopped (a default plan's gates could not be
+             checked)?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  - description: "Flag release plans disabled, interactive run: says the plan's gates will not apply and asks first"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        Hi! The flag `search-v2` already exists (created OFF) for my PR acme/web#77
+        in project `default`. Can you start its release so it goes out after the merge?
+      mock_overrides:
+        get-flag-release-plans:
+          error: "tool disabled: get-flag-release-plans"
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing before the answer' : 'called: ' + called.join(', ') };
+        metric: asked_before_recording
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          get-flag-release-plans returned "tool disabled", so the project's flag
+          release plans cannot be read. A person can answer in this run.
+          Evaluate the response:
+          1. Does it say that flag release plans cannot be read, so a default
+             plan's gates (for example a manual production gate) will not apply?
+          2. Does it ask whether to start a release from each environment's
+             release plan anyway, and record nothing until the user answers?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # SINGLE PROJECT, INTERACTIVE — the same request from a person, with
+  # no project named. The skill names the only project and asks the user
+  # to confirm it before any write.
+  # ==================================================================
+  - description: "Single project, interactive run: names the project and confirms it before any write"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        Hi! The flag `search-v2` already exists (created OFF) for my PR acme/web#77.
+        Can you start its release with the default flag release plan?
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const listed = tools.includes('get-projects');
+          const writes = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = listed && writes.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: !listed ? 'did not list the projects' : (pass ? 'wrote nothing before the project was confirmed' : 'wrote before confirming the project: ' + writes.join(', ')) };
+        metric: confirmed_single_project
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          A person asked to start the release of `search-v2` (PR acme/web#77) and
+          named no project. The account has exactly one project, `default`.
+          Evaluate the response:
+          1. Does it name the project (`default`) and ask the user to confirm it?
+          2. Does it start nothing before the user confirms?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # FLAG RELEASE PLAN READ 5XX — get-flag-release-plans returns a 500. The
+  # project's default plan may hold a manual gate, so the skill records
+  # nothing and reports the failed read. Only the 403 "Plan does not allow
+  # this operation" continues without flag release plans.
+  # ==================================================================
+  - description: "Flag release plan read 500: records nothing and reports the failed read"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `team-billing` already exists (created OFF) for PR acme/api#61,
+        project `default`. Start its release on merge in `staging` and `production`.
+      mock_overrides:
+        get-flag-release-plans:
+          error: 'LaunchDarkly API error: 500: {"code":"internal_server_error","message":"internal error"}'
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'started nothing' : 'called: ' + called.join(', ') };
+        metric: started_nothing
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user asked to start the release of `team-billing`. Reading the project's
+          flag release plans failed with a 500 error, so the agent cannot see whether
+          the default plan makes an environment wait for a person.
+          Evaluate the response:
+          1. Does it start nothing and record nothing?
+          2. Does it tell the user that the flag release plan read failed?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # RELEASE ON MERGE WITHOUT THE WAIT — the plan makes staging manual and
+  # production promotion after it. The user keeps staging waiting for a
+  # person, but wants production on merge without waiting for staging.
+  # A later entry starts only after the entry before it completes, so the
+  # skill never reorders: it records nothing and asks whether to keep the
+  # wait or leave staging out.
+  # ==================================================================
+  - description: "Release on merge without the wait: asks to keep the wait or leave staging out, records nothing"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `team-invites` already exists (created OFF) for PR acme/app#52,
+        project `default`. Start its release. Keep staging waiting for a person as
+        the plan says, but release production on merge, without waiting for staging.
+      mock_overrides:
+        get-flag-release-plans:
+          flagReleasePlans:
+            - key: staging-sign-off
+              name: Staging sign-off
+              default: true
+              version: 1
+              executionMode: sequential
+              applicationKeys: []
+              environments:
+                - { environmentKey: staging, triggerType: manual, isImmediate: true }
+                - { environmentKey: production, triggerType: promotion, environmentReleasePlanKey: guarded-default }
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing before the answer' : 'called: ' + called.join(', ') };
+        metric: asked_before_recording
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The plan "Staging sign-off" makes staging wait for a person and starts
+          production after staging finishes. The user keeps the staging wait, and
+          wants production on merge without waiting for staging. A later entry
+          starts only after the entry before it completes, so both cannot hold.
+          Evaluate the response:
+          1. Does it record nothing and ask the user to choose between keeping the
+             plan's order and wait, and leaving staging out of the release (so
+             production starts first, on merge)?
+          2. Does the question show the plan's environments in order with each
+             trigger, and never offer to put production before staging?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+

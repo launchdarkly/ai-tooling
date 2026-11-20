@@ -191,7 +191,7 @@
       "name": "flag-and-release-change",
       "description": "Drive a pull request's change end to end: decide it's flag-worthy, create the guarding flag, wire the new code path behind it on the PR branch, and start a flag release so the change ships safely when the PR merges. A portable orchestrator that composes should-flag-change, launchdarkly-flag-create, and flag-release. Keywords: flag a PR, wrap change in a flag, dark launch, kill switch, auto-release, flag release, end-to-end flag workflow.",
       "path": "skills/feature-flags/flag-and-release-change",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server and a git CLI with access to the PR's repository",
       "tags": [
@@ -211,7 +211,7 @@
       "name": "flag-release",
       "description": "Start the release of an existing LaunchDarkly flag that guards a pull request's change, from the project's flag release plan, or from each environment's release plan when the project has none, so the change releases safely after the PR merges. Honors a stated release intent (release now / hold / notBefore / segment / prerequisite): it never starts a release that would release a held environment. Use as the release step once the guarding flag exists and its code is wired. Keywords: start release, flag release, flag release plan, environment release plan, guarded rollout, progressive rollout, release intent, hold release, dark launch.",
       "path": "skills/feature-flags/flag-release",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server. Operates on a flag that already exists; does not create flags or edit code.",
       "tags": [
@@ -522,7 +522,7 @@
       "name": "launchdarkly-release-plans",
       "description": "List, create, edit, make default, and delete LaunchDarkly release plans of both kinds: environment release plans (one environment's phases, rollout steps, and rollback metrics, with starter plans) and flag release plans (a project's environments in release order, each with its environment release plan, which Release Autopilot proposes releases from on pull requests). Also starts a flag's release from a flag release plan. Use when the user wants to see, list, build, change, or remove a release plan (such as 'show me the flag release plans' or 'what release plans does production have'), set an environment's or a project's default plan, or when another skill such as Release Autopilot onboarding needs release plans planned or created. For first-time Release Autopilot setup, use launchdarkly-release-autopilot-onboarding, which follows this skill.",
       "path": "skills/release-autopilot/launchdarkly-release-plans",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "license": "Apache-2.0",
       "compatibility": "Uses the hosted LaunchDarkly MCP server. When the server has no tool for an operation (flag release plans before their tools reach the account, deleting an environment release plan), the user runs the REST API (beta) command that the skill shows in their own terminal.",
       "tags": [

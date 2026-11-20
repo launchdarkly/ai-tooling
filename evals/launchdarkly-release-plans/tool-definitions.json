@@ -1,0 +1,197 @@
+[
+  {
+    "name": "create-flag-release",
+    "description": "Start a flag release: release a flag across environments by a flag release plan (kind \"plan\") or a list of environments (kind \"custom\"). When the user names no project, call get-projects before you ask anything. In an interactive run, confirm the project, the flag, and the plan or each environment's release with the user before you send confirm: true. When you picked the project because the user named none, name it and wait for their reply first. With kind \"plan\", flagReleasePlanKey names the plan (from get-flag-release-plans; default: true unless the user picks another). Prefer kind \"custom\" when the project has no flag release plan or none fits the request; otherwise use a plan. With kind \"custom\", environments lists each environment in release order. Use only immediate and policy environments. An immediate environment is only environmentKey (releaseType is never immediate). releaseType \"policy\" releases with the environment's default release plan, or the plan environmentReleasePlanKey names. override exists for parity with create-automated-rollout-config, but a flag release does not use it. Never make up stages, percentages, or waits: ask the user. With releaseType \"policy\", the environment release plan sets how the environment ramps, so tell the user when durations they asked for will not apply. waitBeforeReleaseMillis still delays an environment's start after the previous one completes. A multi-variate flag needs startingVariationId and endingVariationId (variation _ids); a boolean flag omits both (false to true). Send pullRequest (repoFullName as owner/name, and number) for a pull request's release. A webhook environment then waits for a deploy that includes the merge. Without a pull request, it starts on the next deploy signal for that environment. Returns config_id and the release as read back; manage it with the *-automated-rollout-config tools. Report all returned warnings; an environment with one is not a clean release.\nExamples:\n- plan, boolean flag, no pull request: {\"projectKey\":\"default\",\"flagKey\":\"new-checkout\",\"flagReleasePlanKey\":\"standard\",\"confirm\":true}\n- plan, multi-variate flag: {\"projectKey\":\"default\",\"flagKey\":\"theme\",\"flagReleasePlanKey\":\"standard\",\"startingVariationId\":\"<from _id>\",\"endingVariationId\":\"<to _id>\",\"confirm\":true}\n- custom, staging immediate, then production by its default release plan: {\"projectKey\":\"default\",\"flagKey\":\"new-checkout\",\"environments\":[{\"environmentKey\":\"staging\"},{\"environmentKey\":\"production\",\"releaseType\":\"policy\"}],\"confirm\":true}",
+    "input_schema": {
+      "additionalProperties": false,
+      "properties": {
+        "confirm": {
+          "description": "Confirm this destructive operation.",
+          "type": "boolean"
+        },
+        "endingVariationId": {
+          "description": "The _id of the flag variation to release to.",
+          "type": "string"
+        },
+        "environments": {
+          "description": "Only with kind custom, and required there: each environment, in release order. One example entry per release type. Omit triggerType unless the user or the flag release plan names one.\n- immediate: {\"environmentKey\":\"staging\"}\n- policy with the environment's default release plan: {\"environmentKey\":\"production\",\"releaseType\":\"policy\"}\n- policy with a named environment release plan: {\"environmentKey\":\"production\",\"releaseType\":\"policy\",\"environmentReleasePlanKey\":\"prod-ramp\"}",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "environmentKey": {
+                "description": "Environment key.",
+                "type": "string"
+              },
+              "environmentReleasePlanKey": {
+                "description": "Only with releaseType policy. Key of the environment release plan to release with instead of the environment's default plan; it must be a plan in this environment (see get-environment-release-plans). Omit to use the default plan.",
+                "minLength": 1,
+                "type": "string"
+              },
+              "override": {
+                "additionalProperties": false,
+                "description": "Accepted for parity with create-automated-rollout-config. A flag release does not use it: send releaseType policy, or leave releaseType out for an immediate environment.",
+                "properties": {
+                  "metricGroupKeys": {
+                    "description": "Metric groups that gate a guarded rollout.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "metricKeys": {
+                    "description": "Metrics that gate a guarded rollout. Guarded needs metricKeys or metricGroupKeys.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "releaseMethod": {
+                    "description": "immediate turns the flag on and takes no stages or metrics; progressive ramps through stages; guarded ramps through stages gated on metrics.",
+                    "enum": [
+                      "immediate",
+                      "progressive",
+                      "guarded"
+                    ],
+                    "type": "string"
+                  },
+                  "rollbackOnRegression": {
+                    "description": "Roll back automatically when a guarded metric regresses.",
+                    "type": "boolean"
+                  },
+                  "rolloutContextKindKey": {
+                    "description": "Context kind the rollout allocates by.",
+                    "type": "string"
+                  },
+                  "stages": {
+                    "description": "Required for progressive and guarded. Allocations must be positive and strictly increasing. Guarded caps every stage at 50000 and promotes to 100% after the last stage, so do not add a 100000 stage; progressive usually ends at 100000. Each stage has exactly allocation and durationMillis, e.g. {\"allocation\":10000,\"durationMillis\":3600000} for 10% over one hour.",
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "allocation": {
+                          "description": "Thousandths of a percent: 100000 is 100%, 10000 is 10%, 1000 is 1%.",
+                          "type": "number"
+                        },
+                        "durationMillis": {
+                          "description": "Monitoring window in milliseconds. Must be greater than 0 for every stage, including the last.",
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "allocation",
+                        "durationMillis"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "releaseMethod"
+                ],
+                "type": "object"
+              },
+              "releaseType": {
+                "description": "policy releases with the environment's default release plan, or the plan environmentReleasePlanKey names. Leave releaseType out for an immediate environment. override is accepted for parity with create-automated-rollout-config, but a flag release does not use it.",
+                "enum": [
+                  "override",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              "triggerType": {
+                "description": "flag_eval starts after the flag is seen evaluating; webhook waits for a CI/CD deploy signal; manual waits for a person to start it; promotion starts when the previous environment finishes. The first environment cannot use promotion. On create, omitted means flag_eval; on update, omitted keeps the environment's stored trigger_type.",
+                "enum": [
+                  "flag_eval",
+                  "webhook",
+                  "manual",
+                  "promotion"
+                ],
+                "type": "string"
+              },
+              "waitBeforeReleaseMillis": {
+                "description": "Delay after the preceding environment finishes. Dropped from the first environment.",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "environmentKey"
+            ],
+            "type": "object"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "type": "array"
+        },
+        "executionMode": {
+          "description": "Only with kind custom. Environments release in array order. sequential is the only mode, and the default.",
+          "enum": [
+            "sequential"
+          ],
+          "type": "string"
+        },
+        "flagKey": {
+          "type": "string"
+        },
+        "flagReleasePlanKey": {
+          "description": "Only with kind plan, and required there. Do not send it with environments.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "plan follows the flag release plan flagReleasePlanKey names. custom releases the environments you list, with no flag release plan. Optional: without kind, flagReleasePlanKey means plan and environments means custom.",
+          "enum": [
+            "plan",
+            "custom"
+          ],
+          "type": "string"
+        },
+        "projectKey": {
+          "description": "Project key. If the user hasn't named a project, do not ask yet: list projects with get-projects first. If more than one exists, ask; don't guess. If exactly one exists, use it. In an interactive run, name it and confirm it with the user before any write. In an automated run with no one to ask, where the request already names the flag and the pull request, use that project and report which one you used. A run is interactive unless the request says that no one can answer.",
+          "type": "string"
+        },
+        "pullRequest": {
+          "additionalProperties": false,
+          "description": "The pull request this release follows.",
+          "properties": {
+            "number": {
+              "description": "Pull request number.",
+              "minimum": 1,
+              "type": "integer"
+            },
+            "repoFullName": {
+              "description": "GitHub repository as owner/name.",
+              "pattern": "^[^/\\s]+/[^/\\s]+$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "repoFullName",
+            "number"
+          ],
+          "type": "object"
+        },
+        "requiredApplicationKeys": {
+          "description": "Only with kind custom. SDK-reported application ids that must all evaluate the flag before release. Pass only ids already instrumented in the repository's SDK configuration; never guess, and omit when there are none.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "type": "array"
+        },
+        "startingVariationId": {
+          "description": "The _id of the flag variation to release from.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "projectKey",
+        "flagKey",
+        "confirm"
+      ],
+      "type": "object"
+    }
+  }
+]
