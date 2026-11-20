@@ -984,6 +984,16 @@ test("flag-release flag release plans: standard-release is the default, producti
   assert.equal(release.flag_key, "search-v2");
 });
 
+test("flag-release create-flag-release reads back environments sent without kind as a custom release", () => {
+  const suiteTemplates = require("../flag-release/tool-mocks.json");
+  const environments = [{ environmentKey: "staging" }, { environmentKey: "production", releaseType: "policy", triggerType: "manual" }];
+  for (const args of [{ kind: "custom", environments }, { environments }]) {
+    const release = renderMockResponse(suiteTemplates["create-flag-release"],
+      { projectKey: "default", flagKey: "search-v2", confirm: true, ...args }, "create-flag-release", createMockState());
+    assert.deepEqual(release.release.environments.map((e) => e.environment_key), ["staging", "production"]);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Flag release plans (release-autopilot-onboarding tool-mocks, mcp #522)
 // ---------------------------------------------------------------------------

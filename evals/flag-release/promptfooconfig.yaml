@@ -1779,6 +1779,119 @@ tests:
         weight: 2
 
   # ==================================================================
+  # DATE HOLD BEFORE AN ON-MERGE ENVIRONMENT — the user holds staging
+  # until a date and wants production on merge. Staging is recorded as
+  # manual, and a later entry waits for it whatever its trigger, so the
+  # skill puts production first and says that the order changed.
+  # ==================================================================
+  - description: "Date hold before an on-merge environment: production moves ahead of the dated staging"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        The flag `usage-alerts` already exists (created OFF) for PR acme/app#64,
+        project `default`. Start its release in staging and production only. Staging
+        must wait until 2099-09-01, but release production on merge.
+    assert:
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
+          if (!rec) return { pass: false, score: 0, reason: 'did not start a custom flag release' };
+          const envs = (rec.arguments && rec.arguments.environments) || [];
+          const order = envs.map(e => e.environmentKey).join(',');
+          const prod = envs[0] || {};
+          const staging = envs[1] || {};
+          const pass = order === 'production,staging'
+            && (prod.triggerType === undefined || prod.triggerType === 'flag_eval') && staging.triggerType === 'manual';
+          return { pass, score: pass ? 1 : 0, reason: `custom ${JSON.stringify(envs)} (want production first on flag_eval, then staging manual)` };
+        metric: on_merge_first
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          The user holds staging until 2099-09-01 and wants production on merge.
+          LaunchDarkly does not enforce dates, so staging waits for a person, and a
+          later entry waits for the entry before it to complete.
+          Evaluate the response:
+          1. Does it say that production now comes before staging, and why?
+          2. Does it say that a person must start staging on or after 2099-09-01?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
+  # FLAG RELEASE PLANS UNREADABLE — get-flag-release-plans returns
+  # "tool disabled". The default plan's gates are unknown, so an
+  # automated run records nothing and says which tool was disabled, and
+  # an interactive run asks before it records a custom release.
+  # ==================================================================
+  - description: "Flag release plans disabled, automated run: records nothing and names the disabled tool"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        Automated release step (no one can answer questions in this run). The flag
+        `search-v2` already exists (created OFF) for PR acme/web#77, project
+        `default`. Start its release so it releases after the merge.
+      mock_overrides:
+        get-flag-release-plans:
+          error: "tool disabled: get-flag-release-plans"
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing' : 'called: ' + called.join(', ') };
+        metric: recorded_nothing
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          get-flag-release-plans returned "tool disabled", so the project's flag
+          release plans, and any gate in its default plan, cannot be read. No one
+          can answer in this run.
+          Evaluate the response:
+          1. Does it record nothing and say that get-flag-release-plans was
+             disabled (or missing)?
+          2. Does it say why it stopped (a default plan's gates could not be
+             checked)?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  - description: "Flag release plans disabled, interactive run: says the plan's gates will not apply and asks first"
+    providers: ["mcp"]
+    vars:
+      user_request: >
+        Hi! The flag `search-v2` already exists (created OFF) for my PR acme/web#77
+        in project `default`. Can you start its release so it goes out after the merge?
+      mock_overrides:
+        get-flag-release-plans:
+          error: "tool disabled: get-flag-release-plans"
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const called = ['create-flag-release','create-automated-rollout-config','toggle-flag','update-flag'].filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'recorded nothing before the answer' : 'called: ' + called.join(', ') };
+        metric: asked_before_recording
+        weight: 4
+
+      - type: llm-rubric
+        value: |
+          get-flag-release-plans returned "tool disabled", so the project's flag
+          release plans cannot be read. A person can answer in this run.
+          Evaluate the response:
+          1. Does it say that flag release plans cannot be read, so a default
+             plan's gates (for example a manual production gate) will not apply?
+          2. Does it ask whether to start a release from each environment's
+             release plan anyway, and record nothing until the user answers?
+          Score 1.0 if both. Deduct 0.5 per criterion missed.
+        metric: rationale_quality
+        weight: 2
+
+  # ==================================================================
   # SINGLE PROJECT, INTERACTIVE — the same request from a person, with
   # no project named. The skill names the only project and asks the user
   # to confirm it before any write.
@@ -1852,11 +1965,12 @@ tests:
   # RELEASE ON MERGE WITHOUT THE WAIT — the plan makes staging manual and
   # production promotion after it. The user keeps staging waiting for a
   # person, but wants production on merge without waiting for staging.
-  # Production is not the first entry, so the skill changes its trigger
-  # to flag_eval (with promotion it would still follow staging) and says
-  # so.
+  # LaunchDarkly starts a later sequential entry only after the entry
+  # before it completes, whatever its trigger. So the skill moves
+  # production ahead of staging, starts it on flag_eval, keeps staging
+  # manual, and tells the user that the order changed.
   # ==================================================================
-  - description: "Release on merge without the wait: production after a manual staging starts on flag_eval"
+  - description: "Release on merge without the wait: production moves ahead of a manual staging and starts on flag_eval"
     providers: ["mcp"]
     vars:
       user_request: >
@@ -1882,11 +1996,12 @@ tests:
           const rec = traj.find(t => t.tool === 'create-flag-release' && (t.arguments || {}).kind === 'custom');
           if (!rec) return { pass: false, score: 0, reason: 'did not start a custom flag release' };
           const envs = (rec.arguments && rec.arguments.environments) || [];
+          const order = envs.map(e => e.environmentKey).join(',');
           const byKey = Object.fromEntries(envs.map(e => [e.environmentKey, e]));
           const prod = byKey.production || {};
-          const pass = Boolean(byKey.staging) && byKey.staging.triggerType === 'manual'
+          const pass = order === 'production,staging' && byKey.staging.triggerType === 'manual'
             && (prod.triggerType === undefined || prod.triggerType === 'flag_eval');
-          return { pass, score: pass ? 1 : 0, reason: `custom ${JSON.stringify(envs)} (want staging manual, production on flag_eval)` };
+          return { pass, score: pass ? 1 : 0, reason: `custom ${JSON.stringify(envs)} (want production first on flag_eval, then staging manual)` };
         metric: production_on_merge
         weight: 4
 
@@ -1894,12 +2009,14 @@ tests:
         value: |
           The plan "Staging sign-off" makes staging wait for a person and starts
           production after staging finishes. The user keeps the staging wait, and
-          wants production on merge without waiting for staging.
+          wants production on merge without waiting for staging. LaunchDarkly starts
+          a later entry only after the entry before it completes, so production must
+          come before staging.
           Evaluate the response:
-          1. Does it start the release with staging waiting for a person and
-             production starting on the flag's first evaluation?
-          2. Does it tell the user that production's trigger changed from following
-             staging to the first evaluation?
+          1. Does it start the release with production first, starting on the
+             flag's first evaluation, and staging after it, waiting for a person?
+          2. Does it tell the user that the order changed (production now comes
+             before staging) and that production's trigger changed?
           Score 1.0 if both. Deduct 0.5 per criterion missed.
         metric: rationale_quality
         weight: 2

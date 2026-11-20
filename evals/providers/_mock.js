@@ -480,10 +480,12 @@ function renderReleaseAutopilot(template, input, toolName, state, replacements) 
     }
     return out;
   }
-  // A custom flag release reads back the request's environments too.
+  // A custom flag release reads back the request's environments too. kind is
+  // optional: environments without kind is a custom release.
   if (toolName === "create-flag-release") {
     const out = walk(template, replacements);
-    if (out && !out.error && out.release && args.kind === "custom" && Array.isArray(args.environments)) {
+    const custom = args.kind === "custom" || (!args.kind && Array.isArray(args.environments));
+    if (out && !out.error && out.release && custom && Array.isArray(args.environments)) {
       out.release = { ...out.release, environments: args.environments.map(rolloutEnvReadBack) };
     }
     return out;
