@@ -34,12 +34,12 @@ This table is the only list of these rules. [`flag-release`](../SKILL.md) and [`
 | The project has no flag release plan (an empty list), or none is the default and the user names none | `create-flag-release`, `kind: "custom"`, with each environment's release plan |
 | A flag release plan exists but does not fit the intent (an environment that the request excludes or holds, or a `notBefore` date) | `create-flag-release`, `kind: "custom"`, with the flag release plan's environments, plans, and triggers. Tell the user why |
 | An environment that should release on merge would wait in the flag release plan | Nothing yet. Ask the user first, as [step 3 below](#release-with-environment-release-plans) says. Copying the plan keeps the wait |
-| `get-flag-release-plans` is not listed, or returns `tool disabled` | An automated run (no one can answer): nothing. Record nothing, and say which tool was missing or disabled. An interactive run: nothing yet. Say that flag release plans cannot be read, so the gates of a default plan (for example a `manual` production gate) will not apply. Ask whether to record a `kind: "custom"` release anyway, and record it only after the user says yes |
+| `create-flag-release` works, but `get-flag-release-plans` is not listed or returns `tool disabled` | An automated run (no one can answer): nothing. Record nothing, and say which tool was missing or disabled. An interactive run: nothing yet. Say that flag release plans cannot be read, so the gates of a default plan (for example a `manual` production gate) will not apply. Ask whether to record a `kind: "custom"` release anyway, and record it only after the user says yes |
 | A `get-flag-release-plans` read returns a 403 that says the account cannot use flag release plans ("Plan does not allow this operation") | `create-flag-release`, `kind: "custom"`. Tell the user that the account has no flag release plans |
 | Any other failed `get-flag-release-plans` read (a 5xx, or another 403) | Nothing. Record nothing, and tell the user which read failed: the project's default plan can hold a `manual` gate that you cannot see |
 | A failed `get-environment-release-plans` read (any 403 or 5xx), or the tool is not listed | Nothing. Record nothing, and tell the user which read failed |
 | `create-flag-release` is listed, but its schema does not offer `kind: "custom"` (an older server) | A plan that fits: `create-flag-release` without `kind`. Otherwise: `create-automated-rollout-config`, as [Fallback](#fallback-create-automated-rollout-config) says |
-| `create-flag-release` is not listed (the preview is off) | `create-automated-rollout-config` for each environment's release plan, as [Fallback](#fallback-create-automated-rollout-config) says |
+| The whole flag release preview is missing: neither `get-flag-release-plans` nor `create-flag-release` is listed, or both return `tool disabled` | `create-automated-rollout-config` for each environment's release plan, as [Fallback](#fallback-create-automated-rollout-config) says. Tell the user that flag release plans could not be read, so the gates of a default plan (for example a `manual` production gate) cannot be applied |
 | `create-flag-release` returns `tool disabled`, with either kind | Nothing yet. Show the `create-automated-rollout-config` version, and record it only after the user confirms, as [Fallback](#fallback-create-automated-rollout-config) says |
 
 In every row, "nothing" means: do not call `create-flag-release` or `create-automated-rollout-config`.
@@ -48,7 +48,7 @@ Releasing from each environment's release plan is a normal path, not an error. D
 
 If the user asks for "the default flag release plan" and the list has plans but none is the default, ask which plan to use, or offer to start from each environment's release plan. Put each plan's name, environments, and triggers in the question. Never pick the first listed plan.
 
-A failed environment release plan read always stops the release. A failed flag release plan read stops it too. Only the 403 that says the account cannot use flag release plans continues. The one exception: in an interactive run, a missing or disabled `get-flag-release-plans` continues after the user says yes.
+A failed environment release plan read always stops the release. A failed flag release plan read stops it too. Only the 403 that says the account cannot use flag release plans continues. There are two exceptions. When `create-flag-release` works but `get-flag-release-plans` is missing or disabled, an interactive run continues after the user says yes. When the whole flag release preview is missing, the release uses the `create-automated-rollout-config` fallback, and the skill tells the user that a default plan's gates cannot be applied.
 
 ## Preview before you propose
 
@@ -109,7 +109,7 @@ Never send only one of the two.
 
 ## Release with environment release plans
 
-Start a flag release with `create-flag-release` and `kind: "custom"` when the project has no flag release plan to use, when a flag release plan does not fit the intent, when the flag release plan read returns the 403 "Plan does not allow this operation", or when the user says yes after `get-flag-release-plans` is missing or disabled. On a server without `kind: "custom"`, do the same steps and record the result with `create-automated-rollout-config` ([Fallback](#fallback-create-automated-rollout-config)). Do not say the account lacks flag releases.
+Start a flag release with `create-flag-release` and `kind: "custom"` when the project has no flag release plan to use, when a flag release plan does not fit the intent, when the flag release plan read returns the 403 "Plan does not allow this operation", or when the user says yes after `get-flag-release-plans` is missing or disabled while `create-flag-release` works. On a server without `kind: "custom"`, do the same steps and record the result with `create-automated-rollout-config` ([Fallback](#fallback-create-automated-rollout-config)). Do not say the account lacks flag releases.
 
 Do these steps in order:
 
