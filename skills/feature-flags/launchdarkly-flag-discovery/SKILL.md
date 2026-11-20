@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.0.0-experimental"
+  version: "1.1.0-experimental"
 ---
 
 # LaunchDarkly Flag Discovery
@@ -79,18 +79,22 @@ Use `get-flag-status-across-envs` to check if a flag is consistent across enviro
 
 Group flags into actionable categories:
 
-1. **Ready to remove**: Inactive everywhere, temporary, no dependencies. Direct the user to the [flag cleanup skill](../launchdarkly-flag-cleanup/SKILL.md) for code removal.
-2. **Likely safe, needs verification**: Launched (fully rolled out), no rule changes recently. The user should confirm the rollout is intentionally complete.
-3. **Needs investigation**: Active in some environments but not others, or has complex targeting. Don't recommend action without more context.
+1. **Ready for code removal**: Use the same rule as the **Ready for cleanup** view in the LaunchDarkly flag list. The flag is temporary, at least 30 days old, not a prerequisite of another flag, has code references, and is `launched` in every critical environment (targeting ON, one variation served to every context, evaluated in the last 7 days, targeting not changed in the last 7 days). The day counts are defaults that the project's flag lifecycle settings can change. Direct the user to the [flag cleanup skill](../launchdarkly-flag-cleanup/SKILL.md) for code removal.
+2. **Ready to archive**: Temporary, at least 30 days old, not a prerequisite, `inactive` in every critical environment, and no code references. Search this repository for the flag key first, because LaunchDarkly may not scan it. If you find none, there is no code to remove, and the user can archive the flag in LaunchDarkly.
+3. **Needs investigation**: Active in some environments but not others, has complex targeting, or is `inactive` everywhere but still has code references. Don't recommend action without more context.
 4. **Leave alone**: Active flags doing their job, or permanent flags that are intentionally long-lived.
+
+**A flag that is OFF in every critical environment is never ready for code removal.** It is not `launched`, because `launched` requires targeting to be ON. A flag that is off everywhere often guards a feature that was never released, and hardcoding its `offVariation` deletes that feature's code. Put it in "Needs investigation" (or "Ready to archive" if it has no code references and is `inactive` everywhere). Recommend code removal only if the user explicitly confirms that the code behind the other variations is abandoned.
 
 ### Step 5: Assess Removal Readiness (When Applicable)
 
 If the user wants to know whether a specific flag can be removed, use `get-removal-readiness`. This tool orchestrates multiple API calls in parallel and returns a structured verdict:
 
-- **`safe`**: No blockers or warnings. Proceed with cleanup.
-- **`caution`**: Warnings exist (code references, expiring targets, permanent flag type). Present and let the user decide.
-- **`blocked`**: Hard blockers (dependent flags, active requests, targeting rules). Must resolve first.
+- **`safe`**: No blockers or warnings, and LaunchDarkly marks the flag ready for code removal (`details.lifecycle.readyForCodeRemoval` is `true`). Recommend the cleanup workflow.
+- **`caution`**: Warnings exist (expiring targets, `code_already_removed`, or `code_removal_readiness_unavailable`). `caution` is not permission to remove code. Present each warning and ask the user to confirm before you recommend removal. For `code_removal_readiness_unavailable`, ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment.
+- **`blocked`**: The only blocker is `not_ready_for_code_removal`: LaunchDarkly does not consider the flag ready for code removal. Must resolve first. Do not recommend code removal. Give each reason from the blocker detail or `details.lifecycle.codeRemovalBlockers`, and name the critical environments where the flag is not `launched` (from `details.lifecycle.notLaunchedEnvironments`).
+- **`caution` with `code_already_removed`** (`details.lifecycle.codeAlreadyRemoved: true`): the flag passes every code removal check, but LaunchDarkly finds no code references. The code is already removed, or it is in a repository that LaunchDarkly does not scan. Search this repository for the flag key first. If you find references, do not recommend archiving: an archived flag is absent, so that code gets its fallback value. Recommend code removal with the cleanup skill instead. If you find none, recommend archiving it after the cleanup is deployed everywhere the flag is evaluated.
+- **`blocked` with `details.lifecycle.readyToArchive: true`**: the flag is inactive everywhere and LaunchDarkly finds no code references. Do not recommend code removal. Search this repository for the flag key first. If you find references, do not recommend archiving: code references may not be set up for this repository, and an archived flag is absent, so that code gets its fallback value. If you find none, recommend archiving the flag in LaunchDarkly.
 
 See [Removal Readiness Checklist](references/removal-readiness-checklist.md) for the full details on interpreting each signal.
 
@@ -107,6 +111,7 @@ Structure your response based on what the user asked for:
 ## Important Context
 
 - **"Launched" means fully rolled out**: targeting is on, a single variation is served to everyone, and no changes have been made recently. It doesn't mean "recently deployed."
+- **"Off everywhere" is not "launched."** A flag that is OFF in every critical environment serves its `offVariation`, but LaunchDarkly does not count it as ready for code removal.
 - **"Inactive" doesn't always mean safe to remove.** The flag might be used in code that hasn't shipped yet, or referenced as a prerequisite by another flag.
 - **Permanent flags can be inactive on purpose.** Some flags are designed to be dormant until needed (kill switches, emergency toggles). Don't automatically flag these for cleanup.
 - **Weights are scaled by 1000 in the API.** A weight of `60000` means 60%. Always convert to human-readable percentages.

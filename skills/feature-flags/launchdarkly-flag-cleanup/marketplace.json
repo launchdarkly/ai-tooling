@@ -1,7 +1,7 @@
 {
   "name": "launchdarkly-flag-cleanup",
   "description": "Safely automate feature flag cleanup workflows using LaunchDarkly MCP server",
-  "version": "1.0.0-experimental",
+  "version": "1.1.0-experimental",
   "author": "LaunchDarkly",
   "repository": "https://github.com/launchdarkly/ai-tooling",
   "skills": ["./"],
