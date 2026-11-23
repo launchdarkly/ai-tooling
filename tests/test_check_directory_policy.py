@@ -326,12 +326,12 @@ class CommandTests(PolicyTestCase):
 
 class LayoutTests(PolicyTestCase):
     def test_windows_invalid_names_block(self):
-        for name in ("a:b.md", "notes.", "con.md", "LPT1.txt"):
+        self.write("docs/a:b.md", "x")  # on disk too, so the walk path is exercised
+        self.assertEqual(len(self.findings("BLOCKS")), 1)
+        for name in ("notes.", "trailing ", "con.md", "LPT1.txt", "aux"):
             with self.subTest(name=name):
-                self._tmp.cleanup()
-                os.makedirs(self.root)
-                self.write(f"docs/{name}", "x")
-                self.assertEqual(len(self.findings("BLOCKS")), 1)
+                self.assertEqual(len(cdp.check_names([f"docs/{name}"])), 1)
+        self.assertEqual(cdp.check_names(["docs/console.md", "docs/a.b.md"]), [])
 
     def test_case_collision_blocks(self):
         found = cdp.check_names(["docs/README.md", "docs/Readme.md", "Docs/x.md"])
