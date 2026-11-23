@@ -319,7 +319,7 @@ Skip this step if the audited app has no function calling / tools. Otherwise:
    });
    ```
 
-   Each function receives one argument, the parsed arguments dict, and may be sync or async. Keys must match the tool keys in LaunchDarkly exactly; a tool the model calls with no matching function raises `No handler registered for tool "x"`. For LangChain `@tool` objects, wrap them: `{"search-kb": lambda args: search_kb.invoke(args)}`. The `tools` skill covers the full contract.
+   Each function receives one argument, the parsed arguments dict, and may be sync or async. Keys must match the tool keys in LaunchDarkly exactly; handler packages omit any variation tool without a matching function before calling the model, so a mismatched key silently hides the tool. For LangChain `@tool` objects, wrap them: `{"search-kb": lambda args: search_kb.invoke(args)}`. The `tools` skill covers the full contract.
 
    **For custom `StateGraph` shapes and custom handlers**, the handler receives tracked tool functions in its `tool_handlers` argument. Build **both** the `.bind_tools(...)` list and the `ToolNode(...)` from that argument, so the model and the executor see the same tools — see [agent-mode-frameworks.md § Custom `StateGraph`](references/agent-mode-frameworks.md).
 

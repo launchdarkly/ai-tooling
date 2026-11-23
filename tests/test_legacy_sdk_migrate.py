@@ -84,6 +84,16 @@ class LegacySdkMigrateTests(unittest.TestCase):
         self.assertIn("launchdarkly-server-sdk", skill)
         self.assertNotIn("must be a tuple", skill)
 
+    def test_public_exports_and_graph_metric_renames(self):
+        skill = SKILL.read_text(encoding="utf-8")
+        mapping = API_MAPPING.read_text(encoding="utf-8")
+        migrate_skill = (ROOT / "skills/agentcontrol/migrate/SKILL.md").read_text(encoding="utf-8")
+
+        self.assertIn("init_client(client=fake_ld)", skill)
+        self.assertIn("$ld:ai:graph:latency", skill)
+        self.assertIn("$ld:ai:graph:latency", mapping)
+        self.assertNotIn('No handler registered for tool "x"', migrate_skill)
+
 
 if __name__ == "__main__":
     unittest.main()
