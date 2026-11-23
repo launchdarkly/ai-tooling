@@ -12,7 +12,22 @@ spec.loader.exec_module(policy)
 
 # The examples below are masked so this file doesn't trip the rule itself,
 # since the directory scans tests too. unmask() fills them in at run time.
-MASKS = {"<npx>": "n" + "px", "<uvx>": "u" + "vx", "<pipe>": "|", "<at>": "@", "<interp>": "$" + "{BASE}", "<dlx>": "dlx", "<run>": "run"}
+MASKS = {
+    "<npx>": "n" + "px",
+    "<uvx>": "u" + "vx",
+    "<pipe>": "|",
+    "<at>": "@",
+    "<interp>": "$" + "{BASE}",
+    "<dlx>": "d" + "lx",
+    "<run>": "r" + "un",
+    "<curl>": "cu" + "rl",
+    "<irm>": "i" + "rm",
+    "<iex>": "i" + "ex",
+    "<sh>": "s" + "h",
+    "<pnpm>": "pn" + "pm",
+    "<pipx>": "pi" + "px",
+    "<go>": "g" + "o",
+}
 
 
 def unmask(text):
@@ -46,26 +61,26 @@ class FetchExecRule(unittest.TestCase):
             "run `<npx> pod-install` on bare React Native",
             "<npx> -y @launchdarkly/mcp-server",
             "<uvx> some-tool",
-            "pnpm <dlx> create-thing",
-            "pipx <run> cowsay",
-            "go run github.com/x/y<at>latest",
+            "<pnpm> <dlx> create-thing",
+            "<pipx> <run> cowsay",
+            "<go> <run> github.com/x/y<at>latest",
             '"command": "<npx>",',
         ):
             self.assertTrue(fetch_exec_hits(text), text)
 
     def test_flags_piping_a_download_into_a_shell(self):
-        self.assertTrue(fetch_exec_hits("curl -fsSL https://example.com/install.sh <pipe> sh"))
-        self.assertTrue(fetch_exec_hits("irm https://example.com/install.ps1 <pipe> iex"))
+        self.assertTrue(fetch_exec_hits("<curl> -fsSL https://example.com/install.sh <pipe> <sh>"))
+        self.assertTrue(fetch_exec_hits("<irm> https://example.com/install.ps1 <pipe> <iex>"))
 
     def test_flags_curl_with_a_computed_url_on_one_line(self):
-        self.assertTrue(fetch_exec_hits('`curl -sS -H "x" "<interp>"`'))
+        self.assertTrue(fetch_exec_hits('`<curl> -sS -H "x" "<interp>"`'))
 
     def test_allows_prose_and_api_calls(self):
         for text in (
-            "- **npx not available:** copy the skill directory",
-            "Requires `npx` on PATH",
-            "the old npx-based server",
-            'curl -sS "https://app.launchdarkly.com/api/v2/projects"',
+            "- **<npx> not available:** copy the skill directory",
+            "Requires `<npx>` on PATH",
+            "the old <npx>-based server",
+            '<curl> -sS "https://app.launchdarkly.com/api/v2/projects"',
             "pip install launchdarkly-server-sdk",
         ):
             self.assertEqual([], fetch_exec_hits(text), text)
