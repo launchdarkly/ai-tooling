@@ -7,7 +7,7 @@ Thanks for contributing! This repo is a public collection of LaunchDarkly agent 
 1. Fork and clone the repo.
 2. Create a branch for your change.
 3. Follow the skill conventions in `docs/skills.md`.
-4. Open a PR. CI runs the Claude plugin directory checks (`claude plugin validate --profile directory --strict` and `scripts/check_directory_policy.py`); the portal's **Validate** button at claude.ai/directory/manage is still the final check before you submit to the directory.
+4. Open a PR. CI runs the Claude plugin directory checks (`claude plugin validate --profile directory --strict` and `scripts/check_directory_policy.py`); the portal's **Validate** button at claude.ai/directory/manage is still the final check before you submit to the directory. Only `BLOCKS` lines fail CI; run `python3 scripts/check_directory_policy.py` locally to see the `HELD` and `WARN` lines a reviewer will see.
 
 ## Adding a New Skill
 

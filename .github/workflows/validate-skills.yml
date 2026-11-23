@@ -30,9 +30,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # Unpinned on purpose: this job exists to match the portal's Validate,
+      # which tracks the latest rules. If a CLI release regresses, this job
+      # fails alone and can be made non-required until a fix ships.
       - name: Install Claude Code CLI
-        run: npm install --global @anthropic-ai/claude-code@2.1.319
+        run: npm install --global @anthropic-ai/claude-code@latest
       - name: Validate plugin with the directory profile
-        run: claude plugin validate . --profile directory --strict
+        run: |
+          claude --version
+          claude plugin validate . --profile directory --strict
+      # Runs even when the CLI step fails, so one run reports both.
       - name: Check directory policy gaps
-        run: python3 scripts/check_directory_policy.py
+        if: ${{ !cancelled() }}
+        run: |
+          python3 --version
+          python3 scripts/check_directory_policy.py
