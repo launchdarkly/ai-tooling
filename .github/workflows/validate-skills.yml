@@ -19,3 +19,20 @@ jobs:
         run: python3 -m unittest discover -s tests
       - name: Check skills.json catalog
         run: python3 scripts/generate_catalog.py --check
+
+  directory-checks:
+    name: Claude plugin directory checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Claude Code CLI
+        run: npm install --global @anthropic-ai/claude-code@2.1.319
+      - name: Validate plugin with the directory profile
+        run: claude plugin validate . --profile directory --strict
+      - name: Check directory policy gaps
+        run: python3 scripts/check_directory_policy.py
