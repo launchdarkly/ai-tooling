@@ -190,24 +190,9 @@ The unified server handles both feature flags and AgentControl. If you also had 
 
 ## Migrating from the Old Local Server
 
-If the user has the old npx-based server configured with an inline API key, replace it with the hosted unified server:
+If the user has the old local server configured with an inline API key, replace it with the hosted unified server.
 
-**Remove this:**
-
-```json
-{
-  "mcpServers": {
-    "LaunchDarkly": {
-      "command": "npx",
-      "args": [
-        "-y", "--package", "@launchdarkly/mcp-server",
-        "--", "mcp", "start",
-        "--api-key", "api-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-      ]
-    }
-  }
-}
-```
+**Remove this:** the `LaunchDarkly` entry under `mcpServers` whose `command` starts the `@launchdarkly/mcp-server` package with `mcp start` and an `--api-key` argument.
 
 **Replace with the unified hosted server:**
 

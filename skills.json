@@ -486,7 +486,7 @@
       "name": "launchdarkly-release-autopilot-onboarding",
       "description": "Step-by-step onboarding wizard for LaunchDarkly Release Autopilot: pick capabilities (auto-flagging, auto-releasing, auto-cleanup, auto-archival), connect the GitHub App, map repositories to projects, choose which AI model account runs the agents (LaunchDarkly's by default, or your own Anthropic or OpenAI key), set up environment release plans (with starter plans) and the project's flag release plan, and turn on scheduled flag cleanup and archival. Use when the user wants to set up, onboard to, preview, or continue setting up Release Autopilot. For a single settings change or 'why didn't my PR get classified?', use launchdarkly-release-autopilot-settings instead.",
       "path": "skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
-      "version": "1.2.3",
+      "version": "1.2.4",
       "license": "Apache-2.0",
       "compatibility": "Requires the remotely hosted LaunchDarkly MCP server",
       "tags": [
@@ -547,7 +547,7 @@
       "name": "mcp-configure",
       "description": "Configure the LaunchDarkly hosted MCP server during onboarding. Use when the parent LaunchDarkly onboarding skill reaches the MCP offer, after the first flag works. Supports Cursor, Claude Code, Windsurf, GitHub Copilot, and other MCP-compatible agents. OAuth authentication; no API keys for the hosted server.",
       "path": "skills/onboarding/mcp-configure",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "license": "Apache-2.0",
       "compatibility": "Requires an MCP-compatible coding agent and a LaunchDarkly account"
     },
@@ -563,7 +563,7 @@
       "name": "observability-plugin-setup",
       "description": "Set up LaunchDarkly observability for an app that already uses a LaunchDarkly SDK by adding the observability plugin to its existing client and opening a pull request. Use when an observability tool reports the project has never received data (observability_set_up or observabilitySetUp is false), when observability queries come back empty because nothing is instrumented, or when the user asks to add observability, error monitoring, logs, tracing, or session replay to a LaunchDarkly-enabled app.",
       "path": "skills/observability/observability-plugin-setup",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "license": "Apache-2.0",
       "compatibility": "Needs a codebase with an existing LaunchDarkly SDK client. Uses the remotely hosted LaunchDarkly MCP server to confirm data arrives."
     },
@@ -571,9 +571,9 @@
       "name": "onboarding",
       "description": "Scripted onboarding for LaunchDarkly: quiet execution, fixed sequence, SDK install, first flag with a live reveal, MCP offered afterwards. Enforces step completion before advancing and redirects drift. Use when adding LaunchDarkly, setting up or integrating feature flags in a project, SDK integration, or 'onboard me'.",
       "path": "skills/onboarding",
-      "version": "0.4.0",
+      "version": "0.4.2",
       "license": "Apache-2.0",
-      "compatibility": "Requires an MCP-capable coding agent and `npx` on PATH for optional skill installs. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.",
+      "compatibility": "Requires an MCP-capable coding agent. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.",
       "tags": [
         "launchdarkly",
         "feature-flags",
