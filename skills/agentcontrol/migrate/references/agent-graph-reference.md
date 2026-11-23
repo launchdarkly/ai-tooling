@@ -21,7 +21,7 @@ Why use it:
 | Framework-native runner | The app is already LangGraph and you want a compiled `StateGraph` | `to_lang_graph(resolve_graph(key, context=ctx), {...})` | `toLangGraph(resolveGraph(key, { context }), {...})` |
 | Your own loop | You need custom routing logic | `resolve_graph(...)` + `run_node()` / `route()` | `resolveGraph(...)` + `runNode()` / `route()` |
 
-`graph().invoke()` and `run_node()` / `route()` record per-node `$ld:ai:*` events plus the full graph-level event set (`$ld:ai:graph:invocation_success` / `:invocation_failure`, `:duration:total`, `:total_tokens`, `:node`, and `:handoff_success` / `:handoff_failure`). Framework-native runners (`to_lang_graph`, `to_openai_agents`, `to_claude_agents`) record the same graph-level lifecycle events except `:handoff_failure`, and `to_openai_agents` omits per-node duration and tokens. There is no graph tracker to call.
+`graph().invoke()` and `run_node()` / `runNode()` (with `route()`) record per-node `$ld:ai:*` events plus the full graph-level event set (`$ld:ai:graph:invocation_success` / `:invocation_failure`, `:duration:total`, `:total_tokens`, `:node`, and `:handoff_success` / `:handoff_failure`). Framework-native runners (`to_lang_graph` / `toLangGraph`, `to_openai_agents` / `toOpenAIAgents`, `to_claude_agents` / `toClaudeAgents`) record the same graph-level lifecycle events except `:handoff_failure`, and `to_openai_agents` / `toOpenAIAgents` omits per-node duration and tokens. There is no graph tracker to call.
 
 ### SDK runner
 
