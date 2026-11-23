@@ -89,21 +89,24 @@ class FetchExecRule(unittest.TestCase):
 class ManifestRule(unittest.TestCase):
     """ICON_MISSING and PRIVACY_URL_MISSING (1.0.0), UNKNOWN_KEY (1.0.12)."""
 
-    base = {"name": "x", "icon": "logo.svg", "privacyPolicyUrl": "https://launchdarkly.com/policies/privacy/"}
+    listing = {"icon": "logo.svg", "privacyPolicyUrl": "https://launchdarkly.com/policies/privacy/"}
 
-    def rules(self, manifest):
-        return [v.rule for v in policy.check_manifest(manifest, ROOT)]
+    def rules(self, manifest, listing):
+        return [v.rule for v in policy.check_manifest(manifest, listing, ROOT)]
 
     def test_listing_fields_present(self):
-        self.assertEqual([], self.rules(self.base))
+        self.assertEqual([], self.rules({"name": "x"}, self.listing))
 
     def test_logo_instead_of_icon(self):
-        manifest = {k: v for k, v in self.base.items() if k != "icon"} | {"logo": "logo.svg"}
-        self.assertEqual(["listing-fields", "known-keys"], self.rules(manifest))
+        listing = {k: v for k, v in self.listing.items() if k != "icon"}
+        self.assertEqual(["listing-fields", "known-keys"], self.rules({"name": "x", "logo": "logo.svg"}, listing))
 
     def test_missing_privacy_url(self):
-        manifest = {k: v for k, v in self.base.items() if k != "privacyPolicyUrl"}
-        self.assertEqual(["listing-fields"], self.rules(manifest))
+        listing = {k: v for k, v in self.listing.items() if k != "privacyPolicyUrl"}
+        self.assertEqual(["listing-fields"], self.rules({"name": "x"}, listing))
+
+    def test_listing_fields_in_plugin_json_are_unknown_keys(self):
+        self.assertEqual(["known-keys", "known-keys"], self.rules({"name": "x", "icon": "logo.svg", "privacyPolicyUrl": "https://x"}, self.listing))
 
 
 class FileRules(unittest.TestCase):

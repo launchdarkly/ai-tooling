@@ -29,7 +29,9 @@
         "rollout",
         "cleanup",
         "mcp"
-      ]
+      ],
+      "icon": "logo.svg",
+      "privacyPolicyUrl": "https://launchdarkly.com/policies/privacy/"
     }
   ]
 }

@@ -21,9 +21,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CLAUDE_MANIFEST = ROOT / ".claude-plugin" / "plugin.json"
+MARKETPLACE = ROOT / ".claude-plugin" / "marketplace.json"
 
-# Keys Claude Code reads from plugin.json, plus the listing-only fields the
-# directory reads (icon, privacyPolicyUrl). Anything else is UNKNOWN_KEY.
+# Keys Claude Code reads from plugin.json. Anything else is UNKNOWN_KEY, and the
+# listing-only fields the directory reads (icon, privacyPolicyUrl) live on the
+# plugin's entry in marketplace.json instead.
 CLAUDE_CODE_KEYS = {
     "name",
     "version",
@@ -41,7 +43,6 @@ CLAUDE_CODE_KEYS = {
     "outputStyles",
     "lspServers",
 }
-LISTING_ONLY_KEYS = {"icon", "privacyPolicyUrl"}
 
 # Files the directory's validator can't read inside. Each one that ships needs
 # a reason here; a new one should be source the validator can read instead.
@@ -153,20 +154,21 @@ def check_uninspectable(files: list[tuple[str, str]], manifest: dict) -> list[Vi
     return found
 
 
-def check_manifest(manifest: dict, root: Path) -> list[Violation]:
+def check_manifest(manifest: dict, listing: dict, root: Path) -> list[Violation]:
     """ICON_MISSING, PRIVACY_URL_MISSING (1.0.0) and UNKNOWN_KEY_CROSS_TOOL / UNKNOWN_KEY."""
     rel = str(CLAUDE_MANIFEST.relative_to(ROOT))
+    market = str(MARKETPLACE.relative_to(ROOT))
     found = []
-    icon = manifest.get("icon")
+    icon = listing.get("icon")
     if not icon:
-        found.append(Violation("listing-fields", rel, 0, "no 'icon'; the directory listing reads it (not 'logo')"))
+        found.append(Violation("listing-fields", market, 0, "no 'icon'; the directory listing reads it (not 'logo')"))
     elif not (root / ".claude-plugin" / ".." / icon).resolve().is_file():
-        found.append(Violation("listing-fields", rel, 0, f"'icon' points at {icon}, which doesn't exist"))
-    url = manifest.get("privacyPolicyUrl", "")
+        found.append(Violation("listing-fields", market, 0, f"'icon' points at {icon}, which doesn't exist"))
+    url = listing.get("privacyPolicyUrl", "")
     if not url.startswith("https://"):
         found.append(Violation("listing-fields", rel, 0, "'privacyPolicyUrl' must be an https URL"))
-    for key in sorted(set(manifest) - CLAUDE_CODE_KEYS - LISTING_ONLY_KEYS):
-        found.append(Violation("known-keys", rel, 0, f"'{key}' is neither a Claude Code key nor a listing field"))
+    for key in sorted(set(manifest) - CLAUDE_CODE_KEYS):
+        found.append(Violation("known-keys", rel, 0, f"'{key}' is not a Claude Code plugin.json key; listing fields go in marketplace.json"))
     return found
 
 
@@ -196,10 +198,11 @@ def check_fetch_exec(files: list[tuple[str, str]], root: Path) -> list[Violation
 def check(root: Path = ROOT) -> list[Violation]:
     files = tracked_files(root)
     manifest = json.loads((root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    listing = json.loads((root / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))["plugins"][0]
     return (
         check_symlinks(files)
         + check_uninspectable(files, manifest)
-        + check_manifest(manifest, root)
+        + check_manifest(manifest, listing, root)
         + check_fetch_exec(files, root)
     )
 
