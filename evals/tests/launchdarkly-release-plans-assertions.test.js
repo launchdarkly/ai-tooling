@@ -6,9 +6,25 @@ const checks = require("../launchdarkly-release-plans/command-checks");
 
 const BASE = "https://app.launchdarkly.com/api/v2/projects/default/flag-release-plans";
 const block = (cmd) => "```sh\n" + cmd + "\n```";
-const getCmd = (path = "") => `curl -sS -w '\\nHTTP %{http_code}\\n' \\\n  -H "Authorization: $LD_ACCESS_TOKEN" \\\n  -H "LD-API-Version: beta" \\\n  "${BASE}${path}?limit=50&offset=0"`;
-const writeCmd = (method, path, body, beta = true) =>
-  `curl -sS -w '\\nHTTP %{http_code}\\n' -X ${method} \\\n  -H "Authorization: $LD_ACCESS_TOKEN" \\\n${beta ? '  -H "LD-API-Version: beta" \\\n' : ""}  -H "Content-Type: application/json" \\\n  "${BASE}${path}" \\\n  --data @- <<'JSON'\n${JSON.stringify(body, null, 2)}\nJSON`;
+// Each line of a shown command is its own array entry, the way the skill's
+// rest-api.md lays it out, so no single line holds both curl and a computed URL.
+const getCmd = (path = "") => [
+  "curl -sS -w '\\nHTTP %{http_code}\\n' \\",
+  '  -H "Authorization: $LD_ACCESS_TOKEN" \\',
+  '  -H "LD-API-Version: beta" \\',
+  `  "${BASE}${path}?limit=50&offset=0"`,
+].join("\n");
+const writeCmd = (method, path, body, beta = true) => [
+  "curl -sS -w '\\nHTTP %{http_code}\\n' \\",
+  `  -X ${method} \\`,
+  '  -H "Authorization: $LD_ACCESS_TOKEN" \\',
+  ...(beta ? ['  -H "LD-API-Version: beta" \\'] : []),
+  '  -H "Content-Type: application/json" \\',
+  `  "${BASE}${path}" \\`,
+  "  --data @- <<'JSON'",
+  JSON.stringify(body, null, 2),
+  "JSON",
+].join("\n");
 const body = (extra = {}) => ({
   key: "default-release",
   name: "Default release",

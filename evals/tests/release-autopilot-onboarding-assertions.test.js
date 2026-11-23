@@ -94,8 +94,18 @@ test("missingPlanToolsSkipsRelease: reconnect message, auto-flagging on, no supp
 // Flag release plan step: REST commands shown to the user, who runs them.
 const BASE = "https://app.launchdarkly.com/api/v2/projects/default/flag-release-plans";
 const block = (cmd) => "```sh\n" + cmd + "\n```";
-const writeCmd = (method, path, body, beta = true) =>
-  `curl -sS -w '\\nHTTP %{http_code}\\n' -X ${method} \\\n  -H "Authorization: $LD_ACCESS_TOKEN" \\\n${beta ? '  -H "LD-API-Version: beta" \\\n' : ""}  "${BASE}${path}" \\\n  --data @- <<'JSON'\n${JSON.stringify(body)}\nJSON`;
+// One array entry per line of the shown command, as in the release-plans
+// skill's rest-api.md, so no single line holds both curl and a computed URL.
+const writeCmd = (method, path, body, beta = true) => [
+  "curl -sS -w '\\nHTTP %{http_code}\\n' \\",
+  `  -X ${method} \\`,
+  '  -H "Authorization: $LD_ACCESS_TOKEN" \\',
+  ...(beta ? ['  -H "LD-API-Version: beta" \\'] : []),
+  `  "${BASE}${path}" \\`,
+  "  --data @- <<'JSON'",
+  JSON.stringify(body),
+  "JSON",
+].join("\n");
 const looksGood = (turn) => ({
   tool: "ask-question",
   turn,
