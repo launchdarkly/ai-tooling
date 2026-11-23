@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Needs a codebase with an existing LaunchDarkly SDK client. Uses the remotely hosted LaunchDarkly MCP server to confirm data arrives.
 metadata:
   author: launchdarkly
-  version: "0.1.0"
+  version: "0.1.1"
 ---
 
 # LaunchDarkly Observability Plugin Setup
