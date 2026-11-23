@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires an MCP-capable coding agent. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.
 metadata:
   author: launchdarkly
-  version: "0.4.1"
+  version: "0.4.2"
 ---
 
 # LaunchDarkly Onboarding
@@ -43,7 +43,7 @@ Wherever these instructions say "offer the signup link," use the resolved URL. N
 - Work silently between decision points. Do the work without narrating each step. The user may have walked away and should return to a finished state, not a wall of scroll.
 - Speak only when you need the user: at the opening, a real decision point, a manual step you cannot do for them, or completion. Keep it short and lead with the outcome.
 - Make changes on a branch and leave them uncommitted. The user reviews and commits, not you.
-- Install companion skills at the point of need, never upfront.
+- Load nested skills (`mcp-configure`, `sdk-install`) from this skill's folder at the point of need, never upfront. Never install skills with a package launcher.
 - Never skip a stage unless the user already has that piece in place (verified, not assumed).
 - If a stage fails, stop and resolve it before continuing.
 
@@ -160,7 +160,7 @@ On a demo choice, scaffold a minimal app in a new subfolder (e.g. `launchdarkly-
 
 Identify language, framework, and environment type from dependency files (`package.json`, `go.mod`, `requirements.txt`/`pyproject.toml`, `pom.xml`/`build.gradle`, `Gemfile`, `*.csproj`, `Cargo.toml`). Search for existing LaunchDarkly usage (`launchdarkly`, `ldclient`, `LDClient`, `@launchdarkly`). Determine server-side, client-side, or mobile, which drives SDK selection. If LD is already integrated, note the SDK version so install can be skipped.
 
-Detect the coding agent for `--agent` flags: Cursor (`.cursor/`, `.cursorrules`), Claude Code (`~/.claude/`, `CLAUDE.md`), Windsurf (`.windsurfrules`), GitHub Copilot (`.github/copilot/`), Codex (`~/.codex/`, `AGENTS.md`). If ambiguous, ask.
+Detect the coding agent, which decides where [mcp-configure](mcp-configure/SKILL.md) writes the MCP config: Cursor (`.cursor/`, `.cursorrules`), Claude Code (`~/.claude/`, `CLAUDE.md`), Windsurf (`.windsurfrules`), GitHub Copilot (`.github/copilot/`), Codex (`~/.codex/`, `AGENTS.md`). If ambiguous, ask.
 
 ---
 

@@ -28,7 +28,6 @@ Or copy `skills/onboarding/` into your client's skills path.
 ## Prerequisites
 
 - An MCP-capable coding agent (Cursor, Claude Code, Windsurf, GitHub Copilot, and others).
-- `npx` on PATH for optional companion skill installs.
 - A LaunchDarkly account. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.
 
 ## Usage
