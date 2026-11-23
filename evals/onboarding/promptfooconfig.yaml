@@ -204,7 +204,7 @@ tests:
   - description: "Observability: old browser SDK without plugins asks before upgrading"
     vars:
       user_request: >
-        Run `npx skills add launchdarkly/ai-tooling --skill onboarding -y` and onboard me to LaunchDarkly
+        Onboard me to LaunchDarkly
 
         Also add the LaunchDarkly observability plugin for this stack to that client's `plugins` option,
         reusing its key. For a browser app, that's @launchdarkly/observability and
@@ -261,7 +261,7 @@ tests:
   - description: "Observability: unsupported stack says so in one line and continues with flags"
     vars:
       user_request: >
-        Run `npx skills add launchdarkly/ai-tooling --skill onboarding -y` and onboard me to LaunchDarkly
+        Onboard me to LaunchDarkly
 
         Also add the LaunchDarkly observability plugin for this stack to that client's `plugins` option,
         reusing its key. For a browser app, that's @launchdarkly/observability and

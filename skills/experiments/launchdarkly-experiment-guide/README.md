@@ -32,11 +32,7 @@ it reuses the metric and flag skills for those pieces.
 
 ## Installation
 
-From your project's root directory:
-
-```bash
-npx skills add launchdarkly/ai-tooling --skill launchdarkly-experiment-guide -y
-```
+If your agent supports [skills.sh](https://skills.sh), add the `launchdarkly-experiment-guide` skill from `launchdarkly/ai-tooling` with the install command from the skills.sh documentation. Run it from your project's root directory.
 
 ## Prerequisites
 

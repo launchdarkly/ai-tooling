@@ -126,10 +126,7 @@ Once installed, the skills and MCP server are available across all your projects
 git clone https://github.com/launchdarkly/ai-tooling.git
 cd ai-tooling
 
-# If your agent supports skills.sh installs:
-npx skills add launchdarkly/ai-tooling
-
-# Or manually copy a skill into your agent's skills path:
+# Copy a skill into your agent's skills path:
 cp -r skills/feature-flags/launchdarkly-flag-cleanup <your-agent-skills-dir>/
 
 ```
@@ -154,9 +151,7 @@ Remove the `new-checkout-flow` feature flag from this codebase
 
 ## Install via skills.sh CLI
 
-```bash
-npx skills add <owner/repo>
-```
+If your agent supports [skills.sh](https://skills.sh), add this repository, `launchdarkly/ai-tooling`, with the install command from the skills.sh documentation.
 
 ## Contributing
 
