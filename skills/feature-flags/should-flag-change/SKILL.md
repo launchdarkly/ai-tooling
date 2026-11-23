@@ -227,11 +227,14 @@ JSON
 `answer` records it and prints the next question, so keep answering what it
 prints. After the tree's questions come any REPORT-ONLY questions (ids like
 `R1`): answer them the same way; they add to the report but never change the
-result. The last one says so: answer it and run step 4's `decide` in the same
-command, on the line after the heredoc. When `answer` prints `DECIDED`, go to step 4. If it prints `RECHECK` (exit
-5), one question is asked again because two answers disagree: answer the
-question it shows with `ld-factory.pyz answer RUN <id> --recheck`. If it exits 7,
-fetch the LaunchDarkly flags as in step 1, then run `next` again.
+result. The last one says so: run `answer`, wait for it to finish, then run
+step 4's `decide` in a separate Bash tool call. Do not chain `answer` and
+`decide` with `&&`, `;`, a pipe, or redirection. The `decide` output must come
+from that command alone. When `answer` prints `DECIDED`, go to step 4. If it
+prints `RECHECK` (exit 5), one question is asked again because two answers
+disagree: answer the question it shows with `ld-factory.pyz answer RUN <id>
+--recheck`. If it exits 7, fetch the LaunchDarkly flags as in step 1, then run
+`next` again.
 
 **The consumer search, when asked for.** If you answered the question about
 an interface's contract a separate client reads as unresolved because no
