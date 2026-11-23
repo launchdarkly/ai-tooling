@@ -11,7 +11,7 @@ description: Onboarding sample and links for the LaunchDarkly React Native SDK
 
 **Current SDK:** **`@launchdarkly/react-native-client-sdk` v10** (TypeScript, [Expo-compatible](https://launchdarkly.com/docs/sdk/client-side/react/react-native); iOS and Android only—not web). Build **`ReactNativeLDClient`** with the **mobile key**, wrap the app in **`LDProvider`**, and call **`identify(context)`** after mount (no context at construction). **`identify`** uses a **5s timeout by default**; do not strip timeouts in custom configuration.
 
-**Install (non-Expo):** Add **`@react-native-async-storage/async-storage`**, then run **`npx pod-install`** for iOS ([Install the SDK](https://launchdarkly.com/docs/sdk/client-side/react/react-native)).
+**Install (non-Expo):** Add **`@react-native-async-storage/async-storage`**, then install the iOS pods with CocoaPods for iOS ([Install the SDK](https://launchdarkly.com/docs/sdk/client-side/react/react-native)).
 
 **Mobile key:** Resolve a non-empty string at runtime (below uses Expo’s `EXPO_PUBLIC_` env). Bare React Native typically uses **react-native-config** or native build settings—never hardcode keys in source. Logical name: [Apply: environment configuration](../../../sdk-install/apply/SKILL.md#step-2-add-the-sdk-key-to-environment-configuration).
 

@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.2.3"
+  version: "1.2.4"
 ---
 
 # LaunchDarkly Release Autopilot Onboarding
@@ -323,7 +323,7 @@ Then offer the next steps, each in one line. If a change is waiting on an admin,
 
 - **Try it with a test pull request.** If auto-flagging is on and the current workspace is a mapped repo, ask header "Test PR": "Help me open one" or "I'll do it later". For "Help me open one", suggest a small change that should ship behind a flag, and make it on a new branch only after the user agrees. Never push to the default branch or to an existing branch. Show the diff, and open it as a draft pull request only after they approve that diff. Ask header "Open PR" with the diff in the preview of "Open it", or in the question text if the question tool has no preview. Then tell them what to expect: auto-flagging reads it within a few minutes and posts its proposed change on the PR, and nothing changes until someone replies `@launchdarkly approve` or presses Approve on the check. Otherwise, just describe that.
 - **Use LaunchDarkly from the terminal and other agents.** The LaunchDarkly MCP server comes with the plugin from [Prerequisites](#prerequisites). The CLI installs with `brew tap launchdarkly/homebrew-tap && brew install ldcli`, or `npm install -g @launchdarkly/ldcli`.
-- **Flag changes before they reach a pull request.** Coding agents can add the flag themselves while writing the change, with the `should-flag-change` and `flag-and-release-change` skills (`npx skills add https://github.com/launchdarkly/ai-tooling --skill flag-and-release-change`).
+- **Flag changes before they reach a pull request.** Coding agents can add the flag themselves while writing the change, with the `should-flag-change` and `flag-and-release-change` skills, which come with this plugin.
 - If a PR is not classified, use [`launchdarkly-release-autopilot-settings`](../launchdarkly-release-autopilot-settings/SKILL.md#why-didnt-my-pr-get-classified) to diagnose it.
 
 ## Edge Cases

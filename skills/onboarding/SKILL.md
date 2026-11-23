@@ -2,10 +2,10 @@
 name: onboarding
 description: "Scripted onboarding for LaunchDarkly: quiet execution, fixed sequence, SDK install, first flag with a live reveal, MCP offered afterwards. Enforces step completion before advancing and redirects drift. Use when adding LaunchDarkly, setting up or integrating feature flags in a project, SDK integration, or 'onboard me'."
 license: Apache-2.0
-compatibility: Requires an MCP-capable coding agent and `npx` on PATH for optional skill installs. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.
+compatibility: Requires an MCP-capable coding agent. SDK keys, client-side IDs, and mobile keys are only needed when the SDK key step runs.
 metadata:
   author: launchdarkly
-  version: "0.4.0"
+  version: "0.4.1"
 ---
 
 # LaunchDarkly Onboarding
@@ -170,13 +170,7 @@ Do not set up MCP on the way to the first flag, and do not ask about it during s
 
 > "Want to manage flags from your editor next time? I can set that up. **[Set it up] [Skip]**"
 
-If they choose **Set it up**: follow [mcp-configure](mcp-configure/SKILL.md). When that nested skill is not available in the session, install it:
-
-```bash
-npx skills add launchdarkly/ai-tooling --skill mcp-configure -y --agent <detected-agent>
-```
-
-If that fails, check `~/.agents/skills/` and `~/.cursor/skills/` for a cached copy, or configure the server inline using [MCP Config Templates](mcp-configure/references/mcp-config-templates.md). After it succeeds, call `get-projects` once (`projectKey: "default"`) and store `projectKey` and `envKey` (`test`).
+If they choose **Set it up**: follow [mcp-configure](mcp-configure/SKILL.md). It ships inside this skill's folder; when it isn't loaded in the session, read that file and follow it. Do not install skills with a package launcher. If the file is missing, configure the server inline using [MCP Config Templates](mcp-configure/references/mcp-config-templates.md). After it succeeds, call `get-projects` once (`projectKey: "default"`) and store `projectKey` and `envKey` (`test`).
 
 ---
 
@@ -184,11 +178,7 @@ If that fails, check `~/.agents/skills/` and `~/.cursor/skills/` for a cached co
 
 Install the SDK and wire up initialization automatically. Do not ask how, and do not explain what the SDK is. Tell the user one line: "Scan complete. Installing SDK." Then proceed.
 
-Hand off to [sdk-install](sdk-install/SKILL.md) with the stack context from Step 1. It runs detect, plan, and apply: selects the package, installs it, and wires initialization to match the codebase. When that nested skill is not available in the session, install it:
-
-```bash
-npx skills add launchdarkly/ai-tooling --skill sdk-install -y --agent <detected-agent>
-```
+Hand off to [sdk-install](sdk-install/SKILL.md) with the stack context from Step 1. It runs detect, plan, and apply: selects the package, installs it, and wires initialization to match the codebase. It ships inside this skill's folder; when it isn't loaded in the session, read [sdk-install/SKILL.md](sdk-install/SKILL.md) and follow it. Do not install skills with a package launcher.
 
 When the app was scaffolded by the agent in Step 1, skip the nested skill and use the fast path directly (the stack is known; skip `npm run build`):
 
@@ -323,7 +313,6 @@ Never silently dump code with no tradeoff, and never rigidly refuse. If they ins
 - **MCP already configured:** Use it. Skip the Step 2 offer. Call `get-projects` to store keys and continue.
 - **Deprecated mcp/aiconfigs or mcp/fm found:** Both are deprecated. Ask before migrating to the unified `https://mcp.launchdarkly.com/mcp` server. Do not auto-migrate.
 - **No supported agent detected:** Ask directly. Provide manual config if needed.
-- **npx not available:** Provide manual skill installation (clone repo, copy skill directories).
 - **User only wants partial setup:** Respect it. State what is missing and what that limits.
 - **Non-LaunchDarkly dependencies would have to change** (peer-dep bumps, lockfile churn) to install or compile the SDK: get explicit approval first, per [Apply code changes](sdk-install/apply/SKILL.md).
 
