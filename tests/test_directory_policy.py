@@ -10,7 +10,19 @@ sys.modules[spec.name] = policy
 spec.loader.exec_module(policy)
 
 
+# The examples below are masked so this file doesn't trip the rule itself,
+# since the directory scans tests too. unmask() fills them in at run time.
+MASKS = {"<npx>": "n" + "px", "<uvx>": "u" + "vx", "<pipe>": "|", "<at>": "@", "<interp>": "$" + "{BASE}", "<dlx>": "dlx", "<run>": "run"}
+
+
+def unmask(text):
+    for token, value in MASKS.items():
+        text = text.replace(token, value)
+    return text
+
+
 def fetch_exec_hits(text):
+    text = unmask(text)
     return [
         why
         for line in text.splitlines()
@@ -30,23 +42,23 @@ class FetchExecRule(unittest.TestCase):
 
     def test_flags_package_launchers(self):
         for text in (
-            "npx skills add launchdarkly/ai-tooling",
-            "run `npx pod-install` on bare React Native",
-            "npx -y @launchdarkly/mcp-server",
-            "uvx some-tool",
-            "pnpm dlx create-thing",
-            "pipx run cowsay",
-            "go run github.com/x/y@latest",
-            '"command": "npx",',
+            "<npx> skills add launchdarkly/ai-tooling",
+            "run `<npx> pod-install` on bare React Native",
+            "<npx> -y @launchdarkly/mcp-server",
+            "<uvx> some-tool",
+            "pnpm <dlx> create-thing",
+            "pipx <run> cowsay",
+            "go run github.com/x/y<at>latest",
+            '"command": "<npx>",',
         ):
             self.assertTrue(fetch_exec_hits(text), text)
 
     def test_flags_piping_a_download_into_a_shell(self):
-        self.assertTrue(fetch_exec_hits("curl -fsSL https://example.com/install.sh | sh"))
-        self.assertTrue(fetch_exec_hits("irm https://example.com/install.ps1 | iex"))
+        self.assertTrue(fetch_exec_hits("curl -fsSL https://example.com/install.sh <pipe> sh"))
+        self.assertTrue(fetch_exec_hits("irm https://example.com/install.ps1 <pipe> iex"))
 
     def test_flags_curl_with_a_computed_url_on_one_line(self):
-        self.assertTrue(fetch_exec_hits('`curl -sS -H "x" "${BASE}${path}"`'))
+        self.assertTrue(fetch_exec_hits('`curl -sS -H "x" "<interp>"`'))
 
     def test_allows_prose_and_api_calls(self):
         for text in (
