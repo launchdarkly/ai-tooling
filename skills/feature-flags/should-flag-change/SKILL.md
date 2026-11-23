@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: "Advisory and read-only. Needs a git checkout with the change committed (shallow is fine; a --filter partial clone is filled in from its remote), a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools when available, and works without them. When it can't run (no shell, no checkout), it decides by judgment instead, from references/NO_CHECKOUT.md. Returns a structured verdict as a `recommend-flag` block."
 metadata:
   author: launchdarkly
-  version: "0.5.3"
+  version: "0.5.4"
   graph: "07355490e985"
 ---
 
@@ -227,14 +227,11 @@ JSON
 `answer` records it and prints the next question, so keep answering what it
 prints. After the tree's questions come any REPORT-ONLY questions (ids like
 `R1`): answer them the same way; they add to the report but never change the
-result. The last one says so: run `answer`, wait for it to finish, then run
-step 4's `decide` in a separate Bash tool call. Do not chain `answer` and
-`decide` with `&&`, `;`, a pipe, or redirection. The `decide` output must come
-from that command alone. When `answer` prints `DECIDED`, go to step 4. If it
-prints `RECHECK` (exit 5), one question is asked again because two answers
-disagree: answer the question it shows with `ld-factory.pyz answer RUN <id>
---recheck`. If it exits 7, fetch the LaunchDarkly flags as in step 1, then run
-`next` again.
+result. The last one says so: answer it. When `answer` prints `DECIDED`, go to
+step 4. If it prints `RECHECK` (exit 5), one question is asked again because
+two answers disagree: answer the question it shows with `ld-factory.pyz answer
+RUN <id> --recheck`. If it exits 7, fetch the LaunchDarkly flags as in step 1,
+then run `next` again.
 
 **The consumer search, when asked for.** If you answered the question about
 an interface's contract a separate client reads as unresolved because no
@@ -323,8 +320,10 @@ ld-factory.pyz decide RUN
 
 It checks every citation against the evidence (an answer whose citations
 don't check out counts as unresolved), walks the tree, and prints the result.
-Run it as is, with its whole output: don't pipe it through `grep`, `sed`,
-`head` or `tail`. The output holds the `should-i-flag-record` the decision is
+Run it in its own shell command, with its whole output. Do not put another
+command before or after it in the same call, including with `&&`, `;`, a pipe,
+redirection, or a newline. Do not filter its output through `grep`, `sed`,
+`head`, or `tail`. The output holds the `should-i-flag-record` the decision is
 reviewed from (step 5), and a filtered one loses it.
 
 | Exit | Meaning | What you do |
