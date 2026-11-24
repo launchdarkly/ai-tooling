@@ -5,7 +5,7 @@ code around the change behind a flag that's still off for real users? Is
 there an existing flag this change should reuse? Those are answered
 mechanically from each flag's current state in LaunchDarkly.
 
-- **With your LaunchDarkly tools:** `ld-factory.pyz` exits 7 and prints the list of
+- **With your LaunchDarkly tools:** `ld-factory` exits 7 and prints the list of
   flags it needs, one `<project>  <key>` per line, with the environments to read. The same
   list is in `RUN/launchdarkly-needed.txt`. Fetch each with whatever LaunchDarkly tools you have
   and write it as below, then run the same command again. It may ask for a
@@ -103,7 +103,7 @@ every environment listed in `launchdarkly-needed.txt` that the flag has:
   rule's `disabled`: dropped, a disabled rule reads as live. Keep one
   result's `variations` as returned, each with its `index`: the tool may
   list them out of index order, and values alone would then bind the wrong
-  indexes (write bare values only in index order). `ld-factory.pyz` converts this
+  indexes (write bare values only in index order). `ld-factory` converts this
   to the shape above itself, so don't reshape it. A variation can be just
   its index (`"off_variation": 1`). A result the tool marked as an error
   leaves that environment out:

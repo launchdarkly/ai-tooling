@@ -14,7 +14,7 @@ exited 0 with these lines as leads: the evidence notes them, and the gate
 search follows the GAP lines and reports any that gate the change. Repair
 only when it's worth it: the leads are many, or keep naming the same helper,
 so a pattern would read them (on this run and later ones) better than
-following each by hand. Otherwise skip this page and go on with `ld-factory.pyz next
+following each by hand. Otherwise skip this page and go on with `ld-factory next
 {RUN}`.
 
 - **GAP**: a flag key written in a changed file where the profile found no
@@ -67,7 +67,7 @@ Then write `{RUN}/profile_fix.json`:
   should no longer).
 - `not_a_problem`: listed lines that need no change, and why.
 
-Then run `ld-factory.pyz profile {RUN}`. It checks each example against the commit and
+Then run `ld-factory profile {RUN}`. It checks each example against the commit and
 re-reads the changed files with your additions. It saves the additions for
 this repo only if every gap example now has a flag check and every suspect
 example none; otherwise it says which line failed, once, and you may fix it

@@ -1,0 +1,563 @@
+{
+ "version": "1.1",
+ "predicates": "predicates.yaml",
+ "entry": "N0",
+ "verdicts": {
+  "not-suited": {
+   "recommend": false
+  },
+  "already-flagged": {
+   "recommend": false
+  },
+  "reuse-existing": {
+   "recommend": true,
+   "requires": [
+    "reuse_flag_key"
+   ]
+  },
+  "suggested": {
+   "recommend": true
+  }
+ },
+ "nodes": [
+  {
+   "id": "N0",
+   "predicate": "U1",
+   "layer": "unit",
+   "if_yes": "N1",
+   "if_no": "E-UNIT"
+  },
+  {
+   "id": "N1",
+   "predicate": "P1",
+   "layer": "runtime-reach",
+   "if_yes": "N2",
+   "if_no": "T-NS-1"
+  },
+  {
+   "id": "N2",
+   "predicate": "P2",
+   "layer": "runtime-reach",
+   "if_yes": "N3",
+   "if_no": "T-NS-2"
+  },
+  {
+   "id": "N3",
+   "predicate": "P3",
+   "layer": "shape-exception",
+   "if_yes": "N32",
+   "if_no": "N4"
+  },
+  {
+   "id": "N32",
+   "predicate": "P32",
+   "layer": "shape-exception",
+   "if_yes": "T-RE-2",
+   "if_no": "T-NS-3"
+  },
+  {
+   "id": "N4",
+   "predicate": "P4",
+   "layer": "shape-exception",
+   "if_yes": "T-NS-4",
+   "if_no": "N5"
+  },
+  {
+   "id": "N5",
+   "predicate": "P5",
+   "layer": "protection",
+   "if_yes": "T-AF-1",
+   "if_no": "N6"
+  },
+  {
+   "id": "N6",
+   "predicate": "P6",
+   "layer": "protection",
+   "if_yes": "N7",
+   "if_no": "N9"
+  },
+  {
+   "id": "N7",
+   "predicate": "P7",
+   "layer": "protection",
+   "if_yes": "N8",
+   "if_no": "E-STATE"
+  },
+  {
+   "id": "N8",
+   "predicate": "P8",
+   "layer": "protection",
+   "if_yes": "T-AF-2",
+   "if_no": "N33"
+  },
+  {
+   "id": "N33",
+   "predicate": "P33",
+   "layer": "protection",
+   "if_yes": "N9B",
+   "if_no": "N9A"
+  },
+  {
+   "id": "N9",
+   "predicate": "P9",
+   "layer": "reuse",
+   "if_yes": "N10",
+   "if_no": "N15"
+  },
+  {
+   "id": "N10",
+   "predicate": "P11",
+   "layer": "reuse",
+   "if_yes": "N11",
+   "if_no": "N15"
+  },
+  {
+   "id": "N11",
+   "predicate": "P10",
+   "layer": "reuse",
+   "if_yes": "N12",
+   "if_no": "N15"
+  },
+  {
+   "id": "N12",
+   "predicate": "P12",
+   "layer": "reuse",
+   "if_yes": "N13",
+   "if_no": "N15"
+  },
+  {
+   "id": "N13",
+   "predicate": "P13",
+   "layer": "reuse-exit",
+   "if_yes": "T-SG-1",
+   "if_no": "T-RE-1"
+  },
+  {
+   "id": "N9A",
+   "predicate": "P9",
+   "layer": "reuse",
+   "if_yes": "N10A",
+   "if_no": "N15"
+  },
+  {
+   "id": "N10A",
+   "predicate": "P11",
+   "layer": "reuse",
+   "if_yes": "N11A",
+   "if_no": "N15"
+  },
+  {
+   "id": "N11A",
+   "predicate": "P10",
+   "layer": "reuse",
+   "if_yes": "N12A",
+   "if_no": "N15"
+  },
+  {
+   "id": "N12A",
+   "predicate": "P12",
+   "layer": "reuse",
+   "if_yes": "N13A",
+   "if_no": "N15"
+  },
+  {
+   "id": "N13A",
+   "predicate": "P13",
+   "layer": "reuse-exit",
+   "if_yes": "T-SG-1",
+   "if_no": "T-AF-3"
+  },
+  {
+   "id": "N9B",
+   "predicate": "P9",
+   "layer": "reuse",
+   "if_yes": "N10B",
+   "if_no": "N13C"
+  },
+  {
+   "id": "N10B",
+   "predicate": "P11",
+   "layer": "reuse",
+   "if_yes": "N11B",
+   "if_no": "N13C"
+  },
+  {
+   "id": "N11B",
+   "predicate": "P10",
+   "layer": "reuse",
+   "if_yes": "N12B",
+   "if_no": "N13C"
+  },
+  {
+   "id": "N12B",
+   "predicate": "P12",
+   "layer": "reuse",
+   "if_yes": "N13B",
+   "if_no": "N13C"
+  },
+  {
+   "id": "N13B",
+   "predicate": "P13",
+   "layer": "reuse-exit",
+   "if_yes": "T-SG-1",
+   "if_no": "T-AF-3"
+  },
+  {
+   "id": "N13C",
+   "predicate": "P13",
+   "layer": "reuse-exit",
+   "if_yes": "N15",
+   "if_no": "T-AF-4"
+  },
+  {
+   "id": "N15",
+   "predicate": "P15",
+   "layer": "battery",
+   "if_yes": "T-SG-3",
+   "if_no": "N18"
+  },
+  {
+   "id": "N18",
+   "predicate": "P18",
+   "layer": "battery",
+   "if_yes": "N18C",
+   "if_no": "N19"
+  },
+  {
+   "id": "N19",
+   "predicate": "P19",
+   "layer": "battery",
+   "if_yes": "N19F",
+   "if_no": "N20"
+  },
+  {
+   "id": "N19F",
+   "predicate": "P23",
+   "layer": "signal-counter",
+   "if_yes": "T-NS-7",
+   "if_no": "T-SG-7"
+  },
+  {
+   "id": "N20",
+   "predicate": "P20",
+   "layer": "battery",
+   "if_yes": "N20C",
+   "if_no": "N27"
+  },
+  {
+   "id": "N27",
+   "predicate": "P27",
+   "layer": "battery",
+   "if_yes": "N27C",
+   "if_no": "N30"
+  },
+  {
+   "id": "N30",
+   "predicate": "P30",
+   "layer": "battery",
+   "if_yes": "N30F",
+   "if_no": "N21"
+  },
+  {
+   "id": "N30F",
+   "predicate": "P23",
+   "layer": "signal-counter",
+   "if_yes": "T-NS-7",
+   "if_no": "T-SG-12"
+  },
+  {
+   "id": "N18C",
+   "predicate": "P26",
+   "layer": "signal-counter",
+   "if_yes": "N18V",
+   "if_no": "N18B"
+  },
+  {
+   "id": "N18V",
+   "predicate": "P21",
+   "layer": "signal-counter",
+   "if_yes": "N18VP",
+   "if_no": "T-NS-8"
+  },
+  {
+   "id": "N18VP",
+   "predicate": "P22",
+   "layer": "signal-counter",
+   "if_yes": "T-NS-6",
+   "if_no": "N18VF"
+  },
+  {
+   "id": "N18VF",
+   "predicate": "P23",
+   "layer": "signal-counter",
+   "if_yes": "T-NS-7",
+   "if_no": "N18BF"
+  },
+  {
+   "id": "N20C",
+   "predicate": "P26",
+   "layer": "signal-counter",
+   "if_yes": "N20V",
+   "if_no": "N20B"
+  },
+  {
+   "id": "N20V",
+   "predicate": "P21",
+   "layer": "signal-counter",
+   "if_yes": "N20VP",
+   "if_no": "T-NS-8"
+  },
+  {
+   "id": "N20VP",
+   "predicate": "P22",
+   "layer": "signal-counter",
+   "if_yes": "T-NS-6",
+   "if_no": "N20VF"
+  },
+  {
+   "id": "N20VF",
+   "predicate": "P23",
+   "layer": "signal-counter",
+   "if_yes": "T-NS-7",
+   "if_no": "N20BF"
+  },
+  {
+   "id": "N27C",
+   "predicate": "P28",
+   "layer": "signal-counter",
+   "if_yes": "N27V",
+   "if_no": "T-SG-10"
+  },
+  {
+   "id": "N27V",
+   "predicate": "P21",
+   "layer": "signal-counter",
+   "if_yes": "N27VP",
+   "if_no": "T-NS-8"
+  },
+  {
+   "id": "N27VP",
+   "predicate": "P22",
+   "layer": "signal-counter",
+   "if_yes": "T-NS-6",
+   "if_no": "N27VF"
+  },
+  {
+   "id": "N27VF",
+   "predicate": "P23",
+   "layer": "signal-counter",
+   "if_yes": "T-NS-7",
+   "if_no": "T-SG-9"
+  },
+  {
+   "id": "N18B",
+   "predicate": "P31",
+   "layer": "blast-radius",
+   "if_yes": "T-NS-11",
+   "if_no": "T-SG-6"
+  },
+  {
+   "id": "N20B",
+   "predicate": "P31",
+   "layer": "blast-radius",
+   "if_yes": "T-NS-11",
+   "if_no": "T-SG-8"
+  },
+  {
+   "id": "N18BF",
+   "predicate": "P31",
+   "layer": "blast-radius",
+   "if_yes": "T-NS-11",
+   "if_no": "T-SG-9"
+  },
+  {
+   "id": "N20BF",
+   "predicate": "P31",
+   "layer": "blast-radius",
+   "if_yes": "T-NS-11",
+   "if_no": "T-SG-9"
+  },
+  {
+   "id": "N21",
+   "predicate": "P21",
+   "layer": "veto",
+   "if_yes": "N22",
+   "if_no": "T-NS-5"
+  },
+  {
+   "id": "N22",
+   "predicate": "P22",
+   "layer": "veto-refinement",
+   "if_yes": "T-NS-6",
+   "if_no": "N23"
+  },
+  {
+   "id": "N23",
+   "predicate": "P23",
+   "layer": "veto-refinement",
+   "if_yes": "T-NS-7",
+   "if_no": "N25"
+  },
+  {
+   "id": "N25",
+   "predicate": "P25",
+   "layer": "veto-refinement",
+   "if_yes": "T-NS-9",
+   "if_no": "T-NS-10"
+  }
+ ],
+ "terminals": [
+  {
+   "id": "T-NS-1",
+   "verdict": "not-suited",
+   "reason": "Nothing changed ships into a runtime artifact."
+  },
+  {
+   "id": "T-NS-2",
+   "verdict": "not-suited",
+   "reason": "Everything that ships is a behavior-preserving transformation."
+  },
+  {
+   "id": "T-NS-3",
+   "verdict": "not-suited",
+   "reason": "The change only removes a flag evaluation and keeps one variation, and no real customer who reaches the changed code still gets the deleted variation. A removal does not warrant a new flag.",
+   "must_record": "the removed key's rollout completeness at merge date"
+  },
+  {
+   "id": "T-NS-4",
+   "verdict": "not-suited",
+   "reason": "The change only teaches a reader a format no writer emits yet. Gating it would break reads once new-format data exists."
+  },
+  {
+   "id": "T-NS-5",
+   "verdict": "not-suited",
+   "reason": "Behavior changes, but no real user perceives a difference and no reason to flag (P15, P18, P19, P20, P27) applies."
+  },
+  {
+   "id": "T-NS-6",
+   "verdict": "not-suited",
+   "reason": "A real user sees the change, but only its presentation changes: styling, layout, markup, static copy, or accessibility attributes."
+  },
+  {
+   "id": "T-NS-8",
+   "verdict": "not-suited",
+   "reason": "A signal fired -- an announcement, a default or interaction change, or new work on a shared path -- but the change behind it reads as a repair, hardening, presentation, not-yet-live plumbing, or operational records with nothing else arguing for a flag (P26), or the new work is contained (P28), and no real user perceives a difference."
+  },
+  {
+   "id": "T-NS-9",
+   "verdict": "not-suited",
+   "review": "spot-check",
+   "reason": "A real user perceives the change and no signal fired, but it reads as a repair, hardening, not-yet-live plumbing, operational records, a redundant affordance, or not gateable, with nothing arguing for a flag: not-suited, for a reviewer to spot-check."
+  },
+  {
+   "id": "T-NS-10",
+   "verdict": "not-suited",
+   "review": "spot-check",
+   "reason": "A real user perceives the change, no signal fired, and nothing argues for a flag -- it is neither only presentation, only the outcome of what already fails, nor one of the taxonomy's orders. No reason to flag is a reason not to: not-suited, for a reviewer to spot-check. A ruling that it needed a flag names a signal the battery is missing."
+  },
+  {
+   "id": "T-NS-7",
+   "verdict": "not-suited",
+   "reason": "The change only alters the outcome of requests or inputs that fail at merge_base. A flag's off arm would only restore the failure."
+  },
+  {
+   "id": "T-NS-11",
+   "verdict": "not-suited",
+   "review": "spot-check",
+   "reason": "A signal fired, but a mistake would reach few users, be plain to see and be undone by a revert, so a flag adds little."
+  },
+  {
+   "id": "T-AF-1",
+   "verdict": "already-flagged",
+   "reason": "The diff wires a flag evaluation enclosing every changed path.",
+   "must_record": "the key"
+  },
+  {
+   "id": "T-AF-2",
+   "verdict": "already-flagged",
+   "reason": "An ancestor gate encloses every changed path, its state was resolved, and it withholds the behavior from all real users.",
+   "must_record": "the key and its per-environment state with a basis per field"
+  },
+  {
+   "id": "T-AF-3",
+   "verdict": "already-flagged",
+   "reason": "An ancestor gate encloses every changed path, and the change belongs to a feature whose key is still withheld from some real users, covers the whole change, and has no separate release stated. It is on for some real users, but it can still switch this change off (ruling R1).",
+   "must_record": "the key and its per-environment state with a basis per field"
+  },
+  {
+   "id": "T-AF-4",
+   "verdict": "already-flagged",
+   "reason": "An ancestor gate encloses every changed path and still holds the change back from some real users in the main production environment -- off there, or on only for a cohort or a partial rollout -- and no separate release is stated. Turning that flag off still protects those customers.",
+   "must_record": "the key and its main-production state with a basis"
+  },
+  {
+   "id": "T-RE-1",
+   "verdict": "reuse-existing",
+   "reason": "One existing key, still withheld from some real users, gates the feature this change belongs to, its off arm withholds the whole change, and nothing distinguishes the two releases.",
+   "must_record": "reuse_flag_key"
+  },
+  {
+   "id": "T-RE-2",
+   "verdict": "reuse-existing",
+   "reason": "The change deletes a flag that still serves the deleted variation to real customers who reach the changed code. Keep the flag and finish the rollout before removing it.",
+   "must_record": "reuse_flag_key",
+   "reuse_key_from": "P32"
+  },
+  {
+   "id": "T-SG-1",
+   "verdict": "suggested",
+   "reason": "A reuse candidate covers the change, but this is a separable release."
+  },
+  {
+   "id": "T-SG-3",
+   "verdict": "suggested",
+   "reason": "The diff adds a surface a non-employee user can reach."
+  },
+  {
+   "id": "T-SG-6",
+   "verdict": "suggested",
+   "reason": "Announcement-class content appears without the user asking for it."
+  },
+  {
+   "id": "T-SG-7",
+   "verdict": "suggested",
+   "reason": "The observable contract of a published interface changes."
+  },
+  {
+   "id": "T-SG-12",
+   "verdict": "suggested",
+   "reason": "The change reworks a path customers already use in a way that can fail them -- a new call or write, a retargeted one, a cache, a condition that fails closed, a new action, a removed capability or a stored-data change -- shown line by line from the changed code to the customer entry point."
+  },
+  {
+   "id": "T-SG-8",
+   "verdict": "suggested",
+   "reason": "An interaction on an existing screen changes for users who did not opt in."
+  },
+  {
+   "id": "T-SG-10",
+   "verdict": "suggested",
+   "reason": "New per-request, per-record, or per-session work lands on a production path every customer's traffic runs through."
+  },
+  {
+   "id": "T-SG-9",
+   "verdict": "suggested",
+   "reason": "A signal fired, but the change behind it reads as a repair, hardening, presentation, not-yet-live plumbing, or operational records with nothing else arguing for a flag (P26), or the new work is contained (P28); a real user perceives the change, so weigh whether a flag buys a useful off-switch."
+  }
+ ],
+ "escalations": [
+  {
+   "id": "E-UNIT",
+   "trigger": "U1 is NO",
+   "question_for_human": "What is the correct diff unit for this PR?",
+   "resolution_shape": "Not a graph change. Fix the pin or the base, then re-walk. If a whole CLASS of pin is mis-resolving, U1's procedure needs a new clause -- that is a predicate edit, not a new node."
+  },
+  {
+   "id": "E-STATE",
+   "trigger": "P7 is NO -- enclosing gate state unreadable",
+   "question_for_human": "Was this change protected from real users at merge date, and on what evidence?",
+   "resolution_shape": "Prefer RESOLVING the state over ruling on the case: a ruling here answers one PR, a reader answers all of them. Escalate as a data gap first. Only if the state is genuinely unrecoverable does this become a node question, and then the new node must be an observable that does not need the state.",
+   "do_not": "Do not add a default edge here. Both defaults are guesses, and a default is indeterminism with a confident face on it."
+  }
+ ],
+ "graph_hash": "07355490e985"
+}

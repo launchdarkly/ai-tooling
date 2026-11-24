@@ -1,0 +1,6 @@
+{
+ "default": [
+  "Create the flag in LaunchDarkly. The launchdarkly-flag-create skill can help.",
+  "Wrap the change in a check of the flag at the spot named above, then roll it out gradually."
+ ]
+}

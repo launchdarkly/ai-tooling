@@ -2,7 +2,7 @@
 
 Use this page only when [SKILL.md](../SKILL.md) sends you here: there's no shell,
 `python3` or `git`, no checkout of the change (for example, only a pasted diff),
-or `ld-factory.pyz` can't run. Follow it from the start, and don't mix in
+or `ld-factory` can't run. Follow it from the start, and don't mix in
 anything from the decision tree. It's the judgment-based procedure this skill
 used before the decision tree (0.4.0).
 

@@ -1,7 +1,7 @@
 # Gate search
 
 Check this change for a LaunchDarkly flag that already gates it: a flag that
-must be ON for the changed code to run or be seen. `ld-factory.pyz start` built the
+must be ON for the changed code to run or be seen. `ld-factory start` built the
 evidence; it finds a flag when the flag is evaluated near the changed code or
 in a caller a few levels up. Your job is the gates it can miss.
 
@@ -14,7 +14,7 @@ THE CHANGE
   See the change with `git -C {CHECKOUT} diff {BASE}...{HEAD}`.
 - The evidence, including the PR text and the flags already found:
   {RUN}/evidence.txt. Read its FLAG EVALUATION SITES and REFERENCED FILES
-  sections, and the gates listed in `ld-factory.pyz next`'s P6 question if you have
+  sections, and the gates listed in `ld-factory next`'s P6 question if you have
   seen it, so you don't report what is already there.
 
 CLIENT REPOSITORIES
@@ -69,7 +69,7 @@ evaluated, the line where its value decides (a condition, a ternary, a guard
 that returns, a class toggle, a registration), and the line where the changed
 code is rendered, called, styled or registered under that decision, with every
 step between them that isn't obvious (an import, a hook call, a prop pass).
-Every link is a real line at {HEAD}, quoted exactly; `ld-factory.pyz gates` checks
+Every link is a real line at {HEAD}, quoted exactly; `ld-factory gates` checks
 each one, and a link that doesn't match drops the whole gate.
 
 Don't report a flag evaluated near the code but not deciding whether it runs,
@@ -103,7 +103,7 @@ under `covered_units`:
   `note`).
 - Lines that declare or register the unit without calling it (an interface
   method, a route table entry, an `export default`) go in `declared_at`.
-- `ld-factory.pyz gates` checks every quoted line, checks each gated caller's chain
+- `ld-factory gates` checks every quoted line, checks each gated caller's chain
   like a gate, and searches {HEAD} for the name (and route) itself: a
   reference in shipping code you didn't list drops the whole claim. A name
   another symbol also uses will drop it too; that is expected.
@@ -166,7 +166,7 @@ it under `data_gates`:
 - `other_uses`: every other line at {HEAD} in shipping code that names
   `name`: reads, declarations (a struct field, a column a migration adds
   empty), registrations. Imports need no listing.
-- `ld-factory.pyz gates` checks every quoted line, checks each gated writer's chain
+- `ld-factory gates` checks every quoted line, checks each gated writer's chain
   like a gate, and searches {HEAD} for `name`: a line in shipping code you
   didn't list drops the whole claim. A line that writes the records is a
   writer even where it also reads them: listing it as an other use hides
@@ -179,7 +179,7 @@ Read-only: don't modify the repository or a client checkout, create or change
 flags, or use the network.
 
 Write ONLY this JSON to {RUN}/gates.json, then run
-`python3 {SKILL_DIR}/ld-factory.pyz gates {RUN}`:
+`python3 {SKILL_DIR}/ld-factory gates {RUN}`:
 
 {"gates": [{"key": "the-flag-key", "how": "route | layout | helper | hook | caller | handler | css | config | other",
             "covers": "all | part", "covers_note": "which changed hunks it gates, if part",

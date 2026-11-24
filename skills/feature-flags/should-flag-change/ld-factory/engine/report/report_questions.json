@@ -1,0 +1,9 @@
+[
+ {
+  "id": "R1",
+  "reason": "It changes how data or settings customers already saved are read, matched, or applied.",
+  "question": "Does a behavior-carrying hunk change how data or settings customers already saved are read, matched, or applied?",
+  "procedure": "YES if, for records customers created before this change -- saved\nrules, filters, queries, settings, configuration, stored documents --\na hunk changes what the product does with them: a stored value or form\nit no longer accepts or recognizes, a stored field now read with a\ndifferent meaning, default, or unit, or a saved rule that now matches\nor applies to a different set of things. Cite the hunk and the code\nthat reads those records.\n\nHandling of a form at merge_base is the evidence that records in that\nform can exist: a hunk that removes or narrows it is YES without proof\nof how many there are.\n\nNO when only new writes change: validation that rejects bad input at\nsave time leaves records already saved as they were, unless the same\ncheck also runs when they are read or applied. NO when the change adds\na new field or form and reads existing records exactly as before. NO\nfor a move, copy, or swap of stored records that keeps their values\nand meaning -- a rebuilt table, a new index, a renamed physical table\nbehind the same logical name.\n\nA record that was misread at merge_base and is now read as intended is\nstill YES: its behavior changes.\n",
+  "unresolved_when": "The stored records are written or read by a service outside the tree,\nand the packet does not show whether the form the change drops or\nreinterprets is one that service writes.\n"
+ }
+]

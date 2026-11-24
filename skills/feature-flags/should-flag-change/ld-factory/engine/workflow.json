@@ -1,0 +1,688 @@
+{
+ "version": "1.1",
+ "predicates": "predicates.yaml",
+ "entry": "W0",
+ "verdicts": {
+  "not-suited": {
+   "recommend": false
+  },
+  "already-flagged": {
+   "recommend": false
+  },
+  "reuse-existing": {
+   "recommend": true,
+   "requires": [
+    "reuse_flag_key"
+   ]
+  },
+  "suggested": {
+   "recommend": true
+  }
+ },
+ "nodes": [
+  {
+   "id": "W0",
+   "question": "Is the diff under test the PR's own change against its true merge base?",
+   "reads": [
+    "U1"
+   ],
+   "step": "establish the unit",
+   "edges": [
+    {
+     "answer": "no \u2014 the unit cannot be established",
+     "when": [
+      "not",
+      "U1"
+     ],
+     "to": "E-UNIT"
+    },
+    {
+     "answer": "yes",
+     "when": "default",
+     "to": "W1"
+    }
+   ]
+  },
+  {
+   "id": "W1",
+   "question": "What does this diff change?",
+   "reads": [
+    "P1",
+    "P2",
+    "P3",
+    "P4"
+   ],
+   "step": "classify the change",
+   "note": "Collapses the tree's N1-N4. A reviewer classifies the shape of a change once; the tree asks it as four yes/no questions in sequence.",
+   "edges": [
+    {
+     "answer": "nothing that reaches a runtime artifact",
+     "when": [
+      "not",
+      "P1"
+     ],
+     "to": "T-NS-1"
+    },
+    {
+     "answer": "only behaviour-preserving transformations",
+     "when": [
+      "not",
+      "P2"
+     ],
+     "to": "T-NS-2"
+    },
+    {
+     "answer": "only removes a flag evaluation, keeping one variation",
+     "when": [
+      "P3"
+     ],
+     "to": "W1R"
+    },
+    {
+     "answer": "only teaches a reader a format no writer emits yet",
+     "when": [
+      "P4"
+     ],
+     "to": "T-NS-4"
+    },
+    {
+     "answer": "a behaviour-carrying change",
+     "when": "default",
+     "to": "W2"
+    }
+   ]
+  },
+  {
+   "id": "W1R",
+   "question": "Does deleting that flag change what real customers get?",
+   "reads": [
+    "P32"
+   ],
+   "step": "weigh the removal",
+   "edges": [
+    {
+     "answer": "yes -- it still serves the deleted variation to real customers who reach the changed code",
+     "when": [
+      "P32"
+     ],
+     "to": "T-RE-2"
+    },
+    {
+     "answer": "no -- every real customer who reaches it already gets the kept variation",
+     "when": "default",
+     "to": "T-NS-3"
+    }
+   ]
+  },
+  {
+   "id": "W2",
+   "question": "What gates the changed paths?",
+   "reads": [
+    "P5",
+    "P6"
+   ],
+   "step": "locate the gate",
+   "edges": [
+    {
+     "answer": "a gate this diff itself wires, over every changed path",
+     "when": [
+      "P5"
+     ],
+     "to": "T-AF-1"
+    },
+    {
+     "answer": "a pre-existing ancestor gate, over every changed path",
+     "when": [
+      "P6"
+     ],
+     "to": "W3"
+    },
+    {
+     "answer": "nothing encloses every changed path",
+     "when": "default",
+     "to": "W4"
+    }
+   ]
+  },
+  {
+   "id": "W3",
+   "question": "What was that ancestor gate's evaluated state at the merge date?",
+   "reads": [
+    "P7",
+    "P8"
+   ],
+   "step": "resolve the gate state",
+   "note": "Three answers, which is the natural shape of the question and the reason this node exists. The tree splits it into N7 (is it readable) and N8 (does it withhold); a reviewer asks once and gets one of three.",
+   "edges": [
+    {
+     "answer": "unreadable \u2014 cannot be determined at the merge date",
+     "when": [
+      "not",
+      "P7"
+     ],
+     "to": "E-STATE"
+    },
+    {
+     "answer": "withholding the change from all real users",
+     "when": [
+      "P8"
+     ],
+     "to": "T-AF-2"
+    },
+    {
+     "answer": "exposing the change to some real users",
+     "when": "default",
+     "to": "W4"
+    }
+   ]
+  },
+  {
+   "id": "W4",
+   "question": "Is there an existing key that could cover this change?",
+   "reads": [
+    "P9",
+    "P11",
+    "P10",
+    "P12",
+    "P6",
+    "P33"
+   ],
+   "step": "hunt for a reusable key",
+   "note": "One question; the four predicates are how it is answered, not four separate steps. ONE candidate qualifies only if it exists at merge_base, still withholds its feature from someone, is the key of the feature this change belongs to, and its off arm would cover the whole change -- the same key for all four. With none, a change whose enclosing gate still holds it back in main production (P6, P33; reached only past W3's exposing answer) is weighed for the policy's exception (W4M) rather than sent to the battery.",
+   "edges": [
+    {
+     "answer": "yes \u2014 one key exists at merge_base, still withholds its feature, is this change's feature, and its off arm covers the change",
+     "when": [
+      "and",
+      "P9",
+      "P10",
+      "P11",
+      "P12"
+     ],
+     "to": "W5"
+    },
+    {
+     "answer": "no usable candidate, but the enclosing gate still holds the change back from some real users in main production",
+     "when": [
+      "and",
+      "P6",
+      "P33"
+     ],
+     "to": "W4M"
+    },
+    {
+     "answer": "no usable candidate",
+     "when": "default",
+     "to": "W6"
+    }
+   ]
+  },
+  {
+   "id": "W4M",
+   "question": "Does the PR say this part is released on its own schedule, apart from the enclosing gate's feature?",
+   "reads": [
+    "P13"
+   ],
+   "step": "the gate's own rollout",
+   "edges": [
+    {
+     "answer": "yes \u2014 a separate schedule or audience is stated",
+     "when": [
+      "P13"
+     ],
+     "to": "W6"
+    },
+    {
+     "answer": "no stated separation: the gate still holds it back in main production",
+     "when": "default",
+     "to": "T-AF-4"
+    }
+   ]
+  },
+  {
+   "id": "W5",
+   "question": "Is this a separate release from that key's feature?",
+   "reads": [
+    "P13",
+    "P6"
+   ],
+   "step": "reuse or its own key",
+   "edges": [
+    {
+     "answer": "yes \u2014 a separate schedule or audience is stated",
+     "when": [
+      "P13"
+     ],
+     "to": "T-SG-1"
+    },
+    {
+     "answer": "no stated separation, and an ancestor gate already encloses every changed path: nothing to wire (ruling R1)",
+     "when": [
+      "P6"
+     ],
+     "to": "T-AF-3"
+    },
+    {
+     "answer": "no stated separation",
+     "when": "default",
+     "to": "T-RE-1"
+    }
+   ]
+  },
+  {
+   "id": "W6",
+   "question": "Which release-control signal does this change carry?",
+   "reads": [
+    "P15",
+    "P18",
+    "P19",
+    "P20",
+    "P27",
+    "P30"
+   ],
+   "step": "test for a signal",
+   "note": "The largest collapse: five binary nodes (N15, N18-N20, N27) become one question with six answers. This is the step the binary form reads worst -- a reviewer asks \"which of these applies?\" once, and the tree makes them answer \"is it this one?\" five times.",
+   "edges": [
+    {
+     "answer": "a new user-reachable surface",
+     "when": [
+      "P15"
+     ],
+     "to": "T-SG-3"
+    },
+    {
+     "answer": "an announcement surface shown unprompted",
+     "when": [
+      "P18"
+     ],
+     "to": "W6C6"
+    },
+    {
+     "answer": "a change to a published interface's contract",
+     "when": [
+      "P19"
+     ],
+     "to": "W6R7"
+    },
+    {
+     "answer": "a default, initial-state or ordering change",
+     "when": [
+      "P20"
+     ],
+     "to": "W6C8"
+    },
+    {
+     "answer": "new per-request work on a path all customers' traffic runs through",
+     "when": [
+      "P27"
+     ],
+     "to": "W6C10"
+    },
+    {
+     "answer": "a concrete risk on a path customers already use (the risk search)",
+     "when": [
+      "P30"
+     ],
+     "to": "W6R12"
+    },
+    {
+     "answer": "none of these",
+     "when": "default",
+     "to": "W7"
+    }
+   ]
+  },
+  {
+   "id": "W6R7",
+   "question": "Does the contract change only the outcome of what already fails or is mishandled?",
+   "reads": [
+    "P23"
+   ],
+   "step": "weigh the signal",
+   "note": "A repair changes a contract's answer by definition: the wrong answer a client got at merge_base. P23 asks whether that is all it changes.",
+   "edges": [
+    {
+     "answer": "yes -- only what already fails or is mishandled changes",
+     "when": [
+      "P23"
+     ],
+     "to": "T-NS-7"
+    },
+    {
+     "answer": "no -- the signal stands",
+     "when": "default",
+     "to": "T-SG-7"
+    }
+   ]
+  },
+  {
+   "id": "W6R12",
+   "question": "Does the risk the search found sit only on what already fails or is mishandled?",
+   "reads": [
+    "P23"
+   ],
+   "step": "weigh the signal",
+   "note": "A verified risk names a changed outcome on a live path; a repair's changed outcome is the wrong one being put right. P23 asks whether every changed outcome is.",
+   "edges": [
+    {
+     "answer": "yes -- only what already fails or is mishandled changes",
+     "when": [
+      "P23"
+     ],
+     "to": "T-NS-7"
+    },
+    {
+     "answer": "no -- the signal stands",
+     "when": "default",
+     "to": "T-SG-12"
+    }
+   ]
+  },
+  {
+   "id": "W6C6",
+   "question": "Is the change behind that signal one a flag would not usefully turn off, with nothing else arguing for one?",
+   "reads": [
+    "P26"
+   ],
+   "step": "weigh the signal",
+   "edges": [
+    {
+     "answer": "no -- the signal stands",
+     "when": [
+      "not",
+      "P26"
+     ],
+     "to": "W6B6"
+    },
+    {
+     "answer": "yes",
+     "when": "default",
+     "to": "W7S"
+    }
+   ]
+  },
+  {
+   "id": "W6C8",
+   "question": "Is the change behind that signal one a flag would not usefully turn off, with nothing else arguing for one?",
+   "reads": [
+    "P26"
+   ],
+   "step": "weigh the signal",
+   "edges": [
+    {
+     "answer": "no -- the signal stands",
+     "when": [
+      "not",
+      "P26"
+     ],
+     "to": "W6B8"
+    },
+    {
+     "answer": "yes",
+     "when": "default",
+     "to": "W7S"
+    }
+   ]
+  },
+  {
+   "id": "W6B6",
+   "question": "If it shipped with a mistake, would the harm stay small and be quickly undone without a flag?",
+   "reads": [
+    "P31"
+   ],
+   "step": "weigh the blast radius",
+   "edges": [
+    {
+     "answer": "yes -- few users reached, the failure plain to see, a revert puts it back",
+     "when": [
+      "P31"
+     ],
+     "to": "T-NS-11"
+    },
+    {
+     "answer": "no -- the signal stands",
+     "when": "default",
+     "to": "T-SG-6"
+    }
+   ]
+  },
+  {
+   "id": "W6B8",
+   "question": "If it shipped with a mistake, would the harm stay small and be quickly undone without a flag?",
+   "reads": [
+    "P31"
+   ],
+   "step": "weigh the blast radius",
+   "edges": [
+    {
+     "answer": "yes -- few users reached, the failure plain to see, a revert puts it back",
+     "when": [
+      "P31"
+     ],
+     "to": "T-NS-11"
+    },
+    {
+     "answer": "no -- the signal stands",
+     "when": "default",
+     "to": "T-SG-8"
+    }
+   ]
+  },
+  {
+   "id": "W6C10",
+   "question": "Is that new work contained -- sampled, asynchronous, bounded, or failing open -- or not something a runtime flag would usefully turn off?",
+   "reads": [
+    "P28"
+   ],
+   "step": "weigh the signal",
+   "edges": [
+    {
+     "answer": "no -- the signal stands",
+     "when": [
+      "not",
+      "P28"
+     ],
+     "to": "T-SG-10"
+    },
+    {
+     "answer": "yes",
+     "when": "default",
+     "to": "W7S10"
+    }
+   ]
+  },
+  {
+   "id": "W7S",
+   "question": "Does a real user perceive a difference?",
+   "reads": [
+    "P21"
+   ],
+   "step": "the veto",
+   "edges": [
+    {
+     "answer": "no",
+     "when": [
+      "not",
+      "P21"
+     ],
+     "to": "T-NS-8"
+    },
+    {
+     "answer": "yes",
+     "when": "default",
+     "to": "W8S"
+    }
+   ]
+  },
+  {
+   "id": "W8S",
+   "question": "What kind of change does that user perceive?",
+   "reads": [
+    "P22",
+    "P23"
+   ],
+   "step": "refine the softened veto",
+   "note": "A repair and a presentation change are always perceived, so P21 alone cannot settle a softened signal for them. The same observable exits as the main path's W8 (P22, then P23); anything else is weighed for its blast radius (W8SB).",
+   "edges": [
+    {
+     "answer": "only how existing content is presented",
+     "when": [
+      "P22"
+     ],
+     "to": "T-NS-6"
+    },
+    {
+     "answer": "only the outcome of what already fails",
+     "when": [
+      "P23"
+     ],
+     "to": "T-NS-7"
+    },
+    {
+     "answer": "anything else",
+     "when": "default",
+     "to": "W8SB"
+    }
+   ]
+  },
+  {
+   "id": "W8SB",
+   "question": "If it shipped with a mistake, would the harm stay small and be quickly undone without a flag?",
+   "reads": [
+    "P31"
+   ],
+   "step": "weigh the blast radius",
+   "edges": [
+    {
+     "answer": "yes -- few users reached, the failure plain to see, a revert puts it back",
+     "when": [
+      "P31"
+     ],
+     "to": "T-NS-11"
+    },
+    {
+     "answer": "no",
+     "when": "default",
+     "to": "T-SG-9"
+    }
+   ]
+  },
+  {
+   "id": "W7S10",
+   "question": "Does a real user perceive a difference?",
+   "reads": [
+    "P21"
+   ],
+   "step": "the veto",
+   "edges": [
+    {
+     "answer": "no",
+     "when": [
+      "not",
+      "P21"
+     ],
+     "to": "T-NS-8"
+    },
+    {
+     "answer": "yes",
+     "when": "default",
+     "to": "W8S10"
+    }
+   ]
+  },
+  {
+   "id": "W8S10",
+   "question": "What kind of change does that user perceive?",
+   "reads": [
+    "P22",
+    "P23"
+   ],
+   "step": "refine the softened veto",
+   "note": "As W8S, for contained new work on a shared path (P28): the same observable exits, and anything else stays suggested.",
+   "edges": [
+    {
+     "answer": "only how existing content is presented",
+     "when": [
+      "P22"
+     ],
+     "to": "T-NS-6"
+    },
+    {
+     "answer": "only the outcome of what already fails",
+     "when": [
+      "P23"
+     ],
+     "to": "T-NS-7"
+    },
+    {
+     "answer": "anything else",
+     "when": "default",
+     "to": "T-SG-9"
+    }
+   ]
+  },
+  {
+   "id": "W7",
+   "question": "Does a real user perceive a difference?",
+   "reads": [
+    "P21"
+   ],
+   "step": "the veto",
+   "edges": [
+    {
+     "answer": "no",
+     "when": [
+      "not",
+      "P21"
+     ],
+     "to": "T-NS-5"
+    },
+    {
+     "answer": "yes",
+     "when": "default",
+     "to": "W8"
+    }
+   ]
+  },
+  {
+   "id": "W8",
+   "question": "What kind of change does that user perceive?",
+   "reads": [
+    "P22",
+    "P23",
+    "P25"
+   ],
+   "step": "refine the veto",
+   "note": "What a perceptible, unflagged change is, split where rulings named an observable; with no pro-flag reason, the default is not-suited. The tree asks P22 then P23; a reviewer classifies once.",
+   "edges": [
+    {
+     "answer": "only how existing content is presented",
+     "when": [
+      "P22"
+     ],
+     "to": "T-NS-6"
+    },
+    {
+     "answer": "only the outcome of what already fails",
+     "when": [
+      "P23"
+     ],
+     "to": "T-NS-7"
+    },
+    {
+     "answer": "something a flag would not usefully turn off, and nothing argues for one",
+     "when": [
+      "P25"
+     ],
+     "to": "T-NS-9"
+    },
+    {
+     "answer": "none of these: no reason to flag",
+     "when": "default",
+     "to": "T-NS-10"
+    }
+   ]
+  }
+ ],
+ "terminals_from": "tree.yaml"
+}

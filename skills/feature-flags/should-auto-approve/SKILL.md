@@ -18,8 +18,8 @@ narrow yes/no questions about the change. The changed paths answer some
 mechanically, and you answer the rest, each by its written procedure, from the
 code. The same answers always give the same rating.
 
-Every command below is this skill's command line, `should-auto-approve.pyz`:
-one file, beside this one. Run it as `python3 SKILL_DIR/should-auto-approve.pyz`
+Every command below is this skill's command line, `should-auto-approve`:
+the Python program in the `should-auto-approve/` folder beside this file. Run it as `python3 SKILL_DIR/should-auto-approve`
 (`SKILL_DIR` is the directory this file is in). It needs `python3` and `git`.
 
 **Finish in one run.** Don't stop partway to ask anyone something and wait.
@@ -62,7 +62,7 @@ instead.
 ### 1. Prepare
 
 ```bash
-python3 SKILL_DIR/should-auto-approve.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
+python3 SKILL_DIR/should-auto-approve start <REPO_PATH> [--base <REF>] [--head <REF>] \
     [--pr-title "<title>"] [--pr-body-file <file>] [--pr-author <login>]
 ```
 
@@ -119,7 +119,7 @@ git -C <REPO_PATH> grep -n <pattern> <head>
   analysis. Check in the code that a listed flag really withholds the changed
   behavior, and look for a flag check the file missed (a wrapper, a constant, a
   flag passed in from a caller, a route gated elsewhere). Read such a flag's
-  state with `python3 SKILL_DIR/should-auto-approve.pyz flag RUN <flag-key>`.
+  state with `python3 SKILL_DIR/should-auto-approve flag RUN <flag-key>`.
   When `start` printed `LAUNCHDARKLY: not read`, or `flag` exits 9, read the
   flags with your LaunchDarkly tools instead. If you can't read flag state at
   all, a question that depends on it is unresolved.
@@ -127,7 +127,7 @@ git -C <REPO_PATH> grep -n <pattern> <head>
 Then record the answers, all in one JSON object on stdin:
 
 ```bash
-python3 SKILL_DIR/should-auto-approve.pyz answer RUN <<'JSON'
+python3 SKILL_DIR/should-auto-approve answer RUN <<'JSON'
 {
   "answers": {
     "<question id>": {"value": true, "evidence": "..."}
@@ -146,7 +146,7 @@ JSON
 ### 3. Decide
 
 ```bash
-python3 SKILL_DIR/should-auto-approve.pyz decide RUN
+python3 SKILL_DIR/should-auto-approve decide RUN
 ```
 
 Run it as is, with its whole output: don't pipe it through `grep`, `sed`,

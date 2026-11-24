@@ -18,9 +18,9 @@ answered mechanically from git and LaunchDarkly, the rest by you, each by a
 written procedure, from evidence the skill gathers. The same answers always
 give the same result.
 
-Every command below is this skill's command line, `ld-factory.pyz`: one file, beside
-this one. Where it isn't on your `PATH`, run it as `SKILL_DIR/ld-factory.pyz`
-(`SKILL_DIR` is the directory this file is in), or `python3 SKILL_DIR/ld-factory.pyz`.
+Every command below is this skill's command line, `ld-factory`: the Python
+program in the `ld-factory/` folder beside this file. Where `ld-factory` isn't on your `PATH`,
+run it as `python3 SKILL_DIR/ld-factory` (`SKILL_DIR` is the directory this file is in).
 It needs `python3` and `git`, nothing else.
 
 **Finish in one run.** Don't stop partway to ask anyone something and wait.
@@ -35,7 +35,7 @@ the rest of this file as each step comes up. First save the PR's body to
 and the commit message stands in.
 
 ```bash
-ld-factory.pyz start <REPO_PATH> --base origin/<base_ref> --head <head_sha> \
+ld-factory start <REPO_PATH> --base origin/<base_ref> --head <head_sha> \
     --pr-title "<PR title>" --pr-body-file /tmp/pr-body.txt
 ```
 
@@ -61,7 +61,7 @@ instead, and say in your summary that you did and why. It can't run when:
 
 - there's no shell, no `python3` or no `git`, or no checkout of the change
   (for example, only a pasted diff);
-- `ld-factory.pyz` crashes, or reports a setup problem (exit 2) you can't fix by
+- `ld-factory` crashes, or reports a setup problem (exit 2) you can't fix by
   correcting what you passed it or, for a partial clone, by cloning again.
 
 Follow that page from the start, and never mix the two.
@@ -71,7 +71,7 @@ Follow that page from the start, and never mix the two.
 ### 1. Prepare
 
 ```bash
-ld-factory.pyz start <REPO_PATH> [--base <REF>] [--head <REF>] \
+ld-factory start <REPO_PATH> [--base <REF>] [--head <REF>] \
     [--pr-title "<title>"] [--pr-body-file <file>] [--client-repo <NAME>=<PATH>] \
     [--flag-type multivariate|string|number|json]
 ```
@@ -142,14 +142,14 @@ then `RUN/risk_search.txt`), so there's no need to open them.
 You do these searches yourself, reading the code at the change's commit with
 read-only git, as the search files say:
 `git -C <checkout> show <head>:<path>` and
-`git -C <checkout> grep -n <pattern> <head>`. `ld-factory.pyz` doesn't search for you:
+`git -C <checkout> grep -n <pattern> <head>`. `ld-factory` doesn't search for you:
 `gates` and `risks` only check what you found.
 
 Follow `RUN/gate_search.txt` (written by `start`; the method is
 [GATES.md](references/GATES.md)). Write its JSON to `RUN/gates.json`, then:
 
 ```bash
-ld-factory.pyz gates RUN
+ld-factory gates RUN
 ```
 
 It checks every line of every gate you report against the change's commit
@@ -175,7 +175,7 @@ change to stored data -- without tripping any of the questions. Follow
 `RUN/risks.json`, then:
 
 ```bash
-ld-factory.pyz risks RUN
+ld-factory risks RUN
 ```
 
 It checks each finding's every line (the changed line must be one the diff
@@ -212,14 +212,14 @@ searches. Each answer can settle the result, and questions after that point
 are never asked. To ask for the current question again:
 
 ```bash
-ld-factory.pyz next RUN
+ld-factory next RUN
 ```
 
 prints `QUESTION: <id>` and the question. Answer it by its procedure, as
 JSON on stdin:
 
 ```bash
-ld-factory.pyz answer RUN <id> <<'JSON'
+ld-factory answer RUN <id> <<'JSON'
 {"value": "no", "evidence": "...", "citations": [{"path": "...", "line": 12, "why": "..."}]}
 JSON
 ```
@@ -230,7 +230,7 @@ prints. After the tree's questions come any REPORT-ONLY questions (ids like
 result. The last one says so: answer it and run step 4's `decide` in the same
 command, on the line after the heredoc. When `answer` prints `DECIDED`, go to step 4. If it prints `RECHECK` (exit
 5), one question is asked again because two answers disagree: answer the
-question it shows with `ld-factory.pyz answer RUN <id> --recheck`. If it exits 7,
+question it shows with `ld-factory answer RUN <id> --recheck`. If it exits 7,
 fetch the LaunchDarkly flags as in step 1, then run `next` again.
 
 **The consumer search, when asked for.** If you answered the question about
@@ -242,7 +242,7 @@ changed, in this repository and the client checkouts it lists. Write its JSON
 to `RUN/consumers.json`, then:
 
 ```bash
-ld-factory.pyz readers RUN
+ld-factory readers RUN
 ```
 
 It checks every reader line by line (`READERS: N contract change(s), M with
@@ -259,7 +259,7 @@ Follow `RUN/feature_search.txt` ([FEATURES.md](references/FEATURES.md)), write i
 to `RUN/features.json`, then:
 
 ```bash
-ld-factory.pyz features RUN
+ld-factory features RUN
 ```
 
 It checks every line (`FEATURES: N verified, M dropped`): the key existed on
@@ -280,7 +280,7 @@ what your answer said was missing. Search the code at the commit for exactly
 that fact, write its JSON to `RUN/facts.json`, then:
 
 ```bash
-ld-factory.pyz facts RUN
+ld-factory facts RUN
 ```
 
 It checks each finding's quoted line (`FACTS: N verified, M dropped`). When
@@ -315,7 +315,7 @@ The rules in `evidence.txt` decide everything here. In short:
 ### 4. Decide
 
 ```bash
-ld-factory.pyz decide RUN
+ld-factory decide RUN
 ```
 
 It checks every citation against the evidence (an answer whose citations
@@ -329,7 +329,7 @@ reviewed from (step 5), and a filtered one loses it.
 | 0 | Decided | Go to step 5. |
 | 7 | More LaunchDarkly flags are needed | Fetch them as in step 1 and run `decide` again. |
 | 8 | A search isn't recorded yet | Do what it says: step 2's two searches, or the consumer, feature flag or fact search (step 3), then run `decide` again. A fact search can ask a question once more: answer it (`next`), then run `decide` again. |
-| 2 | Setup problem, or a question is still needed | Pass a setup message on; for `NOT DECIDED YET`, go back to `ld-factory.pyz next`. |
+| 2 | Setup problem, or a question is still needed | Pass a setup message on; for `NOT DECIDED YET`, go back to `ld-factory next`. |
 
 ### 5. Emit the verdict
 

@@ -19,9 +19,9 @@ rating.
 
 ## Command line
 
-`should-auto-approve.pyz` is the whole program in one file (a Python zip application: the walk,
-the graph and its questions). `start`, `flag`, `answer`, `decide`;
-`python3 should-auto-approve.pyz --help` lists them. SKILL.md gives the order, and
+`should-auto-approve` is the `should-auto-approve/` folder beside this file: a Python program
+(the walk, the graph and its questions) as readable source. `start`, `flag`, `answer`, `decide`;
+`python3 should-auto-approve --help` lists them. SKILL.md gives the order, and
 [references/QUESTIONS.md](references/QUESTIONS.md) every question.
 
 ## Settings

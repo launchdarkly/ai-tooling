@@ -4,7 +4,7 @@ The check finds flag evaluations mechanically, so it needs to know what a
 flag check looks like in this repo: which calls evaluate a flag, where keys
 come from, which files ship, and which LaunchDarkly project and environments
 the flags live in. That's the repo's **profile**. You don't normally write
-one: for a repo without one, `ld-factory.pyz start` derives it from the code and
+one: for a repo without one, `ld-factory start` derives it from the code and
 checks it against the change; what it can't account for becomes leads for
 the gate search, and a repair is offered, never required
 ([PROFILE_REPAIR.md](PROFILE_REPAIR.md)). This page is the format, for that
@@ -52,10 +52,10 @@ check never writes it.
      calls inside it go in `exclude_files`.
 2. **Write the profile** (below), using the shapes you found.
 3. **Check it:**
-   `ld-factory.pyz check-profile <REPO_PATH>`.
+   `ld-factory check-profile <REPO_PATH>`.
    Every declaration and pattern should report `ok` with hits in real code.
    Fix anything that matches nothing, or matches only docs and tests.
-4. Run `ld-factory.pyz start` again.
+4. Run `ld-factory start` again.
 
 ## The profile
 

@@ -1,0 +1,16 @@
+{
+ "base_url": "https://app.launchdarkly.com",
+ "project": "default",
+ "decision_environments": [
+  "production"
+ ],
+ "user_facing_production": [
+  "production"
+ ],
+ "main_production": "production",
+ "non_user_audiences": [
+  "internal",
+  "dogfood",
+  "staging"
+ ]
+}

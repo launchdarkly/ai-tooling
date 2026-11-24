@@ -50,12 +50,7 @@ UNINSPECTABLE_SUFFIXES = {
     ".bz2", ".xz", ".7z", ".rar", ".exe", ".dll", ".so", ".dylib", ".bin",
     ".wasm", ".pyc", ".class",
 }
-UNINSPECTABLE_ALLOWED = {
-    "skills/feature-flags/should-flag-change/ld-factory.pyz":
-        "the skill's command line; waived for 1.0.12 as a file the validator couldn't inspect",
-    "skills/feature-flags/should-auto-approve/should-auto-approve.pyz":
-        "the skill's command line; waived for 1.0.12 as a file the validator couldn't inspect",
-}
+UNINSPECTABLE_ALLOWED: dict[str, str] = {}
 
 # RUNTIME_FETCH_EXEC: a command that downloads code and runs it straight away.
 # Point the user to the tool's own install instructions instead.

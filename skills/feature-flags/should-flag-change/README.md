@@ -20,12 +20,11 @@ result.
 
 ## Command line
 
-`ld-factory.pyz` is the whole program in one file (a Python zip application: the
-engine, the decision tree and its data). It runs every step (`start`, `gates`,
+`ld-factory` is the `ld-factory/` folder beside this file: a Python program, with the
+engine, the decision tree and its data as readable source. It runs every step (`start`, `gates`,
 `risks`, `readers`, `features`, `facts`, `next`, `answer`, `decide`, `check-profile`);
-`ld-factory.pyz --help` lists them. In the Factory runtime it's already on `PATH` (baked
-into the image), so an agent never installs it. Locally, call it by path, or link
-it yourself (for example `ln -s "$PWD/ld-factory.pyz" ~/bin/ld-factory.pyz`). SKILL.md describes the
+`python3 ld-factory --help` lists them. Call it by path, as `python3 SKILL_DIR/ld-factory`,
+or put a wrapper named `ld-factory` on your `PATH` that runs it. SKILL.md describes the
 order.
 
 ## Settings
