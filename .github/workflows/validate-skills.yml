@@ -15,7 +15,6 @@ jobs:
         uses: actions/checkout@v4
       - name: Validate SKILL.md files
         run: python3 scripts/validate_skills.py
-      # Separate job from the CLI check below, so each reports on its own.
       - name: Check Claude directory policy
         run: python3 scripts/check_directory_policy.py
       - name: Run validation tests
@@ -42,3 +41,9 @@ jobs:
         run: |
           claude --version
           claude plugin validate . --profile directory --strict
+      # Runs even when the CLI step fails, so one run reports both.
+      - name: Check directory policy gaps
+        if: ${{ !cancelled() }}
+        run: |
+          python3 --version
+          python3 scripts/check_directory_checklist.py

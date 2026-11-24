@@ -11,13 +11,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-import check_directory_policy as cdp  # noqa: E402
+import check_directory_checklist as cdp  # noqa: E402
 
 
 PNG_HEAD = b"\x89PNG\r\n\x1a\n"
 PNG_END = b"\x00\x00\x00\x00IEND\xaeB`\x82"
-# Built at run time so this file doesn't trip the no-fetch-exec rule itself.
-NPX = "n" + "px"
 GH_TOKEN = "ghp_" + "aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3z5A"
 
 
@@ -79,12 +77,12 @@ class LauncherTests(PolicyTestCase):
         self.assertEqual(self.findings("BLOCKS"), [])  # pinned: HELD only
 
     def test_hooks_json_command_string_is_scanned(self):
-        hooks = {"hooks": {"PostToolUse": [{"hooks": [{"type": "command", "command": NPX + " tool@latest --x"}]}]}}
+        hooks = {"hooks": {"PostToolUse": [{"hooks": [{"type": "command", "command": "n" + "px tool@latest --x"}]}]}}
         self.write("hooks/hooks.json", json.dumps(hooks))
         self.assertEqual(len(self.findings("BLOCKS")), 1)
 
     def test_plugin_json_mcp_servers_scanned(self):
-        manifest = {"name": "x", "mcpServers": {"s": {"command": NPX, "args": ["pkg@latest"]}}}
+        manifest = {"name": "x", "mcpServers": {"s": {"command": "n" + "px", "args": ["pkg@latest"]}}}
         self.write(".claude-plugin/plugin.json", json.dumps(manifest))
         self.assertEqual(len(self.findings("BLOCKS")), 1)
 
@@ -114,11 +112,11 @@ class LauncherTests(PolicyTestCase):
         self.mcp("npx", ["-y", "some-pkg@1.2.3"])
         held = self.findings("HELD")
         self.assertEqual(len(held), 1)
-        self.assertIn("Runs a pinned", held[0])
+        self.assertIn("Runs a pinned n" + "px or u" + "vx package", held[0])
 
     def test_manifest_named_mcp_file_is_scanned(self):
         self.write(".claude-plugin/plugin.json", json.dumps({"name": "x", "mcpServers": "./config/servers.json"}))
-        self.write("config/servers.json", json.dumps({"s": {"command": NPX, "args": ["pkg@latest"]}}))
+        self.write("config/servers.json", json.dumps({"s": {"command": "n" + "px", "args": ["pkg@latest"]}}))
         self.assertEqual(len(self.findings("BLOCKS")), 1)
 
     def test_npmrc_registry_beside_launcher_blocks(self):
