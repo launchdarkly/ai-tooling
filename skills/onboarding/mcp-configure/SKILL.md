@@ -5,7 +5,7 @@ license: Apache-2.0
 compatibility: Requires an MCP-compatible coding agent and a LaunchDarkly account
 metadata:
   author: launchdarkly
-  version: "0.1.1"
+  version: "0.1.2"
 ---
 
 # LaunchDarkly MCP Server Configuration (onboarding)
@@ -138,7 +138,7 @@ Cursor does not need a restart after enabling an MCP server. Claude Code does: i
   - If **yes**: remove the deprecated entry, ensure the unified `https://mcp.launchdarkly.com/mcp` server is present (do not duplicate if it, or the older `/mcp/launchdarkly` path, is already there), and continue.
   - If **no**: leave the config untouched and continue with onboarding — the deprecated server may still work for now.
 
-- **User has the old npx-based local server:** Migrate them to the hosted server. Remove the old `npx @launchdarkly/mcp-server` entry and any `LD_ACCESS_TOKEN` env vars. Replace with the hosted server config.
+- **User has the old npx-based local server:** Migrate them to the hosted server. Remove the old local `@launchdarkly/mcp-server` entry and any `LD_ACCESS_TOKEN` env vars. Replace with the hosted server config.
 - **Agent not in known list:** Provide the generic pattern: the user needs to add an MCP server entry pointing to `https://mcp.launchdarkly.com/mcp` using whatever format their agent expects.
 - **User opts out of MCP during onboarding:** Document that choice and continue; do not block SDK work.
 

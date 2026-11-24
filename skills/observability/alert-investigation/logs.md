@@ -9,9 +9,9 @@ Load this file for a log alert: a log count or rate threshold, an error-log spik
 
 ## Investigation shape
 
-1. **Templates with counts:** `search-log-patterns`; add `patternKeys: ["service_name", "message"]` to see whether one service or all of them log it.
-2. **Where:** `search-aggregations` with `productType: "logs"`, the alert's query, grouped by `host.name`, `service_name` or the version key, with `compareTo: "1d"`. A failure logged by every service on one host points at the host.
-3. **Verbatim evidence:** `search-logs` for two or three examples, with `fields` to keep rows small. Follow a line's `trace_id` into `get-trace`.
+1. **Templates with counts:** `search-log-patterns` with `environments` and the whole service family in `services` (`get-keys`, `key: "service_name"`, `search: "<svc>"`), widening a `service_name` clause in the alert's query to the family; add `patternKeys: ["service_name", "message"]` to see whether one service or all of them log it. Do not filter to only the alert's service here: a single-service `services` makes every template look like one service and hides a failure shared across them.
+2. **Where:** `search-aggregations` with `productType: "logs"`, `environments` and the service family in `services`, widening a `service_name` clause in the alert's query to the family (or dropping it), grouped by `host.name`, `service_name` or the version key, with `compareTo: "1d"`. A failure logged by every service on one host points at the host.
+3. **Verbatim evidence:** `search-logs` for two or three examples, with `environments` and `services`, with `fields` to keep rows small. Follow a line's `trace_id` into `get-trace`.
 4. **What changed:** `get-changes` for the service.
 
 ## What goes in the diagnosis

@@ -45,3 +45,41 @@ test("match mode returns undefined when nothing fits", () => {
 test("order mode keeps an explicit [] as a dismissed question", () => {
   assert.deepEqual(pickAnswer([[]], 0, options, false, new Set()), []);
 });
+
+test("a pasted { command, text } answer needs a matching shown command, and option answers win", () => {
+  const { pickAnswer, lastShownCommand } = require("../providers/claude-skill-agent-sdk");
+  const run = [{ id: "done", label: "Done, here's the output" }, { id: "skip", label: "Skip" }];
+  const plan = [{ id: "use", label: "Use this plan" }, { id: "other", label: "Choose another" }];
+  const list = { command: "^GET .*/flag-release-plans$", text: "{\"items\":[]}\nHTTP 200" };
+  const create = { command: "^POST .*/flag-release-plans$", text: "{\"key\":\"default-release\"}\nHTTP 201" };
+  const answers = [create, list, ["Use this plan"]];
+  const used = new Set();
+  // A plan question takes the option answer, not a paste.
+  assert.deepEqual(pickAnswer(answers, 0, plan, true, used, "GET /api/v2/projects/default/flag-release-plans"), ["use"]);
+  // The list step takes the list paste, not the earlier create paste.
+  assert.deepEqual(pickAnswer(answers, 1, run, true, used, "GET /api/v2/projects/default/flag-release-plans"), [list.text]);
+  // No shown command: no paste.
+  assert.equal(pickAnswer(answers, 2, run, true, used, ""), undefined);
+  assert.deepEqual(pickAnswer(answers, 2, run, true, used, "POST /api/v2/projects/default/flag-release-plans"), [create.text]);
+  // A question that is not the run step (such as a retry confirmation after
+  // a 409) never takes a paste, even when the last command matches.
+  const retry = [{ id: "yes", label: "Make this change" }, { id: "no", label: "Cancel" }];
+  assert.equal(pickAnswer([create], 0, retry, true, new Set(), "POST /api/v2/projects/default/flag-release-plans", "Retry with default-release-2?"), undefined);
+  assert.deepEqual(pickAnswer([create], 0, [{ id: "a", label: "Done" }, { id: "b", label: "Skip" }], true, new Set(), "POST /api/v2/projects/default/flag-release-plans", "Run this command"), [create.text]);
+  // An option answer that fits a run question wins over a paste.
+  assert.deepEqual(pickAnswer([list, ["Skip"]], 0, run, true, new Set(), "GET /api/v2/projects/default/flag-release-plans"), ["skip"]);
+  assert.deepEqual(pickAnswer([{ text: "pasted" }], 0, run, false, new Set(), ""), ["pasted"]);
+
+  const block = (cmd) => "```sh\n" + cmd + "\n```";
+  const get = 'curl -sS -H "LD-API-Version: beta" "https://app.launchdarkly.com/api/v2/projects/default/flag-release-plans?limit=50"';
+  const post = 'curl -sS -X POST -H "LD-API-Version: beta" "https://app.launchdarkly.com/api/v2/projects/default/flag-release-plans" --data @- <<\'JSON\'\n{}\nJSON';
+  assert.equal(lastShownCommand([block(get)]), "GET /api/v2/projects/default/flag-release-plans");
+  assert.equal(lastShownCommand([block(get), "then", block(post)]), "POST /api/v2/projects/default/flag-release-plans");
+  assert.equal(lastShownCommand(["no command here"]), "");
+});
+
+test("scrubLdCredentials removes LaunchDarkly credentials and keeps the rest", () => {
+  const { scrubLdCredentials } = require("../providers/claude-skill-agent-sdk");
+  const env = scrubLdCredentials({ LD_ACCESS_TOKEN: "real", LD_BASE_URI: "x", LAUNCHDARKLY_API_KEY: "y", PATH: "/bin", LD_LIBRARY_PATH: "/lib" });
+  assert.deepEqual(env, { PATH: "/bin", LD_LIBRARY_PATH: "/lib" });
+});

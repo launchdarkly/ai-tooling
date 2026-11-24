@@ -1,0 +1,19 @@
+{
+  "name": "should-auto-approve",
+  "description": "Rate a committed change's review risk (low, medium, high) by a fixed decision graph with checked answers. Advisory and read-only.",
+  "version": "0.7.1",
+  "author": "LaunchDarkly",
+  "repository": "https://github.com/launchdarkly/ai-tooling",
+  "skills": [
+    "./"
+  ],
+  "tags": [
+    "launchdarkly",
+    "code-review",
+    "pull-request",
+    "ci",
+    "advisory",
+    "risk-assessment",
+    "auto-approval"
+  ]
+}

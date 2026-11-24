@@ -4,7 +4,7 @@
 #   promptfoo eval -c shared/defaults.yaml -c flag-and-release-change/promptfooconfig.yaml
 #
 # flag-and-release-change is the portable PR orchestrator: decide -> create+wire
-# the flag -> record the release, composing should-flag-change,
+# the flag -> start the release, composing should-flag-change,
 # launchdarkly-flag-create, and flag-release. These fixtures test the
 # orchestrator's OWN contract, not the composed skills' internals:
 #
@@ -15,9 +15,18 @@
 #      that doesn't exist. Driven by the mock's projectKey="restricted" hook,
 #      which makes create-flag return a 403.
 #
-# MCP-only (no builtins), so the run can't clone/push; both fixtures reach their
-# assertion before any git step. Reads (match/list/get) are allowed; the asserts
-# only forbid mutating tools.
+#   3. The release plan comes from the project's flag release plan
+#      (get-flag-release-plans) and the environment release plans it names
+#      (get-environment-release-plans). Without the flag release tools, each
+#      environment's default release plan applies, and an environment with
+#      no default release plan is held. The suite hides the retired release
+#      policy tools.
+#
+# MCP-only (no builtins), so the run can't clone/push; the fixtures reach their
+# assertion before any git step. Reads (list/get) are allowed; the asserts
+# forbid mutating tools. The suite shares flag-release's release plan tool
+# tool definitions and mocks (a guarded default plan in every environment,
+# and the default flag release plan standard-release).
 description: "Evaluation of the flag-and-release-change orchestrator skill"
 
 prompts:
@@ -29,6 +38,15 @@ providers:
     config:
       skill_slug: flag-and-release-change
       allow_builtins: false
+      # With builtins off, listing the skill does not load its text, so put
+      # SKILL.md in the agent's instructions.
+      inline_skill: true
+      tool_mocks: flag-release/tool-mocks.json
+      tool_definitions: flag-release/tool-definitions.json
+      # Release policies are replaced by environment release plans at GA, and
+      # these skills no longer use them, so the suites run on a server
+      # without the release policy tools.
+      exclude_mcp_tools: ["match-release-policies", "get-release-policies"]
 
 tests:
   # ==================================================================
@@ -68,12 +86,21 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const forbidden = ['create-flag','create-automated-rollout-config','update-flag','toggle-flag','delete-flag'];
+          const forbidden = ['create-flag','create-automated-rollout-config','create-flag-release','update-flag','toggle-flag','delete-flag'];
           const called = forbidden.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'no mutations during planning' : 'mutated during plan: ' + called.join(', ') };
         metric: no_mutation_in_plan
         weight: 4
+
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const envs = traj.filter(t => t.tool === 'get-environment-release-plans').map(t => (t.arguments || {}).environmentKey);
+          const pass = envs.includes('production');
+          return { pass, score: pass ? 1 : 0, reason: `read release plans for [${envs.join(', ')}] (want production)` };
+        metric: previewed_release_plan
+        weight: 2
 
       - type: llm-rubric
         value: |
@@ -82,11 +109,98 @@ tests:
           Evaluate the response:
           1. Does it propose a specific guarding flag (a boolean kill-switch around
              the new endpoint, with a key)?
-          2. Does it propose a per-environment release plan (staging / production)
-             and surface release intent (release on merge vs. hold), rather than
-             just creating things?
+          2. Does it propose a per-environment release plan for staging and
+             production and surface release intent (release on merge vs. hold)?
+             The project's default flag release plan also releases dev, which the
+             request leaves out, so a full answer plans the release from each
+             environment's release plan for staging and production only, and says
+             why. Planning the default flag release plan as is, which would release
+             dev, misses this.
           3. Does it explicitly stop for approval WITHOUT having created the flag or
              recorded a release?
+          Score 1.0 if all three. Deduct 0.34 per criterion missed.
+        metric: rationale_quality
+        weight: 3
+
+  # ==================================================================
+  # PLAN PHASE, NO DEFAULT PLAN — production has no default release
+  # plan, on a server without the flag release tools (the environment release plan
+  # path). The plan must hold production (auto-release can't run there
+  # yet) and say where to set one up, with no mutation.
+  # ==================================================================
+  - description: "Plan phase, no default plan: holds production until it has a default release plan"
+    providers: ["orchestrator"]
+    vars:
+      user_request: >
+        Here's a PR that adds a new public endpoint. PLAN how to flag and release
+        it — do NOT create the flag or record anything yet, just propose the plan.
+        Project key `default`; target environments `staging` and `production`,
+        release on merge.
+      codebase_context: >
+        Node.js Express API using the LaunchDarkly Node server SDK
+        (client.variation). Routes live in src/routes/. The PR is checked out
+        locally; the diff is below.
+      git_diff: |
+        diff --git a/src/routes/export.js b/src/routes/export.js
+        new file mode 100644
+        index 0000000..7de4a11
+        --- /dev/null
+        +++ b/src/routes/export.js
+        @@ -0,0 +1,10 @@
+        +const express = require('express');
+        +const router = express.Router();
+        +const { buildExport } = require('../services/exporter');
+        +
+        +router.post('/', async (req, res) => {
+        +  const file = await buildExport(req.user, req.body.format || 'csv');
+        +  res.type('text/csv').send(file);
+        +});
+        +
+        +module.exports = router;
+      mock_overrides:
+        get-environment-release-plans:
+          by_arg: environmentKey
+          cases:
+            production:
+              items: []
+              totalCount: 0
+      exclude_mcp_tools: "create-flag-release,get-flag-release-plans"
+    assert:
+      - type: javascript
+        value: |
+          const tools = output.tools_called || [];
+          const forbidden = ['create-flag','create-automated-rollout-config','create-flag-release','update-flag','toggle-flag','delete-flag','create-environment-release-plan','update-default-environment-release-plan'];
+          const called = forbidden.filter(f => tools.includes(f));
+          const pass = called.length === 0;
+          return { pass, score: pass ? 1 : 0, reason: pass ? 'no mutations during planning' : 'mutated during plan: ' + called.join(', ') };
+        metric: no_mutation_in_plan
+        weight: 4
+
+      - type: javascript
+        value: |
+          const traj = output.trajectory || [];
+          const envs = traj.filter(t => t.tool === 'get-environment-release-plans').map(t => (t.arguments || {}).environmentKey);
+          const pass = envs.includes('production');
+          return { pass, score: pass ? 1 : 0, reason: `read release plans for [${envs.join(', ')}] (want production)` };
+        metric: previewed_release_plan
+        weight: 2
+
+      - type: llm-rubric
+        value: |
+          The user asked for a PLAN only to flag and release a new public POST /export
+          endpoint in staging and production. Staging has a default release plan
+          (a guarded rollout). Production has NO release plans, so it has no default
+          release plan.
+          Evaluate the response:
+          1. Does it propose a guarding flag and a per-environment plan in which
+             staging releases on merge (immediately or with its default release plan)?
+          2. Does it say that production has no default release plan, so auto-release
+             can't run there yet, and plan production as held or offer the user a
+             choice, rather than planning a staged or guarded rollout there?
+          3. Does it say where a default release plan can be set up (for example a
+             release plans skill, the Release Autopilot onboarding skill, or the
+             environment's release plan settings), and stop for approval without
+             creating anything?
           Score 1.0 if all three. Deduct 0.34 per criterion missed.
         metric: rationale_quality
         weight: 3
@@ -131,7 +245,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const pass = !tools.includes('create-automated-rollout-config');
+          const pass = !tools.includes('create-automated-rollout-config') && !tools.includes('create-flag-release');
           return { pass, score: pass ? 1 : 0, reason: pass ? 'did not record a release after create failed' : 'recorded a release despite the failed create (not fail-closed)' };
         metric: failed_closed
         weight: 4
@@ -178,7 +292,7 @@ tests:
       - type: javascript
         value: |
           const tools = output.tools_called || [];
-          const mutating = ['create-flag','create-automated-rollout-config','update-flag','toggle-flag','delete-flag'];
+          const mutating = ['create-flag','create-automated-rollout-config','create-flag-release','update-flag','toggle-flag','delete-flag'];
           const called = mutating.filter(f => tools.includes(f));
           const pass = called.length === 0;
           return { pass, score: pass ? 1 : 0, reason: pass ? 'created/recorded nothing for a non-flag-worthy change' : 'mutated: ' + called.join(', ') };

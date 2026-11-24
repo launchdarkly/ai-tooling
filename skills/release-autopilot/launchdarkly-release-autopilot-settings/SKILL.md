@@ -1,11 +1,11 @@
 ---
 name: launchdarkly-release-autopilot-settings
-description: "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, review release policies), use launchdarkly-release-autopilot-onboarding instead."
+description: "Configure LaunchDarkly Release Autopilot settings (GitHub App auto-flagging and auto-releasing) via the hosted MCP, or diagnose why a pull request was not classified / auto-flagged. Use when the user wants to turn on auto-flagging, map a GitHub repo to a LaunchDarkly project, change Release Autopilot account defaults, unmap a repo, or asks why Release Autopilot did not classify their PR. For first-time setup (pick capabilities, connect GitHub, choose inference, set up environment release plans and the project's flag release plan), use launchdarkly-release-autopilot-onboarding instead. For release plans, use launchdarkly-release-plans. For auto-cleanup or auto-archival settings, use launchdarkly-automations-cleanup-settings or launchdarkly-automations-archival-settings."
 license: Apache-2.0
 compatibility: Requires the remotely hosted LaunchDarkly MCP server
 metadata:
   author: launchdarkly
-  version: "1.5.0-experimental"
+  version: "1.6.1-experimental"
 ---
 
 # LaunchDarkly Release Autopilot Settings
@@ -40,7 +40,7 @@ The underlying endpoints require the Release Autopilot add-on. If every Release 
 4. **Least privilege.** Never enable auto-releasing unless the user explicitly asked to auto-release (that can ship code). Never turn `approvalRequired` off unless they explicitly asked to drop the approval gate. Never map or unmap repos they did not name. Never iterate the install list and map everything.
 5. **Discover, then map.** Pass `owner/name`. Never ask for a numeric GitHub id. Prefer `git remote` of the current workspace when they say "this repo" / "this PR"; if remotes disagree (fork vs upstream), ask which one. `owner/name` resolves against the GitHub App install list only — a repo outside the install cannot be resolved or acted on, because Release Autopilot works through the App. A 404 saying the repo is not on the install, or that the App is not installed, is the answer; do not retry with other spellings or look the repo up elsewhere.
 6. **`projectKey` on first map.** Required when creating a mapping; later updates can omit it.
-7. **Omit `autoCleanup`.** Not part of Release Autopilot settings yet. Never send it; never copy it from a response into a PATCH.
+7. **Auto-cleanup is a project setting, not `autoCleanup`.** Auto-cleanup and auto-archival are set per project: `get-automations` and `update-automations` with `projectKey` and a `cleanup` or `archival` object. For those, use [`launchdarkly-automations-cleanup-settings`](../launchdarkly-automations-cleanup-settings/SKILL.md) or [`launchdarkly-automations-archival-settings`](../launchdarkly-automations-archival-settings/SKILL.md). The `autoCleanup` field in account and repo settings is a different, unused field. Never send it; never copy it from a response into a PATCH.
 8. **GitHub connect is a browser link.** If `get-automations` returns `githubConnectUrl`, give the user that exact URL and wait until they say they finished. Then call `get-automations` again. Do not install or authorize GitHub yourself. `flow=install` is Install GitHub App. `flow=authorize` is Authorize GitHub. Both are the same pages as the integration drawer. The user must already be logged into LaunchDarkly in that browser.
 
 ## Confirm before write
@@ -59,7 +59,7 @@ The underlying endpoints require the Release Autopilot add-on. If every Release 
 
 > Auto-flagging approvalRequired is ON. Turn it OFF? Auto-flagging PRs would no longer require that approval gate.
 
-Same pattern for auto-releasing, and say that auto-releasing can ship.
+Same pattern for auto-releasing, and say that auto-releasing can ship. When Release Autopilot proposes a release on a pull request, it uses only the project's flag release plans. Say so, and point to [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md) to set them up.
 
 **Map or change one repo** (`update-automations` with `accountWide: false`):
 
@@ -149,6 +149,7 @@ To unmap: [Confirm before write](#confirm-before-write), then `delete-automation
 
 - Auto-cleanup and auto-archival: use [`launchdarkly-automations-cleanup-settings`](../launchdarkly-automations-cleanup-settings/SKILL.md) and [`launchdarkly-automations-archival-settings`](../launchdarkly-automations-archival-settings/SKILL.md). `autoCleanup` in these settings is a different, unused field.
 - Completing GitHub OAuth inside the tool. Hand the user `githubConnectUrl` instead.
-- Vega inference and bring-your-own-key setup, and environment release plans. The [onboarding skill](../launchdarkly-release-autopilot-onboarding/SKILL.md) guides both.
+- Vega inference and bring-your-own-key setup: the [onboarding skill](../launchdarkly-release-autopilot-onboarding/SKILL.md) guides it.
+- Release plans for auto-releasing (environment release plans and the project's flag release plan): use [`launchdarkly-release-plans`](../launchdarkly-release-plans/SKILL.md). Auto-releasing proposes no release in a project without a flag release plan.
 - Observability MCP (`github_repositories`) — do not require a second MCP server just to map a repo
 - Changing classification rules, GitHub App permissions, or org install scope via this skill

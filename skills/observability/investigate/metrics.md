@@ -6,7 +6,8 @@ Load this file when you need counts, trends, top-N, ratios or comparisons across
 
 - `productType` (required): `traces`, `logs`, `errors`, `sessions`, `metrics`, `paevents` or `events`.
 - `startDate` (required) and `endDate`: ISO 8601 with a timezone. `compareTo` needs absolute dates.
-- `query`: the shared filter grammar; `services` and `environments` restrict to exact values.
+- `query`: the shared filter grammar.
+- `environments` and `services`: pass both on traces, logs and metrics, with the exact values from `get-keys` (`key: "environment"`, `query: "service_name=<svc>"`, for the same `productType`). Name the environment the question is about; listing every environment does not narrow the read, and leaving it out is right only when the question spans all environments. Metrics often carry other `service_name` and `environment` values than spans.
 - Aggregation: `functionType` with `column`, or `expressions` for several at once. `Count` needs no column; trace `duration` is in nanoseconds; for metrics the column is `value`.
 - `bucketCount`: defaults to 10 (a time series). Set `1` for one total per group, the number of hours or days for hourly or daily counts.
 - `groupBy`: one key or an array for a composite group; `groupByLimit` up to 100 (default 5); `rankBy` picks the top groups (rank by `Count` when you report a percentile); `minCount` skips tiny groups.
@@ -28,7 +29,7 @@ One call per candidate dimension, `bucketCount: 1`, `groupByLimit` 10 to 20, ove
 | Host or pod | `host.name`, `k8s.pod.name` |
 | Version | the key `get-changes` detected: `service_version`, `tags.version` or `version` |
 | Endpoint | `http.route` with `span_kind=Server` |
-| Environment or region | `environment`, `cloud.region` |
+| Environment or region | `environment` (drop `environments` for this call), `cloud.region` |
 | Flag variation | `feature_flag.result.value` with `feature_flag.key=<flag>` |
 
 Run each for the failures and for all traffic, and compare shares. A composite `groupBy: ["<versionKey>", "host.name"]` separates "bad version" from "bad host".
@@ -42,7 +43,7 @@ Up to five `series` (each with an `id` a to e, its own `query` and an aggregator
 - `rate`: `per_second`, `per_minute` or `per_hour` for `Count` or `Sum`; not with `formulas`.
 - `includeOther`: adds an "Other" series so groups add up to the total; `Count`, `Sum`, `Min` and `Max` only.
 - `populationFunctionType`: aggregate per group, then across groups (the Max across pods of each pod's Avg).
-- First and last seen per group: `expressions` `Min` and `Max` of `timestamp`, `bucketCount: 1`; values are Unix seconds.
+- First and last seen per group: `expressions` `Min` and `Max` of `timestamp`, `bucketCount: 1`; values are ISO 8601 UTC times (Unix seconds on an older server).
 
 ## Sampling
 
@@ -62,6 +63,7 @@ Prefer 10 to 50 buckets, a single total (`bucketCount: 1`) when you only need a 
 
 - Running two windows by hand instead of using `compareTo`.
 - Ranking groups by a percentile, so a group with three slow requests tops the list. Rank by `Count`.
+- Passing `services` without `environments`. On traces the query then reads more data and is more often sampled.
 - Guessing a key. A wrong `groupBy` key returns one empty group; a wrong filter key widens the result silently.
 - Reading `Max` of a cumulative counter as a level. Load the `observability/metrics` guide for counters.
 - Ignoring a `low_sample` warning and reporting a percentile swing as a regression.

@@ -91,7 +91,7 @@ These are the most common stacks—check here first before scanning less common 
 
 **SDK detail:** [`snippets/react-native-sdk.md`](snippets/react-native-sdk.md) (includes onboarding sample)
 
-**API:** **`@launchdarkly/react-native-client-sdk` v10** — **`ReactNativeLDClient`** (mobile key) + **`LDProvider`** + **`identify(context)`** on mount. Non-Expo: add **`@react-native-async-storage/async-storage`** and **`npx pod-install`**. See [React Native SDK reference](https://launchdarkly.com/docs/sdk/client-side/react/react-native).
+**API:** **`@launchdarkly/react-native-client-sdk` v10** — **`ReactNativeLDClient`** (mobile key) + **`LDProvider`** + **`identify(context)`** on mount. Non-Expo: add **`@react-native-async-storage/async-storage`** and install the iOS pods with CocoaPods. See [React Native SDK reference](https://launchdarkly.com/docs/sdk/client-side/react/react-native).
 
 ### .NET (Server)
 

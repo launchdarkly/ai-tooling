@@ -1,6 +1,6 @@
 {
   "name": "launchdarkly",
-  "version": "1.0.7",
+  "version": "1.0.13",
   "description": "LaunchDarkly agent skills and MCP servers for feature flag management, AgentControl, and metrics",
   "author": {
     "name": "LaunchDarkly",
@@ -9,8 +9,6 @@
   "homepage": "https://launchdarkly.com",
   "repository": "https://github.com/launchdarkly/ai-tooling",
   "license": "Apache-2.0",
-  "privacyPolicyUrl": "https://launchdarkly.com/policies/privacy/",
-  "icon": "logo.svg",
   "keywords": [
     "launchdarkly",
     "feature-flags",
@@ -30,6 +28,12 @@
     "./skills/feature-flags/launchdarkly-flag-create",
     "./skills/feature-flags/launchdarkly-flag-discovery",
     "./skills/feature-flags/launchdarkly-flag-targeting",
+    "./skills/feature-flags/launchdarkly-flag-command",
+    "./skills/feature-flags/launchdarkly-flag-drift",
+    "./skills/feature-flags/should-flag-change",
+    "./skills/feature-flags/should-auto-approve",
+    "./skills/feature-flags/flag-release",
+    "./skills/feature-flags/flag-and-release-change",
     "./skills/metrics/launchdarkly-metric-choose",
     "./skills/metrics/launchdarkly-metric-create",
     "./skills/metrics/launchdarkly-metric-instrument",
@@ -39,6 +43,8 @@
     "./skills/release-autopilot/launchdarkly-release-autopilot-settings",
     "./skills/release-autopilot/launchdarkly-release-autopilot-onboarding",
     "./skills/release-autopilot/launchdarkly-automations-cleanup-settings",
-    "./skills/release-autopilot/launchdarkly-automations-archival-settings"
+    "./skills/release-autopilot/launchdarkly-automations-archival-settings",
+    "./skills/release-autopilot/launchdarkly-release-plans",
+    "./skills/feature-flags/launchdarkly-approval-requests"
   ]
 }
