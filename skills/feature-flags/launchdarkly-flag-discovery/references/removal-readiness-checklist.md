@@ -6,23 +6,26 @@ A systematic safety check to determine whether a feature flag can be safely remo
 
 ### 1. Cross-Environment Status
 
-**Check:** Use `get-flag-status-across-envs` to verify the flag's state in all environments.
+**Check:** Use `get-flag-status-across-envs` to verify the flag's state in all environments. If you ran `get-removal-readiness`, `details.lifecycle` holds LaunchDarkly's own result: `readyForCodeRemoval`, `readyToArchive`, and the lifecycle status in each critical environment.
 
-**Pass criteria:**
-- Flag is `inactive` or `launched` in ALL critical environments (production, staging, etc.)
-- No environment shows `new` or `active` state
+**Pass criteria (code removal):**
+- Flag is `launched` in ALL critical environments (production, staging, etc.): targeting ON, one variation served to every context, evaluated in the last 7 days, and targeting not changed in the last 7 days. This is the rule the LaunchDarkly **Ready for cleanup** view uses.
+
+**Pass criteria (archive only):**
+- Flag is `inactive` in ALL critical environments, LaunchDarkly finds no code references, and a search of this repository for the flag key finds none. There is no code to remove.
 
 **Fail criteria:**
 - Flag is `active` in any critical environment
 - Flag is `new` anywhere (still being rolled out)
 - Critical environments show different states (e.g., production ON, staging OFF)
+- Flag is OFF in every critical environment. It is not `launched`, and it may guard a feature that was never released. Do not recommend code removal unless the user explicitly confirms that the code behind the other variations is abandoned.
 
 ### 2. Configuration Consistency
 
 **Check:** Use `get-flags` for each critical environment and compare configurations.
 
 **Pass criteria:**
-- All critical environments serve the same variation (same `fallthrough.variation` or same `offVariation`)
+- All critical environments are ON and serve the same `fallthrough.variation` (the same `offVariation` is not enough: see check 1)
 - No targeting rules or individual targets exist in critical environments
 
 **Caution criteria:**
@@ -74,30 +77,33 @@ A systematic safety check to determine whether a feature flag can be safely remo
 **Pass criteria:**
 - Flag is marked as `temporary`: it was intended to be removed
 
-**Caution criteria:**
-- Flag is marked as `permanent`: it may be intentionally long-lived. Confirm with the user before recommending removal.
+**Fail criteria:**
+- Flag is marked as `permanent`: it may be intentionally long-lived. Unless the project's flag lifecycle settings turn off the temporary check, LaunchDarkly reports the `notTemporary` reason and `get-removal-readiness` returns `blocked`.
 
 ## Readiness Levels
 
 After running the checklist, categorize the result:
 
 ### Safe
-All checks pass. No blockers or warnings.
+All checks pass. No blockers or warnings, and LaunchDarkly marks the flag ready for code removal (`details.lifecycle.readyForCodeRemoval` is `true`).
 - Recommend proceeding with code removal using the [flag cleanup skill](../launchdarkly-flag-cleanup/SKILL.md)
 - Suggest archival in LaunchDarkly after code changes are deployed
 
 ### Caution
-No hard blockers, but warnings exist.
-- Present each warning with context
+No hard blockers, but warnings exist. `caution` is not permission to remove code.
+- Present each warning with context, and ask the user to confirm before you recommend code removal
+- For `code_already_removed`: the flag passes every code removal check, but LaunchDarkly finds no code references. The code is already removed, or it is in a repository that LaunchDarkly does not scan. Search this repository for the flag key first. If you find references, do not recommend archiving (an archived flag is absent, so that code gets its fallback value): recommend code removal instead. If you find none, recommend archiving it after the cleanup is deployed everywhere the flag is evaluated
+- For `code_removal_readiness_unavailable`: the tool could not get LaunchDarkly's code removal verdict. Ask the user to confirm in LaunchDarkly that the flag is launched in every critical environment
 - Recommend **archive** (reversible) over **delete** (permanent)
 - Suggest addressing warnings first (e.g., remove code references, then re-check)
 
 ### Blocked
-Hard blockers prevent safe removal.
-- Present each blocker with specifics
-- For prerequisite dependencies: user must update dependent flags first
-- For active targeting: user should toggle off and wait for a cool-down period
-- For active status: flag is still being used: don't remove
+The only blocker is `not_ready_for_code_removal`: LaunchDarkly does not consider the flag ready for code removal. Do not recommend code removal.
+- Present each reason from the blocker detail or `details.lifecycle.codeRemovalBlockers`
+- Name the critical environments where the flag is not `launched` (from `details.lifecycle.notLaunchedEnvironments`)
+- If `details.lifecycle.readyToArchive` is `true`: the flag is inactive everywhere and LaunchDarkly finds no code references. Search this repository for the flag key first. If you find references, do not recommend archiving (an archived flag is absent, so that code gets its fallback value). If you find none, recommend archiving the flag in LaunchDarkly, not code removal
+- For `prerequisite`: user must update dependent flags first
+- For `notLaunchedInEveryEnvironment`: the user should finish the rollout (targeting ON, one variation served to everyone) and wait 7 days without changes. Do not tell the user to turn the flag off: a flag that is off everywhere is not ready for code removal
 
 ## Presenting Results
 
@@ -106,5 +112,5 @@ Structure the assessment as:
 1. **Verdict**: Lead with safe / caution / blocked
 2. **Blockers** (if any): Each with type and actionable detail
 3. **Warnings** (if any): Each with type and context
-4. **Forward value**: What variation should replace the flag in code (only if safe or caution)
+4. **Forward value**: What variation should replace the flag in code (only if safe, or caution after the user confirms)
 5. **Next steps**: What to do now (proceed with cleanup, address warnings, resolve blockers)
