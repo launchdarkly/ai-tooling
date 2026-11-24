@@ -107,7 +107,7 @@ Work one call site at a time. Full code for each step is in [references/api-mapp
 ### Step 4: Verify
 
 1. **No legacy references remain:** re-run the Step 1 search. Expect zero hits for `ldai`, `server-sdk-ai`, `create_tracker`, `createTracker`, `track_metrics_of`, and `trackMetricsOf`. In Go, check imports and receivers: names such as `Config`, `Enabled`, `Track`, and `AgentGraph` also exist in the current SDK and must not be banned by name alone (`aiserver.Graph()` returns `*aiserver.AgentGraph`).
-2. **Build and tests pass:** run the project's type check, linter, and test suite. Update mocks that patched `LDAIClient` / `initAi` to patch `config` or the convenience function instead.
+2. **Build and tests pass:** run the project's type check, linter, and test suite. Update mocks that patched `LDAIClient` / `initAi` to patch `config` or the convenience function instead. To inject a fake LaunchDarkly client in tests, pass it to public `await init_client(client=fake_ld)` + `await shutdown()` (`await initClient(fakeLd)` + `await shutdown()` in Node.js); never import internal submodules or `_`-prefixed helpers.
 3. **Happy path:** with `LD_SDK_KEY` set, run each migrated call and confirm it returns a response from the provider the variation names.
 4. **Fallback path:** with targeting off for the config (or an invalid `LD_SDK_KEY`), confirm the app returns its fallback instead of crashing.
 5. **Metrics:** after a few calls, the config's Monitoring tab in LaunchDarkly shows generations, tokens, and duration for the new SDK version. If judges run in a worker, also confirm their evaluation metrics appear.
@@ -137,7 +137,7 @@ Work one call site at a time. Full code for each step is in [references/api-mapp
 - Don't pass a default or fallback config object to `config()`; it has no such argument. Handle errors instead.
 - Don't construct an OpenAI or Anthropic client to pass in. Handlers build their own clients from environment variables.
 - Don't rename config keys, tools, or variations in LaunchDarkly as part of this migration.
-- Don't invent export names. If an import fails, list the package's exports and use the real name.
+- Don't invent export names or import internal submodules or `_`-prefixed helpers (even in tests). Only root package exports (`__all__` / package root) are part of the public API.
 
 ## References
 
