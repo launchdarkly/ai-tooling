@@ -209,6 +209,19 @@ class FileTests(PolicyTestCase):
         self.assertEqual(len(held), 1)
         self.assertIn("package-lock.json", held[0])
 
+    def test_yarn_and_pnpm_lockfiles_beside_package_json_held(self):
+        self.write("package.json", "{}")
+        for lock in ("yarn.lock", "pnpm-lock.yaml"):
+            with self.subTest(lock=lock):
+                self.write(lock, "x\n")
+                self.assertTrue(any(lock in m for m in self.findings("HELD")))
+                os.remove(os.path.join(self.root, lock))
+
+    def test_yarn_lockfile_without_package_json_passes(self):
+        self.write("yarn.lock", "x\n")
+        self.write("pnpm-lock.yaml", "x\n")
+        self.assertEqual(self.findings(), [])
+
     def test_lockfile_without_package_json_passes(self):
         self.write("package-lock.json", "{}")
         self.assertEqual(self.findings(), [])
@@ -286,6 +299,33 @@ class CommandTests(PolicyTestCase):
             self.assertIn(text, " ".join(self.findings("BLOCKS")))
         self.mcp({"command": "python3", "args": ["-c", "print(1)"]})
         self.assertBlocks("inline program")
+
+    INLINE_CASES = (
+        ["bash", "-lc", "echo hi"], ["sh", "-ec", "echo hi"], ["python3", "-u", "-c", "print(1)"],
+        ["node", "--no-warnings", "-e", "1"], ["node", "--eval", "1"], ["bash", "--norc", "-c", "x"],
+        ["perl", "-w", "-E", "say 1"], ["deno", "eval", "1"],
+    )
+
+    def test_inline_flags_block_in_mcp_commands(self):
+        for cmd in self.INLINE_CASES:
+            with self.subTest(cmd=cmd):
+                self.mcp({"command": cmd[0], "args": cmd[1:]})
+                self.assertTrue(any("inline program" in m for m in self.findings("BLOCKS")), cmd)
+
+    def test_inline_flags_block_in_hook_commands(self):
+        for cmd in self.INLINE_CASES:
+            with self.subTest(cmd=cmd):
+                self.hook({"type": "command", "command": " ".join(cmd[:-1]) + " '" + cmd[-1] + "'"})
+                self.assertTrue(any("inline program" in m for m in self.findings("BLOCKS")), cmd)
+
+    def test_inline_flag_after_script_or_module_is_not_inline(self):
+        for cmd in (["bash", "script.sh", "-c"], ["python3", "-m", "mod", "-c", "x"],
+                    ["node", "app.js", "-e"], ["bash", "-x", "run.sh", "-lc"]):
+            with self.subTest(cmd=cmd):
+                self.mcp({"command": cmd[0], "args": cmd[1:]})
+                self.assertFalse(any("inline program" in m for m in self.findings("BLOCKS")), cmd)
+                self.hook({"type": "command", "command": " ".join(cmd)})
+                self.assertFalse(any("inline program" in m for m in self.findings("BLOCKS")), cmd)
 
     def test_url_query_and_user_config_are_not_flagged(self):
         self.mcp({"command": "${CLAUDE_PLUGIN_ROOT}/run.sh", "args": ["--url", "https://x.test/?a=1",

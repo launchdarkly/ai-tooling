@@ -25,7 +25,7 @@ MAX_FILES = 512
 MAX_FILE_BYTES = 5 * 1024 * 1024
 MAX_ENTRIES = 10_000
 MAX_UNPACKED_BYTES = 256 * 1024 * 1024
-LOCKFILES = ("package-lock.json", "npm-shrinkwrap.json", "bun.lock", "bun.lockb")
+LOCKFILES = ("package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb")
 FONT_MAGIC = {".woff": (b"wOFF",), ".woff2": (b"wOF2",), ".ttf": (b"\x00\x01\x00\x00", b"true"),
               ".otf": (b"OTTO",)}
 IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
@@ -74,12 +74,18 @@ NPM_PINNED = re.compile(r"^(?:@[^/@\s]+/)?[^@/\s]+@\d+\.\d+\.\d+(?:[-+][0-9A-Za-
 PY_PINNED = re.compile(r"^[A-Za-z0-9._\[\],-]+(?:==|@)\d+(?:\.\d+)*[0-9A-Za-z.+-]*$")
 SEPARATORS = {"&&", "||", ";", "|", "&"}
 SHELLS = {"sh", "bash", "zsh", "dash", "fish", "ksh", "cmd", "cmd.exe", "powershell", "pwsh"}
-INLINE_FLAGS = {
-    "python": {"-c"}, "python3": {"-c"}, "node": {"-e", "--eval", "-p", "--print"},
-    "deno": {"eval"}, "bun": {"-e", "--eval"}, "ruby": {"-e"}, "perl": {"-e", "-E"},
-    "sh": {"-c"}, "bash": {"-c"}, "zsh": {"-c"}, "dash": {"-c"},
+# Per interpreter: letters that make a short-flag cluster inline code (`bash -lc`, `sh -ec`,
+# `python3 -Bc`), and long or whole-word options that do. `-m` is a module, not inline code.
+INLINE_SHORT = {
+    "python": "c", "python3": "c", "sh": "c", "bash": "c", "zsh": "c", "dash": "c", "ksh": "c",
+    "node": "ep", "bun": "e", "ruby": "e", "perl": "eE",
+}
+INLINE_LONG = {
+    "node": {"--eval", "--print"}, "bun": {"--eval"},
+    "sh": {"--command"}, "bash": {"--command"}, "zsh": {"--command"},
     "pwsh": {"-c", "-command"}, "powershell": {"-c", "-command"},
 }
+INLINE_SUBCOMMAND = {"deno": "eval"}
 VAR_REF = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_.]*)")
 ALLOWED_VAR = re.compile(r"^(?:CLAUDE_PLUGIN_ROOT|user_config\.[A-Za-z0-9_]+)$")
 PLUGIN_ROOT_PATH = re.compile(r"^\$\{CLAUDE_PLUGIN_ROOT\}/?(.*)$")
@@ -206,6 +212,22 @@ def _env_refs(value):
     return []
 
 
+def inline_flag(interp, rest):
+    """The option that makes `interp` run inline code, or None. Reads option tokens up to the
+    first non-option argument, so `bash script.sh -c` is not flagged but `node --no-warnings -e` is."""
+    for tok in rest:
+        low = tok.lower()
+        if INLINE_SUBCOMMAND.get(interp) == low:
+            return tok
+        if not tok.startswith("-") or tok == "-":
+            return None
+        if low in INLINE_LONG.get(interp, ()):
+            return tok
+        if not tok.startswith("--") and any(ch in INLINE_SHORT.get(interp, "") for ch in tok[1:]):
+            return tok
+    return None
+
+
 def command_findings(where, tokens, kind):
     """Findings for one hook or MCP server command. kind is 'hook' or 'mcp'."""
     out = []
@@ -225,9 +247,9 @@ def command_findings(where, tokens, kind):
         if "://" not in tok and any(c in tok for c in "*?"):
             out.append(("BLOCKS", f"{where}: `{tok}` uses a wildcard (checklist: Command path can't be followed)"))
     for i, tok in enumerate(tokens[:-1]):
-        flags = INLINE_FLAGS.get(os.path.basename(tok).lower())
-        if flags and tokens[i + 1].lower() in flags:
-            out.append(("BLOCKS", f"{where}: `{tok} {tokens[i + 1]}` runs an inline program "
+        flag = inline_flag(os.path.basename(tok).lower(), tokens[i + 1:])
+        if flag:
+            out.append(("BLOCKS", f"{where}: `{tok} {flag}` runs an inline program "
                         "(checklist: Command path can't be followed)"))
     base = os.path.basename(tokens[0]).lower()
     if kind == "mcp" and (base in SHELLS or (base in ("npm", "pnpm", "yarn", "bun")
