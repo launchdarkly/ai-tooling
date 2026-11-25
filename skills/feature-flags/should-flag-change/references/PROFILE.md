@@ -123,9 +123,13 @@ What each part is for:
   - `exclude_files`: the wrapper's own file(s), so its internal SDK calls
     aren't read as the gate for every flag. `search_exclude`: globs to ignore.
 - **`path_roles`**: which changed files ship. First match wins, in the order
-  `ships_anyway`, `test`, `docs`, `build_ci`, `generated`; anything else
-  ships. Put migrations, SQL, and prompt or skill files that run in
-  production in `ships_anyway`.
+  `agent_config`, `ships_anyway`, `test`, `docs`, `build_ci`, `build_input`,
+  `generated`; anything else ships. Put migrations, SQL, and prompt or
+  skill files that run in production in `ships_anyway`. `agent_config` is
+  the repository's own coding-agent folders (`.claude/`, `.cursor/`,
+  `.agents/` and the like); left out, those folders never ship. `build_input`
+  is what the build installs or how it compiles (lockfiles, `tsconfig*.json`,
+  `BUILD.bazel`, `Makefile`), and doesn't ship for this check.
 - **`codeowners`**: the CODEOWNERS path (`CODEOWNERS`, `.github/CODEOWNERS`
   or `docs/CODEOWNERS`), if there is one.
 - **`launchdarkly`**: the project the repo's flags live in (look for
