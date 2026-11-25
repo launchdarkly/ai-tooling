@@ -636,9 +636,9 @@
       "name": "should-flag-change",
       "description": "Decide whether a committed code change should ship behind a LaunchDarkly feature flag. Use when a developer asks whether a change should be behind a flag, when reviewing a diff or pull request, or when running in CI on a PR. Runs a fixed decision tree over the change and the code around it, with checked evidence, and emits a structured advisory recommendation. Run it on every change, including test-only, docs, dependency and already-flagged ones: those finish in a minute or two, and its verdict, not your own read of the diff, is the decision. Read-only: it never creates or modifies flags.",
       "path": "skills/feature-flags/should-flag-change",
-      "version": "0.5.3",
+      "version": "0.5.4",
       "license": "Apache-2.0",
-      "compatibility": "Advisory and read-only. Needs a git checkout with the change committed (shallow is fine; a --filter partial clone is filled in from its remote), a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools when available, and works without them. When it can't run (no shell, no checkout), it decides by judgment instead, from references/NO_CHECKOUT.md. Returns a structured verdict as a `recommend-flag` block.",
+      "compatibility": "Advisory and read-only. Needs a git checkout with the change committed (shallow is fine; a --filter partial clone is filled in from its remote), a shell, git and Python 3.10+ (no packages). Reads LaunchDarkly flag state through your LaunchDarkly tools or LAUNCHDARKLY_API_KEY when available, and works without it. When it can't run (no shell, no checkout), it decides by judgment instead, from references/NO_CHECKOUT.md. Returns a structured verdict as a `recommend-flag` block.",
       "tags": [
         "launchdarkly",
         "feature-flags",

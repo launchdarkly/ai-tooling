@@ -10,8 +10,9 @@ result.
 - **Advisory and read-only.** It never creates or changes flags or edits the
   repository it checks.
 - **Needs** a git checkout with the change committed, `python3` (3.10+,
-  standard library only) and `git`. LaunchDarkly flag state is read with the
-  agent's LaunchDarkly tools, and the skill works without them.
+  standard library only) and `git`. LaunchDarkly flag state is read with
+  `LAUNCHDARKLY_API_KEY` or the agent's LaunchDarkly tools, and the skill works
+  without either.
 - **Falls back** to a judgment procedure,
   [references/NO_CHECKOUT.md](references/NO_CHECKOUT.md), when it can't run (no
   shell, no checkout, only a pasted diff).
@@ -32,6 +33,7 @@ order.
 
 | Variable | Default | What it sets |
 |---|---|---|
+| `LAUNCHDARKLY_API_KEY` | unset | Read flag state directly; without it the agent fetches flags with its own tools. |
 | `SHOULD_I_FLAG_PROFILES` | unset | Folders (separated like `PATH`) of repo profiles, `<name>.json`, each naming its `repo` and optionally a `launchdarkly` section (instance, project, environments). |
 | `SHOULD_I_FLAG_RUNS` | `~/.cache/should-i-flag/` | Where everything the skill writes goes: run folders, and repo profiles in `profiles/`. Set it to a writable folder in a sandbox that can't write `~/.cache`. |
 
